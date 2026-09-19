@@ -152,6 +152,9 @@ DECLARE_int32(console_type);
 namespace xe {
 using namespace xe::literals;
 
+// The original Xbox backwards compatibility emulator.
+constexpr uint32_t kXeFuTitleId = 0xFFFE07D2;
+
 Emulator::Emulator(const std::filesystem::path& command_line,
                    const std::filesystem::path& storage_root,
                    const std::filesystem::path& content_root,
@@ -2124,6 +2127,15 @@ X_STATUS Emulator::PrepareLaunch(const std::filesystem::path& path,
     auto title_version = info->version();
     if (title_version.value != 0) {
       title_version_ = format_version(title_version);
+    }
+  }
+
+  if (title_id_ == kXeFuTitleId) {
+    auto compatibility_device = std::make_unique<vfs::HostPathDevice>(
+        "\\Device\\Harddisk0\\Partition1\\Compatibility",
+        storage_root_ / "compatibility", false);
+    if (compatibility_device->Initialize()) {
+      file_system_->RegisterDevice(std::move(compatibility_device));
     }
   }
 
