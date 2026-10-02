@@ -141,31 +141,31 @@ class DynamicCodeModule : public Module {
  protected:
   std::unique_ptr<Function> CreateFunction(uint32_t address) override {
     auto function = processor_->backend()->CreateGuestFunction(this, address);
-    // Dynamic code has no .pdata, so only the swept range bounds the scan. It
-    // is used only where the code can't run on past it, so a range covering
-    // part of a function, like a patch or an old sweep of reused memory,
-    // doesn't cut the function off.
+    // Dynamic code has no .pdata so only the swept range bounds the scan. It's
+    // used only where the range ends on an unconditional branch. A range that
+    // covers part of a function, like a patch or an old sweep of reused
+    // memory, rarely does and doesn't cut the function off. A branch that
+    // links counts too: XeFu ends its blocks with a bl that never returns.
     const uint32_t end = function ? processor_->SweptCodeEnd(address) : 0;
     const uint32_t last = ((end + 3) & ~uint32_t(3)) - 4;
     if (end && last > address && ContainsAddress(last) &&
-        IsUnconditionalExit(xe::load_and_swap<uint32_t>(TranslateCode(last)))) {
+        IsUnconditionalBranch(
+            xe::load_and_swap<uint32_t>(TranslateCode(last)))) {
       function->set_end_address(last);
     }
     return function;
   }
 
  private:
-  // A branch that neither links nor falls through: b, blr or bctr.
-  static bool IsUnconditionalExit(uint32_t code) {
-    const bool links = code & 1;
+  // b, blr or bctr, with or without link.
+  static bool IsUnconditionalBranch(uint32_t code) {
     switch (code >> 26) {
       case 18:
-        return !links;
+        return true;
       case 19: {
         const uint32_t extended = (code >> 1) & 0x3FF;
         const uint32_t bo = (code >> 21) & 0x1F;
-        return (extended == 16 || extended == 528) && (bo & 0x14) == 0x14 &&
-               !links;
+        return (extended == 16 || extended == 528) && (bo & 0x14) == 0x14;
       }
       default:
         return false;
