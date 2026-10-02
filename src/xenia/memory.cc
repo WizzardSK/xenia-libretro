@@ -9,6 +9,7 @@
 
 #include "xenia/memory.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cerrno>
 #include <cstring>
@@ -178,7 +179,7 @@ Memory::~Memory() {
 
   // Unmap all views and close mapping.
   if (mapping_ != xe::memory::kFileMappingHandleInvalid) {
-    UnmapUserViews();
+    FlushUserPageTable();
     UnmapViews();
     xe::memory::CloseFileMappingHandle(mapping_, file_name_);
     mapping_base_ = nullptr;
@@ -491,48 +492,21 @@ uint64_t Memory::UserViewFileOffset(uint32_t user_address) const {
   return UINT64_MAX;
 }
 
-bool Memory::MapUserViews(uint8_t* user_membase) {
-  uint64_t granularity_mask = ~uint64_t(system_allocation_granularity_ - 1);
-  auto map = [&](uint64_t start, uint64_t end) {
-    // A driven segment is left empty for the fault to map it from the table.
-    for (uint64_t page = start; page <= end;) {
-      const uint64_t segment_end = std::min(end, page | uint64_t(0x0FFFFFFF));
-      if (!(user_page_table_segments_ & (uint32_t(1) << (page >> 28)))) {
-        const size_t length = size_t(segment_end - page + 1);
-        auto view = reinterpret_cast<uint8_t*>(xe::memory::MapFileView(
-            mapping_, user_membase + page, length,
-            xe::memory::PageAccess::kReadWrite,
-            UserViewFileOffset(uint32_t(page)) & granularity_mask));
-        if (!view) {
-          return false;
-        }
-        user_views_.push_back({view, length});
-      }
-      page = segment_end + 1;
-    }
-    return true;
-  };
-  bool mapped = map(kUserAliasBase, kUserAliasBase + kUserAliasSize - 1);
-  for (size_t n = 0; mapped && n < xe::countof(map_info) - 1; n++) {
-    uint64_t start = map_info[n].virtual_address_start;
-    uint64_t end = map_info[n].virtual_address_end;
-    if (start < kUserAliasBase) {
-      end = std::min(end, uint64_t(kUserAliasBase) - 1);
-    }
-    mapped = map(start, end);
+bool Memory::ClaimUserWindow(uint8_t* user_membase) {
+  // The page table drives every segment so the window starts empty and each
+  // fault maps the 64 KB page it lands in. Reserving the whole window first
+  // proves nothing else holds any of it.
+  // TODO(has207): the window is released again and another allocation can land
+  // in a page that hasn't faulted in yet. Holding it needs placeholders on
+  // Windows and a PROT_NONE reservation that views replace on POSIX.
+  void* window = xe::memory::AllocFixed(user_membase, 0x100000000ull,
+                                        xe::memory::AllocationType::kReserve,
+                                        xe::memory::PageAccess::kNoAccess);
+  if (!window) {
+    return false;
   }
-  if (!mapped) {
-    UnmapUserViews();
-  }
-  return mapped;
-}
-
-void Memory::UnmapUserViews() {
-  for (auto& view : user_views_) {
-    xe::memory::UnmapFileView(mapping_, view.base, view.length);
-  }
-  user_views_.clear();
-  FlushUserPageTable();
+  return xe::memory::DeallocFixed(window, 0,
+                                  xe::memory::DeallocationType::kRelease);
 }
 
 void Memory::Reset() {
@@ -756,11 +730,12 @@ bool Memory::AccessViolationCallback(
                      host >= reinterpret_cast<size_t>(physical_membase_))) {
     return false;
   }
-  // A driven segment has no 0xE0000000 skew, its address is the membase offset.
   if (user_mode) {
-    const uint32_t user_address = uint32_t(host - user_membase);
-    if (user_page_table_segments_ & (uint32_t(1) << (user_address >> 28))) {
-      if (MapUserPage(user_address, false)) {
+    const uint32_t window_offset = uint32_t(host - user_membase);
+    // The guest's name for the address, without the 0xE0000000 skew.
+    const uint32_t user_address = window_offset - UserWindowSkew(window_offset);
+    if (user_page_table_) {
+      if (MapUserPage(window_offset, false)) {
         return true;
       }
       // With no entry or no table page, the guest can fill the entry in. Its
@@ -781,7 +756,7 @@ bool Memory::AccessViolationCallback(
           return true;
         }
         if (taken == UserFaultResult::kTaken &&
-            MapUserPage(user_address, false)) {
+            MapUserPage(window_offset, false)) {
           // Under the global lock, so a plain counter is fine.
           static uint32_t filled_count = 0;
           if (xe::is_pow2(++filled_count)) {
@@ -793,13 +768,11 @@ bool Memory::AccessViolationCallback(
           return true;
         }
       }
-      return MapUserPage(user_address, true);
     }
+    // Nothing the table can map so show the kernel address space there.
+    return MapUserPage(window_offset, true);
   }
-  uint32_t virtual_address =
-      user_mode ? UserModeKernelAddress(HostToGuestVirtual(
-                      virtual_membase_ + (host - user_membase)))
-                : HostToGuestVirtual(host_address);
+  uint32_t virtual_address = HostToGuestVirtual(host_address);
   BaseHeap* heap = LookupHeap(virtual_address);
   if (!heap) {
     return false;
@@ -977,9 +950,7 @@ void Memory::SetUserPageTable(uint32_t descriptor_address) {
     return;
   }
   // Whatever the old table mapped has to go.
-  const uint32_t mapped_segments = user_page_table_segments_;
   FlushUserPageTable();
-  user_page_table_segments_ = 0;
   user_page_table_ = 0;
   if (!descriptor_address) {
     return;
@@ -992,92 +963,172 @@ void Memory::SetUserPageTable(uint32_t descriptor_address) {
         descriptor_address);
     return;
   }
+  // Every segment is driven by the table. The kind only picks the page size.
+  std::string kind_text;
   const uint8_t* kinds = TranslateVirtual(descriptor_address) + kUserTableKind;
-  uint32_t segments = 0;
   for (uint32_t segment = 0; segment < 16; segment++) {
-    if (kinds[segment] == kUserSegmentMedium ||
-        kinds[segment] == kUserSegmentLarge) {
-      segments |= uint32_t(1) << segment;
-    }
+    kind_text += fmt::format("{:02X}", kinds[segment]);
   }
-  XELOGI("Memory: user mode page table at {:08X}, 64 KB page segments {:04X}",
-         descriptor_address, segments);
-  if (user_virtual_membase() && segments != mapped_segments) {
-    // The mask has to keep describing the views, which cannot move.
-    XELOGE(
-        "Memory: the user mode views are already mapped around segments "
-        "{:04X}, so {:04X} cannot take effect",
-        mapped_segments, segments ^ mapped_segments);
-    segments = mapped_segments;
-  }
-  // The table has to be readable before any segment claims to be driven.
+  XELOGI("Memory: user mode page table at {:08X}, segment kinds {}",
+         descriptor_address, kind_text);
   user_page_table_ = descriptor_address;
-  user_page_table_segments_ = segments;
+}
+
+uint8_t Memory::UserSegmentKind(uint32_t user_address) {
+  return TranslateVirtual(user_page_table_ +
+                          kUserTableKind)[user_address >> 28];
 }
 
 Memory::UserPageState Memory::TranslateUserPage(
     uint32_t user_address, uint32_t* out_physical_address) {
-  if (!(user_page_table_segments_ & (uint32_t(1) << (user_address >> 28)))) {
+  if (!user_page_table_) {
     return UserPageState::kUnusable;
   }
+  // Outside the physical alias, user mode sees the kernel's memory where the
+  // kernel has an allocation. That's how the guest reads what user mode wrote
+  // through a pointer it's handed. xenia keeps virtual allocations outside
+  // physical memory so no entry can name them.
+  if (user_address - kUserAliasBase >= kUserAliasSize) {
+    const uint32_t page = user_address & ~(kUserPageSize - 1);
+    BaseHeap* heap = LookupHeap(page);
+    if (heap && heap->heap_type() != HeapType::kGuestPhysical &&
+        !heap->IsRangeUnallocated(page, kUserPageSize)) {
+      return UserPageState::kKernelOwned;
+    }
+  }
+  const uint8_t kind = UserSegmentKind(user_address);
+  uint32_t page_size;
   uint32_t physical_address;
-  if (TranslateVirtual(user_page_table_ + kUserTableKind)[user_address >> 28] ==
-      kUserSegmentLarge) {
+  if (kind & kUserSegmentLarge) {
     // A 16 MB page sits in the descriptor itself, with no table page.
+    page_size = kUserLargePageSize;
     const uint32_t entry = xe::load_and_swap<uint32_t>(TranslateVirtual(
         user_page_table_ + kUserTableLarge + (user_address >> 24) * 4));
     if (!entry) {
       return UserPageState::kNoEntry;
     }
-    physical_address = (entry & 0xFF000000) | (user_address & 0x00FF0000);
+    physical_address = entry & ~(kUserLargePageSize - 1);
   } else {
-    const uint32_t frame = xe::load_and_swap<uint16_t>(TranslateVirtual(
-        user_page_table_ + kUserTableMedium + (user_address >> 27) * 2));
+    // A table page covers 8 MB of a 4 KB segment or 128 MB of a 64 KB one.
+    const bool is_small = !(kind & kUserSegmentMedium);
+    page_size = is_small ? kUserSmallPageSize : kUserPageSize;
+    const uint32_t table = is_small
+                               ? kUserTableSmall + (user_address >> 23) * 2
+                               : kUserTableMedium + (user_address >> 27) * 2;
+    const uint32_t frame =
+        xe::load_and_swap<uint16_t>(TranslateVirtual(user_page_table_ + table));
     if (!frame) {
       // The guest has not given this stretch of the segment a table page.
       return UserPageState::kNoTable;
     }
-    // A table page is named by a physical address in 8 KB units.
+    // A table page is named by a physical address in 8 KB units and holds 2048
+    // entries.
     const uint32_t table_address = frame << 13;
     if (table_address >= 0x20000000) {
       return UserPageState::kUnusable;
     }
     const uint32_t entry = xe::load_and_swap<uint32_t>(
-        TranslatePhysical(table_address) + ((user_address >> 16) & 0x7FF) * 4);
+        TranslatePhysical(table_address) +
+        ((user_address >> (is_small ? 12 : 16)) & 0x7FF) * 4);
     if (!entry) {
       return UserPageState::kNoEntry;
     }
-    physical_address = entry & ~(kUserPageSize - 1);
+    physical_address = entry & ~(page_size - 1);
   }
+  physical_address += user_address & (page_size - 1);
   if (physical_address >= 0x20000000) {
     return UserPageState::kUnusable;
   }
-  // An entry is only worth anything where xenia keeps that memory physically.
-  if (GetPhysicalHeap()->IsRangeUnallocated(physical_address, kUserPageSize)) {
+  // An entry is only usable where xenia keeps the memory physically, checked
+  // over as much as one view shows.
+  const uint32_t window = std::min(page_size, kUserPageSize);
+  if (GetPhysicalHeap()->IsRangeUnallocated(physical_address & ~(window - 1),
+                                            window)) {
     return UserPageState::kUnusable;
   }
   *out_physical_address = physical_address;
   return UserPageState::kMapped;
 }
 
-bool Memory::MapUserPage(uint32_t user_address, bool allow_fallback) {
-  const uint32_t page = user_address & ~(kUserPageSize - 1);
-  const uint32_t index = page / kUserPageSize;
+bool Memory::UserPageBlockIsContiguous(uint32_t page,
+                                       uint32_t physical_address) {
+  for (uint32_t offset = 0; offset < kUserPageSize;
+       offset += kUserSmallPageSize) {
+    uint32_t entry_address;
+    const UserPageState state =
+        TranslateUserPage(page + offset, &entry_address);
+    if (state == UserPageState::kNoEntry || state == UserPageState::kNoTable) {
+      // A missing entry can't disagree with the run. The tail of an image or
+      // heap that doesn't end on 64 KB leaves these.
+      continue;
+    }
+    if (state != UserPageState::kMapped ||
+        entry_address != physical_address + offset) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool Memory::MapUserPage(uint32_t window_offset, bool allow_fallback) {
+  const uint32_t window_page = window_offset & ~(kUserPageSize - 1);
+  const uint32_t index = window_page / kUserPageSize;
   const uint64_t bit = uint64_t(1) << (index % 64);
   if (user_page_mapped_[index / 64] & bit) {
     // Another thread faulted on the same page and mapped it first.
     return true;
   }
+  // Window offsets carry the 0xE0000000 skew. The page table doesn't.
+  const uint32_t skew = UserWindowSkew(window_offset);
+  const uint32_t user_address = window_offset - skew;
+  const uint32_t page = window_page - skew;
   uint64_t file_offset;
   uint32_t physical_address;
-  const UserPageState state = TranslateUserPage(page, &physical_address);
+  UserPageState state = TranslateUserPage(user_address, &physical_address);
   if (state == UserPageState::kMapped) {
-    file_offset = 0x100000000ull + physical_address;
-  } else {
+    // A view shows the whole 64 KB page starting here.
+    const uint32_t block_address = physical_address - (user_address - page);
+    if (block_address & (kUserPageSize - 1)) {
+      // The 0xE0000000 skew puts the view across two of the table's pages.
+      state = UserPageState::kUnaligned;
+    } else if (!(UserSegmentKind(page) &
+                 (kUserSegmentLarge | kUserSegmentMedium)) &&
+               !UserPageBlockIsContiguous(page, block_address)) {
+      // One view can't show 4 KB entries that aren't physically contiguous.
+      // Under the global lock so a plain counter is fine.
+      state = UserPageState::kScattered;
+      static uint32_t scattered_count = 0;
+      if (++scattered_count <= 16) {
+        std::string entries;
+        for (uint32_t offset = 0; offset < kUserPageSize;
+             offset += kUserSmallPageSize) {
+          uint32_t entry_address;
+          switch (TranslateUserPage(page + offset, &entry_address)) {
+            case UserPageState::kMapped:
+              entries += fmt::format(" {:08X}", entry_address);
+              break;
+            case UserPageState::kNoEntry:
+            case UserPageState::kNoTable:
+              entries += " --------";
+              break;
+            default:
+              entries += " unusable";
+              break;
+          }
+        }
+        XELOGW("Memory: the 4 KB entries of user mode page {:08X} are{}", page,
+               entries);
+      }
+    } else {
+      file_offset = 0x100000000ull + block_address;
+    }
+  }
+  if (state != UserPageState::kMapped) {
     if (!allow_fallback) {
       return false;
     }
-    file_offset = UserViewFileOffset(page);
+    // The kernel address space at the window offset, skew included.
+    file_offset = UserViewFileOffset(window_page);
     if (file_offset == UINT64_MAX) {
       return false;
     }
@@ -1086,16 +1137,19 @@ bool Memory::MapUserPage(uint32_t user_address, bool allow_fallback) {
       XELOGW(
           "The user mode page table {} {:08X}, so it shows the same memory as "
           "the kernel address space ({} pages so far)",
-          state == UserPageState::kNoEntry ? "was given no entry for"
-          : state == UserPageState::kNoTable
-              ? "has no table page covering"
+          state == UserPageState::kNoEntry     ? "was given no entry for"
+          : state == UserPageState::kNoTable   ? "has no table page covering"
+          : state == UserPageState::kScattered ? "scatters the 4 KB pages of"
+          : state == UserPageState::kUnaligned ? "can't align a view with"
+          : state == UserPageState::kKernelOwned
+              ? "can't name the kernel memory at"
               : "names memory xenia can't map for",
           page, unmapped_count);
     }
   }
-  // Read-write whatever the protection bits say, nothing delivers faults yet.
+  // Read-write whatever the entry's protection bits say.
   auto view = reinterpret_cast<uint8_t*>(xe::memory::MapFileView(
-      mapping_, user_virtual_membase() + page, kUserPageSize,
+      mapping_, user_virtual_membase() + window_page, kUserPageSize,
       xe::memory::PageAccess::kReadWrite,
       file_offset & ~uint64_t(system_allocation_granularity_ - 1)));
   if (!view) {
@@ -1141,7 +1195,7 @@ bool Memory::EnableUserModeViews() {
   // Low 32 bits clear like the kernel membase, which the JIT may rely on.
   for (uint64_t base = xe::round_up(layout_end, 1ull << 32);
        base < (1ull << 47); base += 1ull << 32) {
-    if (MapUserViews(reinterpret_cast<uint8_t*>(base))) {
+    if (ClaimUserWindow(reinterpret_cast<uint8_t*>(base))) {
       user_virtual_membase_.store(reinterpret_cast<uint8_t*>(base),
                                   std::memory_order_relaxed);
       break;
