@@ -1022,7 +1022,11 @@ struct host_set {
   void Store(fd_set* native_set) {
     FD_ZERO(native_set);
     for (uint32_t i = 0; i < this->count; ++i) {
-      FD_SET(this->sockets[i]->native_handle(), native_set);
+      // Another guest thread can close a socket while select waits.
+      const auto handle = this->sockets[i]->native_handle();
+      if (handle != static_cast<uint64_t>(-1)) {
+        FD_SET(handle, native_set);
+      }
     }
   }
 
@@ -1074,9 +1078,44 @@ int_result_t NetDll_select_entry(dword_t caller, dword_t nfds,
         reinterpret_cast<int32_t*>(&timeout.tv_usec));
     timeout_in = &timeout;
   }
-  int ret = select(nfds, readfds ? &native_readfds : nullptr,
+  int ret;
+  if (!GuestScheduler::CurrentThreadOffloadsBlockingCalls()) {
+    ret = select(nfds, readfds ? &native_readfds : nullptr,
+                 writefds ? &native_writefds : nullptr,
+                 exceptfds ? &native_exceptfds : nullptr, timeout_in);
+  } else {
+    // A blocking select would stall the other guest threads on this host
+    // thread. Poll instead and park between polls until the timeout.
+    auto* scheduler = kernel_state()->guest_scheduler();
+    uint64_t deadline_ms = 0;
+    if (timeout_in) {
+      // Rounded up so it never waits less than asked.
+      deadline_ms = Clock::QueryHostUptimeMillis() +
+                    uint64_t(timeout.tv_sec) * 1000 +
+                    (timeout.tv_usec + 999) / 1000;
+    }
+    while (true) {
+      timeval poll_timeout = {0, 0};
+      ret = select(nfds, readfds ? &native_readfds : nullptr,
                    writefds ? &native_writefds : nullptr,
-                   exceptfds ? &native_exceptfds : nullptr, timeout_in);
+                   exceptfds ? &native_exceptfds : nullptr, &poll_timeout);
+      if (ret != 0 ||
+          (timeout_in && Clock::QueryHostUptimeMillis() >= deadline_ms)) {
+        break;
+      }
+      // A select with nothing ready empties the sets. Refill them first.
+      if (readfds) {
+        host_readfds.Store(&native_readfds);
+      }
+      if (writefds) {
+        host_writefds.Store(&native_writefds);
+      }
+      if (exceptfds) {
+        host_exceptfds.Store(&native_exceptfds);
+      }
+      scheduler->BlockCurrentThread(deadline_ms);
+    }
+  }
   if (readfds) {
     host_readfds.UpdateFrom(&native_readfds);
     host_readfds.Store(readfds);
