@@ -1230,27 +1230,49 @@ void NetDll_WSASetLastError_entry(dword_t error_code) {
 }
 DECLARE_XAM_EXPORT1(NetDll_WSASetLastError, kNetworking, kImplemented);
 
-dword_result_t NetDll_getsockname_entry(dword_t caller, dword_t socket_handle,
-                                        lpvoid_t buf_ptr, lpdword_t len_ptr) {
+// getsockname and getpeername, which write the guest's sockaddr_in.
+static int GetSocketName(uint32_t socket_handle, bool peer,
+                         pointer_t<XSOCKADDR_IN> name_ptr, lpdword_t len_ptr) {
   auto socket =
       kernel_state()->object_table()->LookupObject<XSocket>(socket_handle);
   if (!socket) {
     XThread::SetLastError(uint32_t(X_WSAError::X_WSAENOTSOCK));
     return -1;
   }
+  if (!name_ptr || !len_ptr || *len_ptr < sizeof(XSOCKADDR_IN)) {
+    XThread::SetLastError(uint32_t(X_WSAError::X_WSAEFAULT));
+    return -1;
+  }
 
-  int buffer_len = *len_ptr;
-
-  X_STATUS status = socket->GetSockName(buf_ptr, &buffer_len);
+  N_XSOCKADDR_IN name;
+  X_STATUS status =
+      peer ? socket->GetPeerName(&name) : socket->GetSockName(&name);
   if (XFAILED(status)) {
     XThread::SetLastError(socket->GetLastWSAError());
     return -1;
   }
 
-  *len_ptr = buffer_len;
+  name_ptr->sin_family = name.sin_family;
+  name_ptr->sin_port = name.sin_port;
+  name_ptr->sin_addr = name.sin_addr;
+  std::memset(name_ptr->x_sin_zero, 0, sizeof(name_ptr->x_sin_zero));
+  *len_ptr = sizeof(XSOCKADDR_IN);
   return 0;
 }
+
+dword_result_t NetDll_getsockname_entry(dword_t caller, dword_t socket_handle,
+                                        pointer_t<XSOCKADDR_IN> name_ptr,
+                                        lpdword_t len_ptr) {
+  return GetSocketName(socket_handle, false, name_ptr, len_ptr);
+}
 DECLARE_XAM_EXPORT1(NetDll_getsockname, kNetworking, kImplemented);
+
+dword_result_t NetDll_getpeername_entry(dword_t caller, dword_t socket_handle,
+                                        pointer_t<XSOCKADDR_IN> name_ptr,
+                                        lpdword_t len_ptr) {
+  return GetSocketName(socket_handle, true, name_ptr, len_ptr);
+}
+DECLARE_XAM_EXPORT1(NetDll_getpeername, kNetworking, kImplemented);
 
 dword_result_t NetDll_XNetCreateKey_entry(dword_t caller, lpdword_t key_id,
                                           lpdword_t exchange_key) {

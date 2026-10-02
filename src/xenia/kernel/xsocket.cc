@@ -912,42 +912,42 @@ bool XSocket::QueuePacket(uint32_t src_ip, uint16_t src_port,
   return true;
 }
 
-X_STATUS XSocket::GetSockName(uint8_t* buf, int* buf_len) {
+X_STATUS XSocket::QueryName(bool peer, N_XSOCKADDR_IN* name) {
   auto handle = native_handle();
   if (handle == static_cast<uint64_t>(-1)) {
+    last_error_ = AsioErrorToWSAError(asio::error::not_socket);
     return X_STATUS_INVALID_HANDLE;
   }
 
-  socklen_t len = static_cast<socklen_t>(*buf_len);
-  int result = getsockname(static_cast<int>(handle),
-                           reinterpret_cast<sockaddr*>(buf), &len);
+  sockaddr_in host_name = {};
+  socklen_t len = sizeof(host_name);
+  auto host_address = reinterpret_cast<sockaddr*>(&host_name);
+  int result = peer ? getpeername(static_cast<int>(handle), host_address, &len)
+                    : getsockname(static_cast<int>(handle), host_address, &len);
   if (result == -1) {
+#if XE_PLATFORM_WIN32
+    const int host_error = WSAGetLastError();
+#else
+    const int host_error = errno;
+#endif  // XE_PLATFORM_WIN32
     last_error_ = AsioErrorToWSAError(
-        asio::error_code(errno, asio::error::get_system_category()));
+        asio::error_code(host_error, asio::error::get_system_category()));
     return X_STATUS_UNSUCCESSFUL;
   }
 
-  *buf_len = static_cast<int>(len);
+  name->sin_family = host_name.sin_family;
+  name->sin_port = ntohs(host_name.sin_port);
+  name->sin_addr = ntohl(host_name.sin_addr.s_addr);
+  std::memset(name->x_sin_zero, 0, sizeof(name->x_sin_zero));
   return X_STATUS_SUCCESS;
 }
 
-X_STATUS XSocket::GetPeerName(uint8_t* buf, int* buf_len) {
-  auto handle = native_handle();
-  if (handle == static_cast<uint64_t>(-1)) {
-    return X_STATUS_INVALID_HANDLE;
-  }
+X_STATUS XSocket::GetSockName(N_XSOCKADDR_IN* name) {
+  return QueryName(false, name);
+}
 
-  socklen_t len = static_cast<socklen_t>(*buf_len);
-  int result = getpeername(static_cast<int>(handle),
-                           reinterpret_cast<sockaddr*>(buf), &len);
-  if (result == -1) {
-    last_error_ = AsioErrorToWSAError(
-        asio::error_code(errno, asio::error::get_system_category()));
-    return X_STATUS_UNSUCCESSFUL;
-  }
-
-  *buf_len = static_cast<int>(len);
-  return X_STATUS_SUCCESS;
+X_STATUS XSocket::GetPeerName(N_XSOCKADDR_IN* name) {
+  return QueryName(true, name);
 }
 
 uint32_t XSocket::GetLastWSAError() const { return last_error_; }
