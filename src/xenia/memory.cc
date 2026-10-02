@@ -316,6 +316,11 @@ bool Memory::Initialize() {
     return false;
   }
 
+  ReserveKernelPageTable();
+  AddVirtualMappedRange(kKernelPageTableBase, ~(kKernelPageTableSize - 1),
+                        kKernelPageTableSize, this, KernelPageTableReadThunk,
+                        KernelPageTableWriteThunk);
+
   // ?
   uint32_t unk_phys_alloc;
   heaps_.vA0000000.Alloc(0x340000, 64 * 1024, kMemoryAllocationReserve,
@@ -483,13 +488,48 @@ uint64_t Memory::UserViewFileOffset(uint32_t user_address) const {
   if (user_address - kUserAliasBase < kUserAliasSize) {
     return 0x100000000ull + (user_address - kUserAliasBase);
   }
+  return KernelViewFileOffset(user_address);
+}
+
+uint64_t Memory::KernelViewFileOffset(uint32_t kernel_address) const {
   for (const auto& info : map_info) {
-    if (user_address >= info.virtual_address_start &&
-        user_address <= info.virtual_address_end) {
-      return info.target_address + (user_address - info.virtual_address_start);
+    if (kernel_address >= info.virtual_address_start &&
+        kernel_address <= info.virtual_address_end) {
+      return info.target_address +
+             (kernel_address - info.virtual_address_start);
     }
   }
   return UINT64_MAX;
+}
+
+void Memory::ReserveKernelPageTable() {
+  heaps_.v00000000.AllocFixed(kKernelPageTableBase, kKernelPageTableSize,
+                              0x1000, kMemoryAllocationReserve,
+                              kMemoryProtectNoAccess);
+}
+
+uint32_t Memory::KernelPageTableEntry(uint32_t entry_address) {
+  const uint32_t address = ((entry_address - kKernelPageTableBase) >> 2) << 12;
+  BaseHeap* heap = LookupHeap(address);
+  if (!heap || !heap->IsPageCommitted(address)) {
+    return 0;
+  }
+  const uint32_t frame =
+      heap->heap_type() == HeapType::kGuestPhysical
+          ? static_cast<PhysicalHeap*>(heap)->GetPhysicalAddress(address)
+          : address + kKernelVirtualFrameBias;
+  // Titles only take the frame so the low bits just mark the entry valid.
+  return (frame & ~uint32_t(0xFFF)) | kKernelPageTableValid;
+}
+
+uint32_t Memory::KernelPageTableReadThunk(void* ppc_context, void* context,
+                                          uint32_t address) {
+  return reinterpret_cast<Memory*>(context)->KernelPageTableEntry(address);
+}
+
+void Memory::KernelPageTableWriteThunk(void* ppc_context, void* context,
+                                       uint32_t address, uint32_t value) {
+  // The entries describe xenia's heaps, which a write can't change.
 }
 
 bool Memory::ClaimUserWindow(uint8_t* user_membase) {
@@ -511,6 +551,7 @@ bool Memory::ClaimUserWindow(uint8_t* user_membase) {
 
 void Memory::Reset() {
   heaps_.v00000000.Reset();
+  ReserveKernelPageTable();
   heaps_.v40000000.Reset();
   heaps_.v80000000.Reset();
   heaps_.v90000000.Reset();
@@ -985,9 +1026,8 @@ Memory::UserPageState Memory::TranslateUserPage(
     return UserPageState::kUnusable;
   }
   // Outside the physical alias, user mode sees the kernel's memory where the
-  // kernel has an allocation. That's how the guest reads what user mode wrote
-  // through a pointer it's handed. xenia keeps virtual allocations outside
-  // physical memory so no entry can name them.
+  // kernel has an allocation, whatever the table says. That's how the guest
+  // reads what user mode wrote through a pointer it's handed.
   if (user_address - kUserAliasBase >= kUserAliasSize) {
     const uint32_t page = user_address & ~(kUserPageSize - 1);
     BaseHeap* heap = LookupHeap(page);
@@ -1036,6 +1076,16 @@ Memory::UserPageState Memory::TranslateUserPage(
     physical_address = entry & ~(page_size - 1);
   }
   physical_address += user_address & (page_size - 1);
+  if (IsKernelVirtualFrame(physical_address)) {
+    // A frame the self-map gave a kernel virtual page.
+    const uint32_t kernel_address = physical_address - kKernelVirtualFrameBias;
+    BaseHeap* heap = LookupHeap(kernel_address);
+    if (!heap || heap->IsRangeUnallocated(kernel_address, 1)) {
+      return UserPageState::kUnusable;
+    }
+    *out_physical_address = physical_address;
+    return UserPageState::kMapped;
+  }
   if (physical_address >= 0x20000000) {
     return UserPageState::kUnusable;
   }
@@ -1119,6 +1169,12 @@ bool Memory::MapUserPage(uint32_t window_offset, bool allow_fallback) {
         XELOGW("Memory: the 4 KB entries of user mode page {:08X} are{}", page,
                entries);
       }
+    } else if (IsKernelVirtualFrame(block_address)) {
+      file_offset =
+          KernelViewFileOffset(block_address - kKernelVirtualFrameBias);
+      if (file_offset == UINT64_MAX) {
+        state = UserPageState::kUnusable;
+      }
     } else {
       file_offset = 0x100000000ull + block_address;
     }
@@ -1142,7 +1198,7 @@ bool Memory::MapUserPage(uint32_t window_offset, bool allow_fallback) {
           : state == UserPageState::kScattered ? "scatters the 4 KB pages of"
           : state == UserPageState::kUnaligned ? "can't align a view with"
           : state == UserPageState::kKernelOwned
-              ? "can't name the kernel memory at"
+              ? "defers to the kernel memory at"
               : "names memory xenia can't map for",
           page, unmapped_count);
     }
@@ -2236,6 +2292,15 @@ bool BaseHeap::QueryProtect(uint32_t address, uint32_t* out_protect) {
   auto page_entry = page_table_[page_number];
   *out_protect = page_entry.current_protect;
   return true;
+}
+
+bool BaseHeap::IsPageCommitted(uint32_t address) {
+  if (address < heap_base_ || address - heap_base_ >= heap_size_) {
+    return false;
+  }
+  auto global_lock = global_critical_region_.Acquire();
+  return (page_table_[(address - heap_base_) >> page_size_shift_].state &
+          kMemoryAllocationCommit) != 0;
 }
 
 bool BaseHeap::IsRangeUnallocated(uint32_t address, uint32_t size) {

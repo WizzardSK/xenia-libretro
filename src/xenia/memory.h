@@ -222,6 +222,9 @@ class BaseHeap {
   // address.
   bool QueryProtect(uint32_t address, uint32_t* out_protect);
 
+  // Whether the page holding |address| is committed.
+  bool IsPageCommitted(uint32_t address);
+
   // True when no allocation covers any page in the range.
   virtual bool IsRangeUnallocated(uint32_t address, uint32_t size);
 
@@ -734,8 +737,8 @@ class Memory {
     // The 64 KB a host view shows doesn't start on a physical 64 KB boundary,
     // as in the skewed segments past 0xE0000000.
     kUnaligned,
-    // Kernel virtual memory, which xenia keeps outside physical memory so no
-    // entry can name it. User mode sees the kernel's memory there.
+    // The kernel has an allocation at the address. User mode sees the kernel's
+    // memory there ahead of any entry.
     kKernelOwned,
   };
 
@@ -772,6 +775,9 @@ class Memory {
     uint32_t physical_address;
     if (TranslateUserPage(user_address, &physical_address) ==
         UserPageState::kMapped) {
+      if (IsKernelVirtualFrame(physical_address)) {
+        return physical_address - kKernelVirtualFrameBias;
+      }
       // The 0xA0000000 window shows every physical address the table can name.
       return 0xA0000000 + physical_address;
     }
@@ -828,6 +834,8 @@ class Memory {
 
   // The file offset the user mode address space shows at an address.
   uint64_t UserViewFileOffset(uint32_t user_address) const;
+  // The file offset the kernel address space shows at an address.
+  uint64_t KernelViewFileOffset(uint32_t kernel_address) const;
   // The CPU adds 4 KB to addresses at 0xE0000000 and above when the host maps
   // at a coarser granularity so a window offset there is 4 KB above the
   // address the page table names.
@@ -857,6 +865,27 @@ class Memory {
   static constexpr uint32_t kUserPageCount = 0x100000000ull / kUserPageSize;
   static constexpr uint32_t kUserSmallPageSize = 0x1000;
   static constexpr uint32_t kUserLargePageSize = 0x1000000;
+
+  // The console kernel's page table maps itself here with one entry per 4 KB
+  // page of the address space. Titles read it to build user mode page tables.
+  // xenia has no such table so each read builds the entry for its page. Like
+  // every MMIO range it only handles 32-bit accesses.
+  static constexpr uint32_t kKernelPageTableBase = 0x3FC00000;
+  static constexpr uint32_t kKernelPageTableSize = 0x00400000;
+  static constexpr uint32_t kKernelPageTableValid = 0x1;
+  // xenia keeps virtual memory outside physical memory. The self-map gives a
+  // virtual page a frame this far above its address, which TranslateUserPage
+  // takes back to the page.
+  static constexpr uint32_t kKernelVirtualFrameBias = 0x40000000;
+  static bool IsKernelVirtualFrame(uint32_t physical_address) {
+    return physical_address - kKernelVirtualFrameBias < 0xA0000000;
+  }
+  void ReserveKernelPageTable();
+  uint32_t KernelPageTableEntry(uint32_t entry_address);
+  static uint32_t KernelPageTableReadThunk(void* ppc_context, void* context,
+                                           uint32_t address);
+  static void KernelPageTableWriteThunk(void* ppc_context, void* context,
+                                        uint32_t address, uint32_t value);
   // A PTE is the physical address with the protection in its low bits.
   static constexpr uint32_t kUserTableSmall = 0x000;   // u16[512], by >> 23
   static constexpr uint32_t kUserTableLarge = 0x400;   // u32[256], by >> 24
