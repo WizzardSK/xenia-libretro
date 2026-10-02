@@ -132,11 +132,38 @@ class DynamicCodeModule : public Module {
 
  protected:
   std::unique_ptr<Function> CreateFunction(uint32_t address) override {
-    return std::unique_ptr<Function>(
-        processor_->backend()->CreateGuestFunction(this, address));
+    auto function = processor_->backend()->CreateGuestFunction(this, address);
+    // Dynamic code has no .pdata, so only the swept range bounds the scan. It
+    // is used only where the code can't run on past it, so a range covering
+    // part of a function, like a patch or an old sweep of reused memory,
+    // doesn't cut the function off.
+    const uint32_t end = function ? processor_->SweptCodeEnd(address) : 0;
+    const uint32_t last = ((end + 3) & ~uint32_t(3)) - 4;
+    if (end && last > address && ContainsAddress(last) &&
+        IsUnconditionalExit(xe::load_and_swap<uint32_t>(TranslateCode(last)))) {
+      function->set_end_address(last);
+    }
+    return function;
   }
 
  private:
+  // A branch that neither links nor falls through: b, blr or bctr.
+  static bool IsUnconditionalExit(uint32_t code) {
+    const bool links = code & 1;
+    switch (code >> 26) {
+      case 18:
+        return !links;
+      case 19: {
+        const uint32_t extended = (code >> 1) & 0x3FF;
+        const uint32_t bo = (code >> 21) & 0x1F;
+        return (extended == 16 || extended == 528) && (bo & 0x14) == 0x14 &&
+               !links;
+      }
+      default:
+        return false;
+    }
+  }
+
   std::string name_;
 };
 
@@ -493,6 +520,7 @@ void Processor::InvalidateCodeRange(uint32_t address, uint32_t length) {
   }
   const uint32_t end = address + length - 1;
   auto global_lock = global_critical_region_.Acquire();
+  RecordSweptCode(address, length);
   for (Function* function : entry_table_.DeleteRange(address, end)) {
     // The entry is what a call looks up, but the module would hand back the
     // same already defined symbol and never compile the new code.
@@ -501,6 +529,63 @@ void Processor::InvalidateCodeRange(uint32_t address, uint32_t length) {
     }
   }
   backend_->InvalidateDynamicCalls(address, end);
+}
+
+void Processor::RecordSweptCode(uint32_t address, uint32_t length) {
+  if (!dynamic_code_enabled_.load()) {
+    // Only dynamic code is bounded this way, and nothing prunes the map.
+    return;
+  }
+  // Spans are keyed by physical address, so a range whose pages aren't
+  // physically contiguous would claim someone else's memory.
+  const uint64_t span_start = CodeRangeKey(address);
+  const uint64_t span_end = span_start + length;
+  if (CodeRangeKey(address + length - 1) != span_end - 1) {
+    return;
+  }
+  // Spans stay exact rather than merging, since back-to-back blocks must not
+  // bound each other. A sweep replaces any span it overlaps.
+  auto range = swept_code_ranges_.lower_bound(span_start);
+  if (range != swept_code_ranges_.begin()) {
+    auto previous = range;
+    --previous;
+    if (previous->second > span_start) {
+      range = previous;
+    }
+  }
+  while (range != swept_code_ranges_.end() && range->first < span_end) {
+    range = swept_code_ranges_.erase(range);
+  }
+  swept_code_ranges_.emplace(span_start, span_end);
+}
+
+uint64_t Processor::CodeRangeKey(uint32_t address) {
+  const uint32_t kernel_address = memory_->UserModeKernelAddress(address);
+  auto heap = memory_->LookupHeap(kernel_address);
+  if (heap && heap->heap_type() == HeapType::kGuestPhysical) {
+    const uint32_t physical_address =
+        memory_->GetPhysicalAddress(kernel_address);
+    if (physical_address != UINT32_MAX) {
+      return kPhysicalCodeKey | physical_address;
+    }
+  }
+  return kernel_address;
+}
+
+uint32_t Processor::SweptCodeEnd(uint32_t address) {
+  auto global_lock = global_critical_region_.Acquire();
+  const uint64_t key = CodeRangeKey(address);
+  auto range = swept_code_ranges_.upper_bound(key);
+  if (range == swept_code_ranges_.begin()) {
+    return 0;
+  }
+  --range;
+  if (key >= range->second) {
+    return 0;
+  }
+  // The range may be keyed by another address for the same memory, so convert
+  // back to this one.
+  return address + uint32_t(range->second - key);
 }
 
 Function* Processor::ResolveFunction(uint32_t address) {

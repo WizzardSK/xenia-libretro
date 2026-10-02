@@ -127,8 +127,12 @@ class Processor {
   std::vector<Function*> FindFunctionsWithAddress(uint32_t address);
   void RemoveFunctionByAddress(uint32_t address);
   // Forgets code compiled from [address, address + length), so the next call
-  // into it compiles what the guest has since written there.
+  // into it compiles what the guest has since written there, and records the
+  // range as the extent of the code the guest wrote.
   void InvalidateCodeRange(uint32_t address, uint32_t length);
+
+  // The exclusive end of the swept range an address falls in, or 0 for none.
+  uint32_t SweptCodeEnd(uint32_t address);
 
   Function* LookupFunction(uint32_t address);
   Module* LookupModule(uint32_t address);
@@ -349,6 +353,16 @@ class Processor {
   std::unique_ptr<Module> dynamic_code_module_;
   std::atomic<bool> dynamic_code_enabled_{false};
   std::atomic<SyscallHook> syscall_hook_{nullptr};
+
+  // Code can be written through one address and run through another, so swept
+  // ranges are keyed by physical address where there is one. This bit keeps
+  // those keys apart from plain virtual addresses.
+  static constexpr uint64_t kPhysicalCodeKey = 0x100000000ull;
+  void RecordSweptCode(uint32_t address, uint32_t length);
+  uint64_t CodeRangeKey(uint32_t address);
+  // Swept code ranges by start key, holding the exclusive end of each.
+  // Guarded with the global lock.
+  std::map<uint64_t, uint64_t> swept_code_ranges_;
 
   // Maps thread ID to state. Updated on thread create, and threads are never
   // removed. Must be guarded with the global lock.
