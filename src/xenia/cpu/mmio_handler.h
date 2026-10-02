@@ -15,6 +15,7 @@
 #include <mutex>
 #include <vector>
 
+#include "xenia/base/exception_handler.h"
 #include "xenia/base/mutex.h"
 #include "xenia/base/platform.h"
 
@@ -52,7 +53,7 @@ class MMIOHandler {
       global_unique_lock_type
           global_lock_locked_once,  // not passed by reference with const like
                                     // the others?
-      void* context, void* host_address, bool is_write);
+      void* context, void* host_address, bool is_write, Exception* ex);
 
   // access_violation_callback is called with global_critical_region locked once
   // on the thread, so if multiple threads trigger an access violation in the

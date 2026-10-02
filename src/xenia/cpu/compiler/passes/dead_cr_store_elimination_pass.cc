@@ -104,7 +104,8 @@ bool DeadCRStoreEliminationPass::Run(HIRBuilder* builder) {
 
   if (cvars::disable_context_promotion ||
       !(cvars::full_optimization_even_with_debug ||
-        (!cvars::debug && !cvars::store_all_context_values))) {
+        (!cvars::debug && !cvars::store_all_context_values)) ||
+      (builder->attributes() & FUNCTION_ATTRIB_KEEP_CONTEXT_STORES)) {
     return true;
   }
 

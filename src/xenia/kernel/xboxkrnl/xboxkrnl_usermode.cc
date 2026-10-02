@@ -12,9 +12,11 @@
 #include <memory>
 
 #include "xenia/base/byte_order.h"
+#include "xenia/base/exception_handler.h"
 #include "xenia/base/literals.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/threading.h"
+#include "xenia/cpu/backend/code_cache.h"
 #include "xenia/cpu/processor.h"
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/kernel/util/shim_utils.h"
@@ -58,6 +60,23 @@ constexpr uint32_t kKframesIar = 0x1AC;
 
 // MSR[PR], which a trap frame from user mode carries.
 constexpr uint32_t kMsrUserMode = 0x4000;
+
+// The exception record a fault hands the trap handler.
+constexpr uint32_t kRecordCode = 0x0;
+constexpr uint32_t kRecordAddress = 0xC;
+constexpr uint32_t kRecordParameterCount = 0x10;
+constexpr uint32_t kRecordInformation = 0x14;
+constexpr uint32_t kRecordSize = 0x1C;
+
+// TODO(has207): POSIX runs the fault handler on the thread's signal stack, and
+// running guest code from it lets the next fault on that thread overwrite the
+// suspended signal frame. Delivering there needs the fault to divert to a
+// thunk on the fiber's own stack and resume through a saved host context.
+#if XE_PLATFORM_WIN32
+constexpr bool kDeliverUserFaults = true;
+#else
+constexpr bool kDeliverUserFaults = false;
+#endif  // XE_PLATFORM_WIN32
 
 constexpr uint32_t kReturnSentinel = 0xBCBCBCBC;
 // Keeps the handler clear of the frame that called KeEnterUserMode.
@@ -164,16 +183,20 @@ void LeaveUserMode(XThread* thread, uint32_t value) {
   user_mode->kernel_fiber->SwitchTo();
 }
 
-bool UserModeSyscall(PPCContext* context) {
-  XThread* thread = XThread::GetCurrentThread();
-  auto user_mode = thread ? thread->user_mode() : nullptr;
-  if (!user_mode || !user_mode->in_user_code) {
-    return false;
-  }
+// Runs the trap handler for user code that trapped at |resume_address|.
+// |record| is the fault's exception record, or 0 for a system call. Returns
+// true if the handler returned; |out_address| is where it resumes, possibly
+// moved. Returns false if the handler left user mode and the kernel later
+// resumed the trap, having loaded the registers itself.
+// TODO(has207): the backend's record of the MXCSR/FPCR mode isn't restored
+// after the handler, so it can disagree with the mode the trapped code resumes
+// in, and the JIT may then skip a mode switch it needs.
+bool TrapIntoHandler(PPCContext* context, XThread* thread, uint32_t record,
+                     uint32_t resume_address, uint32_t* out_address) {
+  auto user_mode = thread->user_mode();
   auto trapped = user_mode->running;
   user_mode->in_user_code = false;
   context->virtual_membase = kernel_memory()->virtual_membase();
-  const uint32_t resume_address = uint32_t(context->scratch);
   auto kframes = context->TranslateVirtual<uint8_t*>(user_mode->kframes);
   SaveKframes(context, kframes, resume_address);
   trapped->resume_address = resume_address;
@@ -186,7 +209,7 @@ bool UserModeSyscall(PPCContext* context) {
   context->r[1] = (registers.r[1] - kHandlerStackGap) & ~uint64_t(0xF);
   context->r[2] = registers.r[2];
   context->r[13] = registers.r[13];
-  context->r[3] = 0;
+  context->r[3] = record;
   context->r[4] = user_mode->kframes;
   context->lr = kReturnSentinel;
   PushStackpointState(context, user_mode, user_mode->handler_stackpoint_state);
@@ -200,7 +223,7 @@ bool UserModeSyscall(PPCContext* context) {
   user_mode->running = trapped;
   if (!trapped->handler_returned) {
     // KeEnterUserMode loaded the resumed registers and stackpoints.
-    return true;
+    return false;
   }
   PopStackpointState(context, user_mode);
   auto parked_trap =
@@ -209,10 +232,23 @@ bool UserModeSyscall(PPCContext* context) {
     user_mode->parked.erase(parked_trap);
   }
 
-  // The handler returned, so resume from the frame it may have redirected.
-  const uint32_t address = LoadKframes(context, kframes);
+  *out_address = LoadKframes(context, kframes);
   context->virtual_membase = kernel_memory()->user_virtual_membase();
   user_mode->in_user_code = true;
+  return true;
+}
+
+bool UserModeSyscall(PPCContext* context) {
+  XThread* thread = XThread::GetCurrentThread();
+  auto user_mode = thread ? thread->user_mode() : nullptr;
+  if (!user_mode || !user_mode->in_user_code) {
+    return false;
+  }
+  const uint32_t resume_address = uint32_t(context->scratch);
+  uint32_t address;
+  if (!TrapIntoHandler(context, thread, 0, resume_address, &address)) {
+    return true;
+  }
   if (address != resume_address) {
     // The handler redirected the trap rather than resuming it.
     RunGuest(thread, address);
@@ -221,6 +257,63 @@ bool UserModeSyscall(PPCContext* context) {
     LeaveUserMode(thread, 0);
   }
   return true;
+}
+
+// Hands the fiber back to KeEnterUserMode, which restarts it at
+// restart_address. The faulting access's host frames are abandoned.
+void RestartUserModeThunk() {
+  XThread* thread = XThread::GetCurrentThread();
+  auto user_mode = thread->user_mode();
+  user_mode->in_user_code = false;
+  user_mode->kernel_fiber->SwitchTo();
+}
+
+// A user mode access with no page table entry. The guest's handler can fill
+// the entry in and return, and the access runs again.
+Memory::UserFaultResult UserModeFault(uint32_t fault_address, bool is_write,
+                                      Exception* ex) {
+  XThread* thread = XThread::GetCurrentThread();
+  auto user_mode = thread ? thread->user_mode() : nullptr;
+  if (!user_mode || !user_mode->in_user_code || !user_mode->running ||
+      xe::threading::Fiber::GetCurrentFiber() !=
+          user_mode->running->fiber.get()) {
+    return Memory::UserFaultResult::kNotTaken;
+  }
+  PPCContext* context = thread->thread_state()->context();
+  auto function =
+      context->processor->backend()->code_cache()->LookupFunction(ex->pc());
+  if (!function) {
+    // Host code faulted on the guest's behalf, so there is no guest
+    // instruction to resume.
+    return Memory::UserFaultResult::kNotTaken;
+  }
+  const uint32_t address = function->MapMachineCodeToGuestAddress(ex->pc());
+
+  auto record =
+      kernel_memory()->TranslateVirtual<uint8_t*>(user_mode->exception_record);
+  std::memset(record, 0, kRecordSize);
+  xe::store_and_swap<uint32_t>(record + kRecordCode, X_STATUS_ACCESS_VIOLATION);
+  xe::store_and_swap<uint32_t>(record + kRecordAddress, address);
+  xe::store_and_swap<uint32_t>(record + kRecordParameterCount, 2);
+  xe::store_and_swap<uint32_t>(record + kRecordInformation, is_write ? 1 : 0);
+  xe::store_and_swap<uint32_t>(record + kRecordInformation + 4, fault_address);
+
+  uint32_t resume_address;
+  const bool handler_returned = TrapIntoHandler(
+      context, thread, user_mode->exception_record, address, &resume_address);
+  if (handler_returned && resume_address == address) {
+    // The retry runs from the host registers, so changes the handler made to
+    // the frame are lost.
+    // TODO(has207): load the frame back into the host context instead.
+    return Memory::UserFaultResult::kTaken;
+  }
+  // The handler dispatched the fault elsewhere, or left user mode and the
+  // kernel resumed the trap with registers of its own. Either way user mode
+  // continues from the context rather than from the faulting access.
+  user_mode->restart_pending = true;
+  user_mode->restart_address = handler_returned ? resume_address : address;
+  DivertToThunk(ex, &RestartUserModeThunk);
+  return Memory::UserFaultResult::kDiverted;
 }
 
 std::unique_ptr<XThread::UserMode::UserFiber> CreateUserFiber(
@@ -257,6 +350,8 @@ XThread::UserMode* CreateUserMode(XThread* thread, PPCContext* context) {
   user_mode->handler_stackpoint_state =
       context->processor->backend()->CreateStackpointState();
   user_mode->kframes = kernel_state()->memory()->SystemHeapAlloc(kKframesSize);
+  user_mode->exception_record =
+      kernel_state()->memory()->SystemHeapAlloc(kRecordSize);
   auto result = user_mode.get();
   thread->set_user_mode(std::move(user_mode));
   return result;
@@ -282,6 +377,14 @@ dword_result_t KeCreateUserMode_entry(dword_t unknown, lpvoid_t descriptor,
   }
   context->processor->EnableDynamicCode();
   context->processor->set_syscall_hook(&UserModeSyscall);
+  if (kDeliverUserFaults) {
+    // The handler reads the registers of a fault from the context, which the
+    // JIT otherwise leaves stale mid-block.
+    // TODO(has207): this slows all user mode code down. Recovering the
+    // registers from the host context at the fault would avoid it.
+    context->processor->KeepDynamicCodeContextStores();
+    kernel_memory()->set_user_fault_hook(&UserModeFault);
+  }
   return X_STATUS_SUCCESS;
 }
 DECLARE_XBOXKRNL_EXPORT2(KeCreateUserMode, kThreading, kImplemented, kSketchy);
@@ -386,8 +489,18 @@ dword_result_t KeEnterUserMode_entry(lpvoid_t user_context, dword_t handler,
   }
   user_mode->running = target;
   user_mode->in_user_code = true;
-  thread->set_active_fiber(target->fiber.get());
-  target->fiber->SwitchTo();
+  for (;;) {
+    thread->set_active_fiber(target->fiber.get());
+    target->fiber->SwitchTo();
+    if (!user_mode->restart_pending) {
+      break;
+    }
+    user_mode->restart_pending = false;
+    target->entry_address = user_mode->restart_address;
+    guest_context->processor->backend()->PrepareForReentry(guest_context);
+    target->fiber->Restart();
+    user_mode->in_user_code = true;
+  }
   thread->set_active_fiber(nullptr);
   return user_mode->leave_value;
 }

@@ -742,7 +742,7 @@ cpu::MMIORange* Memory::LookupVirtualMappedRange(uint32_t virtual_address) {
 
 bool Memory::AccessViolationCallback(
     global_unique_lock_type global_lock_locked_once, void* host_address,
-    bool is_write) {
+    bool is_write, Exception* ex) {
   // Access via physical_membase_ is special, when need to bypass everything
   // (for instance, for a data provider to actually write the data) so only
   // triggering callbacks on virtual memory regions.
@@ -760,7 +760,40 @@ bool Memory::AccessViolationCallback(
   if (user_mode) {
     const uint32_t user_address = uint32_t(host - user_membase);
     if (user_page_table_segments_ & (uint32_t(1) << (user_address >> 28))) {
-      return MapUserPage(user_address);
+      if (MapUserPage(user_address, false)) {
+        return true;
+      }
+      // With no entry or no table page, the guest can fill the entry in. Its
+      // handler runs guest code, so drop the lock around it.
+      // TODO(has207): this only drops one level of the recursive lock, so a
+      // thread that already held it runs the handler still holding it.
+      uint32_t unused_physical_address;
+      const UserPageState state =
+          TranslateUserPage(user_address, &unused_physical_address);
+      auto hook = user_fault_hook_.load(std::memory_order_relaxed);
+      if (hook && (state == UserPageState::kNoEntry ||
+                   state == UserPageState::kNoTable)) {
+        global_lock_locked_once.unlock();
+        const UserFaultResult taken = hook(user_address, is_write, ex);
+        global_lock_locked_once.lock();
+        if (taken == UserFaultResult::kDiverted) {
+          // The access is abandoned, so there is nothing to map.
+          return true;
+        }
+        if (taken == UserFaultResult::kTaken &&
+            MapUserPage(user_address, false)) {
+          // Under the global lock, so a plain counter is fine.
+          static uint32_t filled_count = 0;
+          if (xe::is_pow2(++filled_count)) {
+            XELOGI(
+                "The guest filled the page table entry for {:08X} it was "
+                "handed the fault for ({} pages so far)",
+                user_address & ~(kUserPageSize - 1), filled_count);
+          }
+          return true;
+        }
+      }
+      return MapUserPage(user_address, true);
     }
   }
   uint32_t virtual_address =
@@ -824,9 +857,9 @@ bool Memory::AccessViolationCallback(
 
 bool Memory::AccessViolationCallbackThunk(
     global_unique_lock_type global_lock_locked_once, void* context,
-    void* host_address, bool is_write) {
+    void* host_address, bool is_write, Exception* ex) {
   return reinterpret_cast<Memory*>(context)->AccessViolationCallback(
-      std::move(global_lock_locked_once), host_address, is_write);
+      std::move(global_lock_locked_once), host_address, is_write, ex);
 }
 
 bool Memory::TriggerPhysicalMemoryCallbacks(
@@ -982,10 +1015,10 @@ void Memory::SetUserPageTable(uint32_t descriptor_address) {
   user_page_table_segments_ = segments;
 }
 
-bool Memory::TranslateUserPage(uint32_t user_address,
-                               uint32_t* out_physical_address) {
+Memory::UserPageState Memory::TranslateUserPage(
+    uint32_t user_address, uint32_t* out_physical_address) {
   if (!(user_page_table_segments_ & (uint32_t(1) << (user_address >> 28)))) {
-    return false;
+    return UserPageState::kUnusable;
   }
   uint32_t physical_address;
   if (TranslateVirtual(user_page_table_ + kUserTableKind)[user_address >> 28] ==
@@ -994,36 +1027,40 @@ bool Memory::TranslateUserPage(uint32_t user_address,
     const uint32_t entry = xe::load_and_swap<uint32_t>(TranslateVirtual(
         user_page_table_ + kUserTableLarge + (user_address >> 24) * 4));
     if (!entry) {
-      return false;
+      return UserPageState::kNoEntry;
     }
     physical_address = (entry & 0xFF000000) | (user_address & 0x00FF0000);
   } else {
     const uint32_t frame = xe::load_and_swap<uint16_t>(TranslateVirtual(
         user_page_table_ + kUserTableMedium + (user_address >> 27) * 2));
+    if (!frame) {
+      // The guest has not given this stretch of the segment a table page.
+      return UserPageState::kNoTable;
+    }
     // A table page is named by a physical address in 8 KB units.
     const uint32_t table_address = frame << 13;
-    if (!frame || table_address >= 0x20000000) {
-      return false;
+    if (table_address >= 0x20000000) {
+      return UserPageState::kUnusable;
     }
     const uint32_t entry = xe::load_and_swap<uint32_t>(
         TranslatePhysical(table_address) + ((user_address >> 16) & 0x7FF) * 4);
     if (!entry) {
-      return false;
+      return UserPageState::kNoEntry;
     }
     physical_address = entry & ~(kUserPageSize - 1);
   }
   if (physical_address >= 0x20000000) {
-    return false;
+    return UserPageState::kUnusable;
   }
   // An entry is only worth anything where xenia keeps that memory physically.
   if (GetPhysicalHeap()->IsRangeUnallocated(physical_address, kUserPageSize)) {
-    return false;
+    return UserPageState::kUnusable;
   }
   *out_physical_address = physical_address;
-  return true;
+  return UserPageState::kMapped;
 }
 
-bool Memory::MapUserPage(uint32_t user_address) {
+bool Memory::MapUserPage(uint32_t user_address, bool allow_fallback) {
   const uint32_t page = user_address & ~(kUserPageSize - 1);
   const uint32_t index = page / kUserPageSize;
   const uint64_t bit = uint64_t(1) << (index % 64);
@@ -1033,10 +1070,13 @@ bool Memory::MapUserPage(uint32_t user_address) {
   }
   uint64_t file_offset;
   uint32_t physical_address;
-  if (TranslateUserPage(page, &physical_address)) {
+  const UserPageState state = TranslateUserPage(page, &physical_address);
+  if (state == UserPageState::kMapped) {
     file_offset = 0x100000000ull + physical_address;
   } else {
-    // Nothing maps it, and xenia cannot deliver the fault the console would.
+    if (!allow_fallback) {
+      return false;
+    }
     file_offset = UserViewFileOffset(page);
     if (file_offset == UINT64_MAX) {
       return false;
@@ -1044,8 +1084,12 @@ bool Memory::MapUserPage(uint32_t user_address) {
     static uint32_t unmapped_count = 0;
     if (xe::is_pow2(++unmapped_count)) {
       XELOGW(
-          "The user mode page table does not map {:08X}, so it shows the same "
-          "memory as the kernel address space ({} pages so far)",
+          "The user mode page table {} {:08X}, so it shows the same memory as "
+          "the kernel address space ({} pages so far)",
+          state == UserPageState::kNoEntry ? "was given no entry for"
+          : state == UserPageState::kNoTable
+              ? "has no table page covering"
+              : "names memory xenia can't map for",
           page, unmapped_count);
     }
   }

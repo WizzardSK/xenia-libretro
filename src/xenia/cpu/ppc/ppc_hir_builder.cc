@@ -89,6 +89,9 @@ bool PPCHIRBuilder::Emit(GuestFunction* function, uint32_t flags) {
   SCOPE_profile_cpu_f("cpu");
 
   Module* module = function->module();
+  if (frontend_->processor()->KeepsContextStores(module)) {
+    set_attributes(attributes() | FUNCTION_ATTRIB_KEEP_CONTEXT_STORES);
+  }
 
   function_ = function;
   start_address_ = function_->address();

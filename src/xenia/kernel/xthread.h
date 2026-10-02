@@ -582,7 +582,12 @@ class XThread : public XObject, public cpu::Thread {
     cpu::Function* handler_function = nullptr;
     // Guest buffer the handler receives as the trapped register frame.
     uint32_t kframes = 0;
+    // Guest buffer for the exception record a fault hands the handler.
+    uint32_t exception_record = 0;
     uint32_t leave_value = 0;
+    // Where KeEnterUserMode restarts the fiber after a dispatched fault.
+    bool restart_pending = false;
+    uint32_t restart_address = 0;
     bool in_user_code = false;
   };
   UserMode* user_mode() const { return user_mode_.get(); }

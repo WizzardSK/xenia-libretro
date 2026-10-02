@@ -717,6 +717,36 @@ class Memory {
   // Records the page table KeCreateUserMode was given, before the views exist.
   void SetUserPageTable(uint32_t descriptor_address);
 
+  // What the page table says about a user mode address.
+  enum class UserPageState {
+    // Translated; out_physical_address holds the result.
+    kMapped,
+    // No entry for the page. The guest can fill one in.
+    kNoEntry,
+    // No table page covering the address. The guest can add one.
+    kNoTable,
+    // Not something the guest can fix by adding an entry: the segment isn't
+    // table driven, or the table names memory xenia doesn't keep physically.
+    kUnusable,
+  };
+
+  // How a user mode fault was handled.
+  enum class UserFaultResult {
+    // Not delivered to the guest.
+    kNotTaken,
+    // The guest's handler returned, so retry the access.
+    kTaken,
+    // User mode continues elsewhere and |ex| was diverted there, so the access
+    // is abandoned.
+    kDiverted,
+  };
+
+  // Delivers a user mode access the page table can't satisfy to the guest.
+  // |ex| gives the faulting host pc, and the hook may divert it.
+  using UserFaultHook = UserFaultResult (*)(uint32_t fault_address,
+                                            bool is_write, Exception* ex);
+  void set_user_fault_hook(UserFaultHook hook) { user_fault_hook_.store(hook); }
+
   // Maps the address space user mode code runs in, empty in a driven segment.
   bool EnableUserModeViews();
 
@@ -731,7 +761,8 @@ class Memory {
   // The kernel address with the same contents as a user mode address.
   uint32_t UserModeKernelAddress(uint32_t user_address) {
     uint32_t physical_address;
-    if (TranslateUserPage(user_address, &physical_address)) {
+    if (TranslateUserPage(user_address, &physical_address) ==
+        UserPageState::kMapped) {
       // The 64 KB page window shows every physical address the table can name.
       return 0xA0000000 + physical_address +
              (user_address & (kUserPageSize - 1));
@@ -791,9 +822,11 @@ class Memory {
   // The file offset the user mode address space shows at an address.
   uint64_t UserViewFileOffset(uint32_t user_address) const;
   // The physical address the page table translates a user mode address to.
-  bool TranslateUserPage(uint32_t user_address, uint32_t* out_physical_address);
+  UserPageState TranslateUserPage(uint32_t user_address,
+                                  uint32_t* out_physical_address);
   // Shows the page a user mode address falls in, on the fault under the lock.
-  bool MapUserPage(uint32_t user_address);
+  // Without |allow_fallback|, a page the table doesn't map stays unmapped.
+  bool MapUserPage(uint32_t user_address, bool allow_fallback);
 
   static constexpr uint32_t kUserAliasBase = 0x20000000;
   static constexpr uint32_t kUserAliasSize = 0x20000000;
@@ -813,10 +846,11 @@ class Memory {
                                           const void* host_address);
 
   bool AccessViolationCallback(global_unique_lock_type global_lock_locked_once,
-                               void* host_address, bool is_write);
+                               void* host_address, bool is_write,
+                               Exception* ex);
   static bool AccessViolationCallbackThunk(
       global_unique_lock_type global_lock_locked_once, void* context,
-      void* host_address, bool is_write);
+      void* host_address, bool is_write, Exception* ex);
 
   std::filesystem::path file_name_;
   uint32_t system_page_size_ = 0;
@@ -852,6 +886,7 @@ class Memory {
   uint32_t user_page_table_segments_ = 0;
   // One bit per user mode page mapped from the table, under the global lock.
   std::vector<uint64_t> user_page_mapped_;
+  std::atomic<UserFaultHook> user_fault_hook_{nullptr};
 
   std::unique_ptr<cpu::MMIOHandler> mmio_handler_;
 
