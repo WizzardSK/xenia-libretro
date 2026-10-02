@@ -8,8 +8,10 @@
  */
 
 #include <atomic>
+#include <cctype>
 #include <cstring>
 #include <string>
+#include <string_view>
 
 #include "xenia/base/logging.h"
 #include "xenia/kernel/guest_scheduler.h"
@@ -1293,6 +1295,182 @@ dword_result_t NetDll_XNetUnregisterKey_entry(dword_t caller,
   return 0;
 }
 DECLARE_XAM_EXPORT1(NetDll_XNetUnregisterKey, kNetworking, kStub);
+
+// URL_COMPONENTSA with 32-bit guest pointers.
+struct X_URL_COMPONENTS {
+  xe::be<uint32_t> struct_size;
+  xe::be<uint32_t> scheme_ptr;
+  xe::be<uint32_t> scheme_length;
+  xe::be<uint32_t> scheme;
+  xe::be<uint32_t> host_name_ptr;
+  xe::be<uint32_t> host_name_length;
+  xe::be<uint16_t> port;
+  xe::be<uint16_t> padding;
+  xe::be<uint32_t> user_name_ptr;
+  xe::be<uint32_t> user_name_length;
+  xe::be<uint32_t> password_ptr;
+  xe::be<uint32_t> password_length;
+  xe::be<uint32_t> url_path_ptr;
+  xe::be<uint32_t> url_path_length;
+  xe::be<uint32_t> extra_info_ptr;
+  xe::be<uint32_t> extra_info_length;
+};
+static_assert_size(X_URL_COMPONENTS, 0x3C);
+
+constexpr uint32_t X_ICU_DECODE = 0x10000000;
+constexpr uint32_t X_ICU_ESCAPE = 0x80000000;
+constexpr uint32_t X_ERROR_WINHTTP_INVALID_URL = 12005;
+constexpr uint32_t X_ERROR_WINHTTP_UNRECOGNIZED_SCHEME = 12006;
+
+enum X_INTERNET_SCHEME : uint32_t {
+  X_INTERNET_SCHEME_HTTP = 1,
+  X_INTERNET_SCHEME_HTTPS = 2,
+};
+
+dword_result_t NetDll_XHttpCrackUrl_entry(dword_t caller, lpvoid_t url_ptr,
+                                          dword_t url_length, dword_t flags,
+                                          pointer_t<X_URL_COMPONENTS> parts) {
+  // TODO(has207): ICU_DECODE and ICU_ESCAPE are accepted but not applied.
+  if (!url_ptr || !parts || parts->struct_size != sizeof(X_URL_COMPONENTS) ||
+      (flags & ~(X_ICU_DECODE | X_ICU_ESCAPE))) {
+    XThread::SetLastError(X_ERROR_INVALID_PARAMETER);
+    return 0;
+  }
+  // A length still stops at the first NUL.
+  const char* url = url_ptr.as<const char*>();
+  const std::string_view text(
+      url, url_length ? strnlen(url, url_length) : std::strlen(url));
+
+  const size_t scheme_end = text.find(':');
+  if (scheme_end == std::string_view::npos) {
+    XThread::SetLastError(X_ERROR_WINHTTP_UNRECOGNIZED_SCHEME);
+    return 0;
+  }
+  std::string scheme(text.substr(0, scheme_end));
+  for (char& c : scheme) {
+    c = char(std::tolower(uint8_t(c)));
+  }
+  uint32_t scheme_id;
+  uint16_t port;
+  if (scheme == "http") {
+    scheme_id = X_INTERNET_SCHEME_HTTP;
+    port = 80;
+  } else if (scheme == "https") {
+    scheme_id = X_INTERNET_SCHEME_HTTPS;
+    port = 443;
+  } else {
+    XThread::SetLastError(X_ERROR_WINHTTP_UNRECOGNIZED_SCHEME);
+    return 0;
+  }
+  if (text.substr(scheme_end + 1, 2) != "//") {
+    XThread::SetLastError(X_ERROR_WINHTTP_INVALID_URL);
+    return 0;
+  }
+
+  // Offsets into text of each component.
+  const size_t authority_begin = scheme_end + 3;
+  size_t authority_end = text.find_first_of("/?#", authority_begin);
+  if (authority_end == std::string_view::npos) {
+    authority_end = text.size();
+  }
+  size_t host_begin = authority_begin;
+  size_t user_begin = 0, user_size = 0, password_begin = 0, password_size = 0;
+  bool has_user = false, has_password = false;
+  const size_t at = text.rfind('@', authority_end - 1);
+  if (at != std::string_view::npos && at >= authority_begin) {
+    has_user = true;
+    user_begin = authority_begin;
+    const size_t colon = text.find(':', authority_begin);
+    if (colon != std::string_view::npos && colon < at) {
+      user_size = colon - authority_begin;
+      has_password = true;
+      password_begin = colon + 1;
+      password_size = at - password_begin;
+    } else {
+      user_size = at - authority_begin;
+    }
+    host_begin = at + 1;
+  }
+  size_t host_end = authority_end;
+  // An IPv6 literal's colons are inside its brackets.
+  size_t port_search_begin = host_begin;
+  if (host_begin < authority_end && text[host_begin] == '[') {
+    const size_t bracket = text.find(']', host_begin);
+    port_search_begin = bracket < authority_end ? bracket + 1 : authority_end;
+  }
+  const size_t port_colon = text.rfind(':', authority_end - 1);
+  if (port_colon != std::string_view::npos && port_colon >= port_search_begin) {
+    const std::string_view digits =
+        text.substr(port_colon + 1, authority_end - port_colon - 1);
+    if (!digits.empty()) {
+      uint32_t value = 0;
+      for (char c : digits) {
+        if (c < '0' || c > '9') {
+          XThread::SetLastError(X_ERROR_WINHTTP_INVALID_URL);
+          return 0;
+        }
+        value = value * 10 + uint32_t(c - '0');
+        if (value > 0xFFFF) {
+          XThread::SetLastError(X_ERROR_WINHTTP_INVALID_URL);
+          return 0;
+        }
+      }
+      port = uint16_t(value);
+    }
+    host_end = port_colon;
+  }
+  if (host_end == host_begin) {
+    XThread::SetLastError(X_ERROR_WINHTTP_INVALID_URL);
+    return 0;
+  }
+  size_t extra_begin = text.find_first_of("?#", authority_end);
+  if (extra_begin == std::string_view::npos) {
+    extra_begin = text.size();
+  }
+
+  // Per component: a null pointer with a nonzero length gets a pointer into the
+  // URL. A buffer gets a terminated copy. A zero length skips it.
+  bool insufficient = false;
+  auto set = [&](xe::be<uint32_t>& ptr, xe::be<uint32_t>& length, bool present,
+                 size_t offset, size_t size) {
+    if (!length) {
+      return;
+    }
+    if (!ptr) {
+      ptr = present ? url_ptr.guest_address() + uint32_t(offset) : 0;
+      length = present ? uint32_t(size) : 0;
+      return;
+    }
+    if (length <= size) {
+      length = uint32_t(size + 1);
+      insufficient = true;
+      return;
+    }
+    char* out = kernel_memory()->TranslateVirtual<char*>(ptr);
+    std::memcpy(out, url + offset, size);
+    out[size] = '\0';
+    length = uint32_t(size);
+  };
+  set(parts->scheme_ptr, parts->scheme_length, true, 0, scheme_end);
+  set(parts->host_name_ptr, parts->host_name_length, true, host_begin,
+      host_end - host_begin);
+  set(parts->user_name_ptr, parts->user_name_length, has_user, user_begin,
+      user_size);
+  set(parts->password_ptr, parts->password_length, has_password, password_begin,
+      password_size);
+  set(parts->url_path_ptr, parts->url_path_length, true, authority_end,
+      extra_begin - authority_end);
+  set(parts->extra_info_ptr, parts->extra_info_length, true, extra_begin,
+      text.size() - extra_begin);
+  parts->scheme = scheme_id;
+  parts->port = port;
+  if (insufficient) {
+    XThread::SetLastError(X_ERROR_INSUFFICIENT_BUFFER);
+    return 0;
+  }
+  return 1;
+}
+DECLARE_XAM_EXPORT1(NetDll_XHttpCrackUrl, kNetworking, kImplemented);
 
 }  // namespace xam
 }  // namespace kernel
