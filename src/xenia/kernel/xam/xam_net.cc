@@ -7,7 +7,12 @@
  ******************************************************************************
  */
 
+#include <atomic>
+#include <cstring>
+#include <string>
+
 #include "xenia/base/logging.h"
+#include "xenia/kernel/guest_scheduler.h"
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/kernel/util/shim_utils.h"
 #include "xenia/kernel/xam/xam_module.h"
@@ -593,14 +598,66 @@ dword_result_t NetDll_XNetGetEthernetLinkStatus_entry(dword_t caller) {
 }
 DECLARE_XAM_EXPORT1(NetDll_XNetGetEthernetLinkStatus, kNetworking, kStub);
 
+// Fills |dns| with the IPv4 addresses |host| resolves to.
+static void ResolveDnsHost(const std::string& host, XNDNS* dns) {
+  asio::error_code ec;
+  asio::io_context io;
+  asio::ip::tcp::resolver resolver(io);
+  auto results = resolver.resolve(host, "", ec);
+  if (ec) {
+    return;
+  }
+  for (const auto& entry : results) {
+    if (dns->cina >= xe::countof(dns->aina)) {
+      break;
+    }
+    auto address = entry.endpoint().address();
+    if (address.is_v4()) {
+      dns->aina[dns->cina].s_addr = htonl(address.to_v4().to_uint());
+      dns->cina = dns->cina + 1;
+    }
+  }
+  if (dns->cina) {
+    dns->status = 0;
+  }
+}
+
 dword_result_t NetDll_XNetDnsLookup_entry(dword_t caller, lpstring_t host,
                                           dword_t event_handle,
                                           lpdword_t pdns) {
-  // TODO(gibbed): actually implement this
   if (pdns) {
+    XNDNS result = {};
+    result.status = int32_t(X_WSAError::X_WSAHOST_NOT_FOUND);
+    if (host) {
+      const std::string name(host.value());
+      // A lookup blocks for as long as the resolver takes. On a fiber it runs
+      // on an I/O worker so the other fibers on this host thread keep running.
+      if (GuestScheduler::CurrentThreadOffloadsBlockingCalls()) {
+        auto* scheduler = kernel_state()->guest_scheduler();
+        std::atomic<bool> done{false};
+        scheduler->PostHostCall(
+            [&name, &result, &done]() {
+              // The fiber waits for |done| however the lookup ends.
+              try {
+                ResolveDnsHost(name, &result);
+              } catch (...) {
+              }
+              done.store(true, std::memory_order_release);
+            },
+            GuestScheduler::BlockingCallClass::kConcurrent);
+        // The worker writes into this frame so a terminate must not end the
+        // wait.
+        while (!done.load(std::memory_order_acquire)) {
+          scheduler->BlockCurrentThread(0, 0, false, false);
+        }
+      } else {
+        ResolveDnsHost(name, &result);
+      }
+      XELOGD("XNetDnsLookup({}) = {} addresses", name, uint32_t(result.cina));
+    }
     auto dns_guest = kernel_memory()->SystemHeapAlloc(sizeof(XNDNS));
-    auto dns = kernel_memory()->TranslateVirtual<XNDNS*>(dns_guest);
-    dns->status = 1;  // non-zero = error
+    std::memcpy(kernel_memory()->TranslateVirtual(dns_guest), &result,
+                sizeof(XNDNS));
     *pdns = dns_guest;
   }
   if (event_handle) {
@@ -611,7 +668,7 @@ dword_result_t NetDll_XNetDnsLookup_entry(dword_t caller, lpstring_t host,
   }
   return 0;
 }
-DECLARE_XAM_EXPORT1(NetDll_XNetDnsLookup, kNetworking, kStub);
+DECLARE_XAM_EXPORT1(NetDll_XNetDnsLookup, kNetworking, kImplemented);
 
 dword_result_t NetDll_XNetDnsRelease_entry(dword_t caller,
                                            pointer_t<XNDNS> dns) {
