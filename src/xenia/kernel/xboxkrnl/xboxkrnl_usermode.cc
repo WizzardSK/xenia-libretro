@@ -8,6 +8,7 @@
  */
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <memory>
 
@@ -434,6 +435,27 @@ dword_result_t KeEnterUserMode_entry(lpvoid_t user_context, dword_t handler,
   guest_context->set_cr(xe::load_and_swap<uint32_t>(p + kContextCr));
   SetXer(guest_context, xe::load_and_swap<uint32_t>(p + kContextXer));
   const uint32_t entry_address = xe::load_and_swap<uint32_t>(p + kContextIar);
+  if (!guest_context->r[1]) {
+    // A context with no stack pointer borrows the kernel's. XeFu never sets one
+    // and its generated code pushes a frame through r1 on its first call. User
+    // code gets the lower half of the stack left so the trap handler and the
+    // kernel's servicing of a trap run above it without overwriting its
+    // frames.
+    const uint32_t kernel_sp = uint32_t(registers.r[1]);
+    const uint32_t limit = thread->stack_limit();
+    const uint32_t user_sp =
+        limit && limit < kernel_sp
+            ? (limit + (kernel_sp - limit) / 2) & ~uint32_t(0xF)
+            : kernel_sp;
+    guest_context->r[1] = user_sp;
+    static std::atomic<bool> reported{false};
+    if (!reported.exchange(true)) {
+      XELOGW(
+          "KeEnterUserMode: the context at {:08X} names no stack. User mode "
+          "runs at {:08X} on the kernel stack",
+          user_context.guest_address(), user_sp);
+    }
+  }
 
   if (!xe::threading::Fiber::GetCurrentFiber()) {
     user_mode->adopted_fiber = xe::threading::Fiber::CreateFromThread();
