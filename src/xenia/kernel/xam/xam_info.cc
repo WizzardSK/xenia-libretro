@@ -607,6 +607,11 @@ DECLARE_XAM_EXPORT1(XamLoaderLaunchTitle, kNone, kSketchy);
 void XamLoaderTerminateTitle_entry() { kernel_state()->ExitToDashboard(); }
 DECLARE_XAM_EXPORT1(XamLoaderTerminateTitle, kNone, kSketchy);
 
+// Navigates to the URI pushed with XamPushBackURI, or with none reboots to the
+// dashboard.
+void XamNavigateBack_entry() { kernel_state()->ExitToDashboard(); }
+DECLARE_XAM_EXPORT1(XamNavigateBack, kNone, kSketchy);
+
 uint32_t XamAllocImpl(uint32_t flags, uint32_t size,
                       xe::be<uint32_t>* out_ptr) {
   if (flags & 0x00100000) {  // HEAP_ZERO_memory used unless this flag
