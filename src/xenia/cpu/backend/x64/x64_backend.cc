@@ -294,9 +294,11 @@ bool X64Backend::Initialize(Processor* processor) {
   // Generate thunks used to transition between jitted code and host code.
   XbyakAllocator allocator;
   X64HelperEmitter thunk_emitter(this, &allocator);
+  // First, at offset 0 of the code cache, so that an encoded slot of 0 names
+  // it. See CommitIndirectionChunks.
+  resolve_function_thunk_ = thunk_emitter.EmitResolveFunctionThunk();
   host_to_guest_thunk_ = thunk_emitter.EmitHostToGuestThunk();
   guest_to_host_thunk_ = thunk_emitter.EmitGuestToHostThunk();
-  resolve_function_thunk_ = thunk_emitter.EmitResolveFunctionThunk();
 
   if (cvars::enable_host_guest_stack_synchronization) {
     synchronize_guest_and_host_stack_helper_ =
@@ -618,6 +620,26 @@ void X64Backend::RecordMMIOExceptionForGuestInstruction(void* host_address) {
   }
 }
 bool X64Backend::ExceptionCallback(Exception* ex) {
+  if (ex->code() == Exception::Code::kAccessViolation) {
+    if (code_cache_->CommitIndirectionFault(ex->fault_address())) {
+      // A slot in a chunk of the table nothing had committed yet.
+      return true;
+    }
+    if (!ex->pc() && !code_cache_->encoded_indirection()) {
+      // A call through a slot of a chunk another thread was still filling.
+      // JIT calls leave the guest address in edx, as the resolve thunk takes
+      // it, and return into the code cache.
+      const HostThreadContext& context = *ex->thread_context();
+      const uint64_t return_address =
+          *reinterpret_cast<const uint64_t*>(context.rsp);
+      const uint64_t code_base = code_cache_->execute_base_address();
+      if (code_cache_->HasIndirectionSlot(uint32_t(context.rdx)) &&
+          return_address - code_base < code_cache_->total_size()) {
+        ex->set_resume_pc(reinterpret_cast<uint64_t>(resolve_function_thunk_));
+        return true;
+      }
+    }
+  }
   if (ex->code() != Exception::Code::kIllegalInstruction) {
     // We only care about illegal instructions. Other things will be handled by
     // other handlers (probably). If nothing else picks it up we'll be called

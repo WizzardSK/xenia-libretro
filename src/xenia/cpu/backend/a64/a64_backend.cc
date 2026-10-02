@@ -1334,10 +1334,12 @@ bool A64Backend::Initialize(Processor* processor) {
   XbyakA64Allocator allocator;
   A64HelperEmitter thunk_emitter(this, &allocator);
 
+  // First, at offset 0 of the code cache, so that an encoded slot of 0 names
+  // it. See CommitIndirectionChunks.
+  resolve_function_thunk_ = thunk_emitter.EmitResolveFunctionThunk();
   host_to_guest_thunk_ = thunk_emitter.EmitHostToGuestThunk();
   guest_to_host_thunk_ = thunk_emitter.EmitGuestToHostThunk();
   guest_to_host_thunk_no_vec_ = thunk_emitter.EmitGuestToHostThunkNoVec();
-  resolve_function_thunk_ = thunk_emitter.EmitResolveFunctionThunk();
 
   if (!host_to_guest_thunk_ || !guest_to_host_thunk_ ||
       !guest_to_host_thunk_no_vec_ || !resolve_function_thunk_) {
@@ -1362,8 +1364,7 @@ bool A64Backend::Initialize(Processor* processor) {
       ->set_indirection_default_64(
           reinterpret_cast<uint64_t>(resolve_function_thunk_));
 
-  // Commit the indirection table range used by guest trampolines so that
-  // CreateGuestTrampoline can call AddIndirection without faulting.
+  // Commit the indirection table range used by guest trampolines.
   code_cache_->CommitExecutableRange(GUEST_TRAMPOLINE_BASE,
                                      GUEST_TRAMPOLINE_END);
 
@@ -1837,6 +1838,24 @@ bool A64Backend::ExceptionCallbackThunk(Exception* ex, void* data) {
 }
 
 bool A64Backend::ExceptionCallback(Exception* ex) {
+  if (ex->code() == Exception::Code::kAccessViolation) {
+    if (code_cache_->CommitIndirectionFault(ex->fault_address())) {
+      // A slot in a chunk of the table nothing had committed yet.
+      return true;
+    }
+    if (!ex->pc() && !code_cache_->encoded_indirection()) {
+      // A call through a slot of a chunk another thread was still filling.
+      // JIT calls leave the guest address in w16, as the resolve thunk takes
+      // it, and return into the code cache.
+      const HostThreadContext& context = *ex->thread_context();
+      const uint64_t code_base = code_cache_->execute_base_address();
+      if (code_cache_->HasIndirectionSlot(uint32_t(context.x[16])) &&
+          context.x[30] - code_base < code_cache_->total_size()) {
+        ex->set_resume_pc(reinterpret_cast<uint64_t>(resolve_function_thunk_));
+        return true;
+      }
+    }
+  }
   if (ex->code() != Exception::Code::kIllegalInstruction) {
     return false;
   }

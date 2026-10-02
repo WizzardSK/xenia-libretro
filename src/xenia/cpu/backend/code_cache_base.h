@@ -223,7 +223,7 @@ class CodeCacheBase : public CodeCache {
           reinterpret_cast<uint8_t*>(xe::memory::AllocFixed(
               reinterpret_cast<void*>(kIndirectionTableBase),
               kIndirectionTableSize, xe::memory::AllocationType::kReserve,
-              xe::memory::PageAccess::kReadWrite));
+              xe::memory::PageAccess::kNoAccess));
       if (indirection_table_base_) {
         uint8_t* exec = reinterpret_cast<uint8_t*>(xe::memory::MapFileView(
             mapping_, reinterpret_cast<void*>(kGeneratedCodeExecuteBase),
@@ -260,7 +260,7 @@ class CodeCacheBase : public CodeCache {
     encoded_indirection_ = true;
     indirection_table_base_ = reinterpret_cast<uint8_t*>(xe::memory::AllocFixed(
         nullptr, kIndirectionTableSize, xe::memory::AllocationType::kReserve,
-        xe::memory::PageAccess::kReadWrite));
+        xe::memory::PageAccess::kNoAccess));
     if (!indirection_table_base_) {
       XELOGE("Unable to reserve indirection table at any address (size=0x{:X})",
              static_cast<uint64_t>(kIndirectionTableSize));
@@ -394,6 +394,9 @@ class CodeCacheBase : public CodeCache {
     if (slot_offset + 4 > kIndirectionTableSize) {
       return;
     }
+    if (!CommitIndirectionChunks(slot_offset, 4)) {
+      return;
+    }
     uint32_t* slot =
         reinterpret_cast<uint32_t*>(indirection_table_base_ + slot_offset);
     if (encoded_indirection_) {
@@ -412,6 +415,9 @@ class CodeCacheBase : public CodeCache {
     const uint64_t guest_delta = guest_address - kIndirectionTableBase;
     const uint64_t slot_offset = (guest_delta / 4) * 4;
     if (slot_offset + 4 > kIndirectionTableSize) {
+      return;
+    }
+    if (!CommitIndirectionChunks(slot_offset, 4)) {
       return;
     }
     uint32_t* slot =
@@ -444,9 +450,9 @@ class CodeCacheBase : public CodeCache {
       return;
     }
 
-    xe::memory::AllocFixed(indirection_table_base_ + start_offset, size,
-                           xe::memory::AllocationType::kCommit,
-                           xe::memory::PageAccess::kReadWrite);
+    if (!CommitIndirectionChunks(start_offset, size)) {
+      return;
+    }
 
     uint32_t* p =
         reinterpret_cast<uint32_t*>(indirection_table_base_ + start_offset);
@@ -454,6 +460,18 @@ class CodeCacheBase : public CodeCache {
     for (size_t i = 0; i < entry_count; i++) {
       p[i] = indirection_default_value_;
     }
+  }
+
+  // Commits the chunk of the table a fault landed in. Code no module commits a
+  // range for, like code the guest writes at runtime, reaches its slots this
+  // way. Returns whether the access can run again.
+  bool CommitIndirectionFault(uint64_t fault_address) {
+    const uint64_t base = reinterpret_cast<uint64_t>(indirection_table_base_);
+    if (!indirection_table_base_ || fault_address < base ||
+        fault_address - base >= kIndirectionTableSize) {
+      return false;
+    }
+    return CommitIndirectionChunks(size_t(fault_address - base), 1);
   }
 
   void PlaceHostCode(uint32_t guest_address, void* machine_code,
@@ -591,6 +609,12 @@ class CodeCacheBase : public CodeCache {
  protected:
   static constexpr size_t kIndirectionTableSize = 0x1FFFFFFF;
   static constexpr uintptr_t kIndirectionTableBase = 0x80000000;
+  // The table is reserved and committed a chunk at a time, since most of it
+  // never holds a slot.
+  static constexpr size_t kIndirectionChunkSize = 0x10000;
+  static constexpr size_t kIndirectionChunkCount =
+      (kIndirectionTableSize + kIndirectionChunkSize - 1) /
+      kIndirectionChunkSize;
   // Encoded slots and x64 rel32 need offsets below 2GB, fast-path slots need
   // the cache below 4GB.
   static constexpr size_t kGeneratedCodeSize = 0x3FFFFFFF;
@@ -618,6 +642,8 @@ class CodeCacheBase : public CodeCache {
   xe::global_critical_region global_critical_region_;
   uint32_t indirection_default_value_ = 0xFEEDF00D;
   uint8_t* indirection_table_base_ = nullptr;
+  // One bit per committed chunk of the table, under the global lock.
+  std::vector<uint64_t> indirection_committed_;
   uint8_t* generated_code_execute_base_ = nullptr;
   uint8_t* generated_code_write_base_ = nullptr;
   size_t generated_code_offset_ = 0;
@@ -642,6 +668,50 @@ class CodeCacheBase : public CodeCache {
           "developers.",
           (kGeneratedCodeSize + 1) >> 20));
     }
+  }
+
+  // Commits the chunks covering a range of the table, filling each newly
+  // committed one with the default target. Chunks already committed keep their
+  // slots. With an encoded default of 0 there is nothing to fill. Otherwise a
+  // call can read a slot before the fill reaches it, which the backend's
+  // exception handler sends to the resolve thunk.
+  bool CommitIndirectionChunks(size_t start_offset, size_t size) {
+    if (!indirection_table_base_ || !size) {
+      return false;
+    }
+    auto global_lock = global_critical_region_.Acquire();
+    if (indirection_committed_.empty()) {
+      indirection_committed_.assign((kIndirectionChunkCount + 63) / 64, 0);
+    }
+    const size_t last_chunk = (start_offset + size - 1) / kIndirectionChunkSize;
+    for (size_t chunk = start_offset / kIndirectionChunkSize;
+         chunk <= last_chunk; chunk++) {
+      uint64_t& word = indirection_committed_[chunk / 64];
+      const uint64_t bit = uint64_t(1) << (chunk % 64);
+      if (word & bit) {
+        continue;
+      }
+      const size_t offset = chunk * kIndirectionChunkSize;
+      const size_t length =
+          std::min(kIndirectionChunkSize, kIndirectionTableSize - offset);
+      if (!xe::memory::AllocFixed(indirection_table_base_ + offset, length,
+                                  xe::memory::AllocationType::kCommit,
+                                  xe::memory::PageAccess::kReadWrite)) {
+        XELOGE("Unable to commit the indirection table chunk at 0x{:X}",
+               offset);
+        return false;
+      }
+      // An encoded default of 0 is what a committed chunk already holds.
+      if (indirection_default_value_) {
+        uint32_t* slots =
+            reinterpret_cast<uint32_t*>(indirection_table_base_ + offset);
+        for (size_t i = 0; i < length / 4; i++) {
+          slots[i] = indirection_default_value_;
+        }
+      }
+      word |= bit;
+    }
+    return true;
   }
 
   void EnsureCommitted(size_t high_mark) {
