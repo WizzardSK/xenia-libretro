@@ -84,8 +84,10 @@ dword_result_t NtCreateFile_entry(lpdword_t handle_out, dword_t desired_access,
   }
   assert_not_null(handle_out);
 
+  // A null name opens what the root directory handle refers to. That's how a
+  // file is reopened from a handle.
   auto object_name =
-      kernel_memory()->TranslateVirtual<X_ANSI_STRING*>(object_attrs->name_ptr);
+      util::TranslateAnsiStringPointer(kernel_memory(), object_attrs->name_ptr);
 
   vfs::Entry* root_entry = nullptr;
 
@@ -497,7 +499,7 @@ dword_result_t NtQueryFullAttributesFile_entry(
     pointer_t<X_OBJECT_ATTRIBUTES> obj_attribs,
     pointer_t<X_FILE_NETWORK_OPEN_INFORMATION> file_info) {
   auto object_name =
-      kernel_memory()->TranslateVirtual<X_ANSI_STRING*>(obj_attribs->name_ptr);
+      util::TranslateAnsiStringPointer(kernel_memory(), obj_attribs->name_ptr);
 
   object_ref<XFile> root_file;
   if (obj_attribs->root_directory != 0xFFFFFFFD &&  // ObDosDevices
@@ -604,7 +606,7 @@ dword_result_t NtOpenSymbolicLinkObject_entry(
   assert_true(object_attrs->attributes == 64);  // case insensitive
 
   auto object_name =
-      kernel_memory()->TranslateVirtual<X_ANSI_STRING*>(object_attrs->name_ptr);
+      util::TranslateAnsiStringPointer(kernel_memory(), object_attrs->name_ptr);
 
   auto target_path = xeObSymbolicLinkName(
       util::TranslateAnsiPath(kernel_memory(), object_name));

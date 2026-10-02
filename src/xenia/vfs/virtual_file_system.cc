@@ -285,6 +285,16 @@ X_STATUS VirtualFileSystem::OpenFile(Entry* root_entry,
 
     auto file_name = xe::utf8::find_name_from_guest_path(path);
     entry = parent_entry->GetChild(file_name);
+  } else if (path.empty() && root_entry) {
+    // An empty relative path is the root entry itself. Replacing it would
+    // delete what the root handle still refers to.
+    if (creation_disposition == FileDisposition::kSuperscede ||
+        creation_disposition == FileDisposition::kOverwrite ||
+        creation_disposition == FileDisposition::kOverwriteIf) {
+      *out_action = FileAction::kDoesNotExist;
+      return X_STATUS_ACCESS_DENIED;
+    }
+    entry = root_entry;
   } else {
     entry = !root_entry ? ResolvePath(path) : root_entry->GetChild(path);
   }
