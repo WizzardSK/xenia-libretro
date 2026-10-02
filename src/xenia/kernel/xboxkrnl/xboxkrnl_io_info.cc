@@ -9,6 +9,7 @@
 
 #include "xenia/base/filesystem.h"
 #include "xenia/base/logging.h"
+#include "xenia/base/utf8.h"
 #include "xenia/kernel/info/file.h"
 #include "xenia/kernel/info/volume.h"
 #include "xenia/kernel/kernel_state.h"
@@ -394,7 +395,11 @@ dword_result_t NtQueryVolumeInformationFile_entry(
       XELOGW("Stub XFileFsDeviceInformation!");
       info->device_type =
           FILE_DEVICE_UNKNOWN;  // 415608D8 checks for FILE_DEVICE_EHSTOR;
-      info->characteristics = 0;
+      // 58480880 deletes a content package it reopens unless its volume
+      // reports exactly 2. What the value means isn't known.
+      const bool is_content_package = xe::utf8::starts_with(
+          file_device->mount_path(), "\\Device\\Content\\");
+      info->characteristics = is_content_package ? 2 : 0;
       out_length = sizeof(X_FILE_FS_DEVICE_INFORMATION);
       break;
     }
