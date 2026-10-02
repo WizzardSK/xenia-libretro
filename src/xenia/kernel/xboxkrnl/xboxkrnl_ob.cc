@@ -107,7 +107,23 @@ void xeObSplitName(X_ANSI_STRING input_string,
                    X_ANSI_STRING* leading_path_component,
                    X_ANSI_STRING* remaining_path_components,
                    PPCContext* context) {
-  xe::FatalError("xeObSplitName unimplemented!");
+  // Skips one leading separator, splits off the component up to the next one
+  // and leaves the rest after it.
+  const uint32_t pointer = input_string.pointer;
+  const uint16_t length = input_string.length;
+  const char* text = context->TranslateVirtual<const char*>(pointer);
+  const uint16_t start = (length && text[0] == '\\') ? 1 : 0;
+  uint16_t end = start;
+  while (end < length && text[end] != '\\') {
+    ++end;
+  }
+  leading_path_component->pointer = pointer + start;
+  leading_path_component->length = uint16_t(end - start);
+  leading_path_component->maximum_length = uint16_t(end - start);
+  const uint16_t rest = end < length ? uint16_t(end + 1) : end;
+  remaining_path_components->pointer = pointer + rest;
+  remaining_path_components->length = uint16_t(length - rest);
+  remaining_path_components->maximum_length = uint16_t(length - rest);
 }
 
 uint32_t xeObHashObjectName(X_ANSI_STRING* ElementName, PPCContext* context) {
