@@ -1853,6 +1853,8 @@ bool Emulator::ExceptionCallback(Exception* ex) {
     crash_msg.append(fmt::format(
         "PC: unavailable (unmapped host JIT address 0x{:016X})\n", ex->pc()));
   }
+  // Usually the caller, which a crash in a shared stub needs.
+  crash_msg.append(fmt::format("LR: 0x{:08X}\n", uint32_t(context->lr)));
   if (ex->code() == Exception::Code::kAccessViolation) {
     const char* op_str = "unknown";
     if (ex->access_violation_operation() ==
