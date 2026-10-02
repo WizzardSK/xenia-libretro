@@ -45,6 +45,8 @@ constexpr uint32_t kContextCtr = 0x10;
 constexpr uint32_t kContextGpr = 0x18;
 constexpr uint32_t kContextCr = 0x118;
 constexpr uint32_t kContextXer = 0x11C;
+// After the FPSCR and the 32 FPRs: whether the context is user mode's.
+constexpr uint32_t kContextUserModeControl = 0x228;
 constexpr uint32_t kContextControl = 0x1;
 constexpr uint32_t kContextInteger = 0x4;
 
@@ -524,6 +526,10 @@ void KeContextFromKframes_entry(lpvoid_t kframes, lpvoid_t context) {
   auto k = kframes.as<const uint8_t*>();
   auto p = context.as<uint8_t*>();
   const uint32_t flags = xe::load_and_swap<uint32_t>(p + kContextFlags);
+  // The kernel side only resumes user mode from a context that says so.
+  xe::store_and_swap<uint32_t>(
+      p + kContextUserModeControl,
+      (xe::load_and_swap<uint32_t>(k + kKframesMsr) & kMsrUserMode) ? 1 : 0);
   if (flags & kContextControl) {
     xe::store_and_swap<uint32_t>(p + kContextMsr,
                                  xe::load_and_swap<uint32_t>(k + kKframesMsr));
@@ -547,6 +553,29 @@ void KeContextFromKframes_entry(lpvoid_t kframes, lpvoid_t context) {
 }
 DECLARE_XBOXKRNL_EXPORT2(KeContextFromKframes, kThreading, kImplemented,
                          kHighFrequency);
+
+// The inverse, which a continue uses to load the context it resumes with.
+void KeContextToKframes_entry(lpvoid_t kframes, lpvoid_t context,
+                              dword_t flags) {
+  auto k = kframes.as<uint8_t*>();
+  auto p = context.as<const uint8_t*>();
+  if (flags & kContextControl) {
+    xe::store_and_swap<uint32_t>(k + kKframesIar,
+                                 xe::load_and_swap<uint32_t>(p + kContextIar));
+    xe::store_and_swap<uint32_t>(k + kKframesLr,
+                                 xe::load_and_swap<uint32_t>(p + kContextLr));
+    xe::store_and_swap<uint64_t>(k + kKframesCtr,
+                                 xe::load_and_swap<uint64_t>(p + kContextCtr));
+  }
+  if (flags & kContextInteger) {
+    std::memcpy(k + kKframesGpr, p + kContextGpr, 32 * 8);
+    xe::store_and_swap<uint32_t>(k + kKframesCr,
+                                 xe::load_and_swap<uint32_t>(p + kContextCr));
+    xe::store_and_swap<uint32_t>(k + kKframesXer,
+                                 xe::load_and_swap<uint32_t>(p + kContextXer));
+  }
+}
+DECLARE_XBOXKRNL_EXPORT1(KeContextToKframes, kThreading, kImplemented);
 
 // Dropping more than was asked for only costs a fault, so none reads its args.
 void KeFlushUserModeCurrentTb_entry() { kernel_memory()->FlushUserPageTable(); }
