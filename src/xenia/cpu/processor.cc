@@ -125,9 +125,17 @@ class DynamicCodeModule : public Module {
            (protect & kMemoryProtectRead);
   }
 
+  // A physical window's view keeps the protection last set through that
+  // window, but the physical view keeps the latest set through any of them,
+  // which is what ContainsAddress checks. So read code through that.
   const uint8_t* TranslateCode(uint32_t address) const override {
-    return memory_->TranslateVirtual<const uint8_t*>(
-        memory_->UserModeKernelAddress(address));
+    const uint32_t kernel_address = memory_->UserModeKernelAddress(address);
+    auto heap = memory_->LookupHeap(kernel_address);
+    if (heap && heap->heap_type() == HeapType::kGuestPhysical) {
+      return memory_->TranslatePhysical<const uint8_t*>(
+          static_cast<PhysicalHeap*>(heap)->GetPhysicalAddress(kernel_address));
+    }
+    return memory_->TranslateVirtual<const uint8_t*>(kernel_address);
   }
 
  protected:
