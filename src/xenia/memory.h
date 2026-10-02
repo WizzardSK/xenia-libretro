@@ -856,6 +856,31 @@ class Memory {
   // Maps the page a fault at |window_offset| falls in, under the lock.
   // Without |allow_fallback|, a page the table doesn't map stays unmapped.
   bool MapUserPage(uint32_t window_offset, bool allow_fallback);
+  // Records the physical memory a user mode page shows and write protects its
+  // watched 4 KB pages. Under the lock.
+  void TrackUserPage(uint32_t index, uint64_t file_offset);
+  // Write protects the range's physical pages in every user mode page that
+  // shows them. Takes the lock.
+  void WatchUserWrites(uint32_t physical_address, uint32_t length);
+  // Reports a write fault at |window_offset| on a watched page. Under the lock.
+  // Returns whether the page was watched.
+  bool TriggerUserWriteWatch(uint32_t window_offset);
+  // Calls |fn(index, offset)| for each user mode page showing a physical 4 KB
+  // page, with that page's offset in the view. Under the lock.
+  template <typename Fn>
+  void ForEachUserPageShowing(uint32_t physical_page, Fn fn) {
+    // A view starts on any 4 KB page so the ones showing this page start in
+    // its 64 KB block or the one before.
+    const uint32_t block = physical_page / kUserSmallPagesPerView;
+    for (uint32_t b = block ? block - 1 : 0; b <= block; ++b) {
+      for (uint32_t index : user_block_pages_[b]) {
+        const uint32_t delta = physical_page - user_page_first_physical_[index];
+        if (delta < kUserSmallPagesPerView) {
+          fn(index, delta * kUserSmallPageSize);
+        }
+      }
+    }
+  }
 
   static constexpr uint32_t kUserAliasBase = 0x20000000;
   static constexpr uint32_t kUserAliasSize = 0x20000000;
@@ -864,6 +889,10 @@ class Memory {
   static constexpr uint32_t kUserPageSize = 0x10000;
   static constexpr uint32_t kUserPageCount = 0x100000000ull / kUserPageSize;
   static constexpr uint32_t kUserSmallPageSize = 0x1000;
+  static constexpr uint32_t kUserSmallPagesPerView =
+      kUserPageSize / kUserSmallPageSize;
+  static constexpr uint32_t kPhysicalSmallPageCount =
+      0x20000000 / kUserSmallPageSize;
   static constexpr uint32_t kUserLargePageSize = 0x1000000;
 
   // The console kernel's page table maps itself here with one entry per 4 KB
@@ -936,6 +965,16 @@ class Memory {
   uint32_t user_page_table_ = 0;
   // One bit per user mode page mapped from the table, under the global lock.
   std::vector<uint64_t> user_page_mapped_;
+  // The user mode views are one more alias of physical memory and writes
+  // through them have to reach the same watches. All under the global lock.
+  static constexpr uint32_t kUserNoPage = UINT32_MAX;
+  // The first physical 4 KB page each user mode page shows.
+  std::vector<uint32_t> user_page_first_physical_;
+  // The user mode pages whose first physical page is in each 64 KB block.
+  std::vector<std::vector<uint32_t>> user_block_pages_;
+  // A bit per physical 4 KB page whose next user mode write is reported.
+  std::vector<uint64_t> user_write_watched_;
+  bool user_write_watches_ = false;
   std::atomic<UserFaultHook> user_fault_hook_{nullptr};
 
   std::unique_ptr<cpu::MMIOHandler> mmio_handler_;

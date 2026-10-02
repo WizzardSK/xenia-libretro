@@ -411,7 +411,8 @@ bool MMIOHandler::ExceptionCallback(Exception* ex) {
     return false;
   }
   bool is_write = operation == Exception::AccessViolationOperation::kWrite;
-  // User mode views are never protected, so no MMIO range or watch applies.
+  // No MMIO range applies to the user mode views. The memory callback takes
+  // their faults, write watches included.
   const uint64_t user_membase =
       uint64_t(user_membase_.load(std::memory_order_relaxed));
   if (user_membase && ex->fault_address() - user_membase < 0x100000000ull) {
