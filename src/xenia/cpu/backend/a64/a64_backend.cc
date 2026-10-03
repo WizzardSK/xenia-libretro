@@ -1008,10 +1008,13 @@ static uint64_t ResolveLongjmp(ppc::PPCContext* guest_context,
       backend_context->current_stackpoint_depth - pending_pops;
   for (auto* entry : processor->FindFunctionsWithAddress(target_address)) {
     auto* afunc = static_cast<A64Function*>(entry);
+    // Landing on a function's first instruction would skip its prolog.
+    if (afunc->address() == target_address) {
+      continue;
+    }
     const uintptr_t host_address =
         afunc->MapGuestAddressToMachineCode(target_address);
-    if (!host_address || afunc->machine_code() ==
-                             reinterpret_cast<const uint8_t*>(host_address)) {
+    if (!host_address) {
       continue;
     }
     const uint32_t sync_depth =

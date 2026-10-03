@@ -520,16 +520,12 @@ static uint64_t ResolveLongjmp(ppc::PPCContext_s* guest_context,
   for (auto&& entry : ones_with_address) {
     X64Function* xfunc = static_cast<X64Function*>(entry);
 
+    // Landing on a function's first instruction would skip its prolog.
+    if (xfunc->address() == target_address) {
+      continue;
+    }
     host_address = xfunc->MapGuestAddressToMachineCode(target_address);
-    // host address does exist within the function, and that host
-    // function is not the start of the function, it is instead
-    // somewhere within its existing body
-    // i originally did not have this (xfunc->machine_code() !=
-    // reinterpret_cast<const uint8_t*>(host_address))) condition
-    // here when i distributed builds for testing, no issues arose
-    // related to it but i wanted to be more explicit
-    if (host_address && xfunc->machine_code() !=
-                            reinterpret_cast<const uint8_t*>(host_address)) {
+    if (host_address) {
       candidate = xfunc;
       break;
     }
