@@ -530,10 +530,19 @@ void Processor::InvalidateCodeRange(uint32_t address, uint32_t length) {
   auto global_lock = global_critical_region_.Acquire();
   RecordSweptCode(address, length);
   for (Function* function : entry_table_.DeleteRange(address, end)) {
+    if (!function) {
+      continue;
+    }
     // The entry is what a call looks up, but the module would hand back the
     // same already defined symbol and never compile the new code.
-    if (function && function->module()) {
+    if (function->module()) {
       function->module()->ForgetSymbol(function->address());
+    }
+    // The dynamic call cache keys a function by its entry, which a patch
+    // inside it misses.
+    if (function->address() < address) {
+      backend_->InvalidateDynamicCalls(function->address(),
+                                       function->address());
     }
   }
   backend_->InvalidateDynamicCalls(address, end);

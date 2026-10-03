@@ -965,7 +965,12 @@ void X64Emitter::Call(const hir::Instr* instr, GuestFunction* function) {
   auto fn = static_cast<X64Function*>(function);
   // Resolve address to the function to call and store in rax.
 
-  if (fn->machine_code()) {
+  // Calls to dynamic code look the target up every time, since a direct call
+  // would keep reaching the old copy once the code is rewritten.
+  const bool rewritable = processor()->dynamic_code_enabled() &&
+                          code_cache_->has_indirection_table() &&
+                          !code_cache_->HasIndirectionSlot(function->address());
+  if (fn->machine_code() && !rewritable) {
     if (!(instr->flags & hir::CALL_TAIL)) {
       mov(rcx, qword[rsp + StackLayout::GUEST_CALL_RET_ADDR]);
 
