@@ -261,7 +261,7 @@ struct CALL_TRUE_I8
     assert_true(i.src2.value->is_guest());
     e.test(i.src1, i.src1);
     Xbyak::Label skip;
-    e.jz(skip);
+    e.jz(skip, CodeGenerator::T_NEAR);
     e.Call(i.instr, static_cast<GuestFunction*>(i.src2.value));
     e.L(skip);
     e.ForgetMxcsrMode();
@@ -273,7 +273,7 @@ struct CALL_TRUE_I16
     assert_true(i.src2.value->is_guest());
     e.test(i.src1, i.src1);
     Xbyak::Label skip;
-    e.jz(skip);
+    e.jz(skip, CodeGenerator::T_NEAR);
     e.Call(i.instr, static_cast<GuestFunction*>(i.src2.value));
     e.L(skip);
     e.ForgetMxcsrMode();
@@ -285,7 +285,7 @@ struct CALL_TRUE_I32
     assert_true(i.src2.value->is_guest());
     e.test(i.src1, i.src1);
     Xbyak::Label skip;
-    e.jz(skip);
+    e.jz(skip, CodeGenerator::T_NEAR);
     e.Call(i.instr, static_cast<GuestFunction*>(i.src2.value));
     e.L(skip);
     e.ForgetMxcsrMode();
@@ -297,7 +297,7 @@ struct CALL_TRUE_I64
     assert_true(i.src2.value->is_guest());
     e.test(i.src1, i.src1);
     Xbyak::Label skip;
-    e.jz(skip);
+    e.jz(skip, CodeGenerator::T_NEAR);
     e.Call(i.instr, static_cast<GuestFunction*>(i.src2.value));
     e.L(skip);
     e.ForgetMxcsrMode();
