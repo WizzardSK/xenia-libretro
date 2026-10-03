@@ -1076,6 +1076,7 @@ void* X64HelperEmitter::EmitGuestAndHostSynchronizeStackHelper() {
 
   Xbyak::Label search_for_retaddr{};
   Xbyak::Label we_good_but_increment{};
+  Xbyak::Label no_older_stackpoint{};
   L(search_for_retaddr);
 
   imul(edx, ecx, sizeof(X64BackendStackpoint));
@@ -1089,6 +1090,9 @@ void* X64HelperEmitter::EmitGuestAndHostSynchronizeStackHelper() {
   jz(we_good, T_NEAR);  // stack is equal, return address is equal, we've got
                         // our destination stack
   dec(ecx);
+  // Code that keeps r1 across its calls can reach the oldest stackpoint
+  // without a match, which makes that one the destination.
+  js(no_older_stackpoint, T_NEAR);
   jmp(search_for_retaddr, T_NEAR);
   Xbyak::Label checkbp{};
 
@@ -1097,6 +1101,9 @@ void* X64HelperEmitter::EmitGuestAndHostSynchronizeStackHelper() {
   inc(ecx);
   jmp(checkbp, T_NEAR);
   L(we_good);
+  // The oldest stackpoint has none below it to go down to.
+  test(ecx, ecx);
+  jz(checkbp, T_NEAR);
   // we're popping this return address, so go down by one
   sub(edx, sizeof(X64BackendStackpoint));
   dec(ecx);
@@ -1111,6 +1118,10 @@ void* X64HelperEmitter::EmitGuestAndHostSynchronizeStackHelper() {
   mov(GetBackendCtxPtr(offsetof(X64BackendContext, current_stackpoint_depth)),
       ecx);  // set next stackpoint index to be after the one we restored to
   jmp(r8);
+  L(no_older_stackpoint);
+  xor_(ecx, ecx);
+  xor_(edx, edx);
+  jmp(checkbp, T_NEAR);
   L(skip_adjust);
   pop(rbx);
   jmp(r8);  // return to caller
