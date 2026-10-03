@@ -124,6 +124,9 @@ struct X64BackendContext {
   // stackpoint depth a dynamic code return continues at, or 0 when none is
   // pending. The stack synchronization helper at the target takes it.
   uint32_t unwind_stackpoint_depth;
+  // Set by a dynamic call resolve that continues inside a function rather than
+  // at its entry. Emitted code clears it before a lookup and reads it after.
+  uint32_t dynamic_target_in_body;
   union {
     __m128 helper_scratch_xmms[4];
     uint64_t helper_scratch_u64s[8];

@@ -791,6 +791,9 @@ static uint64_t ResolveDynamicFunction(void* raw_context,
   if (uint64_t return_address = ResolveDynamicReturn(
           guest_context, static_cast<uint32_t>(target_address), pending_pops,
           &is_return_site)) {
+    static_cast<X64Backend*>(guest_context->processor->backend())
+        ->BackendContextForGuestContext(raw_context)
+        ->dynamic_target_in_body = 1;
     return return_address;
   }
   auto function = guest_context->processor->ResolveFunction(
@@ -1066,10 +1069,23 @@ void X64Emitter::CallIndirect(const hir::Instr* instr,
       sub(eax, code_cache_->indirection_guest_base());
       cmp(eax, code_cache_->indirection_guest_size());
       const bool tail_call = (instr->flags & hir::CALL_TAIL) != 0;
-      Xbyak::Label& resolve_natively = AddToTail(
-          [target_ready, tail_call](X64Emitter& e, Xbyak::Label& tail) {
+      const bool possible_return =
+          tail_call && (instr->flags & hir::CALL_POSSIBLE_RETURN) &&
+          cvars::enable_host_guest_stack_synchronization;
+      Xbyak::Label& resolve_natively =
+          AddToTail([target_ready, tail_call, possible_return](
+                        X64Emitter& e, Xbyak::Label& tail) {
             e.L(tail);
+            if (possible_return) {
+              Xbyak::Address in_body = e.GetBackendCtxPtr(
+                  offsetof(X64BackendContext, dynamic_target_in_body));
+              in_body.setBit(32);
+              e.mov(in_body, 0);
+            }
             EmitDynamicCallLookup(e, tail_call);
+            if (possible_return) {
+              e.EmitDropCallingFrame();
+            }
             e.jmp(*target_ready, X64Emitter::T_NEAR);
           });
       jae(resolve_natively, T_NEAR);
@@ -2316,6 +2332,54 @@ void X64Emitter::PushStackpoint() {
       });
   jge(overflowed_stackpoints, T_NEAR);
 }
+void X64Emitter::EmitDropCallingFrame() {
+  // A blr to somewhere other than this frame's return address, such as a
+  // dispatcher jumping to the next translated block, returns into neither this
+  // frame nor its caller. The target takes the caller's frame as if the caller
+  // had tail-called it, which keeps the host stack from growing by a frame per
+  // jump.
+  Xbyak::Label keep_frame;
+  // Only a function's entry can take a frame.
+  Xbyak::Address in_body =
+      GetBackendCtxPtr(offsetof(X64BackendContext, dynamic_target_in_body));
+  in_body.setBit(32);
+  cmp(in_body, 0);
+  jne(keep_frame, T_NEAR);
+  mov(ecx,
+      GetBackendCtxPtr(offsetof(X64BackendContext, current_stackpoint_depth)));
+  // This frame, its caller, and the frame the caller returns into.
+  cmp(ecx, 3);
+  jb(keep_frame, T_NEAR);
+  static_assert(sizeof(X64BackendStackpoint) == 16);
+  sub(ecx, 2);
+  shl(ecx, 4);
+  mov(r9, GetBackendCtxPtr(offsetof(X64BackendContext, stackpoints)));
+  add(r9, rcx);
+  // The caller's own stack pointer is just above this frame's return address.
+  lea(rcx, ptr[rsp + static_cast<uint32_t>(stack_size() + 8)]);
+  cmp(rcx, qword[r9 + offsetof(X64BackendStackpoint, host_stack_)]);
+  jne(keep_frame, T_NEAR);
+  static_assert(offsetof(X64BackendStackpoint, host_stack_) == 0);
+  mov(r8, qword[r9 - static_cast<int>(sizeof(X64BackendStackpoint))]);
+  cmp(r8, rcx);
+  jbe(keep_frame, T_NEAR);
+  // A caller entered from host code returns into host code.
+  cmp(dword[rcx + StackLayout::GUEST_RET_ADDR], 0xBCBCBCBC);
+  je(keep_frame, T_NEAR);
+  EmitTraceUserCallReturn();
+  EmitProfilerEpilogue();
+  // Pass the caller's return address over and return where it would.
+  mov(rcx, qword[r9 + offsetof(X64BackendStackpoint, host_stack_)]);
+  mov(rcx, qword[rcx + StackLayout::GUEST_RET_ADDR]);
+  lea(rsp, ptr[r8 - 8]);
+  Xbyak::Address depth =
+      GetBackendCtxPtr(offsetof(X64BackendContext, current_stackpoint_depth));
+  depth.setBit(32);
+  sub(depth, 2);
+  jmp(rax);
+  L(keep_frame);
+}
+
 void X64Emitter::PopStackpoint() {
   if (!cvars::enable_host_guest_stack_synchronization) {
     return;
