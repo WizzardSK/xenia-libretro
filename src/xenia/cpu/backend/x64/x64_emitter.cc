@@ -649,7 +649,8 @@ static uint64_t ResolveLongjmp(ppc::PPCContext_s* guest_context,
 
    */
 
-  if (num_frames_bigger <= 1) {
+  // With every recorded frame below r1 the helper has no frame to restore.
+  if (num_frames_bigger <= 1 || current_stackpoint_index == 0xFFFFFFFF) {
     return 0;
   }
   /*
