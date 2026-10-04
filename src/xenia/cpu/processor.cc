@@ -561,12 +561,16 @@ void Processor::RecordSweptCode(uint32_t address, uint32_t length) {
     return;
   }
   // Spans stay exact rather than merging, since back-to-back blocks must not
-  // bound each other. A sweep replaces any span it overlaps.
+  // bound each other. A sweep replaces any span it overlaps, except a single
+  // instruction patched past a span's start, which keeps the block's end.
   auto range = swept_code_ranges_.lower_bound(span_start);
   if (range != swept_code_ranges_.begin()) {
     auto previous = range;
     --previous;
     if (previous->second > span_start) {
+      if (length == 4 && previous->second >= span_end) {
+        return;
+      }
       range = previous;
     }
   }
