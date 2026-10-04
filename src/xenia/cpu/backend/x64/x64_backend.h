@@ -120,6 +120,11 @@ constexpr uint32_t kX64DynamicCallCacheSize = 16384;
 static_assert(sizeof(X64DynamicCallCacheEntry) == 16);
 static_assert(offsetof(X64DynamicCallCacheEntry, host_address) == 8);
 static_assert((kX64DynamicCallCacheSize & (kX64DynamicCallCacheSize - 1)) == 0);
+// The cache slot of a guest address, which EmitDynamicCallLookup computes too.
+inline uint32_t X64DynamicCallCacheIndex(uint32_t guest_address) {
+  return ((guest_address >> 2) ^ (guest_address >> 14)) &
+         (kX64DynamicCallCacheSize - 1);
+}
 
 // located prior to the ctx register
 // some things it would be nice to have be per-emulator instance instead of per

@@ -1929,17 +1929,30 @@ void X64Backend::DeinitializeBackendContext(void* ctx) {
 
 void X64Backend::InvalidateDynamicCalls(uint32_t start, uint32_t end) {
   auto global_lock = global_critical_region_.Acquire();
+  // A range with fewer instructions than the cache has slots only checks the
+  // slots those hash to.
+  const bool targeted = end - start < kX64DynamicCallCacheSize * 4;
+  auto invalidate = [start, end](X64DynamicCallCacheEntry& entry) {
+    if (entry.guest_address >= start && entry.guest_address <= end) {
+      // The lookup only rejects an entry whose host address is zero.
+      entry.host_address = 0;
+      entry.guest_address = UINT32_MAX;
+    }
+  };
   for (void* ctx : backend_contexts_) {
     X64BackendContext* bctx = BackendContextForGuestContext(ctx);
     if (!bctx->dynamic_call_cache) {
       continue;
     }
-    for (uint32_t i = 0; i < kX64DynamicCallCacheSize; ++i) {
-      auto& entry = bctx->dynamic_call_cache[i];
-      if (entry.guest_address >= start && entry.guest_address <= end) {
-        // The lookup only rejects an entry whose host address is zero.
-        entry.host_address = 0;
-        entry.guest_address = UINT32_MAX;
+    if (targeted) {
+      for (uint64_t address = start & ~uint32_t(3); address <= end;
+           address += 4) {
+        invalidate(bctx->dynamic_call_cache[X64DynamicCallCacheIndex(
+            static_cast<uint32_t>(address))]);
+      }
+    } else {
+      for (uint32_t i = 0; i < kX64DynamicCallCacheSize; ++i) {
+        invalidate(bctx->dynamic_call_cache[i]);
       }
     }
   }

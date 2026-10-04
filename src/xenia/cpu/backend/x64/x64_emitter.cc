@@ -787,11 +787,6 @@ static uint64_t ResolveDynamicReturn(ppc::PPCContext_s* guest_context,
   return ResolveLongjmp(guest_context, target_address, pending_pops);
 }
 
-static uint32_t DynamicCallCacheIndex(uint32_t guest_address) {
-  return ((guest_address >> 2) ^ (guest_address >> 14)) &
-         (kX64DynamicCallCacheSize - 1);
-}
-
 // Resolves a target without an indirection slot and caches it per thread. A
 // direct bl is never a return and skips the return site checks.
 static uint64_t ResolveDynamicFunction(void* raw_context,
@@ -848,7 +843,7 @@ static uint64_t ResolveDynamicFunction(void* raw_context,
   // An unwind lands at an address only valid for the frame it found and is
   // never cached. A return site's entry has a branch look for a live frame
   // first.
-  auto& entry = bctx->dynamic_call_cache[DynamicCallCacheIndex(
+  auto& entry = bctx->dynamic_call_cache[X64DynamicCallCacheIndex(
       static_cast<uint32_t>(target_address))];
   entry.host_address = host_address;
   entry.kind = direct           ? kX64DynamicCallDirectOnly
@@ -905,7 +900,8 @@ static uint64_t ResolveCachedReturnSite(void* raw_context,
     return host_address;
   }
   // Read once, as another thread can invalidate the entry meanwhile.
-  const auto& entry = bctx->dynamic_call_cache[DynamicCallCacheIndex(target)];
+  const auto& entry =
+      bctx->dynamic_call_cache[X64DynamicCallCacheIndex(target)];
   const uint64_t cached_address = entry.host_address;
   if (MayResolveLongjmp(guest_context, pending_pops) ||
       entry.guest_address != target ||
