@@ -604,5 +604,29 @@ bool UnmapFileView(FileMappingHandle handle, void* base_address,
 #endif  // XE_PLATFORM_MAC
 }
 
+bool ReserveFileViewPages(void* base_address, size_t length) {
+  // Nothing is reserved. A page without a view faults until another mapping
+  // takes it.
+  return true;
+}
+
+void* MapFileViewPages(FileMappingHandle handle, void* base_address,
+                       size_t length, PageAccess access, size_t file_offset) {
+  return MapFileView(handle, base_address, length, access, file_offset);
+}
+
+bool ReleaseFileViewPages(FileMappingHandle handle, void* base_address,
+                          size_t length) {
+  const auto range_begin = reinterpret_cast<uintptr_t>(base_address);
+  const uintptr_t range_end = range_begin + length;
+  {
+    std::lock_guard guard(g_mapped_file_ranges_mutex);
+    std::erase_if(mapped_file_ranges, [&](const MappedFileRange& range) {
+      return range.region_begin >= range_begin && range.region_end <= range_end;
+    });
+  }
+  return munmap(base_address, length) == 0;
+}
+
 }  // namespace memory
 }  // namespace xe
