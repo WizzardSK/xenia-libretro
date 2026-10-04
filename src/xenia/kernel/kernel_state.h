@@ -14,6 +14,7 @@
 #include <condition_variable>
 #include <functional>
 #include <list>
+#include <mutex>
 #include <vector>
 
 #include "xenia/base/bit_map.h"
@@ -344,6 +345,13 @@ class KernelState {
   void EndDPCImpersonation(cpu::ppc::PPCContext* context,
                            DPCImpersonationScope& end_scope);
 
+  // Queues a KDPC with |arg1| and |arg2| as its system arguments to run on the
+  // dispatch thread, for an expiry that fires on a host thread. A KDPC already
+  // queued there is left as it is.
+  void QueueDpc(uint32_t dpc_ptr, uint32_t arg1, uint32_t arg2);
+  // Dequeues a KDPC QueueDpc queued if it hasn't started.
+  bool RemoveDpc(uint32_t dpc_ptr);
+
   void EmulateCPInterruptDPC(uint32_t interrupt_callback,
                              uint32_t interrupt_callback_data, uint32_t source,
                              uint32_t cpu);
@@ -403,8 +411,13 @@ class KernelState {
   object_ref<XHostThread> dispatch_thread_;
   // Must be guarded by the global critical region.
   util::NativeList dpc_list_;
-  std::condition_variable_any dispatch_cond_;
+  // Guards the dispatch queue, which a timer expiry pushes to while a timer
+  // cancel holding the global lock can be waiting for it.
+  std::mutex dispatch_mutex_;
+  std::condition_variable dispatch_cond_;
   std::list<std::function<void()>> dispatch_queue_;
+  // KDPCs queued on the dispatch thread that haven't started.
+  std::vector<uint32_t> dispatch_dpcs_;
 
   uint32_t ke_timestamp_bundle_ptr_ = 0;
   std::unique_ptr<xe::threading::HighResolutionTimer> timestamp_timer_;

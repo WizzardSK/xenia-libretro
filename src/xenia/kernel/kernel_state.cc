@@ -7,6 +7,7 @@
  ******************************************************************************
  */
 
+#include <algorithm>
 #include <atomic>
 #include <ranges>
 
@@ -111,7 +112,10 @@ KernelState::~KernelState() {
 
 void KernelState::ShutdownDispatchThread() {
   if (dispatch_thread_running_) {
-    dispatch_thread_running_ = false;
+    {
+      std::lock_guard lock(dispatch_mutex_);
+      dispatch_thread_running_ = false;
+    }
     dispatch_cond_.notify_all();
     dispatch_thread_->Wait(0, 0, 0, nullptr);
   }
@@ -547,20 +551,19 @@ void KernelState::SetExecutableModule(object_ref<UserModule> module) {
           // As we run guest callbacks the debugger must be able to suspend us.
           dispatch_thread_->set_can_debugger_suspend(true);
 
-          auto global_lock = global_critical_region_.AcquireDeferred();
-          while (dispatch_thread_running_) {
-            global_lock.lock();
-            if (dispatch_queue_.empty()) {
-              dispatch_cond_.wait(global_lock);
+          while (true) {
+            std::function<void()> fn;
+            {
+              std::unique_lock lock(dispatch_mutex_);
+              dispatch_cond_.wait(lock, [this]() {
+                return !dispatch_queue_.empty() || !dispatch_thread_running_;
+              });
               if (!dispatch_thread_running_) {
-                global_lock.unlock();
                 break;
               }
+              fn = std::move(dispatch_queue_.front());
+              dispatch_queue_.pop_front();
             }
-            auto fn = std::move(dispatch_queue_.front());
-            dispatch_queue_.pop_front();
-            global_lock.unlock();
-
             fn();
           }
           return 0;
@@ -1157,7 +1160,7 @@ void KernelState::CompleteOverlappedDeferredEx(
       ev.get<XEvent>()->Reset();
     }
   }
-  auto global_lock = global_critical_region_.Acquire();
+  std::lock_guard lock(dispatch_mutex_);
   dispatch_queue_.push_back([this, completion_callback, overlapped_ptr,
                              pre_callback, post_callback]() {
     if (pre_callback) {
@@ -1354,6 +1357,53 @@ void KernelState::EndDPCImpersonation(cpu::ppc::PPCContext* context,
   kpcr->current_irql = end_scope.previous_irql_;
   kpcr->prcb_data.dpc_active = 0;
 }
+void KernelState::QueueDpc(uint32_t dpc_ptr, uint32_t arg1, uint32_t arg2) {
+  {
+    std::lock_guard lock(dispatch_mutex_);
+    if (std::find(dispatch_dpcs_.begin(), dispatch_dpcs_.end(), dpc_ptr) !=
+        dispatch_dpcs_.end()) {
+      return;
+    }
+    dispatch_dpcs_.push_back(dpc_ptr);
+    dispatch_queue_.push_back([this, dpc_ptr, arg1, arg2]() {
+      {
+        std::lock_guard lock(dispatch_mutex_);
+        auto it =
+            std::find(dispatch_dpcs_.begin(), dispatch_dpcs_.end(), dpc_ptr);
+        // KeRemoveQueueDpc took it back.
+        if (it == dispatch_dpcs_.end()) {
+          return;
+        }
+        dispatch_dpcs_.erase(it);
+      }
+      auto dpc = memory()->TranslateVirtual<XDPC*>(dpc_ptr);
+      const uint32_t routine = dpc->routine;
+      if (!routine) {
+        return;
+      }
+      auto thread = XThread::GetCurrentThread();
+      auto context = thread->thread_state()->context();
+      DPCImpersonationScope dpc_scope{};
+      BeginDPCImpersonation(context, dpc_scope);
+      uint64_t args[] = {dpc_ptr, uint32_t(dpc->context), arg1, arg2};
+      processor_->Execute(thread->thread_state(), routine, args,
+                          xe::countof(args));
+      EndDPCImpersonation(context, dpc_scope);
+    });
+  }
+  dispatch_cond_.notify_all();
+}
+
+bool KernelState::RemoveDpc(uint32_t dpc_ptr) {
+  std::lock_guard lock(dispatch_mutex_);
+  auto it = std::find(dispatch_dpcs_.begin(), dispatch_dpcs_.end(), dpc_ptr);
+  if (it == dispatch_dpcs_.end()) {
+    return false;
+  }
+  dispatch_dpcs_.erase(it);
+  return true;
+}
+
 void KernelState::EmulateCPInterruptDPC(uint32_t interrupt_callback,
                                         uint32_t interrupt_callback_data,
                                         uint32_t source, uint32_t cpu) {

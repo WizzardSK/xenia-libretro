@@ -1815,6 +1815,9 @@ dword_result_t KeRemoveQueueDpc_entry(pointer_t<XDPC> dpc) {
     dpc_list->Remove(list_entry_ptr);
     result = true;
   }
+  if (kernel_state()->RemoveDpc(dpc.guest_address())) {
+    result = true;
+  }
 
   return result ? 1 : 0;
 }
@@ -2083,6 +2086,41 @@ void KeInitializeTimerEx_entry(pointer_t<X_KTIMER> timer, dword_t type,
   xeKeInitializeTimerEx(timer, type, proctype & 0xFF, context);
 }
 DECLARE_XBOXKRNL_EXPORT1(KeInitializeTimerEx, kThreading, kImplemented);
+
+// Returns whether the timer was already set.
+dword_result_t KeSetTimerEx_entry(pointer_t<X_KTIMER> timer, qword_t due_time,
+                                  dword_t period_ms, pointer_t<XDPC> dpc) {
+  auto native = XObject::GetNativeObject<XTimer>(kernel_state(), timer);
+  if (!native) {
+    return 0;
+  }
+  // Cancelled first, so an expiry of the previous setting can't overwrite the
+  // new one.
+  native->Cancel();
+  const uint32_t was_set = timer->header.inserted;
+  timer->header.inserted = 1;
+  timer->header.signal_state = 0;
+  timer->due_time = uint64_t(due_time);
+  timer->period = uint32_t(period_ms);
+  timer->dpc = dpc.guest_address();
+  native->SetTimer(int64_t(uint64_t(due_time)), period_ms, 0, 0, false,
+                   dpc.guest_address());
+  return was_set;
+}
+DECLARE_XBOXKRNL_EXPORT1(KeSetTimerEx, kThreading, kImplemented);
+
+// Returns whether the timer was set.
+dword_result_t KeCancelTimer_entry(pointer_t<X_KTIMER> timer) {
+  const uint32_t was_set = timer->header.inserted;
+  if (was_set) {
+    if (auto native = XObject::GetNativeObject<XTimer>(kernel_state(), timer)) {
+      native->Cancel();
+    }
+  }
+  timer->header.inserted = 0;
+  return was_set;
+}
+DECLARE_XBOXKRNL_EXPORT1(KeCancelTimer, kThreading, kImplemented);
 
 }  // namespace xboxkrnl
 }  // namespace kernel

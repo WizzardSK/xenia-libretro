@@ -34,7 +34,8 @@ std::vector<XTimer*>& LiveTimers() {
 }
 }  // namespace
 
-XTimer::XTimer(KernelState* kernel_state) : XObject(kernel_state, kObjectType) {
+XTimer::XTimer(KernelState* kernel_state, bool host_object)
+    : XObject(kernel_state, kObjectType, host_object) {
   std::lock_guard<std::mutex> lock(LiveTimersLock());
   LiveTimers().push_back(this);
 }
@@ -74,6 +75,13 @@ void XTimer::Initialize(uint32_t timer_type) {
   assert_not_null(timer_);
 }
 
+void XTimer::InitializeNative(void* native_ptr,
+                              const X_DISPATCH_HEADER* header) {
+  Initialize(header->type == X_OBJECT_TYPES::TimerSynchronizationObject ? 1
+                                                                        : 0);
+  SetNativePointer(memory()->HostToGuestVirtual(native_ptr), true);
+}
+
 void XTimer::CancelAll() {
   // Global lock first, as ~XTimer is entered holding it.
   auto global_lock = xe::global_critical_region::AcquireDirect();
@@ -86,7 +94,8 @@ void XTimer::CancelAll() {
 }
 
 X_STATUS XTimer::SetTimer(int64_t due_time, uint32_t period_ms,
-                          uint32_t routine, uint32_t routine_arg, bool resume) {
+                          uint32_t routine, uint32_t routine_arg, bool resume,
+                          uint32_t dpc) {
   using xe::chrono::WinSystemClock;
   using xe::chrono::XSystemClock;
 
@@ -139,12 +148,29 @@ X_STATUS XTimer::SetTimer(int64_t due_time, uint32_t period_ms,
     cb_apc = apc_ptr_;
   }
   std::function<void()> callback = nullptr;
-  if (routine || signal_) {
+  const uint32_t native = guest_object();
+  if (routine || signal_ || dpc || native) {
     // Signal and unwait cooperative waiters, as the timer DPC does.
     xe::threading::Event* signal = signal_.get();
-    callback = [this, signal, cb_thread, cb_apc, routine, routine_arg]() {
+    const bool periodic = period_ms != 0;
+    callback = [this, signal, cb_thread, cb_apc, routine, routine_arg, dpc,
+                native, periodic]() {
       if (signal) {
         signal->Set();
+      }
+      if (native) {
+        // Signal the guest KTIMER. A one-shot expiry also leaves the timer
+        // queue.
+        auto header = memory()->TranslateVirtual<X_DISPATCH_HEADER*>(native);
+        header->signal_state = 1;
+        if (!periodic) {
+          header->inserted = 0;
+        }
+      }
+      if (dpc) {
+        // The time it expired at is the DPC's system arguments.
+        const uint64_t time = xe::Clock::QueryGuestSystemTime();
+        kernel_state()->QueueDpc(dpc, uint32_t(time), uint32_t(time >> 32));
       }
       if (cb_thread) {
         // Queue APC to call back routine with (arg, low, high).

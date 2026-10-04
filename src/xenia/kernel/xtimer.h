@@ -25,13 +25,16 @@ class XTimer : public XObject {
  public:
   static const XObject::Type kObjectType = XObject::Type::Timer;
 
-  explicit XTimer(KernelState* kernel_state);
+  explicit XTimer(KernelState* kernel_state, bool host_object = false);
   ~XTimer() override;
 
   void Initialize(uint32_t timer_type);
+  // Backs a KTIMER the guest initialized itself.
+  void InitializeNative(void* native_ptr, const X_DISPATCH_HEADER* header);
 
+  // |dpc| is the KDPC KeSetTimerEx passes, queued on each expiry.
   X_STATUS SetTimer(int64_t due_time, uint32_t period_ms, uint32_t routine,
-                    uint32_t routine_arg, bool resume);
+                    uint32_t routine_arg, bool resume, uint32_t dpc = 0);
   X_STATUS Cancel();
 
   // Disarms every timer so none fires into a kernel being torn down.
