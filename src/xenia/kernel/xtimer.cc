@@ -102,19 +102,23 @@ X_STATUS XTimer::SetTimer(int64_t due_time, uint32_t period_ms,
   std::lock_guard<std::mutex> lock(timer_lock_);
 
   period_ms = Clock::ScaleGuestDurationMillis(period_ms);
-  WinSystemClock::time_point due_tp;
-  if (due_time < 0) {
-    // Any timer implementation uses absolute times eventually, convert as early
-    // as possible for increased accuracy
-    auto after = xe::chrono::hundrednanoseconds(-due_time);
-    due_tp = date::clock_cast<WinSystemClock>(XSystemClock::now() + after);
-  } else {
-    due_tp = date::clock_cast<WinSystemClock>(
-        XSystemClock::from_file_time(due_time));
+  // The console expires timers only on its 1 ms clock tick and counts a
+  // relative due time from the last tick. An expiry rounds up to a tick and one
+  // already due at the last tick fires at once.
+  constexpr uint64_t kClockTick = 10000;
+  const uint64_t now = XSystemClock::to_file_time(XSystemClock::now());
+  const uint64_t last_tick = now - now % kClockTick;
+  const uint64_t due = due_time < 0
+                           ? last_tick + (0 - static_cast<uint64_t>(due_time))
+                           : static_cast<uint64_t>(due_time);
+  uint64_t expiry = now;
+  if (due > last_tick) {
+    expiry = (due + kClockTick - 1) / kClockTick * kClockTick;
   }
+  WinSystemClock::time_point due_tp =
+      date::clock_cast<WinSystemClock>(XSystemClock::from_file_time(expiry));
 
-  // An absolute due time of 0 means fire now. Clamp past times before the
-  // host timers convert them.
+  // Clamp past times before the host timers convert them.
   auto now_wsc = WinSystemClock::now();
   if (due_tp < now_wsc) {
     due_tp = now_wsc;
