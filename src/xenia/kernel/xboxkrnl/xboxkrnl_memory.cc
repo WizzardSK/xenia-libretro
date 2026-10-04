@@ -8,6 +8,13 @@
  */
 
 #include "xenia/kernel/xboxkrnl/xboxkrnl_memory.h"
+
+#include <algorithm>
+#include <cstring>
+#include <mutex>
+#include <unordered_map>
+#include <vector>
+
 #include "xenia/base/logging.h"
 #include "xenia/cpu/processor.h"
 #include "xenia/cpu/xex_module.h"
@@ -702,6 +709,123 @@ dword_result_t MmGetPhysicalAddress_entry(dword_t base_address) {
   return physical_address;
 }
 DECLARE_XBOXKRNL_EXPORT1(MmGetPhysicalAddress, kMemory, kImplemented);
+
+// A segment array mapping of scattered pages, by the base of its copy.
+struct SegmentArrayCopy {
+  std::vector<uint32_t> pages;
+  // What the mapped bytes held when locked, empty for a read-only mapping.
+  std::vector<uint8_t> original;
+};
+static std::mutex segment_array_mutex;
+static std::unordered_map<uint32_t, SegmentArrayCopy> segment_array_copies;
+
+void xeMmForgetSegmentArrays() {
+  std::lock_guard<std::mutex> lock(segment_array_mutex);
+  segment_array_copies.clear();
+}
+
+// Checked before a copy touches a page, as a page the guest cannot access would
+// fault in host code.
+static bool SegmentPageAccessible(Memory* memory, uint32_t page, bool write) {
+  auto heap = memory->LookupHeap(page);
+  if (!heap) {
+    return false;
+  }
+  const auto access = heap->QueryRangeAccess(page, page + 0xFFF);
+  return write ? access == xe::memory::PageAccess::kReadWrite
+               : access != xe::memory::PageAccess::kNoAccess;
+}
+
+// Maps the 4 KB pages listed in |segment_array| as one range. |length| includes
+// the offset into the first page, which the caller adds to the base itself.
+dword_result_t MmLockAndMapSegmentArray_entry(dword_t unk0,
+                                              lpdword_t segment_array,
+                                              dword_t length,
+                                              dword_t read_only) {
+  const uint32_t page_count = (length + 0xFFF) >> 12;
+  if (!page_count) {
+    return 0;
+  }
+  std::vector<uint32_t> pages(page_count);
+  bool contiguous = true;
+  for (uint32_t i = 0; i < page_count; ++i) {
+    pages[i] = segment_array[i] & ~0xFFFu;
+    contiguous &= pages[i] == pages[0] + (i << 12);
+  }
+  // Pages that already form one range map as themselves.
+  if (contiguous) {
+    return pages[0];
+  }
+  // Scattered pages have no contiguous alias in the guest address space, so the
+  // caller works on a copy, which goes back on unmap unless it was read-only.
+  auto memory = kernel_memory();
+  for (uint32_t page : pages) {
+    if (!SegmentPageAccessible(memory, page, !read_only)) {
+      XELOGE("MmLockAndMapSegmentArray: page {:08X} is not accessible", page);
+      return 0;
+    }
+  }
+  const uint32_t copy = memory->SystemHeapAlloc(page_count << 12, 0x1000);
+  if (!copy) {
+    XELOGE("MmLockAndMapSegmentArray: no memory to copy {} pages", page_count);
+    return 0;
+  }
+  for (uint32_t i = 0; i < page_count; ++i) {
+    std::memcpy(memory->TranslateVirtual(copy + (i << 12)),
+                memory->TranslateVirtual(pages[i]), 0x1000);
+  }
+  SegmentArrayCopy entry;
+  entry.pages = std::move(pages);
+  if (!read_only) {
+    const uint8_t* bytes = memory->TranslateVirtual(copy);
+    entry.original.assign(bytes, bytes + length);
+  }
+  std::lock_guard<std::mutex> lock(segment_array_mutex);
+  segment_array_copies[copy] = std::move(entry);
+  return copy;
+}
+DECLARE_XBOXKRNL_EXPORT2(MmLockAndMapSegmentArray, kMemory, kImplemented,
+                         kSketchy);
+
+void MmUnlockAndUnmapSegmentArray_entry(dword_t base_address) {
+  SegmentArrayCopy entry;
+  {
+    std::lock_guard<std::mutex> lock(segment_array_mutex);
+    auto it = segment_array_copies.find(base_address);
+    // A contiguous mapping is the pages themselves.
+    if (it == segment_array_copies.end()) {
+      return;
+    }
+    entry = std::move(it->second);
+    segment_array_copies.erase(it);
+  }
+  auto memory = kernel_memory();
+  // Only the bytes the caller changed go back, so other writes to the pages
+  // since the lock stay.
+  const uint32_t length = static_cast<uint32_t>(entry.original.size());
+  for (uint32_t offset = 0; offset < length; offset += 0x1000) {
+    const uint32_t size = std::min(length - offset, 0x1000u);
+    const uint8_t* now = memory->TranslateVirtual(base_address + offset);
+    const uint8_t* was = entry.original.data() + offset;
+    if (!std::memcmp(now, was, size)) {
+      continue;
+    }
+    // Freed since the lock, so nothing is left to write back to.
+    const uint32_t page_address = entry.pages[offset >> 12];
+    if (!SegmentPageAccessible(memory, page_address, true)) {
+      continue;
+    }
+    uint8_t* page = memory->TranslateVirtual(page_address);
+    for (uint32_t i = 0; i < size; ++i) {
+      if (now[i] != was[i]) {
+        page[i] = now[i];
+      }
+    }
+  }
+  memory->SystemHeapFree(base_address);
+}
+DECLARE_XBOXKRNL_EXPORT2(MmUnlockAndUnmapSegmentArray, kMemory, kImplemented,
+                         kSketchy);
 
 dword_result_t MmMapIoSpace_entry(dword_t unk0, lpvoid_t src_address,
                                   dword_t size, dword_t flags) {
