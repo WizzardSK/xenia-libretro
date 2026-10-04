@@ -481,11 +481,16 @@ void ObReferenceObject_entry(dword_t native_ptr) {
 }
 DECLARE_XBOXKRNL_EXPORT1(ObReferenceObject, kNone, kImplemented);
 
-std::string xeObSymbolicLinkName(const std::string_view name) {
-  auto path = xe::utf8::canonicalize_guest_path(name);
-  if (xe::utf8::starts_with_case(path, "\\??\\")) {
+void xeObStripDosDevicesPrefix(std::string& path) {
+  // Bytes, as a guest name need not be valid UTF-8.
+  if (path.starts_with("\\??\\")) {
     path.erase(0, 4);
   }
+}
+
+std::string xeObSymbolicLinkName(const std::string_view name) {
+  auto path = xe::utf8::canonicalize_guest_path(name);
+  xeObStripDosDevicesPrefix(path);
 
   if (xe::utf8::starts_with_case(path, "\\System??\\")) {
     path.erase(0, 10);

@@ -32,6 +32,9 @@ uint32_t xeObCreateObject(X_OBJECT_TYPE* object_factory,
                           X_OBJECT_ATTRIBUTES* optional_attributes,
                           uint32_t object_size_sans_headers,
                           uint32_t* out_object, cpu::ppc::PPCContext* context);
+// Drops a leading \??\, the DOS devices directory the ObDosDevices root also
+// names, so \??\game:\file is game:\file.
+void xeObStripDosDevicesPrefix(std::string& path);
 // Canonical link name without the \??\ or \System??\ object directory.
 std::string xeObSymbolicLinkName(std::string_view name);
 }  // namespace xboxkrnl

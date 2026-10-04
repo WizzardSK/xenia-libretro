@@ -101,8 +101,16 @@ dword_result_t NtCreateFile_entry(lpdword_t handle_out, dword_t desired_access,
 
   vfs::Entry* root_entry = nullptr;
 
+  const bool has_root_handle =
+      object_attrs->root_directory != 0xFFFFFFFD &&  // ObDosDevices
+      object_attrs->root_directory != 0;
+
   // Compute path, possibly attrs relative.
   auto target_path = util::TranslateAnsiPath(kernel_memory(), object_name);
+  // A name relative to a directory handle is never under \??\.
+  if (!has_root_handle) {
+    xeObStripDosDevicesPrefix(target_path);
+  }
 
   // Enforce that the path is ASCII.
   if (!IsValidPath(target_path, false)) {
@@ -110,8 +118,7 @@ dword_result_t NtCreateFile_entry(lpdword_t handle_out, dword_t desired_access,
     return X_STATUS_OBJECT_NAME_INVALID;
   }
 
-  if (object_attrs->root_directory != 0xFFFFFFFD &&  // ObDosDevices
-      object_attrs->root_directory != 0) {
+  if (has_root_handle) {
     auto root_file = kernel_state()->object_table()->LookupObject<XFile>(
         object_attrs->root_directory);
     assert_not_null(root_file);
@@ -525,6 +532,10 @@ dword_result_t NtQueryFullAttributesFile_entry(
   }
 
   auto target_path = util::TranslateAnsiPath(kernel_memory(), object_name);
+  // A name relative to a directory handle is never under \??\.
+  if (!root_file) {
+    xeObStripDosDevicesPrefix(target_path);
+  }
 
   // Enforce that the path is ASCII.
   if (!IsValidPath(target_path, false)) {
