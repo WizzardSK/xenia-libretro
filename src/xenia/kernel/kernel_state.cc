@@ -1352,6 +1352,8 @@ void KernelState::BeginDPCImpersonation(cpu::ppc::PPCContext* context,
 }
 void KernelState::EndDPCImpersonation(cpu::ppc::PPCContext* context,
                                       DPCImpersonationScope& end_scope) {
+  // DPCs the routine queued run before the CPU leaves DISPATCH_LEVEL.
+  xboxkrnl::xeRunDeferredDpcs(context);
   auto kpcr = context->TranslateVirtualGPR<X_KPCR*>(context->r[13]);
   xenia_assert(kpcr->prcb_data.dpc_active == 1);
   kpcr->current_irql = end_scope.previous_irql_;
@@ -1376,18 +1378,10 @@ void KernelState::QueueDpc(uint32_t dpc_ptr, uint32_t arg1, uint32_t arg2) {
         }
         dispatch_dpcs_.erase(it);
       }
-      auto dpc = memory()->TranslateVirtual<XDPC*>(dpc_ptr);
-      const uint32_t routine = dpc->routine;
-      if (!routine) {
-        return;
-      }
-      auto thread = XThread::GetCurrentThread();
-      auto context = thread->thread_state()->context();
+      auto context = XThread::GetCurrentThread()->thread_state()->context();
       DPCImpersonationScope dpc_scope{};
       BeginDPCImpersonation(context, dpc_scope);
-      uint64_t args[] = {dpc_ptr, uint32_t(dpc->context), arg1, arg2};
-      processor_->Execute(thread->thread_state(), routine, args,
-                          xe::countof(args));
+      xboxkrnl::xeRunDpc(context, dpc_ptr, arg1, arg2);
       EndDPCImpersonation(context, dpc_scope);
     });
   }
