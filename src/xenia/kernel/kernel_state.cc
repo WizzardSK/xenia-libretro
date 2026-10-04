@@ -96,6 +96,10 @@ KernelState::~KernelState() {
   guest_scheduler_->Shutdown();
   // Guest code may have re-armed one since.
   XTimer::CancelAll();
+  for (auto& dpcs : processor_dpcs_) {
+    dpcs.thread.reset();
+    dpcs.event.reset();
+  }
 
   executable_module_.reset();
   user_modules_.clear();
@@ -1360,6 +1364,14 @@ void KernelState::EndDPCImpersonation(cpu::ppc::PPCContext* context,
   kpcr->prcb_data.dpc_active = 0;
 }
 void KernelState::QueueDpc(uint32_t dpc_ptr, uint32_t arg1, uint32_t arg2) {
+  auto target = memory()->TranslateVirtual<XDPC*>(dpc_ptr);
+  const uint8_t desired_cpu = target->desired_cpu_number;
+  if (target->routine && desired_cpu && desired_cpu <= 6 &&
+      processor_dpcs_[desired_cpu - 1].started.load(
+          std::memory_order_acquire)) {
+    QueueProcessorDpc(desired_cpu - 1, dpc_ptr, arg1, arg2);
+    return;
+  }
   {
     std::lock_guard lock(dispatch_mutex_);
     if (std::find(dispatch_dpcs_.begin(), dispatch_dpcs_.end(), dpc_ptr) !=
@@ -1386,6 +1398,105 @@ void KernelState::QueueDpc(uint32_t dpc_ptr, uint32_t arg1, uint32_t arg2) {
     });
   }
   dispatch_cond_.notify_all();
+}
+
+void KernelState::StartProcessorDpcThread(uint8_t cpu) {
+  auto& dpcs = processor_dpcs_[cpu];
+  if (dpcs.started.load(std::memory_order_acquire) ||
+      !GuestScheduler::enabled()) {
+    return;
+  }
+  auto global_lock = global_critical_region_.Acquire();
+  if (dpcs.thread) {
+    return;
+  }
+  dpcs.event = object_ref<XEvent>(new XEvent(this, true));
+  dpcs.event->Initialize(false, false);
+  dpcs.thread = object_ref<XHostThread>(new XHostThread(
+      this, 128 * 1024, (1u << cpu) << 24,
+      [this, cpu]() {
+        RunProcessorDpcs(cpu);
+        return 0;
+      },
+      GetSystemProcess(), true));
+  dpcs.thread->set_can_debugger_suspend(true);
+  dpcs.thread->set_name(fmt::format("DPC Processor {}", cpu));
+  if (XFAILED(dpcs.thread->Create())) {
+    dpcs.thread.reset();
+    dpcs.event.reset();
+    return;
+  }
+  // At the top priority, as a DPC interrupts what runs below DISPATCH_LEVEL.
+  dpcs.thread->SetPriority(31);
+  dpcs.started.store(true, std::memory_order_release);
+}
+
+bool KernelState::QueueProcessorDpc(uint8_t cpu, uint32_t dpc_ptr,
+                                    uint32_t arg1, uint32_t arg2) {
+  auto& dpcs = processor_dpcs_[cpu];
+  {
+    std::lock_guard lock(dpcs.lock);
+    if (std::find(dpcs.queue.begin(), dpcs.queue.end(), dpc_ptr) !=
+        dpcs.queue.end()) {
+      return false;
+    }
+    auto dpc = memory()->TranslateVirtual<XDPC*>(dpc_ptr);
+    dpc->arg1 = arg1;
+    dpc->arg2 = arg2;
+    dpcs.queue.push_back(dpc_ptr);
+  }
+  dpcs.event->Set(0, false);
+  return true;
+}
+
+bool KernelState::IsProcessorDpcQueued(uint8_t cpu, uint32_t dpc_ptr) {
+  auto& dpcs = processor_dpcs_[cpu];
+  if (!dpcs.started.load(std::memory_order_acquire)) {
+    return false;
+  }
+  std::lock_guard lock(dpcs.lock);
+  return std::find(dpcs.queue.begin(), dpcs.queue.end(), dpc_ptr) !=
+         dpcs.queue.end();
+}
+
+bool KernelState::RemoveProcessorDpc(uint32_t dpc_ptr) {
+  for (auto& dpcs : processor_dpcs_) {
+    std::lock_guard lock(dpcs.lock);
+    auto it = std::find(dpcs.queue.begin(), dpcs.queue.end(), dpc_ptr);
+    if (it != dpcs.queue.end()) {
+      dpcs.queue.erase(it);
+      return true;
+    }
+  }
+  return false;
+}
+
+void KernelState::RunProcessorDpcs(uint8_t cpu) {
+  auto& dpcs = processor_dpcs_[cpu];
+  auto context = XThread::GetCurrentThread()->thread_state()->context();
+  while (true) {
+    dpcs.event->Wait(0, 0, 0, nullptr);
+    DPCImpersonationScope dpc_scope{};
+    BeginDPCImpersonation(context, dpc_scope);
+    while (true) {
+      // Its arguments are taken as it leaves the queue, so KeInsertQueueDpc
+      // may queue it again before it runs.
+      uint32_t dpc_ptr, arg1, arg2;
+      {
+        std::lock_guard lock(dpcs.lock);
+        if (dpcs.queue.empty()) {
+          break;
+        }
+        dpc_ptr = dpcs.queue.front();
+        dpcs.queue.pop_front();
+        auto dpc = memory()->TranslateVirtual<XDPC*>(dpc_ptr);
+        arg1 = dpc->arg1;
+        arg2 = dpc->arg2;
+      }
+      xboxkrnl::xeRunDpc(context, dpc_ptr, arg1, arg2);
+    }
+    EndDPCImpersonation(context, dpc_scope);
+  }
 }
 
 bool KernelState::RemoveDpc(uint32_t dpc_ptr) {

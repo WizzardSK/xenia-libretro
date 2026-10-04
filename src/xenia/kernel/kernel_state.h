@@ -10,8 +10,10 @@
 #ifndef XENIA_KERNEL_KERNEL_STATE_H_
 #define XENIA_KERNEL_KERNEL_STATE_H_
 
+#include <atomic>
 #include <bitset>
 #include <condition_variable>
+#include <deque>
 #include <functional>
 #include <list>
 #include <mutex>
@@ -345,12 +347,28 @@ class KernelState {
   void EndDPCImpersonation(cpu::ppc::PPCContext* context,
                            DPCImpersonationScope& end_scope);
 
-  // Queues a KDPC with |arg1| and |arg2| as its system arguments to run on the
-  // dispatch thread, for an expiry that fires on a host thread. A KDPC already
-  // queued there is left as it is.
+  // Queues a KDPC with |arg1| and |arg2| as its system arguments, for an expiry
+  // that fires on a host thread: on its target processor's DPC thread if that
+  // has started, else on the dispatch thread. A KDPC already queued there is
+  // left as it is.
   void QueueDpc(uint32_t dpc_ptr, uint32_t arg1, uint32_t arg2);
   // Dequeues a KDPC QueueDpc queued if it hasn't started.
   bool RemoveDpc(uint32_t dpc_ptr);
+
+  // Starts the scheduler thread that runs DPCs on guest processor |cpu|, if
+  // the guest scheduler runs and it hasn't started. Called from guest code,
+  // never from a host timer thread.
+  void StartProcessorDpcThread(uint8_t cpu);
+  // Queues a KDPC to run at DISPATCH_LEVEL on guest processor |cpu|, whose DPC
+  // thread has started. The scheduler runs that thread on the processor ahead
+  // of lower priority threads, standing in for the console's DPC interrupt.
+  // Returns false, leaving its arguments, if the DPC is already queued.
+  bool QueueProcessorDpc(uint8_t cpu, uint32_t dpc_ptr, uint32_t arg1,
+                         uint32_t arg2);
+  // Whether a KDPC waits in guest processor |cpu|'s DPC queue.
+  bool IsProcessorDpcQueued(uint8_t cpu, uint32_t dpc_ptr);
+  // Dequeues a KDPC QueueProcessorDpc queued if it hasn't run yet.
+  bool RemoveProcessorDpc(uint32_t dpc_ptr);
 
   void EmulateCPInterruptDPC(uint32_t interrupt_callback,
                              uint32_t interrupt_callback_data, uint32_t source,
@@ -418,6 +436,17 @@ class KernelState {
   std::list<std::function<void()>> dispatch_queue_;
   // KDPCs queued on the dispatch thread that haven't started.
   std::vector<uint32_t> dispatch_dpcs_;
+
+  // DPCs queued to each guest processor and the thread that runs them there.
+  struct ProcessorDpcs {
+    std::mutex lock;
+    std::deque<uint32_t> queue;
+    object_ref<XEvent> event;
+    object_ref<XHostThread> thread;
+    std::atomic<bool> started{false};
+  };
+  ProcessorDpcs processor_dpcs_[6];
+  void RunProcessorDpcs(uint8_t cpu);
 
   uint32_t ke_timestamp_bundle_ptr_ = 0;
   std::unique_ptr<xe::threading::HighResolutionTimer> timestamp_timer_;

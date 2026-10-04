@@ -1820,21 +1820,39 @@ dword_result_t KeInsertQueueDpc_entry(pointer_t<XDPC> dpc, dword_t arg1,
     return 0;
   }
 
+  // A DPC targeted at another processor runs there, interrupting whatever runs
+  // on it below DISPATCH_LEVEL. Only a fiber pinned to that processor can
+  // stand in for it.
+  auto thread = XThread::GetCurrentThread();
+  const uint8_t desired_cpu = dpc->desired_cpu_number;
+  if (dpc->routine && thread && desired_cpu && desired_cpu <= 6 &&
+      GuestScheduler::enabled()) {
+    auto ppc_context = thread->thread_state()->context();
+    auto kpcr = ppc_context->TranslateVirtualGPR<X_KPCR*>(ppc_context->r[13]);
+    if (desired_cpu - 1 != kpcr->prcb_data.current_cpu ||
+        !XThread::GetCurrentFiberThread()) {
+      kernel_state()->StartProcessorDpcThread(desired_cpu - 1);
+      return kernel_state()->QueueProcessorDpc(desired_cpu - 1,
+                                               dpc.guest_address(), arg1, arg2)
+                 ? 1
+                 : 0;
+    }
+    if (kernel_state()->IsProcessorDpcQueued(desired_cpu - 1,
+                                             dpc.guest_address())) {
+      return 0;
+    }
+  }
+
   // Prep DPC.
   dpc->arg1 = (uint32_t)arg1;
   dpc->arg2 = (uint32_t)arg2;
 
   dpc_list->Insert(list_entry_ptr);
 
-  // Dispatch the DPC inline on the calling thread.  On real hardware DPCs
-  // are deferred to DISPATCH_IRQL on the target processor, but DPC routines
-  // access per-CPU state via r13 (KPCR) so they must run on a thread whose
-  // KPCR is valid for the target CPU.  The calling thread's KPCR satisfies
-  // this for the common case (desired_cpu_number == 0, meaning current CPU).
-  // Inline dispatch also avoids latency issues with shared work queues.
+  // Otherwise it runs inline on the calling thread: it targets the calling
+  // processor, or no scheduler can run it elsewhere.
   uint32_t routine = dpc->routine;
   if (routine) {
-    auto thread = XThread::GetCurrentThread();
     if (thread) {
       auto thread_state = thread->thread_state();
       auto ppc_context = thread_state->context();
@@ -1871,6 +1889,9 @@ dword_result_t KeRemoveQueueDpc_entry(pointer_t<XDPC> dpc) {
     result = true;
   }
   if (kernel_state()->RemoveDpc(dpc.guest_address())) {
+    result = true;
+  }
+  if (kernel_state()->RemoveProcessorDpc(dpc.guest_address())) {
     result = true;
   }
   for (auto it = deferred_dpcs.begin(); it != deferred_dpcs.end(); ++it) {
@@ -2159,6 +2180,11 @@ dword_result_t KeSetTimerEx_entry(pointer_t<X_KTIMER> timer, qword_t due_time,
   // Cancelled first, so an expiry of the previous setting can't overwrite the
   // new one.
   native->Cancel();
+  // Its expiry queues a DPC targeted at a processor on that processor's DPC
+  // thread, which only guest code can start.
+  if (dpc && dpc->desired_cpu_number && dpc->desired_cpu_number <= 6) {
+    kernel_state()->StartProcessorDpcThread(dpc->desired_cpu_number - 1);
+  }
   const uint32_t was_set = timer->header.inserted;
   timer->header.inserted = 1;
   timer->header.signal_state = 0;

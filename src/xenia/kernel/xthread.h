@@ -436,10 +436,10 @@ class XThread : public XObject, public cpu::Thread {
   bool main_thread() const { return main_thread_; }
   bool is_running() const { return running_; }
 
-  // True for threads that run a host C++ routine (XHostThread) rather than
-  // guest PPC code. These always use a real host thread, never a cooperative
-  // fiber, since they run host loops/blocking and other code dereferences their
-  // thread().
+  // True for threads that run a host C++ routine (XHostThread) on a real host
+  // thread rather than a cooperative fiber, since they run host loops/blocking
+  // and other code dereferences their thread(). An XHostThread created on a
+  // fiber is not one.
   virtual bool is_host_thread() const { return false; }
 
   uint32_t thread_id() const { return thread_id_; }
@@ -826,16 +826,19 @@ class XThread : public XObject, public cpu::Thread {
 
 class XHostThread : public XThread {
  public:
+  // |on_fiber| runs |host_fn| on a scheduler fiber instead, for a routine that
+  // only blocks in guest waits.
   XHostThread(KernelState* kernel_state, uint32_t stack_size,
               uint32_t creation_flags, std::function<int()> host_fn,
-              uint32_t guest_process = 0);
+              uint32_t guest_process = 0, bool on_fiber = false);
 
-  bool is_host_thread() const override { return true; }
+  bool is_host_thread() const override { return !on_fiber_; }
 
   void Execute() override;
 
  private:
   std::function<int()> host_fn_;
+  bool on_fiber_;
 };
 
 }  // namespace kernel
