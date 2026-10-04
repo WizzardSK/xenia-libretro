@@ -115,7 +115,7 @@ struct X64DynamicCallCacheEntry {
   uint32_t kind;
   uint64_t host_address;
 };
-constexpr uint32_t kX64DynamicCallCacheSize = 4096;
+constexpr uint32_t kX64DynamicCallCacheSize = 16384;
 // EmitDynamicCallLookup indexes and loads these itself.
 static_assert(sizeof(X64DynamicCallCacheEntry) == 16);
 static_assert(offsetof(X64DynamicCallCacheEntry, host_address) == 8);
