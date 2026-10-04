@@ -529,23 +529,76 @@ void Processor::InvalidateCodeRange(uint32_t address, uint32_t length) {
   const uint32_t end = address + length - 1;
   auto global_lock = global_critical_region_.Acquire();
   RecordSweptCode(address, length);
-  for (Function* function : entry_table_.DeleteRange(address, end)) {
+  auto forget = [this, address, end](Function* function) {
     if (!function) {
-      continue;
+      return;
     }
     // The entry is what a call looks up, but the module would hand back the
     // same already defined symbol and never compile the new code.
     if (function->module()) {
       function->module()->ForgetSymbol(function->address());
     }
-    // The dynamic call cache keys a function by its entry, which a patch
-    // inside it misses.
-    if (function->address() < address) {
+    // The dynamic call cache keys a function by its entry, which the range
+    // misses for a patch inside it or code compiled under another name.
+    if (function->address() < address || function->address() > end) {
       backend_->InvalidateDynamicCalls(function->address(),
                                        function->address());
     }
+  };
+  for (Function* function : entry_table_.DeleteRange(address, end)) {
+    forget(function);
+  }
+  // Dynamic code compiled under another name for the same memory.
+  if (!dynamic_code_pieces_.empty()) {
+    for (uint64_t page = address & ~uint64_t(0xFFF); page <= end;
+         page += 0x1000) {
+      const uint32_t piece = uint32_t(std::max<uint64_t>(page, address));
+      const uint64_t key = CodeRangeKey(piece);
+      const uint64_t end_key =
+          key + (std::min<uint64_t>(page + 0x1000, uint64_t(end) + 1) - piece);
+      // No piece crosses a page, which makes the page's first key the lowest
+      // that can overlap.
+      auto it = dynamic_code_pieces_.lower_bound(key & ~uint64_t(0xFFF));
+      while (it != dynamic_code_pieces_.end() && it->first < end_key) {
+        if (it->second.end_key <= key) {
+          ++it;
+          continue;
+        }
+        const uint32_t function_address = it->second.function_address;
+        it = dynamic_code_pieces_.erase(it);
+        for (Function* function :
+             entry_table_.DeleteRange(function_address, function_address)) {
+          forget(function);
+        }
+      }
+    }
   }
   backend_->InvalidateDynamicCalls(address, end);
+}
+
+void Processor::RecordDynamicCode(const Function* function) {
+  const uint64_t start = function->address();
+  // The end address is the last instruction's.
+  const uint64_t end = std::max<uint64_t>(function->end_address(), start) + 4;
+  auto global_lock = global_critical_region_.Acquire();
+  for (uint64_t piece = start; piece < end;) {
+    const uint64_t piece_end =
+        std::min<uint64_t>((piece & ~uint64_t(0xFFF)) + 0x1000, end);
+    const uint64_t key = CodeRangeKey(uint32_t(piece));
+    const uint64_t end_key = key + (piece_end - piece);
+    // A recompile of the same function reuses its piece rather than piling up.
+    auto [first, last] = dynamic_code_pieces_.equal_range(key);
+    auto same = std::find_if(first, last, [function](const auto& existing) {
+      return existing.second.function_address == function->address();
+    });
+    if (same != last) {
+      same->second.end_key = std::max(same->second.end_key, end_key);
+    } else {
+      dynamic_code_pieces_.emplace(
+          key, DynamicCodePiece{end_key, function->address()});
+    }
+    piece = piece_end;
+  }
 }
 
 void Processor::RecordSweptCode(uint32_t address, uint32_t length) {
@@ -640,7 +693,12 @@ Function* Processor::ResolveFunction(uint32_t address) {
       }
     }
 
+    // A sweep must not find dynamic code ready before its pieces are recorded.
+    auto global_lock = global_critical_region_.Acquire();
     entry_table_.MarkReady(entry, function, function->end_address());
+    if (module_for == dynamic_code_module_.get()) {
+      RecordDynamicCode(function);
+    }
     status = Entry::STATUS_READY;
   }
   if (status == Entry::STATUS_READY) {

@@ -373,6 +373,16 @@ class Processor {
   // Swept code ranges by start key, holding the exclusive end of each.
   // Guarded with the global lock.
   std::map<uint64_t, uint64_t> swept_code_ranges_;
+  // Dynamic code can be written through one name and compiled under another
+  // and a sweep finds what was compiled from its memory by key. Each piece lies
+  // in one 4 KB page, since the next page can be anywhere physically.
+  struct DynamicCodePiece {
+    uint64_t end_key;
+    uint32_t function_address;
+  };
+  void RecordDynamicCode(const Function* function);
+  // Dynamic code pieces by start key. Guarded with the global lock.
+  std::multimap<uint64_t, DynamicCodePiece> dynamic_code_pieces_;
 
   // Maps thread ID to state. Updated on thread create, and threads are never
   // removed. Must be guarded with the global lock.
