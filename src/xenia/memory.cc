@@ -1156,8 +1156,11 @@ bool Memory::UserPageBlockIsContiguous(uint32_t page,
     const UserPageState state =
         TranslateUserPage(page + offset, &entry_address, &protection);
     if (state == UserPageState::kNoEntry || state == UserPageState::kNoTable) {
-      // A missing entry can't disagree with the run. The tail of an image or
-      // heap that doesn't end on 64 KB leaves these.
+      // A missing entry has to fault on its own, which takes 4 KB views.
+      // Without them one view still shows the entries that are there.
+      if (system_page_size_ == kUserSmallPageSize) {
+        return false;
+      }
       continue;
     }
     if (state != UserPageState::kMapped ||
@@ -1221,6 +1224,22 @@ bool Memory::MapUserPage(uint32_t window_offset, bool allow_fallback) {
       state == UserPageState::kScattered) {
     if (SplitUserPage(index)) {
       return MapUserPiece(window_offset / kUserSmallPageSize, allow_fallback);
+    }
+  } else if (allow_fallback && state != UserPageState::kMapped) {
+    // Showing the kernel address space over the whole page would hide the
+    // entries the table does have.
+    for (uint32_t offset = 0; offset < kUserPageSize;
+         offset += kUserSmallPageSize) {
+      const uint32_t piece_offset = window_page + offset;
+      uint32_t unused_physical_address;
+      if (TranslateUserPage(piece_offset - UserWindowSkew(piece_offset),
+                            &unused_physical_address) ==
+          UserPageState::kMapped) {
+        if (SplitUserPage(index)) {
+          return MapUserPiece(window_offset / kUserSmallPageSize, true);
+        }
+        break;
+      }
     }
   }
   if (state != UserPageState::kMapped) {
