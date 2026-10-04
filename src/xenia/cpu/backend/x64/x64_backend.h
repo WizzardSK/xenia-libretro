@@ -105,6 +105,9 @@ enum X64DynamicCallCacheKind : uint32_t {
   // Cached by a direct call, which skips the return site checks a branch to
   // the same address needs.
   kX64DynamicCallDirectOnly = 1,
+  // A function at a return site. A branch takes it only when no live frame
+  // returns there and ResolveLongjmp couldn't apply.
+  kX64DynamicCallReturnSite = 2,
 };
 // A resolved guest address that has no indirection slot.
 struct X64DynamicCallCacheEntry {
