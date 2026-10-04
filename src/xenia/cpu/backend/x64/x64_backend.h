@@ -99,10 +99,17 @@ enum : uint32_t {
   kX64BackendMXCSRDazBit =
       4,  // when the mode bit says vmx, the loaded mxcsr is mxcsr_vmx_daz
 };
+// Which lookups take a dynamic call cache entry.
+enum X64DynamicCallCacheKind : uint32_t {
+  kX64DynamicCallAny = 0,
+  // Cached by a direct call, which skips the return site checks a branch to
+  // the same address needs.
+  kX64DynamicCallDirectOnly = 1,
+};
 // A resolved guest address that has no indirection slot.
 struct X64DynamicCallCacheEntry {
   uint32_t guest_address;
-  uint32_t unused;
+  uint32_t kind;
   uint64_t host_address;
 };
 constexpr uint32_t kX64DynamicCallCacheSize = 4096;

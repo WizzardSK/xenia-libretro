@@ -782,19 +782,23 @@ static uint32_t DynamicCallCacheIndex(uint32_t guest_address) {
          (kX64DynamicCallCacheSize - 1);
 }
 
-// Resolves a target without an indirection slot and caches it per thread.
+// Resolves a target without an indirection slot and caches it per thread. A
+// direct bl is never a return and skips the return site checks.
 static uint64_t ResolveDynamicFunction(void* raw_context,
                                        uint64_t target_address,
-                                       uint32_t pending_pops) {
+                                       uint32_t pending_pops,
+                                       bool direct = false) {
   auto guest_context = reinterpret_cast<ppc::PPCContext_s*>(raw_context);
   bool is_return_site = false;
-  if (uint64_t return_address = ResolveDynamicReturn(
-          guest_context, static_cast<uint32_t>(target_address), pending_pops,
-          &is_return_site)) {
-    static_cast<X64Backend*>(guest_context->processor->backend())
-        ->BackendContextForGuestContext(raw_context)
-        ->dynamic_target_in_body = 1;
-    return return_address;
+  if (!direct) {
+    if (uint64_t return_address = ResolveDynamicReturn(
+            guest_context, static_cast<uint32_t>(target_address), pending_pops,
+            &is_return_site)) {
+      static_cast<X64Backend*>(guest_context->processor->backend())
+          ->BackendContextForGuestContext(raw_context)
+          ->dynamic_target_in_body = 1;
+      return return_address;
+    }
   }
   auto function = guest_context->processor->ResolveFunction(
       static_cast<uint32_t>(target_address));
@@ -821,6 +825,7 @@ static uint64_t ResolveDynamicFunction(void* raw_context,
     auto& entry = bctx->dynamic_call_cache[DynamicCallCacheIndex(
         static_cast<uint32_t>(target_address))];
     entry.host_address = host_address;
+    entry.kind = direct ? kX64DynamicCallDirectOnly : kX64DynamicCallAny;
     entry.guest_address = static_cast<uint32_t>(target_address);
   }
   return host_address;
@@ -830,14 +835,22 @@ static uint64_t ResolveDynamicCall(void* raw_context, uint64_t target_address) {
   return ResolveDynamicFunction(raw_context, target_address, 0);
 }
 
+static uint64_t ResolveDirectDynamicCall(void* raw_context,
+                                         uint64_t target_address) {
+  return ResolveDynamicFunction(raw_context, target_address, 0, true);
+}
+
 // A tail branch pops the current function's stackpoint after resolving.
 static uint64_t ResolveDynamicTailCall(void* raw_context,
                                        uint64_t target_address) {
   return ResolveDynamicFunction(raw_context, target_address, 1);
 }
 
-// Loads the host address for the guest address in edx into rax.
-static void EmitDynamicCallLookup(X64Emitter& e, bool tail) {
+// Loads the host address for the guest address in edx into rax. A direct bl,
+// |direct| without |tail|, takes any entry and other lookups only Any ones.
+static void EmitDynamicCallLookup(X64Emitter& e, bool tail,
+                                  bool direct = false) {
+  const bool direct_call = direct && !tail;
   Xbyak::Label miss;
   Xbyak::Label done;
   e.mov(e.eax, e.edx);
@@ -853,14 +866,21 @@ static void EmitDynamicCallLookup(X64Emitter& e, bool tail) {
   e.jz(miss, X64Emitter::T_NEAR);
   e.cmp(e.dword[e.rcx + e.rax], e.edx);
   e.jne(miss, X64Emitter::T_NEAR);
+  if (!direct_call) {
+    static_assert(offsetof(X64DynamicCallCacheEntry, kind) == 4);
+    e.cmp(e.dword[e.rcx + e.rax + 4], uint32_t(kX64DynamicCallAny));
+    e.jne(miss, X64Emitter::T_NEAR);
+  }
   e.mov(e.rax, e.qword[e.rcx + e.rax + 8]);
   // An entry the cache was initialized with holds no address.
   e.test(e.rax, e.rax);
   e.jz(miss, X64Emitter::T_NEAR);
   e.jmp(done, X64Emitter::T_NEAR);
   e.L(miss);
-  e.CallNativeSafe(reinterpret_cast<void*>(tail ? ResolveDynamicTailCall
-                                                : ResolveDynamicCall));
+  e.CallNativeSafe(reinterpret_cast<void*>(direct_call
+                                               ? ResolveDirectDynamicCall
+                                           : tail ? ResolveDynamicTailCall
+                                                  : ResolveDynamicCall));
   e.L(done);
 }
 
@@ -1022,7 +1042,7 @@ void X64Emitter::Call(const hir::Instr* instr, GuestFunction* function) {
     }
   } else if (code_cache_->has_indirection_table()) {
     mov(edx, function->address());
-    EmitDynamicCallLookup(*this, (instr->flags & hir::CALL_TAIL) != 0);
+    EmitDynamicCallLookup(*this, (instr->flags & hir::CALL_TAIL) != 0, true);
   } else {
     // Old-style resolve.
     // Not too important because indirection table is almost always available.
