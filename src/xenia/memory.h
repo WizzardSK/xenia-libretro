@@ -738,9 +738,6 @@ class Memory {
     // The 64 KB a host view shows doesn't start on a physical 64 KB boundary,
     // as in the skewed segments past 0xE0000000.
     kUnaligned,
-    // The kernel has an allocation at the address. User mode sees the kernel's
-    // memory there ahead of any entry.
-    kKernelOwned,
   };
 
   // How a user mode fault was handled.

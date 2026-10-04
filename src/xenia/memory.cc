@@ -1065,17 +1065,6 @@ Memory::UserPageState Memory::TranslateUserPage(uint32_t user_address,
   if (!user_page_table_) {
     return UserPageState::kUnusable;
   }
-  // Outside the physical alias, user mode sees the kernel's memory where the
-  // kernel has an allocation, whatever the table says. That's how the guest
-  // reads what user mode wrote through a pointer it's handed.
-  if (user_address - kUserAliasBase >= kUserAliasSize) {
-    const uint32_t page = user_address & ~(kUserPageSize - 1);
-    BaseHeap* heap = LookupHeap(page);
-    if (heap && heap->heap_type() != HeapType::kGuestPhysical &&
-        !heap->IsRangeUnallocated(page, kUserPageSize)) {
-      return UserPageState::kKernelOwned;
-    }
-  }
   const uint8_t kind = UserSegmentKind(user_address);
   uint32_t page_size;
   uint32_t physical_address;
@@ -1259,9 +1248,8 @@ bool Memory::MapUserPage(uint32_t window_offset, bool allow_fallback) {
           state == UserPageState::kNoEntry     ? "was given no entry for"
           : state == UserPageState::kNoTable   ? "has no table page covering"
           : state == UserPageState::kScattered ? "scatters the 4 KB pages of"
-          : state == UserPageState::kUnaligned ? "can't align a view with"
-          : state == UserPageState::kKernelOwned
-              ? "defers to the kernel memory at"
+          : state == UserPageState::kUnaligned
+              ? "can't align a view with"
               : "names memory xenia can't map for",
           page, unmapped_count);
     }
