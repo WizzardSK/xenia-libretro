@@ -194,6 +194,10 @@ dword_result_t NtReadFile_entry(dword_t file_handle, dword_t event_handle,
   auto file = kernel_state()->object_table()->LookupObject<XFile>(file_handle);
   if (!file) {
     result = X_STATUS_INVALID_HANDLE;
+  } else if (XSUCCEEDED(result) && !file->is_synchronous() &&
+             !byte_offset_ptr) {
+    // Without a byte offset, only a synchronous handle uses its file position.
+    result = X_STATUS_INVALID_PARAMETER;
   }
 
   if (XSUCCEEDED(result)) {
@@ -281,6 +285,10 @@ dword_result_t NtReadFileScatter_entry(
   auto file = kernel_state()->object_table()->LookupObject<XFile>(file_handle);
   if (!file) {
     result = X_STATUS_INVALID_HANDLE;
+  } else if (XSUCCEEDED(result) && !file->is_synchronous() &&
+             !byte_offset_ptr) {
+    // Without a byte offset, only a synchronous handle uses its file position.
+    result = X_STATUS_INVALID_PARAMETER;
   }
 
   if (XSUCCEEDED(result)) {
@@ -365,6 +373,10 @@ dword_result_t NtWriteFile_entry(dword_t file_handle, dword_t event_handle,
   auto file = kernel_state()->object_table()->LookupObject<XFile>(file_handle);
   if (!file) {
     result = X_STATUS_INVALID_HANDLE;
+  } else if (XSUCCEEDED(result) && !file->is_synchronous() &&
+             !byte_offset_ptr) {
+    // Without a byte offset, only a synchronous handle uses its file position.
+    result = X_STATUS_INVALID_PARAMETER;
   }
 
   // Execute write.
