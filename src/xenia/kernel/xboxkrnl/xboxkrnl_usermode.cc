@@ -309,8 +309,9 @@ uint32_t UserModeCodeFault(PPCContext* context, uint32_t address) {
   return resume_address != address ? resume_address : 0;
 }
 
-// A user mode access with no page table entry. The guest's handler can fill
-// the entry in and return, and the access runs again.
+// A user mode access with no page table entry, or one its entry's protection
+// forbids. The guest's handler can fix the entry and return, and the access
+// runs again.
 Memory::UserFaultResult UserModeFault(uint32_t fault_address, bool is_write,
                                       Exception* ex) {
   XThread* thread = XThread::GetCurrentThread();

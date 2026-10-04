@@ -17,6 +17,7 @@
 #include <mutex>
 #include <shared_mutex>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -847,37 +848,49 @@ class Memory {
   }
   // The kind byte the descriptor gives the segment of |user_address|.
   uint8_t UserSegmentKind(uint32_t user_address);
-  // The physical address the page table translates a user mode address to.
+  // The physical address the page table translates a user mode address to,
+  // and the PP bits of its entry.
   UserPageState TranslateUserPage(uint32_t user_address,
-                                  uint32_t* out_physical_address);
+                                  uint32_t* out_physical_address,
+                                  uint32_t* out_protection = nullptr);
   // Whether one view of the 64 KB |page| starting at |physical_address| shows
-  // what the 4 KB entries of a small segment name.
+  // what the 4 KB entries of a small segment name, with one protection.
   bool UserPageBlockIsContiguous(uint32_t page, uint32_t physical_address);
   // Maps the page a fault at |window_offset| falls in, under the lock.
   // Without |allow_fallback|, a page the table doesn't map stays unmapped.
   bool MapUserPage(uint32_t window_offset, bool allow_fallback);
-  // Records the physical memory a user mode page shows and write protects its
-  // watched 4 KB pages. Under the lock.
-  void TrackUserPage(uint32_t index, uint64_t file_offset);
+  // Maps user mode page |index| as one 4 KB view per entry, for entries no
+  // single view can show. Entries the table doesn't have stay unmapped and
+  // fault. Under the lock.
+  bool SplitUserPage(uint32_t index);
+  // Maps one 4 KB piece of a split page. Under the lock.
+  bool MapUserPiece(uint32_t piece, bool allow_fallback);
+  // Records the physical memory |count| user mode pieces from |first_piece|
+  // show. Under the lock.
+  void TrackUserPieces(uint32_t first_piece, uint32_t count,
+                       uint64_t file_offset);
+  // The host access an entry's PP bits give user mode code.
+  xe::memory::PageAccess UserEntryAccess(uint32_t protection) const;
+  // The host access a user mode piece gets from its entry and the write watch
+  // on the physical page it shows. Under the lock.
+  xe::memory::PageAccess UserPieceAccess(uint32_t piece) const;
+  // Protects |count| pieces from |first_piece|, mapped read-write, to their
+  // UserPieceAccess. Under the lock.
+  void ProtectUserPieces(uint32_t first_piece, uint32_t count);
   // Write protects the range's physical pages in every user mode page that
   // shows them. Takes the lock.
   void WatchUserWrites(uint32_t physical_address, uint32_t length);
   // Reports a write fault at |window_offset| on a watched page. Under the lock.
   // Returns whether the page was watched.
   bool TriggerUserWriteWatch(uint32_t window_offset);
-  // Calls |fn(index, offset)| for each user mode page showing a physical 4 KB
-  // page, with that page's offset in the view. Under the lock.
+  // Calls |fn(piece)| for each user mode piece showing a physical 4 KB page.
+  // Under the lock.
   template <typename Fn>
-  void ForEachUserPageShowing(uint32_t physical_page, Fn fn) {
-    // A view starts on any 4 KB page so the ones showing this page start in
-    // its 64 KB block or the one before.
-    const uint32_t block = physical_page / kUserSmallPagesPerView;
-    for (uint32_t b = block ? block - 1 : 0; b <= block; ++b) {
-      for (uint32_t index : user_block_pages_[b]) {
-        const uint32_t delta = physical_page - user_page_first_physical_[index];
-        if (delta < kUserSmallPagesPerView) {
-          fn(index, delta * kUserSmallPageSize);
-        }
+  void ForEachUserPieceShowing(uint32_t physical_page, Fn fn) {
+    for (uint32_t piece :
+         user_block_pieces_[physical_page / kUserSmallPagesPerView]) {
+      if (user_piece_physical_[piece] == physical_page) {
+        fn(piece);
       }
     }
   }
@@ -916,6 +929,7 @@ class Memory {
   static void KernelPageTableWriteThunk(void* ppc_context, void* context,
                                         uint32_t address, uint32_t value);
   // A PTE is the physical address with the protection in its low bits.
+  static constexpr uint32_t kUserEntryProtection = 0x3;
   static constexpr uint32_t kUserTableSmall = 0x000;   // u16[512], by >> 23
   static constexpr uint32_t kUserTableLarge = 0x400;   // u32[256], by >> 24
   static constexpr uint32_t kUserTableMedium = 0x800;  // u16[32], by >> 27
@@ -965,13 +979,18 @@ class Memory {
   uint32_t user_page_table_ = 0;
   // One bit per user mode page mapped from the table, under the global lock.
   std::vector<uint64_t> user_page_mapped_;
+  // The split pages among them, with a bit per 4 KB piece that has a view.
+  std::unordered_map<uint32_t, uint16_t> user_page_split_;
   // The user mode views are one more alias of physical memory and writes
   // through them have to reach the same watches. All under the global lock.
   static constexpr uint32_t kUserNoPage = UINT32_MAX;
-  // The first physical 4 KB page each user mode page shows.
-  std::vector<uint32_t> user_page_first_physical_;
-  // The user mode pages whose first physical page is in each 64 KB block.
-  std::vector<std::vector<uint32_t>> user_block_pages_;
+  // The physical 4 KB page each 4 KB piece of the user mode space shows.
+  std::vector<uint32_t> user_piece_physical_;
+  // The PageAccess each piece's entry allows user mode, read-write where no
+  // entry applies.
+  std::vector<uint8_t> user_piece_access_;
+  // The user mode pieces showing a page in each physical 64 KB block.
+  std::vector<std::vector<uint32_t>> user_block_pieces_;
   // A bit per physical 4 KB page whose next user mode write is reported.
   std::vector<uint64_t> user_write_watched_;
   bool user_write_watches_ = false;
