@@ -1167,6 +1167,18 @@ static uint64_t ResolveDynamicFunction(void* raw_context,
   }
   auto function = guest_context->processor->ResolveFunction(
       static_cast<uint32_t>(target_address));
+  bool redirected = false;
+  if (!function || !function->is_guest()) {
+    // The guest can handle the fetch fault and continue the call elsewhere.
+    if (auto hook = guest_context->processor->code_fault_hook()) {
+      if (const uint32_t resume_address =
+              hook(guest_context, static_cast<uint32_t>(target_address))) {
+        target_address = resume_address;
+        function = guest_context->processor->ResolveFunction(resume_address);
+        redirected = true;
+      }
+    }
+  }
   if (!function || !function->is_guest()) {
     XELOGE("No guest code at {:08X} for a dynamic call",
            static_cast<uint32_t>(target_address));
@@ -1174,6 +1186,11 @@ static uint64_t ResolveDynamicFunction(void* raw_context,
   }
   const uint64_t host_address = reinterpret_cast<uint64_t>(
       static_cast<A64Function*>(function)->machine_code());
+  // A redirect isn't cached, since the checks above were for the original
+  // target.
+  if (redirected) {
+    return host_address;
+  }
   auto backend = static_cast<A64Backend*>(guest_context->processor->backend());
   auto bctx = backend->BackendContextForGuestContext(raw_context);
   if (!bctx->dynamic_call_cache) {

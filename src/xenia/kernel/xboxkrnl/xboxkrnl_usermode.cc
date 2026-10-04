@@ -271,6 +271,44 @@ void RestartUserModeThunk() {
   user_mode->kernel_fiber->SwitchTo();
 }
 
+// Fills the exception record for an access violation at |fault_address| by the
+// instruction at |address|.
+void FillAccessViolationRecord(XThread::UserMode* user_mode, uint32_t address,
+                               bool is_write, uint32_t fault_address) {
+  auto record =
+      kernel_memory()->TranslateVirtual<uint8_t*>(user_mode->exception_record);
+  std::memset(record, 0, kRecordSize);
+  xe::store_and_swap<uint32_t>(record + kRecordCode, X_STATUS_ACCESS_VIOLATION);
+  xe::store_and_swap<uint32_t>(record + kRecordAddress, address);
+  xe::store_and_swap<uint32_t>(record + kRecordParameterCount, 2);
+  xe::store_and_swap<uint32_t>(record + kRecordInformation, is_write ? 1 : 0);
+  xe::store_and_swap<uint32_t>(record + kRecordInformation + 4, fault_address);
+}
+
+// A user mode call to an address with no code faults on the instruction fetch.
+// The guest's handler can move the call elsewhere, as XeFu does for a call
+// through an empty entry of its translated code table. It fills the entry and
+// resumes at the new block.
+uint32_t UserModeCodeFault(PPCContext* context, uint32_t address) {
+  XThread* thread = XThread::GetCurrentThread();
+  auto user_mode = thread ? thread->user_mode() : nullptr;
+  if (!user_mode || !user_mode->in_user_code || !user_mode->running ||
+      xe::threading::Fiber::GetCurrentFiber() !=
+          user_mode->running->fiber.get()) {
+    return 0;
+  }
+  FillAccessViolationRecord(user_mode, address, false, address);
+  uint32_t resume_address;
+  if (!TrapIntoHandler(context, thread, user_mode->exception_record, address,
+                       &resume_address)) {
+    // The kernel resumed the trap at the target, which still has no code.
+    XELOGE("User mode: the fetch fault at {:08X} was retried by the kernel",
+           address);
+    return 0;
+  }
+  return resume_address != address ? resume_address : 0;
+}
+
 // A user mode access with no page table entry. The guest's handler can fill
 // the entry in and return, and the access runs again.
 Memory::UserFaultResult UserModeFault(uint32_t fault_address, bool is_write,
@@ -291,15 +329,7 @@ Memory::UserFaultResult UserModeFault(uint32_t fault_address, bool is_write,
     return Memory::UserFaultResult::kNotTaken;
   }
   const uint32_t address = function->MapMachineCodeToGuestAddress(ex->pc());
-
-  auto record =
-      kernel_memory()->TranslateVirtual<uint8_t*>(user_mode->exception_record);
-  std::memset(record, 0, kRecordSize);
-  xe::store_and_swap<uint32_t>(record + kRecordCode, X_STATUS_ACCESS_VIOLATION);
-  xe::store_and_swap<uint32_t>(record + kRecordAddress, address);
-  xe::store_and_swap<uint32_t>(record + kRecordParameterCount, 2);
-  xe::store_and_swap<uint32_t>(record + kRecordInformation, is_write ? 1 : 0);
-  xe::store_and_swap<uint32_t>(record + kRecordInformation + 4, fault_address);
+  FillAccessViolationRecord(user_mode, address, is_write, fault_address);
 
   uint32_t resume_address;
   const bool handler_returned = TrapIntoHandler(
@@ -387,6 +417,7 @@ dword_result_t KeCreateUserMode_entry(dword_t unknown, lpvoid_t descriptor,
     // registers from the host context at the fault would avoid it.
     context->processor->KeepDynamicCodeContextStores();
     kernel_memory()->set_user_fault_hook(&UserModeFault);
+    context->processor->set_code_fault_hook(&UserModeCodeFault);
   }
   return X_STATUS_SUCCESS;
 }

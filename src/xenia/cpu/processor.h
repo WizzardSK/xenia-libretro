@@ -117,6 +117,14 @@ class Processor {
   SyscallHook syscall_hook() const { return syscall_hook_.load(); }
   void set_syscall_hook(SyscallHook hook) { syscall_hook_.store(hook); }
 
+  // Runs for a guest call to an address with no guest code, where the
+  // instruction fetch faults. Returns the address the guest moved the call to,
+  // or 0 if it didn't move it.
+  using CodeFaultHook = uint32_t (*)(ppc::PPCContext* context,
+                                     uint32_t address);
+  CodeFaultHook code_fault_hook() const { return code_fault_hook_.load(); }
+  void set_code_fault_hook(CodeFaultHook hook) { code_fault_hook_.store(hook); }
+
   // Lets guest code run from committed memory that no module claims.
   void EnableDynamicCode();
   bool dynamic_code_enabled() const {
@@ -363,6 +371,7 @@ class Processor {
   std::atomic<bool> dynamic_code_enabled_{false};
   std::atomic<bool> keep_dynamic_context_stores_{false};
   std::atomic<SyscallHook> syscall_hook_{nullptr};
+  std::atomic<CodeFaultHook> code_fault_hook_{nullptr};
 
   // Code can be written through one address and run through another, so swept
   // ranges are keyed by physical address where there is one. This bit keeps
