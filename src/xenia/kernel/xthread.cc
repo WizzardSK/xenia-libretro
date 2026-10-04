@@ -827,9 +827,9 @@ cpu::ppc::PPCContext* XThread::ApcQueueContext() {
 }
 
 void XThread::EnqueueApc(uint32_t normal_routine, uint32_t normal_context,
-                         uint32_t arg1, uint32_t arg2) {
+                         uint32_t arg1, uint32_t arg2, uint32_t apc_mode) {
   uint32_t success = xboxkrnl::xeNtQueueApcThread(
-      this->handle(), normal_routine, normal_context, arg1, arg2,
+      this->handle(), normal_routine, normal_context, arg1, arg2, apc_mode,
       ApcQueueContext());
 
   if (success != X_STATUS_SUCCESS) {
@@ -857,6 +857,18 @@ bool XThread::HasPendingUserApc() {
     return true;
   }
   return !kthread->apc_lists[1].empty(thread_state_->context());
+}
+
+bool XThread::HasDeliverableKernelApc() {
+  auto* kthread = guest_object<X_KTHREAD>();
+  if (kthread->apc_disable_count || kthread->executing_kernel_apc) {
+    return false;
+  }
+  auto* pcr = memory()->TranslateVirtual<X_KPCR*>(pcr_address_);
+  if (pcr->current_irql >= 1) {
+    return false;
+  }
+  return !kthread->apc_lists[0].empty(thread_state_->context());
 }
 
 void XThread::SetCurrentThread(XThread* thread) {
@@ -1281,6 +1293,13 @@ X_STATUS XThread::Delay(uint32_t processor_mode, uint32_t alertable,
     uint64_t deadline = Clock::QueryHostUptimeMillis() + timeout_ms;
     set_cooperative_wait_shape(CooperativeWaitKind::kDelay, nullptr, 0);
     while (Clock::QueryHostUptimeMillis() < deadline) {
+      // A kernel APC runs during the delay, which then goes on.
+      if (HasDeliverableKernelApc()) {
+        clear_cooperative_wait_shape();
+        xboxkrnl::xeProcessKernelApcs(thread_state_->context());
+        set_cooperative_wait_shape(CooperativeWaitKind::kDelay, nullptr, 0);
+        continue;
+      }
       if (alertable && HasPendingUserApc()) {
         clear_cooperative_wait_shape();
         return X_STATUS_USER_APC;
@@ -1295,14 +1314,22 @@ X_STATUS XThread::Delay(uint32_t processor_mode, uint32_t alertable,
   }
 
   if (alertable) {
-    auto result =
-        xe::threading::AlertableSleep(std::chrono::milliseconds(timeout_ms));
-    switch (result) {
-      default:
-      case xe::threading::SleepResult::kSuccess:
+    const uint64_t deadline = Clock::QueryHostUptimeMillis() + timeout_ms;
+    while (true) {
+      const uint64_t now = Clock::QueryHostUptimeMillis();
+      auto result = xe::threading::AlertableSleep(
+          std::chrono::milliseconds(deadline > now ? deadline - now : 0));
+      if (result != xe::threading::SleepResult::kAlerted) {
         return X_STATUS_SUCCESS;
-      case xe::threading::SleepResult::kAlerted:
+      }
+      // Woken for a kernel APC, which runs before the delay goes on. Only a
+      // user APC ends it.
+      if (HasDeliverableKernelApc()) {
+        xboxkrnl::xeProcessKernelApcs(thread_state_->context());
+      }
+      if (HasPendingUserApc()) {
         return X_STATUS_USER_APC;
+      }
     }
   } else {
     if (timeout_ms == 0) {

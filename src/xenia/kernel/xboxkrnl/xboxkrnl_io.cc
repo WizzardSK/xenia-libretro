@@ -15,6 +15,7 @@
 #include "xenia/kernel/util/shim_utils.h"
 #include "xenia/kernel/xboxkrnl/xboxkrnl_ob.h"
 #include "xenia/kernel/xboxkrnl/xboxkrnl_private.h"
+#include "xenia/kernel/xboxkrnl/xboxkrnl_threading.h"
 #include "xenia/kernel/xevent.h"
 #include "xenia/kernel/xfile.h"
 #include "xenia/kernel/xiocompletion.h"
@@ -27,9 +28,18 @@ namespace xe {
 namespace kernel {
 namespace xboxkrnl {
 
-// Low bit probably means do not queue to IO ports.
+// Bit 0 only picks the APC mode, see QueueIoApc.
 static bool QueuesApc(uint32_t apc_routine, uint32_t apc_context) {
   return (apc_routine & ~1u) && apc_context;
+}
+
+// The console queues an I/O completion routine as a kernel APC, which runs
+// before the service returns on an inline completion. Bit 0 asks for a user APC
+// instead, as XAPI's ReadFileEx completion trampoline does.
+static void QueueIoApc(XThread* thread, uint32_t apc_routine,
+                       uint32_t apc_context, uint32_t status_block_address) {
+  thread->EnqueueApc(apc_routine & ~1u, apc_context, status_block_address, 0,
+                     apc_routine & 1);
 }
 
 // Status last, so a caller polling it for completion reads a valid count.
@@ -210,8 +220,8 @@ dword_result_t NtReadFile_entry(dword_t file_handle, dword_t event_handle,
           posted || (!file->is_synchronous() && status != X_STATUS_END_OF_FILE);
       if (QueuesApc(apc_routine, apc_context_address) &&
           (pending || status == X_STATUS_SUCCESS)) {
-        thread->EnqueueApc(apc_routine & ~1u, apc_context_address,
-                           status_block_address, 0);
+        QueueIoApc(thread.get(), apc_routine, apc_context_address,
+                   status_block_address);
       }
       file->NotifyCompletion(status, bytes_read, apc_context_address);
       if (ev) {
@@ -233,6 +243,8 @@ dword_result_t NtReadFile_entry(dword_t file_handle, dword_t event_handle,
       result = X_STATUS_PENDING;
     } else {
       result = complete(false);
+      // A kernel APC the completion queued runs before the service returns.
+      xeProcessKernelApcs(thread->thread_state()->context());
       if (!file->is_synchronous() && result != X_STATUS_END_OF_FILE) {
         result = X_STATUS_PENDING;
       }
@@ -287,8 +299,8 @@ dword_result_t NtReadFileScatter_entry(
       // An async handle is always told PENDING, and then always gets its APC.
       if (QueuesApc(apc_routine, apc_context_address) &&
           (!file->is_synchronous() || status == X_STATUS_SUCCESS)) {
-        thread->EnqueueApc(apc_routine & ~1u, apc_context_address,
-                           status_block_address, 0);
+        QueueIoApc(thread.get(), apc_routine, apc_context_address,
+                   status_block_address);
       }
       file->NotifyCompletion(status, bytes_read, apc_context_address);
       if (ev) {
@@ -310,6 +322,8 @@ dword_result_t NtReadFileScatter_entry(
       result = X_STATUS_PENDING;
     } else {
       result = complete();
+      // A kernel APC the completion queued runs before the service returns.
+      xeProcessKernelApcs(thread->thread_state()->context());
       if (!file->is_synchronous()) {
         result = X_STATUS_PENDING;
       }
@@ -331,6 +345,7 @@ dword_result_t NtWriteFile_entry(dword_t file_handle, dword_t event_handle,
                                  lpvoid_t buffer, dword_t buffer_length,
                                  lpqword_t byte_offset_ptr) {
   X_STATUS result = X_STATUS_SUCCESS;
+  XThread* const thread = XThread::GetCurrentThread();
 
   // Grab event to signal.
   bool signal_event = false;
@@ -363,13 +378,9 @@ dword_result_t NtWriteFile_entry(dword_t file_handle, dword_t event_handle,
 
       // Queue the APC callback. It must be delivered via the APC mechanism even
       // though were are completing immediately.
-      // Low bit probably means do not queue to IO ports.
-      if ((uint32_t)apc_routine & ~1) {
-        if (apc_context) {
-          auto thread = XThread::GetCurrentThread();
-          thread->EnqueueApc(static_cast<uint32_t>(apc_routine) & ~1u,
-                             apc_context, io_status_block, 0);
-        }
+      if (QueuesApc(apc_routine, apc_context.guest_address())) {
+        QueueIoApc(thread, apc_routine, apc_context.guest_address(),
+                   io_status_block.guest_address());
       }
 
       if (!file->is_synchronous()) {
@@ -407,6 +418,8 @@ dword_result_t NtWriteFile_entry(dword_t file_handle, dword_t event_handle,
   if (ev && signal_event) {
     ev->Set(XFile::kIoDiskIncrement, false);
   }
+  // A kernel APC the write queued runs before the service returns.
+  xeProcessKernelApcs(thread->thread_state()->context());
 
   return result;
 }

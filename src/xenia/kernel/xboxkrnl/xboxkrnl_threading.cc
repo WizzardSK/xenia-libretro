@@ -482,6 +482,8 @@ uint32_t KeDelayExecutionThread(uint32_t processor_mode, uint32_t alertable,
     }
   }
   X_STATUS result = thread->Delay(processor_mode, alertable, *interval_ptr);
+  // One queued as the delay ended runs on the way out.
+  xeProcessKernelApcs(ctx);
 
   if (result == X_STATUS_USER_APC) {
     xeProcessUserApcs(ctx);
@@ -1357,8 +1359,10 @@ void KeEnterCriticalRegion_entry() {
 DECLARE_XBOXKRNL_EXPORT2(KeEnterCriticalRegion, kThreading, kImplemented,
                          kHighFrequency);
 
-void KeLeaveCriticalRegion_entry() {
+void KeLeaveCriticalRegion_entry(const ppc_context_t& ctx) {
   XThread::GetCurrentThread()->LeaveCriticalRegion();
+  // Kernel APCs the region held off run as it ends.
+  xeProcessKernelApcs(ctx);
 }
 DECLARE_XBOXKRNL_EXPORT2(KeLeaveCriticalRegion, kThreading, kImplemented,
                          kHighFrequency);
@@ -1418,7 +1422,8 @@ DECLARE_XBOXKRNL_EXPORT2(KfRaiseIrql, kThreading, kImplemented, kHighFrequency);
 
 uint32_t xeNtQueueApcThread(uint32_t thread_handle, uint32_t apc_routine,
                             uint32_t apc_routine_context, uint32_t arg1,
-                            uint32_t arg2, cpu::ppc::PPCContext* context) {
+                            uint32_t arg2, uint32_t apc_mode,
+                            cpu::ppc::PPCContext* context) {
   auto kernelstate = context->kernel_state;
   auto memory = kernelstate->memory();
   auto thread =
@@ -1435,7 +1440,7 @@ uint32_t xeNtQueueApcThread(uint32_t thread_handle, uint32_t apc_routine,
   }
   XAPC* apc = context->TranslateVirtual<XAPC*>(apc_ptr);
   xeKeInitializeApc(apc, thread->guest_object(), XAPC::kDummyKernelRoutine, 0,
-                    apc_routine, 1 /*user apc mode*/, apc_routine_context);
+                    apc_routine, apc_mode, apc_routine_context);
 
   if (!xeInsertQueueApcAndWake(thread.get(), apc, arg1, arg2, context)) {
     memory->SystemHeapFree(apc_ptr);
@@ -1465,7 +1470,7 @@ dword_result_t NtQueueApcThread_entry(dword_t thread_handle,
                                       lpvoid_t arg1, lpvoid_t arg2,
                                       const ppc_context_t& context) {
   return xeNtQueueApcThread(thread_handle, apc_routine, apc_routine_context,
-                            arg1, arg2, context);
+                            arg1, arg2, 1 /*user apc mode*/, context);
 }
 
 // Runs every queued APC on |list_index| (1 = user, 0 = kernel), executing the
@@ -1565,8 +1570,9 @@ bool xeProcessKernelApcs(PPCContext* ctx) {
   }
   auto kpcr = ctx->TranslateVirtualGPR<X_KPCR*>(ctx->r[13]);
   auto current_thread = ctx->TranslateVirtual(kpcr->prcb_data.current_thread);
-  // Masked at APC_LEVEL and above, and never nested.
-  if (kpcr->current_irql >= 1 || current_thread->executing_kernel_apc) {
+  // Masked at APC_LEVEL and above or in a critical region, and never nested.
+  if (kpcr->current_irql >= 1 || current_thread->apc_disable_count ||
+      current_thread->executing_kernel_apc) {
     return false;
   }
   if (current_thread->apc_lists[0].empty(ctx)) {

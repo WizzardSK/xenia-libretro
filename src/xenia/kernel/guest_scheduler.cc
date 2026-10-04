@@ -1406,7 +1406,9 @@ void GuestScheduler::BlockCurrentThread(uint64_t deadline_ms,
         epoch_now = self->cooperative_wait_set_epoch();
         epoch_gated = true;
       }
-      if (epoch_gated && epoch_now != wait_epoch) {
+      // Likewise a kernel APC inserted after the caller last checked.
+      if ((epoch_gated && epoch_now != wait_epoch) ||
+          (interruptible && self->HasDeliverableKernelApc())) {
         cpus_[cpu_index].repoll_now.store(true, std::memory_order_relaxed);
       }
     }
@@ -1420,6 +1422,7 @@ void GuestScheduler::BlockCurrentThread(uint64_t deadline_ms,
     links.ready_next = nullptr;
     links.wait_gated = gated;
     links.wait_alertable = alertable;
+    links.wait_interruptible = interruptible;
     links.wait_epoch = wait_epoch;
     links.wait_deadline_ms = deadline_ms;
     // A wait consumes the slice.
@@ -1492,7 +1495,8 @@ void GuestScheduler::RereadyBlocked(int cpu_index) {
         }
         if (!may_have_resolved &&
             !(links.wait_deadline_ms && now_ms >= links.wait_deadline_ms) &&
-            !(links.wait_alertable && t->HasPendingUserApc())) {
+            !(links.wait_alertable && t->HasPendingUserApc()) &&
+            !(links.wait_interruptible && t->HasDeliverableKernelApc())) {
           links.ready_next = nullptr;
           LinkTailLocked(kept_head, kept_tail, t);
           int prio = ClampPriority(t->priority());

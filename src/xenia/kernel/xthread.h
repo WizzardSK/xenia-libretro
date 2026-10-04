@@ -458,8 +458,9 @@ class XThread : public XObject, public cpu::Thread {
   void EnterCriticalRegion();
   void LeaveCriticalRegion();
 
+  // |apc_mode| 1 queues a user APC, 0 a kernel APC.
   void EnqueueApc(uint32_t normal_routine, uint32_t normal_context,
-                  uint32_t arg1, uint32_t arg2);
+                  uint32_t arg1, uint32_t arg2, uint32_t apc_mode = 1);
   // Queues an owned APC initialized for this thread, unless already queued.
   bool InsertOwnedApc(uint32_t apc_ptr, uint32_t arg1, uint32_t arg2);
   void RemoveOwnedApc(uint32_t apc_ptr);
@@ -468,6 +469,9 @@ class XThread : public XObject, public cpu::Thread {
   // cooperative scheduler's alertable waits to return USER_APC, the same way a
   // host alertable wait wakes on a queued APC.
   bool HasPendingUserApc();
+  // True if a kernel APC is queued that this thread can run now, below
+  // APC_LEVEL, outside a critical region and outside another kernel APC.
+  bool HasDeliverableKernelApc();
 
   // True while a user APC routine runs on this thread.
   bool in_user_apc() const { return user_apc_depth_ != 0; }
@@ -705,6 +709,8 @@ class XThread : public XObject, public cpu::Thread {
     bool wait_alertable = false;    // also re-poll on a pending user APC
     uint32_t wait_epoch = 0;        // object epoch sampled before the last poll
     uint64_t wait_deadline_ms = 0;  // absolute host uptime, 0 = none
+    // Also re-poll on a deliverable kernel APC.
+    bool wait_interruptible = true;
     // What this fiber parked in and the guest handles it named. Handles, not
     // XObject pointers: safe to print if the object is released mid-dump, and
     // they key the signal ring. Without it a multi-object wait dumps obj=0x0.

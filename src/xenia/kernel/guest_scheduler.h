@@ -144,10 +144,11 @@ class GuestScheduler {
   // Parks the running guest fiber on its CPU's blocked list and yields. Returns
   // once the dispatcher re-readies it so the wait can re-poll. A single-object
   // wait on an epoch-bumping type is re-readied only when the epoch moves past
-  // |wait_epoch|, |deadline_ms| (absolute host uptime, 0 = none) arrives, or a
-  // user APC lands on an alertable waiter. Anything else re-polls every pass.
-  // |interruptible| false keeps a terminate from ending the fiber at a park
-  // whose waker holds a pointer into this stack.
+  // |wait_epoch|, |deadline_ms| (absolute host uptime, 0 = none) arrives, a
+  // user APC lands on an alertable waiter or a kernel APC on an interruptible
+  // one. Anything else re-polls every pass. |interruptible| false keeps a
+  // terminate from ending the fiber at a park whose waker holds a pointer into
+  // this stack.
   void BlockCurrentThread(uint64_t deadline_ms = 0, uint32_t wait_epoch = 0,
                           bool alertable = false, bool interruptible = true);
 

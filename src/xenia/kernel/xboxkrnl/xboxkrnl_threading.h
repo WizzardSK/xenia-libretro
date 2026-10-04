@@ -63,7 +63,8 @@ uint32_t xeInsertQueueApcAndWake(XThread* thread, XAPC* apc, uint32_t arg1,
 uint32_t xeKeRemoveQueueApc(XAPC* apc, cpu::ppc::PPCContext* context);
 uint32_t xeNtQueueApcThread(uint32_t thread_handle, uint32_t apc_routine,
                             uint32_t apc_routine_context, uint32_t arg1,
-                            uint32_t arg2, cpu::ppc::PPCContext* context);
+                            uint32_t arg2, uint32_t apc_mode,
+                            cpu::ppc::PPCContext* context);
 void xeKfLowerIrql(PPCContext* ctx, unsigned char new_irql);
 unsigned char xeKfRaiseIrql(PPCContext* ctx, unsigned char new_irql);
 

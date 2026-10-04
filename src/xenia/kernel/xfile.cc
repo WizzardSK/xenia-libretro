@@ -18,6 +18,7 @@
 #include "xenia/base/threading.h"
 #include "xenia/kernel/guest_scheduler.h"
 #include "xenia/kernel/kernel_state.h"
+#include "xenia/kernel/xboxkrnl/xboxkrnl_threading.h"
 #include "xenia/kernel/xthread.h"
 
 namespace xe {
@@ -366,6 +367,14 @@ void XFile::AwaitDriveTime(uint64_t deadline_ms) {
   self->set_cooperative_wait_shape(XThread::CooperativeWaitKind::kDelay,
                                    nullptr, 0);
   while (Clock::QueryHostUptimeMillis() < deadline_ms) {
+    // A kernel APC runs during the wait, which then goes on.
+    if (self->HasDeliverableKernelApc()) {
+      self->clear_cooperative_wait_shape();
+      xboxkrnl::xeProcessKernelApcs(self->thread_state()->context());
+      self->set_cooperative_wait_shape(XThread::CooperativeWaitKind::kDelay,
+                                       nullptr, 0);
+      continue;
+    }
     scheduler->BlockCurrentThread(deadline_ms, 0, false);
   }
   self->clear_cooperative_wait_shape();
