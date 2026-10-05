@@ -63,6 +63,9 @@ static constexpr std::string_view kDefaultGameSymbolicLink = "GAME:";
 static constexpr std::string_view kDefaultPartitionSymbolicLink = "D:";
 static constexpr std::string_view kDefaultUpdateSymbolicLink = "UPDATE:";
 
+// The original Xbox backwards compatibility emulator.
+constexpr uint32_t kXeFuTitleId = 0xFFFE07D2;
+
 // The main type that runs the whole emulator.
 // This is responsible for initializing and managing all the various subsystems.
 class Emulator {

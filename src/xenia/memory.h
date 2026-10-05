@@ -785,6 +785,18 @@ class Memory {
     return user_address;
   }
 
+  // Host memory to read what a kernel address shows. A physical window's view
+  // keeps the protection last set through that window, but the physical view
+  // keeps the latest set through any of them, so read through that.
+  const uint8_t* TranslateForRead(uint32_t kernel_address) {
+    auto heap = LookupHeap(kernel_address);
+    if (heap && heap->heap_type() == HeapType::kGuestPhysical) {
+      return TranslatePhysical<const uint8_t*>(
+          static_cast<PhysicalHeap*>(heap)->GetPhysicalAddress(kernel_address));
+    }
+    return TranslateVirtual<const uint8_t*>(kernel_address);
+  }
+
   // The inverse of UserModeKernelAddress for the alias, which is all it covers.
   static uint32_t KernelModeUserAddress(uint32_t kernel_address) {
     if (kernel_address - 0xA0000000 < kUserAliasSize) {

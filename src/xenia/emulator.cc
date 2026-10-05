@@ -152,9 +152,6 @@ DECLARE_int32(console_type);
 namespace xe {
 using namespace xe::literals;
 
-// The original Xbox backwards compatibility emulator.
-constexpr uint32_t kXeFuTitleId = 0xFFFE07D2;
-
 Emulator::Emulator(const std::filesystem::path& command_line,
                    const std::filesystem::path& storage_root,
                    const std::filesystem::path& content_root,

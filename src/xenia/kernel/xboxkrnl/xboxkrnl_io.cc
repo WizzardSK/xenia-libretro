@@ -8,8 +8,12 @@
  */
 
 #include <atomic>
+#include <charconv>
 
 #include "xenia/base/logging.h"
+#include "xenia/base/string.h"
+#include "xenia/base/utf8.h"
+#include "xenia/emulator.h"
 #include "xenia/kernel/info/file.h"
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/kernel/util/shim_utils.h"
@@ -21,6 +25,8 @@
 #include "xenia/kernel/xiocompletion.h"
 #include "xenia/kernel/xsymboliclink.h"
 #include "xenia/kernel/xthread.h"
+#include "xenia/ui/window.h"
+#include "xenia/ui/windowed_app_context.h"
 #include "xenia/vfs/device.h"
 #include "xenia/xbox.h"
 
@@ -75,6 +81,76 @@ struct CreateOptions {
   // Optimization - file access will be random, not sequential.
   static constexpr uint32_t FILE_RANDOM_ACCESS = 0x00000800;
 };
+
+// XeFu, the original Xbox emulator, opens the running Xbox title's data
+// directory, Xbox1\TDATA\<title id> in the HDD's Compatibility directory, as
+// the title starts. The certificate of the XBE it loaded, at 0x10000 in user
+// mode, names the title.
+static void NoteXeFuTitle(std::string_view path) {
+  constexpr std::string_view kTitleData = "\\xbox1\\tdata\\";
+  const std::string lower = xe::utf8::lower_ascii(path);
+  const size_t found = lower.rfind(kTitleData);
+  if (found == std::string::npos) {
+    return;
+  }
+  const std::string_view id =
+      std::string_view(lower).substr(found + kTitleData.size());
+  uint32_t title_id = 0;
+  if (id.size() != 8 ||
+      std::from_chars(id.data(), id.data() + id.size(), title_id, 16).ptr !=
+          id.data() + id.size()) {
+    return;
+  }
+  // XeFu's own system data, such as the soundtrack database it opens at boot.
+  if ((title_id >> 16) == 0xFFFE) {
+    return;
+  }
+  auto memory = kernel_memory();
+  // Little-endian like everything the x86 side keeps. Each field is translated
+  // on its own, as consecutive user pages need not map to consecutive kernel
+  // addresses.
+  auto read_user = [memory](uint32_t address, auto* out) {
+    const uint32_t kernel_address = memory->UserModeKernelAddress(address);
+    if (kernel_address == address) {
+      return false;
+    }
+    *out = xe::load<std::remove_pointer_t<decltype(out)>>(
+        memory->TranslateForRead(kernel_address));
+    return true;
+  };
+  std::string name;
+  uint32_t magic = 0, certificate = 0, certificate_title_id = 0;
+  // XBEH.
+  if (read_user(0x10000, &magic) && magic == 0x48454258 &&
+      read_user(0x10118, &certificate) &&
+      read_user(certificate + 0x8, &certificate_title_id) &&
+      certificate_title_id == title_id) {
+    std::u16string title_name;
+    for (uint32_t i = 0; i < 40; ++i) {
+      uint16_t c = 0;
+      if (!read_user(certificate + 0xC + i * 2, &c) || !c) {
+        break;
+      }
+      title_name.push_back(char16_t(c));
+    }
+    name = xe::to_utf8(title_name);
+  }
+  if (name.empty()) {
+    name = fmt::format("{:08X}", title_id);
+  }
+  // On the UI thread, which reads the name.
+  auto emulator = kernel_state()->emulator();
+  auto set_name = [emulator, name]() {
+    if (emulator->title_name() != name) {
+      emulator->SetTitleName(name);
+    }
+  };
+  if (auto window = emulator->display_window()) {
+    window->app_context().CallInUIThread(set_name);
+  } else {
+    set_name();
+  }
+}
 
 dword_result_t NtCreateFile_entry(lpdword_t handle_out, dword_t desired_access,
                                   pointer_t<X_OBJECT_ATTRIBUTES> object_attrs,
@@ -162,6 +238,9 @@ dword_result_t NtCreateFile_entry(lpdword_t handle_out, dword_t desired_access,
 
   XELOGFS("NtCreateFile({}) = {:08X}, handle={:08X}", target_path, result,
           handle);
+  if (XSUCCEEDED(result) && kernel_state()->title_id() == kXeFuTitleId) {
+    NoteXeFuTitle(target_path);
+  }
 
   return result;
 }
