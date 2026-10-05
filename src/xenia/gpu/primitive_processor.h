@@ -924,7 +924,7 @@ class PrimitiveProcessor {
   // Modified by the processor, read by the invalidation callback.
   uint32_t cache_currently_processing_base_ = 0;
   // 0 if not in a cache transaction that hasn't found an existing entry
-  // currently.
+  // currently, or if the range was invalidated during the transaction.
   uint32_t cache_currently_processing_size_bytes_ = 0;
   // Modified by both the processor and the invalidation callback.
   size_t cache_bucket_free_first_entry_ = SIZE_MAX;
