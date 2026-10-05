@@ -2,6 +2,9 @@ name: CI
 
 on:
   push:
+    # The libretro branch has its own workflow (libretro.yml)
+    branches-ignore:
+      - libretro
     paths-ignore:
       - '*.md'
       - 'docs/**'

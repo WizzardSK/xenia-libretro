@@ -1,0 +1,91 @@
+name: Build libretro core
+
+# xenia_edge_libretro (.so / .dll), the xenia-libretro premake target, built
+# with xenia-build.py on the same runners and tools upstream builds Xenia
+# with, minus Qt and the AppImage tooling the core has no use for.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [libretro]
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - 'LICENSE'
+
+jobs:
+  linux:
+    name: Linux x86_64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup
+        run: |
+          UBUNTU_BASE=$(lsb_release -cs)
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          sudo apt-add-repository -y "deb http://apt.llvm.org/${UBUNTU_BASE}/ llvm-toolchain-${UBUNTU_BASE}-21 main"
+          sudo apt-get -y update
+          sudo apt-get -y install libc++-dev libc++abi-dev libsdl2-dev libvulkan-dev libx11-xcb-dev clang-21 \
+            ninja-build spirv-tools glslang-tools libfontconfig1-dev libxtst-dev libgtk-3-dev
+          git submodule update --init --depth=1 -j$(getconf _NPROCESSORS_ONLN) $(grep -oP '(?<=path = )(?!third_party\/(DirectXShaderCompiler|premake-(androidndk|export-compile-commands))).+' .gitmodules)
+          ./xenia-build.py premake
+          ./xenia-build.py fetchdata
+
+      - name: Build
+        env:
+          CC: clang-21
+          CXX: clang++-21
+        run: ./xenia-build.py build --config=Release --target=xenia-libretro
+
+      - name: Collect
+        run: |
+          mkdir -p dist
+          core=$(find build -name 'xenia_edge_libretro*.so' | head -1)
+          echo "core: $core"
+          cp "$core" dist/xenia_edge_libretro.so
+          strip --strip-unneeded dist/xenia_edge_libretro.so
+          ls -la dist
+          readelf -d dist/xenia_edge_libretro.so | grep NEEDED
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xenia_edge_libretro-linux-x86_64
+          path: dist/
+
+  windows:
+    name: Windows x86_64
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup
+        run: |
+          Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe" -OutFile "vulkan-sdk.exe"
+          Start-Process -FilePath "vulkan-sdk.exe" -ArgumentList "--accept-licenses", "--default-answer", "--confirm-command", "install" -Wait
+          $env:VULKAN_SDK = "C:\VulkanSDK\$(Get-ChildItem -Path 'C:\VulkanSDK' -Directory | Select-Object -First 1 -ExpandProperty Name)"
+          echo "VULKAN_SDK=$env:VULKAN_SDK" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "$env:VULKAN_SDK\Bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          git submodule update --init --depth=1 -j $env:NUMBER_OF_PROCESSORS (Select-String -CaseSensitive '(?<=path = )(?!third_party\/(premake-(androidndk|cmake|export-compile-commands))).+' .gitmodules).Matches.Value
+          python xenia-build.py fetchdata
+
+      - name: Build
+        run: python xenia-build.py build --config=Release --target=xenia-libretro
+
+      - name: Collect
+        shell: bash
+        run: |
+          mkdir -p dist
+          core=$(find build -name 'xenia_edge_libretro*.dll' | head -1)
+          echo "core: $core"
+          cp "$core" dist/xenia_edge_libretro.dll
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xenia_edge_libretro-windows-x86_64
+          path: dist/
