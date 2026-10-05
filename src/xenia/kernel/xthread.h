@@ -589,12 +589,27 @@ class XThread : public XObject, public cpu::Thread {
     // Guest buffer for the exception record a fault hands the handler.
     uint32_t exception_record = 0;
     uint32_t leave_value = 0;
+    // The trap frame its KTHREAD names, where the console saves interrupted
+    // user code. Code running while it is interrupted sets and clears CR bits
+    // in the frame, which it resumes with.
+    uint32_t interrupt_frame = 0;
+    // XeFu changes the CR at 0x1B0, where its fatal report also reads a trap
+    // frame's CR. The rest of the layout is unknown.
+    static constexpr uint32_t kInterruptFrameSize = 0x1C0;
+    static constexpr uint32_t kInterruptFrameCr = 0x1B0;
+    // The CR saved in the frame, to tell what was changed there.
+    uint32_t interrupted_cr = 0;
     // Where KeEnterUserMode restarts the fiber after a dispatched fault.
     bool restart_pending = false;
     uint32_t restart_address = 0;
     bool in_user_code = false;
   };
   UserMode* user_mode() const { return user_mode_.get(); }
+  // Saves the CR of the user code being interrupted in its trap frame.
+  void SaveInterruptedUserCr();
+  // Applies the CR bits changed in the trap frame since SaveInterruptedUserCr
+  // to the context, as returning to user code reloads CR from the frame.
+  void RestoreInterruptedUserCr();
   void set_user_mode(std::unique_ptr<UserMode> user_mode) {
     user_mode_ = std::move(user_mode);
   }

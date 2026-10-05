@@ -189,11 +189,19 @@ static void PreemptCurrentFiber(void* /*raw_context*/) {
     }
   }
   links.preempt_defers_irql = 0;
+  // Where the console would interrupt user code, saving its CR in the trap
+  // frame, which code running meanwhile may change.
+  if (in_user_code) {
+    self->SaveInterruptedUserCr();
+  }
   // Involuntary quantum end, so no yield to a lower-priority thread - except
   // on the forced path, where the whole point is to reach a holder the strict
   // priority order would keep queued behind us.
   self->kernel_state()->guest_scheduler()->YieldCurrentThread(true,
                                                               forced_at_irql);
+  if (in_user_code) {
+    self->RestoreInterruptedUserCr();
+  }
 }
 
 // Raw host ticks per us for the watchdog's deadline math, 0 if unusable.

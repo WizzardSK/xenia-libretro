@@ -199,6 +199,7 @@ bool TrapIntoHandler(PPCContext* context, XThread* thread, uint32_t record,
   auto user_mode = thread->user_mode();
   auto trapped = user_mode->running;
   user_mode->in_user_code = false;
+  thread->SaveInterruptedUserCr();
   context->virtual_membase = kernel_memory()->virtual_membase();
   auto kframes = context->TranslateVirtual<uint8_t*>(user_mode->kframes);
   SaveKframes(context, kframes, resume_address);
@@ -236,6 +237,7 @@ bool TrapIntoHandler(PPCContext* context, XThread* thread, uint32_t record,
   }
 
   *out_address = LoadKframes(context, kframes);
+  thread->RestoreInterruptedUserCr();
   context->virtual_membase = kernel_memory()->user_virtual_membase();
   user_mode->in_user_code = true;
   return true;
@@ -386,6 +388,9 @@ XThread::UserMode* CreateUserMode(XThread* thread, PPCContext* context) {
   user_mode->kframes = kernel_state()->memory()->SystemHeapAlloc(kKframesSize);
   user_mode->exception_record =
       kernel_state()->memory()->SystemHeapAlloc(kRecordSize);
+  user_mode->interrupt_frame = kernel_state()->memory()->SystemHeapAlloc(
+      XThread::UserMode::kInterruptFrameSize);
+  thread->guest_object<X_KTHREAD>()->unk_128 = user_mode->interrupt_frame;
   auto result = user_mode.get();
   thread->set_user_mode(std::move(user_mode));
   return result;

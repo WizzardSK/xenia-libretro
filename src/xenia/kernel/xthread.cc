@@ -100,6 +100,8 @@ XThread::~XThread() {
     }
     backend->DestroyStackpointState(user_mode_->handler_stackpoint_state);
     kernel_state()->memory()->SystemHeapFree(user_mode_->kframes);
+    kernel_state()->memory()->SystemHeapFree(user_mode_->exception_record);
+    kernel_state()->memory()->SystemHeapFree(user_mode_->interrupt_frame);
     user_mode_.reset();
   }
 
@@ -617,6 +619,35 @@ X_STATUS XThread::Exit(int exit_code) {
   // NOTE: this does not return!
   xe::threading::Thread::Exit(exit_code);
   return X_STATUS_SUCCESS;
+}
+
+void XThread::SaveInterruptedUserCr() {
+  if (!user_mode_ || !user_mode_->interrupt_frame) {
+    return;
+  }
+  const uint32_t cr = uint32_t(thread_state_->context()->cr());
+  user_mode_->interrupted_cr = cr;
+  xe::store_and_swap<uint32_t>(
+      memory()->TranslateVirtual(user_mode_->interrupt_frame +
+                                 UserMode::kInterruptFrameCr),
+      cr);
+}
+
+void XThread::RestoreInterruptedUserCr() {
+  if (!user_mode_ || !user_mode_->interrupt_frame) {
+    return;
+  }
+  const uint32_t frame_cr =
+      xe::load_and_swap<uint32_t>(memory()->TranslateVirtual(
+          user_mode_->interrupt_frame + UserMode::kInterruptFrameCr));
+  // Only the bits changed in the frame, as the context may hold a CR a trap
+  // handler returned since.
+  const uint32_t changed = frame_cr ^ user_mode_->interrupted_cr;
+  if (changed) {
+    auto context = thread_state_->context();
+    context->set_cr((uint32_t(context->cr()) & ~changed) |
+                    (frame_cr & changed));
+  }
 }
 
 X_STATUS XThread::Terminate(int exit_code) {
