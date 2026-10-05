@@ -490,8 +490,12 @@ class Emulator {
   bool paused_;
   bool restoring_;
   bool relaunching_ = false;
-  // Held across CompleteLaunch so title teardown waits for it to finish.
-  std::mutex launch_mutex_;
+  // Held across a launch and a whole relaunch so title teardown waits for a
+  // launch to finish. Recursive, as a relaunch launches under it.
+  std::recursive_mutex launch_mutex_;
+  // Relaunch requests so far, to drop one a newer request replaced while it
+  // waited for the lock.
+  std::atomic<uint64_t> relaunch_requests_{0};
   threading::Fence restore_fence_;  // Fired on restore finish.
 
   // Persisted across Shutdown/Setup for relaunch.

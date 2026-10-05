@@ -3208,7 +3208,9 @@ void EmulatorWindow::PollGamepads() {
             const bool activate = (pressed & X_INPUT_GAMEPAD_A) != 0;
             if (navigate || activate) {
               app_context_.CallInUIThread([this, navigate, activate]() {
-                if (!game_list_panel_) {
+                // A launch hides the list before the title is open, and a
+                // press then would relaunch the selected title.
+                if (!game_list_panel_ || !game_list_panel_->IsShownOnScreen()) {
                   return;
                 }
                 using Direction = GameListPanel::Direction;

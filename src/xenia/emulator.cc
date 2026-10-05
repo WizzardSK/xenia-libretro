@@ -683,6 +683,8 @@ Emulator::FileSignatureType Emulator::GetFileSignature(
 }
 
 X_STATUS Emulator::LaunchPath(const std::filesystem::path& path) {
+  // A relaunch must not tear down what this mounts into and loads from.
+  std::lock_guard<std::recursive_mutex> launch_lock(launch_mutex_);
   // Remember for relaunch fallback
   if (!path.empty()) {
     last_launch_path_ = path;
@@ -1370,7 +1372,16 @@ void Emulator::RelaunchTitle(const std::string& host_path,
                              const std::string& launch_module,
                              uint32_t launch_flags,
                              std::vector<uint8_t> launch_data) {
-  std::unique_lock<std::mutex> launch_lock(launch_mutex_);
+  // Each UI launch and guest launch request relaunches on its own thread, so a
+  // burst of them queues here. One a newer request replaced while it waited is
+  // dropped.
+  const uint64_t request = ++relaunch_requests_;
+  std::lock_guard<std::recursive_mutex> launch_lock(launch_mutex_);
+  if (request != relaunch_requests_.load()) {
+    XELOGI("RelaunchTitle: skipping {}, a newer request replaces it",
+           host_path);
+    return;
+  }
   XELOGI(
       "RelaunchTitle: starting full in-process relaunch, target={}, module={}",
       host_path, launch_module);
@@ -1428,7 +1439,6 @@ void Emulator::RelaunchTitle(const std::string& host_path,
   auto launch_target =
       host_path.empty() ? last_launch_path_ : xe::to_path(host_path);
   XELOGI("RelaunchTitle: launching '{}'", xe::path_to_utf8(launch_target));
-  launch_lock.unlock();
   LaunchPath(launch_target);
 
   relaunching_ = false;
@@ -1436,7 +1446,9 @@ void Emulator::RelaunchTitle(const std::string& host_path,
 }
 
 void Emulator::ResetTitle() {
-  std::lock_guard<std::mutex> launch_lock(launch_mutex_);
+  // Drops relaunches requested before the reset.
+  ++relaunch_requests_;
+  std::lock_guard<std::recursive_mutex> launch_lock(launch_mutex_);
   XELOGI("ResetTitle: stopping title and resetting kernel");
 
   relaunching_ = true;
@@ -2017,7 +2029,6 @@ static std::string format_version(xex2_version version) {
 
 X_STATUS Emulator::CompleteLaunch(const std::filesystem::path& path,
                                   const std::string_view module_path) {
-  std::lock_guard<std::mutex> launch_lock(launch_mutex_);
   // The window icon and on_launch listeners need the UI thread.
   X_STATUS result = X_STATUS_UNSUCCESSFUL;
   display_window_->app_context().CallInUIThreadSynchronous(
