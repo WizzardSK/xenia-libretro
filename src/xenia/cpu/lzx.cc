@@ -146,6 +146,57 @@ int lzx_decompress(const void* lzx_data, size_t lzx_len, void* dest,
   return result_code;
 }
 
+LzxFrameDecoder::LzxFrameDecoder(uint32_t window_size)
+    : system_(mspack_memory_sys_create()),
+      input_(mspack_memory_open(system_, NULL, 0)),
+      output_(mspack_memory_open(system_, NULL, 0)) {
+  xe::bit_scan_forward(window_size, &window_bits_);
+}
+
+LzxFrameDecoder::~LzxFrameDecoder() {
+  lzxd_free(stream_);
+  mspack_memory_close(output_);
+  mspack_memory_close(input_);
+  mspack_memory_sys_destroy(system_);
+}
+
+bool LzxFrameDecoder::Reset() {
+  lzxd_free(stream_);
+  stream_ = NULL;
+  if (input_ && output_) {
+    stream_ = lzxd_init(system_, (mspack_file*)input_, (mspack_file*)output_,
+                        window_bits_, 0, 0x8000, 0, 0);
+  }
+  return stream_ != NULL;
+}
+
+bool LzxFrameDecoder::Decompress(const void* source, size_t source_size,
+                                 void* dest, size_t dest_size) {
+  if (!stream_ || !dest_size || dest_size > LZX_FRAME_SIZE) {
+    return false;
+  }
+  input_->buffer = (void*)source;
+  input_->buffer_size = (off_t)source_size;
+  input_->offset = 0;
+  output_->buffer = dest;
+  output_->buffer_size = (off_t)dest_size;
+  output_->offset = 0;
+
+  // Drop what lzxd buffered past the end of the previous frame, including the
+  // padding it reads at the end of input.
+  stream_->i_ptr = stream_->i_end = stream_->inbuf;
+  stream_->bit_buffer = 0;
+  stream_->bits_left = 0;
+  stream_->input_end = 0;
+
+  // lzxd only ends a frame short at the length of the stream. Output that ends
+  // on a frame boundary makes it count an extra empty frame, which fails a
+  // later short frame, so the last byte is asked for on its own.
+  lzxd_set_output_length(stream_, stream_->offset + (off_t)dest_size);
+  return lzxd_decompress(stream_, (off_t)dest_size - 1) == MSPACK_ERR_OK &&
+         lzxd_decompress(stream_, 1) == MSPACK_ERR_OK;
+}
+
 int lzxdelta_apply_patch(xe::xex2_delta_patch* patch, size_t patch_len,
                          uint32_t window_size, void* dest) {
   void* patch_end = (char*)patch + patch_len;

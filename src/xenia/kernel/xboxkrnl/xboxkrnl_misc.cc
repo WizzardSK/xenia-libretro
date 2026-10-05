@@ -7,8 +7,7 @@
  ******************************************************************************
  */
 
-#include <cstring>
-#include <vector>
+#include <memory>
 
 #include "xenia/base/math.h"
 #include "xenia/cpu/lzx.h"
@@ -180,23 +179,19 @@ dword_result_t MicDeviceRequest_entry(pointer_t<X_MIC_DEVICE> device_ptr) {
 }
 DECLARE_XBOXKRNL_EXPORT1(MicDeviceRequest, kNone, kStub);
 
-// The kernel's LZX decompression as cabinets use it. A context keeps the window
-// and each call passes one compressed frame. lzxd reads ahead past the end of
-// the frame into data no call has passed yet. Each call decodes the whole
-// stream so far and returns only the new frame. That's quadratic in the frame
-// count, which is fine for the small resources titles inflate.
+// The kernel's LZX decompression as cabinets use it. A context keeps the
+// stream and each call passes one compressed frame.
 //
 // A context is a host object so its handle is checked and it goes with the
 // object table. On the console it's a guest allocation that takes no handle.
 class XLdiContext : public XObject {
  public:
-  XLdiContext(KernelState* kernel_state, uint32_t window_size)
+  XLdiContext(KernelState* kernel_state,
+              std::unique_ptr<LzxFrameDecoder> decoder)
       : XObject(kernel_state, Type::Undefined, true),
-        window_size(window_size) {}
+        decoder(std::move(decoder)) {}
 
-  const uint32_t window_size;
-  std::vector<uint8_t> input;
-  std::vector<uint8_t> output;
+  const std::unique_ptr<LzxFrameDecoder> decoder;
 };
 
 static object_ref<XObject> LookupLdiContext(uint32_t handle,
@@ -207,6 +202,7 @@ static object_ref<XObject> LookupLdiContext(uint32_t handle,
 }
 
 constexpr uint32_t kLdiErrorNone = 0;
+constexpr uint32_t kLdiErrorNotEnoughMemory = 1;
 constexpr uint32_t kLdiErrorBadParameters = 2;
 constexpr uint32_t kLdiErrorBufferOverflow = 3;
 constexpr uint32_t kLdiErrorFailed = 4;
@@ -228,9 +224,13 @@ dword_result_t LDICreateDecompression_entry(
       window_size > 0x200000) {
     return kLdiErrorConfiguration;
   }
+  auto decoder = std::make_unique<LzxFrameDecoder>(window_size);
+  if (!decoder->Reset()) {
+    return kLdiErrorNotEnoughMemory;
+  }
   // The creation reference passes to the handle.
-  auto context =
-      object_ref<XLdiContext>(new XLdiContext(kernel_state(), window_size));
+  auto context = object_ref<XLdiContext>(
+      new XLdiContext(kernel_state(), std::move(decoder)));
   *handle_ptr = context->handle();
   if (source_buffer_min) {
     *source_buffer_min = kLdiSourceBufferMin;
@@ -245,12 +245,11 @@ dword_result_t LDIDecompress_entry(dword_t handle, lpvoid_t source,
   if (!source || !dest || !dest_size) {
     return kLdiErrorBadParameters;
   }
-  XLdiContext* context_object;
-  auto object = LookupLdiContext(handle, &context_object);
-  if (!context_object) {
+  XLdiContext* context;
+  auto object = LookupLdiContext(handle, &context);
+  if (!context) {
     return kLdiErrorBadParameters;
   }
-  XLdiContext& context = *context_object;
   // The size the caller expects this frame to inflate to.
   const uint32_t frame_size = *dest_size;
   if (!frame_size || frame_size > kLdiFrameSize) {
@@ -259,21 +258,10 @@ dword_result_t LDIDecompress_entry(dword_t handle, lpvoid_t source,
   if (source_size > kLdiSourceBufferMin) {
     return kLdiErrorBadParameters;
   }
-  const size_t input_size = context.input.size();
-  const size_t output_size = context.output.size();
-  const uint8_t* source_data = source.as<const uint8_t*>();
-  context.input.insert(context.input.end(), source_data,
-                       source_data + source_size);
-  context.output.resize(output_size + frame_size);
-  if (lzx_decompress(context.input.data(), context.input.size(),
-                     context.output.data(), context.output.size(),
-                     context.window_size, nullptr, 0)) {
-    context.input.resize(input_size);
-    context.output.resize(output_size);
+  if (!context->decoder->Decompress(source.as<const uint8_t*>(), source_size,
+                                    dest.as<uint8_t*>(), frame_size)) {
     return kLdiErrorFailed;
   }
-  std::memcpy(dest.as<uint8_t*>(), context.output.data() + output_size,
-              frame_size);
   return kLdiErrorNone;
 }
 DECLARE_XBOXKRNL_EXPORT1(LDIDecompress, kNone, kImplemented);
@@ -284,8 +272,9 @@ dword_result_t LDIResetDecompression_entry(dword_t handle) {
   if (!context) {
     return kLdiErrorBadParameters;
   }
-  context->input.clear();
-  context->output.clear();
+  if (!context->decoder->Reset()) {
+    return kLdiErrorNotEnoughMemory;
+  }
   return kLdiErrorNone;
 }
 DECLARE_XBOXKRNL_EXPORT1(LDIResetDecompression, kNone, kImplemented);
