@@ -133,15 +133,6 @@ class PPCHIRBuilder : public hir::HIRBuilder {
   uint64_t instr_count_;
   Instr** instr_offset_list_;
   Label** label_list_;
-
-  // Reset each instruction.
-  struct {
-    uint32_t dest_count;
-    struct {
-      uint8_t reg;
-      Value* value;
-    } dests[4];
-  } trace_info_;
 };
 
 }  // namespace ppc
