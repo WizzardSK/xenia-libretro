@@ -1107,6 +1107,16 @@ Memory::UserPageState Memory::TranslateUserPage(uint32_t user_address,
     physical_address = entry & ~(page_size - 1);
     protection = entry & kUserEntryProtection;
   }
+  // Outside the physical alias, an entry that names no frame shows the
+  // kernel's virtual memory at its address, as IE's user heap needs: nothing
+  // gives its entries a frame.
+  if (!physical_address && user_address - kUserAliasBase >= kUserAliasSize) {
+    BaseHeap* heap = LookupHeap(user_address);
+    if (heap && heap->heap_type() != HeapType::kGuestPhysical) {
+      physical_address =
+          (user_address & ~(page_size - 1)) + kKernelVirtualFrameBias;
+    }
+  }
   physical_address += user_address & (page_size - 1);
   if (out_protection) {
     *out_protection = protection;
