@@ -12,9 +12,11 @@
 
 #include <atomic>
 #include <cstdio>
+#include <deque>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -147,6 +149,9 @@ class Processor {
   // into it compiles what the guest has since written there, and records the
   // range as the extent of the code the guest wrote.
   void InvalidateCodeRange(uint32_t address, uint32_t length);
+  // Changes whenever compiled code may have been dropped. A function resolved
+  // before a change may have been dropped before it could be cached.
+  uint64_t code_sweep_count() const { return code_sweep_count_.load(); }
 
   // The exclusive end of the swept range an address falls in, or 0 for none.
   uint32_t SweptCodeEnd(uint32_t address);
@@ -392,6 +397,35 @@ class Processor {
   void RecordDynamicCode(const Function* function);
   // Dynamic code pieces by start key. Guarded with the global lock.
   std::multimap<uint64_t, DynamicCodePiece> dynamic_code_pieces_;
+  // Calls |callback(key, end_key)| for the part of [start, end) in each 4 KB
+  // page, or of the code |function| was compiled from.
+  template <typename Callback>
+  void ForEachCodePiece(uint64_t start, uint64_t end, Callback&& callback);
+  template <typename Callback>
+  void ForEachCodePiece(const Function* function, Callback&& callback);
+
+  // Bumped by each sweep before it drops anything, and by a compile dropped as
+  // it publishes.
+  std::atomic<uint64_t> code_sweep_count_{0};
+  // A compile reads the code outside the lock, and a sweep in the meantime
+  // can't find it to drop. So the sweep count at the start of each compile of
+  // dynamic code in flight is kept, and the key ranges swept since the oldest
+  // of them, which the compile checks its own code against before it
+  // publishes. Guarded with the global lock.
+  struct CompileSweep {
+    uint64_t count;
+    uint64_t start_key;
+    uint64_t end_key;
+  };
+  std::multiset<uint64_t> compile_sweep_counts_;
+  std::deque<CompileSweep> compile_sweeps_;
+  // Start and end a compile, returning the count it starts at. The caller
+  // holds the global lock.
+  uint64_t BeginCompile();
+  void EndCompile(uint64_t sweep_count);
+  // Whether a sweep after |sweep_count| covered the code |function| was
+  // compiled from.
+  bool SweptSince(const Function* function, uint64_t sweep_count);
 
   // Maps thread ID to state. Updated on thread create, and threads are never
   // removed. Must be guarded with the global lock.

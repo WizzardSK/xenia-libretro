@@ -11,6 +11,7 @@
 
 #include <stddef.h>
 
+#include <atomic>
 #include <climits>
 #include <cstring>
 
@@ -805,6 +806,7 @@ static uint64_t ResolveDynamicFunction(void* raw_context,
       return return_address;
     }
   }
+  const uint64_t sweep_count = guest_context->processor->code_sweep_count();
   auto function = guest_context->processor->ResolveFunction(
       static_cast<uint32_t>(target_address));
   bool redirected = false;
@@ -850,6 +852,14 @@ static uint64_t ResolveDynamicFunction(void* raw_context,
                : is_return_site ? kX64DynamicCallReturnSite
                                 : kX64DynamicCallAny;
   entry.guest_address = static_cast<uint32_t>(target_address);
+  // A sweep since the resolve began may have dropped the function before the
+  // entry was there for it to clear. The fence pairs with the sweep's count
+  // bump before it clears entries.
+  std::atomic_thread_fence(std::memory_order_seq_cst);
+  if (guest_context->processor->code_sweep_count() != sweep_count) {
+    entry.host_address = 0;
+    entry.guest_address = UINT32_MAX;
+  }
   return host_address;
 }
 
