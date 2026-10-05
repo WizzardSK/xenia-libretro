@@ -32,6 +32,7 @@
 #include "xenia/kernel/xenumerator.h"
 #include "xenia/kernel/xthread.h"
 #include "xenia/ui/windowed_app_context.h"
+#include "xenia/vfs/devices/host_path_entry.h"
 #include "xenia/xbox.h"
 
 #include "third_party/fmt/include/fmt/format.h"
@@ -513,14 +514,40 @@ static std::filesystem::path ResolveHostFileName(
   return path;
 }
 
-void XamLoaderLaunchTitle_entry(lpstring_t raw_name_ptr, dword_t flags) {
+// Whether |path| names a device rather than a file next to the title.
+static bool NamesDevice(std::string_view path) {
+  return path.find(':') != std::string_view::npos || path.starts_with('\\');
+}
+
+// The console's XamLoaderLaunchTitleEx, which XamLoaderLaunchTitle calls with
+// flag 4. The D: drive path is only checked for flag 4.
+static void LaunchTitle(std::string path, std::string_view d_drive_path,
+                        uint32_t flags) {
   auto xam = kernel_state()->GetKernelModule<XamModule>("xam.xex");
 
   auto& loader_data = xam->loader_data();
   loader_data.launch_flags = flags;
 
-  // A null or empty path means exit to dashboard.
-  const std::string path = raw_name_ptr ? raw_name_ptr.value() : std::string();
+  // Flag 4 exits to the dashboard for a path rooted at a device. Flag 2 boots
+  // the disc in the tray in place of the path, and with no tray to emulate
+  // that exits to the dashboard too.
+  if ((flags & 2) || ((flags & 4) && (path.starts_with('\\') ||
+                                      d_drive_path.starts_with('\\')))) {
+    path.clear();
+  }
+  // A path on a device that doesn't resolve can't be launched, like the
+  // X:\xbox.xex XeFu exits to.
+  const vfs::Entry* entry = nullptr;
+  if (NamesDevice(path)) {
+    entry = kernel_state()->file_system()->ResolvePath(path);
+    if (!entry) {
+      XELOGW("XamLoaderLaunchTitle: {} does not exist, exiting to dashboard",
+             path);
+      path.clear();
+    }
+  }
+
+  // An empty path means exit to dashboard.
   if (!path.empty()) {
     loader_data.launch_data_present = true;
 
@@ -540,7 +567,20 @@ void XamLoaderLaunchTitle_entry(lpstring_t raw_name_ptr, dword_t flags) {
     remove_prefix("game:\\");
     remove_prefix("d:\\");
 
-    if (host_path.extension() == ".xex") {
+    if (NamesDevice(launch_path)) {
+      // Any other device is outside the title. Only a file a host directory
+      // backs can be launched from there.
+      auto host_entry = dynamic_cast<const vfs::HostPathEntry*>(entry);
+      if (!host_entry ||
+          (host_entry->attributes() & vfs::kFileAttributeDirectory)) {
+        XELOGW("XamLoaderLaunchTitle: can't launch {}, exiting to dashboard",
+               path);
+        kernel_state()->ExitToDashboard();
+        return;
+      }
+      host_path = host_entry->host_path();
+      launch_path = "";
+    } else if (host_path.extension() == ".xex") {
       host_path.remove_filename();
       host_path = ResolveHostFileName(host_path / launch_path);
       launch_path = "";
@@ -602,7 +642,31 @@ void XamLoaderLaunchTitle_entry(lpstring_t raw_name_ptr, dword_t flags) {
   XELOGI("XamLoaderLaunchTitle: game requested exit to dashboard");
   kernel_state()->ExitToDashboard();
 }
+
+void XamLoaderLaunchTitle_entry(lpstring_t raw_name_ptr, dword_t flags) {
+  LaunchTitle(raw_name_ptr ? raw_name_ptr.value() : std::string(), {},
+              flags | 4);
+}
 DECLARE_XAM_EXPORT1(XamLoaderLaunchTitle, kNone, kSketchy);
+
+// Nothing mounts the D: drive path, and the command line isn't passed on.
+void XamLoaderLaunchTitleEx_entry(lpstring_t raw_name_ptr,
+                                  lpstring_t raw_d_drive_path_ptr,
+                                  lpstring_t raw_command_line_ptr,
+                                  dword_t flags) {
+  const std::string d_drive_path =
+      raw_d_drive_path_ptr ? raw_d_drive_path_ptr.value() : std::string();
+  if (!d_drive_path.empty() || raw_command_line_ptr) {
+    XELOGW(
+        "XamLoaderLaunchTitleEx: not mounting D: drive path {} or passing "
+        "command line {}",
+        d_drive_path,
+        raw_command_line_ptr ? raw_command_line_ptr.value() : std::string());
+  }
+  LaunchTitle(raw_name_ptr ? raw_name_ptr.value() : std::string(), d_drive_path,
+              flags);
+}
+DECLARE_XAM_EXPORT1(XamLoaderLaunchTitleEx, kNone, kSketchy);
 
 void XamLoaderTerminateTitle_entry() { kernel_state()->ExitToDashboard(); }
 DECLARE_XAM_EXPORT1(XamLoaderTerminateTitle, kNone, kSketchy);

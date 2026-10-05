@@ -748,7 +748,8 @@ void EmulatorApp::EmulatorThread() {
 
   if (xam && (cvars::launch_flags != 0 || !cvars::launch_data.empty())) {
     auto& loader_data = xam->loader_data();
-    loader_data.launch_data_present = true;
+    // Flags alone carry no data, as with an in-process relaunch.
+    loader_data.launch_data_present = !cvars::launch_data.empty();
     loader_data.launch_flags = cvars::launch_flags;
 
     // Decode hex-encoded launch_data
