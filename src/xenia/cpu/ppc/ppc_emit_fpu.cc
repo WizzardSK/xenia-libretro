@@ -562,11 +562,11 @@ int InstrEmit_mtfsfx(PPCHIRBuilder& f, const InstrData& i) {
 }
 
 int InstrEmit_mtfsfix(PPCHIRBuilder& f, const InstrData& i) {
-  // FPSCR[crfD] <- IMM
+  // FPSCR[crfD] <- IMM, the top 4 bits of the RB field.
 
   // Create a mask.
   uint32_t mask = 0xF << (0x1C - (i.X.RT & 0x1C));
-  uint32_t value = i.X.RB << (0x1C - (i.X.RT & 0x1C));
+  uint32_t value = (i.X.RB >> 1) << (0x1C - (i.X.RT & 0x1C));
 
   Value* fpscr = f.LoadFPSCR();
   fpscr = f.And(fpscr, f.LoadConstantInt32(~mask));
