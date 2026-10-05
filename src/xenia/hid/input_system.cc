@@ -243,6 +243,8 @@ X_RESULT InputSystem::GetKeystroke(uint32_t user_index, uint32_t flags,
     any_connected = true;
     if (r == X_ERROR_SUCCESS) {
       last_used_slot = user_index;
+      // Drivers stamp their own slot. The title expects the user it asked for.
+      out_keystroke->user_index = static_cast<uint8_t>(user_index);
     }
     return r;
   };
