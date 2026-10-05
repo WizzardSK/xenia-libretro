@@ -79,6 +79,8 @@ class GraphicsSystem {
                          ui::WindowedAppContext* app_context,
                          bool with_presentation);
   virtual void Shutdown();
+  // Stops the vblank thread. Idempotent, and Shutdown does it too.
+  void StopFrameLimiter();
 
   // May be called from any thread any number of times, even during recovery
   // from a device loss.

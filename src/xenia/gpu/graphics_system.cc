@@ -233,11 +233,7 @@ void GraphicsSystem::Shutdown() {
     command_processor_.reset();
   }
 
-  if (frame_limiter_worker_thread_) {
-    frame_limiter_worker_running_ = false;
-    frame_limiter_worker_thread_->Wait(0, 0, 0, nullptr);
-    frame_limiter_worker_thread_.reset();
-  }
+  StopFrameLimiter();
 
   if (presenter_) {
     if (app_context_) {
@@ -250,6 +246,14 @@ void GraphicsSystem::Shutdown() {
   }
 
   provider_.reset();
+}
+
+void GraphicsSystem::StopFrameLimiter() {
+  if (frame_limiter_worker_thread_) {
+    frame_limiter_worker_running_ = false;
+    frame_limiter_worker_thread_->Wait(0, 0, 0, nullptr);
+    frame_limiter_worker_thread_.reset();
+  }
 }
 
 void GraphicsSystem::OnHostGpuLossFromAnyThread(

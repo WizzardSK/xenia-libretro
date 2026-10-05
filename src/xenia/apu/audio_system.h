@@ -47,6 +47,9 @@ class AudioSystem {
 
   virtual X_STATUS Setup(kernel::KernelState* kernel_state);
   virtual void Shutdown();
+  // Stops the worker that runs the guest audio callbacks. Idempotent, and
+  // Shutdown does it too.
+  void StopWorker();
 
   X_STATUS RegisterClient(uint32_t callback, uint32_t callback_arg,
                           size_t* out_index);

@@ -226,13 +226,19 @@ int AudioSystem::FindFreeClient() {
 
 void AudioSystem::Initialize() {}
 
-void AudioSystem::Shutdown() {
+void AudioSystem::StopWorker() {
   worker_running_ = false;
   pending_work_event_->Set();
+  // A paused worker waits for the resume.
+  resume_event_->Set();
   if (worker_thread_) {
     worker_thread_->Wait(0, 0, 0, nullptr);
     worker_thread_.reset();
   }
+}
+
+void AudioSystem::Shutdown() {
+  StopWorker();
 
   // Unregister all active clients to shut down their audio drivers before
   // the semaphores are destroyed with this AudioSystem.
