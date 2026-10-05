@@ -706,8 +706,6 @@ class XThread : public XObject, public cpu::Thread {
     // between. A spinning fiber has no other exit, so this separates one from
     // a thread that is merely running long.
     uint32_t unyielded_quanta = 0;
-    bool forced_preempt_logged =
-        false;                        // one forced-preempt warning per thread
     bool starved_out_logged = false;  // one starvation warning per thread
     // Set by an external Terminate, exits the fiber at its next
     // ExitIfTerminated check.
@@ -739,12 +737,13 @@ class XThread : public XObject, public cpu::Thread {
     XObject* wait_gate_objects[8] = {};
     uint8_t wait_gate_count = 0;
 
-    // Consecutive safepoints that declined to preempt because the guest was at
-    // IRQL >= 2. Bounds the defer so a guest spinning at DISPATCH_LEVEL on a
-    // co-resident holder cannot livelock its dispatch CPU forever.
+    // Safepoints since the last preemption that declined to preempt because the
+    // guest was at IRQL >= 2, as the console defers the dispatch. Diagnostic
+    // only.
     uint32_t preempt_defers_irql = 0;
-    // Same, for holding the global critical region. Diagnostic only - yielding
-    // there would let a co-resident fiber re-enter the recursive lock.
+    // Consecutive safepoints that declined to preempt while holding the global
+    // critical region. Diagnostic only - yielding there would let a co-resident
+    // fiber re-enter the recursive lock.
     uint32_t preempt_defers_lock = 0;
   };
   SchedulerLinks& scheduler_links() { return scheduler_links_; }

@@ -112,13 +112,12 @@ class GuestScheduler {
   // Dispatch thread index a guest CPU maps to, for co-residency checks.
   int DispatchCpuOf(uint8_t guest_cpu) const;
 
+  bool shutting_down() const { return shutting_down_.load(); }
+
   // Waits on a host Fence. On a fiber it polls and parks instead of blocking
   // the dispatch thread, so an unbounded wait such as a UI dialog does not
   // freeze the guest threads sharing it. The Fence must have one waiter.
   static void WaitOnFence(xe::threading::Fence& fence);
-
-  // Counts a safepoint preemption forced through a deferring IRQL.
-  void NoteForcedPreempt();
 
   // Opens a background-scheduling window on the background processors, as the
   // console does from its vblank DPC. Those CPUs prefer the low priority band
@@ -357,13 +356,12 @@ class GuestScheduler {
   // blocking calls queue behind an I/O worker. Reported by
   // ReportStatsIfDue when guest_scheduler_stats is set.
   struct Stats {
-    std::atomic<uint64_t> repolls{0};          // RereadyBlocked passes
-    std::atomic<uint64_t> rereadied{0};        // waiters actually re-readied
-    std::atomic<uint64_t> idle_wakes{0};       // timed wakes of a parked CPU
-    std::atomic<uint64_t> switches{0};         // fiber dispatches
-    std::atomic<uint64_t> skipped_yields{0};   // yields with nothing to run
-    std::atomic<uint64_t> forced_preempts{0};  // IRQL defers escaped
-    std::atomic<uint64_t> yield_downs{0};      // yields that ran a lower prio
+    std::atomic<uint64_t> repolls{0};         // RereadyBlocked passes
+    std::atomic<uint64_t> rereadied{0};       // waiters actually re-readied
+    std::atomic<uint64_t> idle_wakes{0};      // timed wakes of a parked CPU
+    std::atomic<uint64_t> switches{0};        // fiber dispatches
+    std::atomic<uint64_t> skipped_yields{0};  // yields with nothing to run
+    std::atomic<uint64_t> yield_downs{0};     // yields that ran a lower prio
     // Of those, the ones the starvation escape hatch forced.
     std::atomic<uint64_t> starvation_yields{0};
     std::atomic<uint64_t> background_windows{0};  // vblanks that opened one

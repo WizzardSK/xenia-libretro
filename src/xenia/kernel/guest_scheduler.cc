@@ -40,8 +40,8 @@ DEFINE_uint32(
 DEFINE_bool(
     guest_scheduler_stats, false,
     "Log guest scheduler counters once a second: blocked-waiter re-poll rate, "
-    "fiber switches, forced preemptions, and how long offloaded blocking calls "
-    "queue behind the single I/O worker.",
+    "fiber switches, yields, and how long offloaded blocking calls queue "
+    "behind the single I/O worker.",
     "Kernel");
 
 namespace xe {
@@ -131,12 +131,7 @@ static bool TakeHeadRequeue(XThread::SchedulerLinks& links) {
   return at_head;
 }
 
-// Safepoints that may decline to preempt before one is forced through anyway.
-// A guest spinning at DISPATCH_LEVEL passes safepoints at roughly the loop
-// rate, so this is a short wait in wall-clock terms, and the alternative is an
-// unbounded livelock when the holder it spins on is co-resident.
-static constexpr uint32_t kMaxIrqlPreemptDefers = 4096;
-// Reporting threshold for the lock case, which is never forced.
+// Reporting threshold for the lock case.
 static constexpr uint32_t kLockPreemptDeferReport = 65536;
 
 // JIT safepoint handler. The cold path cleared the flag, so the deferred
@@ -148,10 +143,10 @@ static void PreemptCurrentFiber(void* /*raw_context*/) {
   }
   auto* context = self->thread_state()->context();
   auto& links = self->scheduler_links();
-  // A co-resident fiber would re-enter the recursive lock on this host thread,
-  // silently breaking mutual exclusion, so this one is never forced. Report a
-  // fiber stuck here instead - it means guest code is spinning under the global
-  // lock, which the lock's own holder has to resolve.
+  // A co-resident fiber would re-enter the recursive lock on this host thread
+  // and silently break mutual exclusion, which is why the switch waits. Report
+  // a fiber stuck here instead - it means guest code is spinning under the
+  // global lock, which the lock's own holder has to resolve.
   if (xe::global_critical_region::is_held_by_current_thread()) {
     context->preempt_requested = 1;
     if (++links.preempt_defers_lock == kLockPreemptDeferReport) {
@@ -163,30 +158,19 @@ static void PreemptCurrentFiber(void* /*raw_context*/) {
     return;
   }
   links.preempt_defers_lock = 0;
-  // At DISPATCH_LEVEL the console masks the decrementer, but it also runs the
-  // lock holder on another core. Here the holder may be a fiber queued behind
-  // this one, so honoring the mask indefinitely livelocks. Defer a bounded
-  // number of times, then switch anyway - IRQL still orders guest APCs.
+  // At DISPATCH_LEVEL the console defers a switch, for the quantum or a readied
+  // thread alike, until IRQL drops below DISPATCH_LEVEL. A DPC runs to
+  // completion before anything else on its processor. Host teardown has no
+  // console counterpart and doesn't wait.
   auto* kpcr = context->TranslateVirtualGPR<X_KPCR*>(context->r[13]);
   // User code runs at PASSIVE_LEVEL and its r13 is not the KPCR.
   const bool in_user_code =
       self->user_mode() && self->user_mode()->in_user_code;
-  bool forced_at_irql = false;
-  if (!in_user_code && kpcr->current_irql >= 2) {
-    if (++links.preempt_defers_irql < kMaxIrqlPreemptDefers) {
-      context->preempt_requested = 1;
-      return;
-    }
-    forced_at_irql = true;
-    self->kernel_state()->guest_scheduler()->NoteForcedPreempt();
-    if (!links.forced_preempt_logged) {
-      links.forced_preempt_logged = true;
-      XELOGW(
-          "GuestScheduler: forcing preemption of tid={:08X} '{}' at IRQL {} "
-          "after {} declined safepoints (first time for this thread)",
-          self->thread_id(), self->thread_name(), uint32_t(kpcr->current_irql),
-          links.preempt_defers_irql);
-    }
+  if (!in_user_code && kpcr->current_irql >= 2 &&
+      !self->kernel_state()->guest_scheduler()->shutting_down()) {
+    ++links.preempt_defers_irql;
+    context->preempt_requested = 1;
+    return;
   }
   links.preempt_defers_irql = 0;
   // Where the console would interrupt user code, saving its CR in the trap
@@ -194,11 +178,8 @@ static void PreemptCurrentFiber(void* /*raw_context*/) {
   if (in_user_code) {
     self->SaveInterruptedUserCr();
   }
-  // Involuntary quantum end, so no yield to a lower-priority thread - except
-  // on the forced path, where the whole point is to reach a holder the strict
-  // priority order would keep queued behind us.
-  self->kernel_state()->guest_scheduler()->YieldCurrentThread(true,
-                                                              forced_at_irql);
+  // Involuntary quantum end, so no yield to a lower-priority thread.
+  self->kernel_state()->guest_scheduler()->YieldCurrentThread(true, false);
   if (in_user_code) {
     self->RestoreInterruptedUserCr();
   }
@@ -1694,10 +1675,6 @@ void GuestScheduler::EnterBackgroundMode() {
   }
 }
 
-void GuestScheduler::NoteForcedPreempt() {
-  stats_.forced_preempts.fetch_add(1, std::memory_order_relaxed);
-}
-
 void GuestScheduler::ReportStatsIfDue() {
   if (!cvars::guest_scheduler_stats) {
     return;
@@ -1715,7 +1692,6 @@ void GuestScheduler::ReportStatsIfDue() {
   uint64_t idle_wakes = take(stats_.idle_wakes);
   uint64_t switches = take(stats_.switches);
   uint64_t skipped_yields = take(stats_.skipped_yields);
-  uint64_t forced = take(stats_.forced_preempts);
   uint64_t yield_downs = take(stats_.yield_downs);
   uint64_t starved = take(stats_.starvation_yields);
   uint64_t bg_windows = take(stats_.background_windows);
@@ -1734,15 +1710,14 @@ void GuestScheduler::ReportStatsIfDue() {
   };
   XELOGI(
       "GuestScheduler: repolls {}/s (rereadied {}), idle wakes {}, switches "
-      "{}, skipped yields {}, forced preempts {}, yields down {} (starvation "
+      "{}, skipped yields {}, yields down {} (starvation "
       "{}), background {} windows {} picks, ready wait avg "
       "{} us max {} us | io {} calls, queued avg {} us max {} us, ran avg "
       "{} us, pool {} threads peak {} in flight",
-      repolls, rereadied, idle_wakes, switches, skipped_yields, forced,
-      yield_downs, starved, bg_windows, bg_picks,
-      rw_count ? to_us(rw_ticks / rw_count) : 0, to_us(rw_max), io_calls,
-      io_calls ? to_us(io_queue / io_calls) : 0, to_us(io_queue_max),
-      io_calls ? to_us(io_run / io_calls) : 0,
+      repolls, rereadied, idle_wakes, switches, skipped_yields, yield_downs,
+      starved, bg_windows, bg_picks, rw_count ? to_us(rw_ticks / rw_count) : 0,
+      to_us(rw_max), io_calls, io_calls ? to_us(io_queue / io_calls) : 0,
+      to_us(io_queue_max), io_calls ? to_us(io_run / io_calls) : 0,
       io_pool_size_.load(std::memory_order_relaxed), io_peak);
 }
 
@@ -1925,8 +1900,8 @@ void GuestScheduler::WatchdogLoop() {
       }
       // Stall detector: a dispatch count that has not moved for a whole
       // window separates the wedge modes - flag still set means the fiber
-      // never reaches a safepoint, flag cleared means it yields but makes no
-      // progress.
+      // never reaches a safepoint or declines each one (see irql_defers and
+      // lock_defers), flag cleared means it yields but makes no progress.
       uint64_t seq = cpus_[i].switch_seq.load(std::memory_order_relaxed);
       if (!running || seq != stall_last_seq_[i]) {
         stall_last_seq_[i] = seq;
