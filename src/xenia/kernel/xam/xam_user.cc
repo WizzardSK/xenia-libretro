@@ -1214,15 +1214,15 @@ DECLARE_XAM_EXPORT1(XamUserGetUserTenure, kUserProfiles, kImplemented);
 // https://github.com/TeaModz/XeLiveStealth-Full-Source/blob/d4a7439ac6241c4a13e883a6f156623d1c08f6eb/XeLive/Utils.cpp#L416
 dword_result_t XamUserLogon_entry(lpqword_t xuids_ptr, dword_t flags,
                                   pointer_t<XAM_OVERLAPPED> overlapped_ptr) {
+  if (!xuids_ptr) {
+    return X_ERROR_INVALID_PARAMETER;
+  }
+
   const auto host_xuids_ptr =
       kernel_memory()->TranslateVirtual<xe::be<uint64_t>*>(xuids_ptr);
 
   const auto xuids = std::vector<xe::be<uint64_t>>(
       host_xuids_ptr, host_xuids_ptr + XUserMaxUserCount);
-
-  if (!xuids_ptr) {
-    return X_ERROR_INVALID_PARAMETER;
-  }
 
   auto run = [xuids, flags](uint32_t& extended_error,
                             uint32_t& length) -> X_RESULT {
@@ -1251,12 +1251,24 @@ dword_result_t XamUserLogon_entry(lpqword_t xuids_ptr, dword_t flags,
       }
     }
 
-    // Log everyone out
-    if (flags & static_cast<uint32_t>(UserLogonFlags::ForceLiveLogOff)) {
-      for (uint32_t user_index = 0; user_index < XUserMaxUserCount;
+    // Without Add or Remove the array is one XUID per slot, and only
+    // ForceLiveLogOff signs out an empty slot.
+    if (!(flags & (static_cast<uint32_t>(UserLogonFlags::AddUser) |
+                   static_cast<uint32_t>(UserLogonFlags::RemoveUser)))) {
+      const bool sign_out_empty =
+          flags & static_cast<uint32_t>(UserLogonFlags::ForceLiveLogOff);
+      for (uint8_t user_index = 0; user_index < XUserMaxUserCount;
            user_index++) {
-        if (kernel_state()->xam_state()->IsUserSignedIn(user_index)) {
+        if (!xuids[user_index] && sign_out_empty &&
+            kernel_state()->xam_state()->IsUserSignedIn(
+                static_cast<uint32_t>(user_index))) {
           profile_manager->Logout(user_index, true);
+        }
+      }
+      for (uint8_t user_index = 0; user_index < XUserMaxUserCount;
+           user_index++) {
+        if (xuids[user_index]) {
+          profile_manager->Login(xuids[user_index], user_index, true);
         }
       }
     }

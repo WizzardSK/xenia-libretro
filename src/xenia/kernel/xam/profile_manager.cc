@@ -337,14 +337,6 @@ bool ProfileManager::DismountProfile(const uint64_t xuid) {
 
 void ProfileManager::Login(const uint64_t xuid, const uint8_t user_index,
                            bool notify) {
-  if (logged_profiles_.size() >= XUserMaxUserCount) {
-    XELOGE(
-        "Cannot login account with XUID: {:016X} due to lack of free slots "
-        "(Max 4 accounts at once)",
-        xuid);
-    return;
-  }
-
   if (user_index < XUserMaxUserCount) {
     const auto& profile = logged_profiles_.find(user_index);
     if (profile != logged_profiles_.cend()) {
@@ -355,6 +347,10 @@ void ProfileManager::Login(const uint64_t xuid, const uint8_t user_index,
     }
   }
 
+  if (!accounts_.count(xuid)) {
+    return;
+  }
+
   // Find if xuid is already logged in. We might want to logout.
   auto it = std::ranges::find_if(logged_profiles_, [xuid](const auto& entry) {
     return entry.second->xuid() == xuid;
@@ -363,7 +359,16 @@ void ProfileManager::Login(const uint64_t xuid, const uint8_t user_index,
     Logout(it->first);
   }
 
-  if (!accounts_.count(xuid)) {
+  // Whoever holds the slot asked for leaves it.
+  if (user_index < XUserMaxUserCount) {
+    Logout(user_index, notify);
+  }
+
+  if (logged_profiles_.size() >= XUserMaxUserCount) {
+    XELOGE(
+        "Cannot login account with XUID: {:016X} due to lack of free slots "
+        "(Max 4 accounts at once)",
+        xuid);
     return;
   }
 
