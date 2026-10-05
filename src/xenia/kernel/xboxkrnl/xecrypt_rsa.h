@@ -91,13 +91,15 @@ static inline uint64_t u128_div64(u128 num, uint64_t den, uint64_t* rem) {
   uint64_t q = 0;
   uint64_t r = 0;
   for (int i = 127; i >= 0; i--) {
+    // The bit shifted out of r makes it larger than any 64-bit divisor.
+    const bool overflow = (r >> 63) != 0;
     r = (r << 1);
     if (i >= 64) {
       r |= (num.hi >> (i - 64)) & 1;
     } else {
       r |= (num.lo >> i) & 1;
     }
-    if (r >= den) {
+    if (overflow || r >= den) {
       r -= den;
       if (i < 64) {
         q |= (1ULL << i);
@@ -317,12 +319,22 @@ class BigNum {
     uint64_t vn_2 = (n >= 2) ? v.limbs[n - 2] : 0;
 
     for (size_t j = total; j >= n; j--) {
-      u128 num_top =
-          u128_or64(u128_shl(u128_from(u.limbs[j]), 64), u.limbs[j - 1]);
       uint64_t rhat_val;
-      uint64_t qhat_val = u128_div64(num_top, vn_1, &rhat_val);
+      uint64_t qhat_val;
+      bool rhat_overflow = false;
+      if (u.limbs[j] >= vn_1) {
+        // The 128-by-64 division can't hold this quotient digit, which Knuth
+        // caps at b - 1.
+        qhat_val = ~uint64_t(0);
+        rhat_val = u.limbs[j - 1] + vn_1;
+        rhat_overflow = rhat_val < vn_1;
+      } else {
+        u128 num_top =
+            u128_or64(u128_shl(u128_from(u.limbs[j]), 64), u.limbs[j - 1]);
+        qhat_val = u128_div64(num_top, vn_1, &rhat_val);
+      }
 
-      while (true) {
+      while (!rhat_overflow) {
         u128 qv2 = u128_mul64(qhat_val, vn_2);
         u128 rhs = u128_or64(u128_shl(u128_from(rhat_val), 64), u.limbs[j - 2]);
         bool gt = (qv2.hi > rhs.hi) || (qv2.hi == rhs.hi && qv2.lo > rhs.lo);
@@ -349,11 +361,10 @@ class BigNum {
           carry++;
         }
       }
-      int64_t final_diff =
-          static_cast<int64_t>(u.limbs[j]) - static_cast<int64_t>(carry);
-      u.limbs[j] = static_cast<uint64_t>(final_diff);
+      const bool borrow = u.limbs[j] < carry;
+      u.limbs[j] -= carry;
 
-      if (final_diff < 0) {
+      if (borrow) {
         uint64_t c = 0;
         for (size_t i = 0; i < n; i++) {
           u128 sum = u128_add(u128_from(u.limbs[j - n + i]), v.limbs[i]);
