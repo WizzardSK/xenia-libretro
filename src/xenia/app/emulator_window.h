@@ -281,6 +281,8 @@ class EmulatorWindow {
   // Shows the game list, windowed at the default size, after a title stops or
   // fails to launch.
   void RestoreListWindow();
+  // Puts the game list back and says why a launch failed.
+  void OnLaunchFailed();
   // Tear down the running title on a non-guest thread and refresh the UI to
   // show the game list. Skips the user prompt — caller is responsible for
   // confirmation. Returns true if the title is being reset in-process, false

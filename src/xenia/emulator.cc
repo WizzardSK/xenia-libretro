@@ -724,6 +724,8 @@ X_STATUS Emulator::LaunchPath(const std::filesystem::path& path) {
     xbox_disc_path_.clear();
     xbox_game_.reset();
   }
+  // A file an earlier launch missed says nothing about this one.
+  missing_xefu_file_.clear();
 
   X_STATUS mount_result = X_STATUS_SUCCESS;
 
@@ -828,11 +830,16 @@ X_STATUS Emulator::LaunchXexFile(const std::filesystem::path& path) {
     module = kernel_state_->LoadUserModule("$flash_xam.xex");
   }
 
+  // The title is running by now, so a failure here doesn't fail the launch.
   if (module) {
-    result = kernel_state_->FinishLoadingUserModule(module, false);
+    const X_STATUS xam_result =
+        kernel_state_->FinishLoadingUserModule(module, false);
+    if (XFAILED(xam_result)) {
+      XELOGE("Failed to load the system xam module: {:08X}", xam_result);
+    }
   }
 
-  return result;
+  return X_STATUS_SUCCESS;
 }
 
 X_STATUS Emulator::LaunchDiscImage(const std::filesystem::path& path) {
@@ -1532,9 +1539,19 @@ void Emulator::RelaunchTitle(const std::string& host_path,
   auto launch_target =
       host_path.empty() ? last_launch_path_ : xe::to_path(host_path);
   XELOGI("RelaunchTitle: launching '{}'", xe::path_to_utf8(launch_target));
-  LaunchPath(launch_target);
+  const X_STATUS result = LaunchPath(launch_target);
 
   relaunching_ = false;
+  if (XFAILED(result)) {
+    XELOGE("RelaunchTitle: launching '{}' failed: {:08X}",
+           xe::path_to_utf8(launch_target), result);
+    // A newer request replaces this one and starts over itself.
+    if (request == relaunch_requests_.load()) {
+      ResetTitle();
+      on_relaunch_failed();
+    }
+    return;
+  }
   XELOGI("RelaunchTitle: relaunch complete");
 }
 
@@ -2157,6 +2174,13 @@ X_STATUS Emulator::CompleteLaunch(const std::filesystem::path& path,
   return X_STATUS_SUCCESS;
 }
 
+void Emulator::ResetTitleState() {
+  title_id_ = std::nullopt;
+  title_name_ = "";
+  title_version_ = "";
+  display_window_->SetIcon(nullptr, 0);
+}
+
 X_STATUS Emulator::PrepareLaunch(const std::filesystem::path& path,
                                  const std::string_view module_path) {
   // Per-title config has been applied by now and no guest code has been
@@ -2186,11 +2210,7 @@ X_STATUS Emulator::PrepareLaunch(const std::filesystem::path& path,
     file_system_->RegisterDevice(std::move(null_device));
   }
 
-  // Reset state.
-  title_id_ = std::nullopt;
-  title_name_ = "";
-  title_version_ = "";
-  display_window_->SetIcon(nullptr, 0);
+  ResetTitleState();
 
   // Allow xam to request module loads.
   auto xam = kernel_state()->GetKernelModule<kernel::xam::XamModule>("xam.xex");
@@ -2418,6 +2438,7 @@ X_STATUS Emulator::PrepareLaunch(const std::filesystem::path& path,
 
   auto main_thread = kernel_state_->LaunchModule(module);
   if (!main_thread) {
+    ResetTitleState();
     return X_STATUS_UNSUCCESSFUL;
   }
   main_thread_ = main_thread;

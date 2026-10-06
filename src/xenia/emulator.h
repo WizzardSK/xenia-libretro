@@ -423,6 +423,8 @@ class Emulator {
 
  public:
   xe::Delegate<uint32_t, const std::string_view> on_launch;
+  // A relaunch's title failed to start.
+  xe::Delegate<> on_relaunch_failed;
   xe::Delegate<bool> on_shader_storage_initialization;
   xe::Delegate<> on_patch_apply;
   xe::Delegate<> on_title_name_change;
@@ -481,6 +483,8 @@ class Emulator {
   // UI-thread half of CompleteLaunch, ends with the main thread suspended.
   X_STATUS PrepareLaunch(const std::filesystem::path& path,
                          const std::string_view module_path);
+  // Forgets the title being launched, leaving none open.
+  void ResetTitleState();
 
   std::filesystem::path command_line_;
   std::filesystem::path last_launch_path_;  // persists across relaunch

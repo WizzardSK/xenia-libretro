@@ -724,6 +724,12 @@ void EmulatorWindow::OnEmulatorInitialized() {
               ApplyContentVisibility();
             });
       });
+  emulator_->on_relaunch_failed.AddListener([this]() {
+    app_context_.CallInUIThread([this]() {
+      ClearDialogs();
+      OnLaunchFailed();
+    });
+  });
 
   window_->SetCursorVisibility(ui::Window::CursorVisibility::kAutoHidden);
 
@@ -2029,11 +2035,6 @@ bool EmulatorWindow::StopTitleAndReturnToList() {
   std::thread([this]() {
     emulator_->ResetTitle();
     app_context_.CallInUIThread([this]() {
-      if (game_list_panel_) {
-        game_list_panel_->Reload();
-      }
-      UpdateTitle();
-      window_->ResetIcon();
       RestoreListWindow();
       // XeFu exits when the build it picked for the game isn't there.
       if (const std::string file = emulator_->TakeMissingXeFuFile();
@@ -2043,6 +2044,23 @@ bool EmulatorWindow::StopTitleAndReturnToList() {
     });
   }).detach();
   return true;
+}
+
+void EmulatorWindow::OnLaunchFailed() {
+  // Presence still shows the title a failed relaunch replaced.
+  if (cvars::discord) {
+    discord::DiscordPresence::Shutdown();
+  }
+  RestoreListWindow();
+  if (const std::string missing_xefu_file = emulator_->TakeMissingXeFuFile();
+      !missing_xefu_file.empty()) {
+    ShowMissingXeFuFile(missing_xefu_file);
+  } else {
+    ShowWindowMessage(window_.get(), _("Title Launch Failed!"),
+                      _("Failed to launch title.\n\nCheck xenia.log for "
+                        "technical details."),
+                      wxICON_ERROR);
+  }
 }
 
 void EmulatorWindow::ShowMissingXeFuFile(const std::string& file) {
@@ -2058,6 +2076,11 @@ void EmulatorWindow::ShowMissingXeFuFile(const std::string& file) {
 }
 
 void EmulatorWindow::RestoreListWindow() {
+  if (game_list_panel_) {
+    game_list_panel_->Reload();
+  }
+  UpdateTitle();
+  window_->ResetIcon();
   // The game list only shows windowed.
   if (window_->IsFullscreen()) {
     SetFullscreen(false);
@@ -3658,21 +3681,15 @@ xe::X_STATUS EmulatorWindow::RunTitle(
   auto* emulator = emulator_;
   std::thread([this, emulator, abs_path]() {
     auto result = emulator->LaunchPath(abs_path);
+    if (result) {
+      XELOGE("Failed to launch target: {:08X}", result);
+      // Whatever of the title loaded goes, as when one stops.
+      emulator->ResetTitle();
+    }
     wxTheApp->CallAfter([this, result, abs_path]() {
       ClearDialogs();
       if (result) {
-        XELOGE("Failed to launch target: {:08X}", result);
-        const std::string missing_xefu_file = emulator_->TakeMissingXeFuFile();
-        emulator_->file_system()->Clear();
-        RestoreListWindow();
-        if (!missing_xefu_file.empty()) {
-          ShowMissingXeFuFile(missing_xefu_file);
-        } else {
-          ShowWindowMessage(window_.get(), _("Title Launch Failed!"),
-                            _("Failed to launch title.\n\nCheck xenia.log "
-                              "for technical details."),
-                            wxICON_ERROR);
-        }
+        OnLaunchFailed();
       } else {
         auto xam =
             emulator_->kernel_state()->GetKernelModule<kernel::xam::XamModule>(
