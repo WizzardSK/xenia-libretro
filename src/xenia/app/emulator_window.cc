@@ -725,10 +725,11 @@ void EmulatorWindow::OnEmulatorInitialized() {
             });
       });
   emulator_->on_relaunch_failed.AddListener([this]() {
-    app_context_.CallInUIThread([this]() {
-      ClearDialogs();
-      OnLaunchFailed();
-    });
+    app_context_.CallInUIThread([this]() { OnLaunchFailed(); });
+  });
+  // The title's dialogs close while the threads waiting on them still run.
+  emulator_->on_title_closing.AddListener([this]() {
+    app_context_.CallInUIThreadSynchronous([this]() { ClearDialogs(); });
   });
 
   window_->SetCursorVisibility(ui::Window::CursorVisibility::kAutoHidden);
@@ -3687,7 +3688,6 @@ xe::X_STATUS EmulatorWindow::RunTitle(
       emulator->ResetTitle();
     }
     wxTheApp->CallAfter([this, result, abs_path]() {
-      ClearDialogs();
       if (result) {
         OnLaunchFailed();
       } else {

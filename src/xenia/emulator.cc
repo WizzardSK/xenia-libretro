@@ -1476,6 +1476,7 @@ void Emulator::RelaunchTitle(const std::string& host_path,
 
   // Tell WaitUntilExit not to fire on_exit when main thread dies.
   relaunching_ = true;
+  on_title_closing();
 
   // Stop the dispatch thread gracefully before force-terminating threads,
   // otherwise TerminateThread corrupts the CV it's blocked on.
@@ -1562,6 +1563,7 @@ void Emulator::ResetTitle() {
   XELOGI("ResetTitle: stopping title and resetting kernel");
 
   relaunching_ = true;
+  on_title_closing();
 
   kernel_state_->ShutdownDispatchThread();
 

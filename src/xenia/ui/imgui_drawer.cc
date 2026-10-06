@@ -789,10 +789,10 @@ void ImGuiDrawer::Draw(UIDrawContext& ui_draw_context) {
 }
 
 void ImGuiDrawer::ClearDialogs() {
-  size_t dialog_loop = 0;
-
-  while (dialog_loop < dialogs_.size()) {
-    RemoveDialog(dialogs_[dialog_loop++]);
+  assert_false(IsDrawingDialogs());
+  // Each one removes itself as it's destroyed.
+  while (!dialogs_.empty()) {
+    dialogs_.back()->Destroy();
   }
 }
 

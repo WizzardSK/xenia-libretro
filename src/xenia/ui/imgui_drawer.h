@@ -64,6 +64,7 @@ class ImGuiDrawer : public WindowInputListener, public UIDrawer {
 
   void Draw(UIDrawContext& ui_draw_context) override;
 
+  // Destroys every dialog, which wakes anyone waiting on one.
   void ClearDialogs();
   void EnableNotifications(bool enable) { are_notifications_enabled_ = enable; }
 

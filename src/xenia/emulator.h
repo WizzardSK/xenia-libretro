@@ -431,6 +431,8 @@ class Emulator {
   xe::Delegate<> on_terminate;
   xe::Delegate<> on_exit;
 
+  // Fired as a relaunch or reset starts, while the title's threads still run.
+  xe::Delegate<> on_title_closing;
   // Fired before Shutdown() during relaunch, while subsystems are still alive.
   xe::Delegate<> on_before_shutdown;
 
