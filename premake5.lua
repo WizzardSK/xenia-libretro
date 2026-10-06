@@ -535,7 +535,8 @@ workspace("xenia")
   include("src/xenia/base")
   include("src/xenia/cpu")
   include("src/xenia/cpu/backend/x64")
-  if os.istarget("linux") and os.outputof("uname -m") == "aarch64" then
+  if os.istarget("android") or
+     (os.istarget("linux") and os.outputof("uname -m") == "aarch64") then
     include("src/xenia/cpu/backend/a64")
   end
   include("src/xenia/debug/ui")
