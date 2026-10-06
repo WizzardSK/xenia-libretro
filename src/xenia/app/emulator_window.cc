@@ -2034,21 +2034,7 @@ bool EmulatorWindow::StopTitleAndReturnToList() {
       }
       UpdateTitle();
       window_->ResetIcon();
-      // Drop fullscreen back to windowed now that the presenter is gone, so
-      // the user lands on the game list at the default size.
-      if (window_->IsFullscreen()) {
-        SetFullscreen(false);
-      }
-      window_->SetDesiredLogicalSize(default_logical_width_,
-                                     default_logical_height_);
-      // Render must be the visible center pane while we measure.
-      target_pending_launch_ = true;
-      ApplyContentVisibility();
-      if (auto* wx = dynamic_cast<ui::WxWindow*>(window_.get())) {
-        wx->EnsureInitialRenderSurfaceSize();
-      }
-      target_pending_launch_ = false;
-      ApplyContentVisibility();
+      RestoreListWindow();
       // XeFu exits when the build it picked for the game isn't there.
       if (const std::string file = emulator_->TakeMissingXeFuFile();
           !file.empty()) {
@@ -2069,6 +2055,23 @@ void EmulatorWindow::ShowMissingXeFuFile(const std::string& file) {
       wxString::FromUTF8(xe::path_to_utf8(emulator_->xefu_path())));
   ShowWindowMessage(window_.get(), _("XeFu not found"), message,
                     wxICON_WARNING);
+}
+
+void EmulatorWindow::RestoreListWindow() {
+  // The game list only shows windowed.
+  if (window_->IsFullscreen()) {
+    SetFullscreen(false);
+  }
+  window_->SetDesiredLogicalSize(default_logical_width_,
+                                 default_logical_height_);
+  // Render must be the visible center pane while we measure.
+  target_pending_launch_ = true;
+  ApplyContentVisibility();
+  if (auto* wx = dynamic_cast<ui::WxWindow*>(window_.get())) {
+    wx->EnsureInitialRenderSurfaceSize();
+  }
+  target_pending_launch_ = false;
+  ApplyContentVisibility();
 }
 
 void EmulatorWindow::ApplyContentVisibility() {
@@ -3654,8 +3657,7 @@ xe::X_STATUS EmulatorWindow::RunTitle(
         XELOGE("Failed to launch target: {:08X}", result);
         const std::string missing_xefu_file = emulator_->TakeMissingXeFuFile();
         emulator_->file_system()->Clear();
-        target_pending_launch_ = false;
-        ApplyContentVisibility();
+        RestoreListWindow();
         if (!missing_xefu_file.empty()) {
           ShowMissingXeFuFile(missing_xefu_file);
         } else {

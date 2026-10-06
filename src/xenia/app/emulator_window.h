@@ -278,6 +278,9 @@ class EmulatorWindow {
   // Reapply the "render visible iff title open or fullscreen, game list
   // otherwise" invariant. Called on every relevant state change.
   void ApplyContentVisibility();
+  // Shows the game list, windowed at the default size, after a title stops or
+  // fails to launch.
+  void RestoreListWindow();
   // Tear down the running title on a non-guest thread and refresh the UI to
   // show the game list. Skips the user prompt — caller is responsible for
   // confirmation. Returns true if the title is being reset in-process, false
