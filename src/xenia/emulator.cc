@@ -980,12 +980,11 @@ uint32_t Emulator::DataMigration(const uint64_t xuid) {
       const auto previous_path = content_root_ / title.name / content_type.name;
       const auto path = content_root_ / used_xuid / title.name;
 
-      if (!std::filesystem::exists(path)) {
-        std::filesystem::create_directories(path);
-      }
-
       std::error_code ec;
-      std::filesystem::rename(previous_path, path / content_type.name, ec);
+      std::filesystem::create_directories(path, ec);
+      if (!ec) {
+        std::filesystem::rename(previous_path, path / content_type.name, ec);
+      }
 
       if (ec) {
         failure_count++;
@@ -997,57 +996,55 @@ uint32_t Emulator::DataMigration(const uint64_t xuid) {
     // Other directories:
     // Headers - Just copy everything to both common and xuid locations
     // profile - ?
-    if (std::filesystem::exists(title.path / title.name / "Headers")) {
-      const auto xuid_path =
-          content_root_ / xuid_string / title.name / "Headers";
-
-      std::filesystem::create_directories(xuid_path);
-
-      std::error_code ec;
-      // Copy to specific user
-      std::filesystem::copy(title.path / title.name / "Headers", xuid_path,
-                            std::filesystem::copy_options::recursive |
-                                std::filesystem::copy_options::skip_existing,
-                            ec);
-      if (ec) {
-        failure_count++;
-        XELOGW("{}: Copying from: {} to: {} failed! Error message: {} ({:08X})",
-               __func__, title.path / title.name / "Headers", xuid_path,
-               ec.message(), ec.value());
-      }
-
-      const auto header_types =
-          xe::filesystem::ListDirectories(title.path / title.name / "Headers");
-
-      if (!(header_types.size() == 1 &&
-            header_types.at(0).name == "00000001")) {
-        const auto common_path =
-            content_root_ / common_xuid_string / title.name / "Headers";
-
-        std::filesystem::create_directories(common_path);
-
-        // Copy to common, skip cases where only savefile header is available
-        std::filesystem::copy(title.path / title.name / "Headers", common_path,
-                              std::filesystem::copy_options::recursive |
-                                  std::filesystem::copy_options::skip_existing,
-                              ec);
+    std::error_code exists_error;
+    const auto headers_path = title.path / title.name / "Headers";
+    if (std::filesystem::exists(headers_path, exists_error)) {
+      // Copies the headers to |path|, counting a failure if it can't.
+      auto copy_headers = [&,
+                           func = __func__](const std::filesystem::path& path) {
+        std::error_code ec;
+        std::filesystem::create_directories(path, ec);
+        if (!ec) {
+          std::filesystem::copy(
+              headers_path, path,
+              std::filesystem::copy_options::recursive |
+                  std::filesystem::copy_options::skip_existing,
+              ec);
+        }
         if (ec) {
           failure_count++;
           XELOGW(
               "{}: Copying from: {} to: {} failed! Error message: {} ({:08X})",
-              __func__, title.path / title.name / "Headers", common_path,
-              ec.message(), ec.value());
+              func, headers_path, path, ec.message(), ec.value());
+          return false;
+        }
+        return true;
+      };
+
+      // Copy to specific user
+      bool copied =
+          copy_headers(content_root_ / xuid_string / title.name / "Headers");
+
+      const auto header_types = xe::filesystem::ListDirectories(headers_path);
+
+      // Copy to common, skip cases where only savefile header is available
+      if (!(header_types.size() == 1 &&
+            header_types.at(0).name == "00000001")) {
+        if (!copy_headers(content_root_ / common_xuid_string / title.name /
+                          "Headers")) {
+          copied = false;
         }
       }
 
-      if (!ec) {
-        // Remove previous directory
+      // The originals go only once every copy of them exists.
+      if (copied) {
         std::error_code ec;
-        std::filesystem::remove_all(title.path / title.name / "Headers", ec);
+        std::filesystem::remove_all(headers_path, ec);
       }
     }
 
-    if (std::filesystem::exists(title.path / title.name / "profile")) {
+    if (std::filesystem::exists(title.path / title.name / "profile",
+                                exists_error)) {
       // Find directory with previous username. There should be only one!
       const auto old_profile_data =
           xe::filesystem::ListDirectories(title.path / title.name / "profile");
