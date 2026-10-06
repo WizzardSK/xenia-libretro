@@ -490,6 +490,15 @@ void X64Emitter::UnimplementedInstr(const hir::Instr* i) {
   assert_always();
 }
 
+// The function a live frame runs. The frame is in a call, which pushed an
+// address in its own code just below it.
+static X64Function* LookupFrameFunction(
+    X64Backend* backend, const X64BackendStackpoint& stackpoint) {
+  return static_cast<X64Function*>(
+      backend->code_cache()->LookupFunction(*reinterpret_cast<const uint64_t*>(
+          stackpoint.host_stack_ - sizeof(uint64_t))));
+}
+
 // Where a return site in an already translated function continues, when the
 // guest is unwinding to it past more than one frame, or 0. The caller
 // decides that |target_address| is a return site. |pending_pops| is
@@ -746,6 +755,37 @@ static uint64_t FindLiveReturn(ppc::PPCContext_s* guest_context,
   return found_host_address;
 }
 
+// The guest return address host code enters guest code with.
+constexpr uint32_t kHostReturnAddress = 0xBCBCBCBC;
+
+// Where a dynamic code branch to kHostReturnAddress continues, or 0. Guest code
+// can divert its return and branch to the saved address from deeper frames, as
+// XeFu's trap handler does, so the branch returns to host code from the
+// innermost frame host code entered. That can be the frame a tail branch is
+// about to pop, which returning pops anyway.
+static uint64_t ResolveHostReturn(ppc::PPCContext_s* guest_context) {
+  auto backend = static_cast<X64Backend*>(guest_context->processor->backend());
+  X64BackendContext* backend_context =
+      backend->BackendContextForGuestContext(guest_context);
+  for (uint32_t i = backend_context->current_stackpoint_depth; i-- > 0;) {
+    const uint64_t frame = backend_context->stackpoints[i].host_stack_;
+    // A tail call passes the address on to the function taking the frame.
+    if (*reinterpret_cast<const uint32_t*>(
+            frame + StackLayout::GUEST_RET_ADDR) != kHostReturnAddress) {
+      continue;
+    }
+    X64Function* function =
+        LookupFrameFunction(backend, backend_context->stackpoints[i]);
+    if (!function) {
+      return 0;
+    }
+    backend_context->host_return_stack = frame + function->stack_size();
+    backend_context->unwind_stackpoint_depth = i;
+    return reinterpret_cast<uint64_t>(backend->return_to_host_helper());
+  }
+  return 0;
+}
+
 // Where a dynamic code branch to the instruction after a call continues in
 // translated code, or 0. While the frame of that call is live, the branch
 // returns into it. Once the call has returned, as for setjmp, the guest stack
@@ -758,6 +798,9 @@ static uint64_t ResolveDynamicReturn(ppc::PPCContext_s* guest_context,
   *out_is_return_site = false;
   if (!cvars::enable_host_guest_stack_synchronization) {
     return 0;
+  }
+  if (target_address == kHostReturnAddress) {
+    return ResolveHostReturn(guest_context);
   }
   if (uint64_t host_address =
           FindLiveReturn(guest_context, target_address, pending_pops)) {
@@ -2484,7 +2527,7 @@ void X64Emitter::EmitDropCallingFrame() {
   cmp(r8, rcx);
   jbe(keep_frame, T_NEAR);
   // A caller entered from host code returns into host code.
-  cmp(dword[rcx + StackLayout::GUEST_RET_ADDR], 0xBCBCBCBC);
+  cmp(dword[rcx + StackLayout::GUEST_RET_ADDR], kHostReturnAddress);
   je(keep_frame, T_NEAR);
   EmitTraceUserCallReturn();
   EmitProfilerEpilogue();

@@ -68,6 +68,7 @@ class X64HelperEmitter : public X64Emitter {
   GuestToHostThunk EmitGuestToHostThunk();
   ResolveFunctionThunk EmitResolveFunctionThunk();
   void* EmitGuestAndHostSynchronizeStackHelper();
+  void* EmitReturnToHostHelper();
 
   void* EmitTryAcquireReservationHelper();
   void* EmitReservedStoreHelper(bool bit64 = false);
@@ -303,6 +304,7 @@ bool X64Backend::Initialize(Processor* processor) {
   if (cvars::enable_host_guest_stack_synchronization) {
     synchronize_guest_and_host_stack_helper_ =
         thunk_emitter.EmitGuestAndHostSynchronizeStackHelper();
+    return_to_host_helper_ = thunk_emitter.EmitReturnToHostHelper();
   }
   try_acquire_reservation_helper_ =
       thunk_emitter.EmitTryAcquireReservationHelper();
@@ -1136,6 +1138,28 @@ void* X64HelperEmitter::EmitGuestAndHostSynchronizeStackHelper() {
   // handler?
 
   this->DebugBreak();
+  return EmitCurrentForOffsets(code_offsets);
+}
+
+void* X64HelperEmitter::EmitReturnToHostHelper() {
+  _code_offsets code_offsets = {};
+  code_offsets.prolog = getSize();
+  // ResolveDynamicFunction recorded the frame host code entered, which returns
+  // there as its epilog would.
+  mov(ecx,
+      GetBackendCtxPtr(offsetof(X64BackendContext, unwind_stackpoint_depth)));
+  mov(GetBackendCtxPtr(offsetof(X64BackendContext, current_stackpoint_depth)),
+      ecx);
+  xor_(ecx, ecx);
+  mov(GetBackendCtxPtr(offsetof(X64BackendContext, unwind_stackpoint_depth)),
+      ecx);
+  mov(rsp, GetBackendCtxPtr(offsetof(X64BackendContext, host_return_stack)));
+  ret();
+
+  code_offsets.prolog_stack_alloc = getSize();
+  code_offsets.body = getSize();
+  code_offsets.epilog = getSize();
+  code_offsets.tail = getSize();
   return EmitCurrentForOffsets(code_offsets);
 }
 

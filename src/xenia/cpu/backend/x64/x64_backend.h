@@ -136,8 +136,11 @@ struct X64BackendContext {
   // rest within 8-bit displacements.
   // allocated by the first dynamic call resolve on this thread
   X64DynamicCallCacheEntry* dynamic_call_cache;
+  // The host stack pointer a dynamic code return to host code returns with.
+  uint64_t host_return_stack;
   // stackpoint depth a dynamic code return continues at, or 0 when none is
-  // pending. The stack synchronization helper at the target takes it.
+  // pending. The stack synchronization helper at the target takes it, or the
+  // return to host helper along with host_return_stack.
   uint32_t unwind_stackpoint_depth;
   // Set by a dynamic call resolve that continues inside a function rather than
   // at its entry. Emitted code clears it before a lookup and reads it after.
@@ -198,6 +201,7 @@ class X64Backend : public Backend {
   void* synchronize_guest_and_host_stack_helper() const {
     return synchronize_guest_and_host_stack_helper_;
   }
+  void* return_to_host_helper() const { return return_to_host_helper_; }
   bool Initialize(Processor* processor) override;
 
   void CommitExecutableRange(uint32_t guest_low, uint32_t guest_high) override;
@@ -280,6 +284,7 @@ class X64Backend : public Backend {
   GuestToHostThunk guest_to_host_thunk_;
   ResolveFunctionThunk resolve_function_thunk_;
   void* synchronize_guest_and_host_stack_helper_ = nullptr;
+  void* return_to_host_helper_ = nullptr;
 
  public:
   void* try_acquire_reservation_helper_ = nullptr;
