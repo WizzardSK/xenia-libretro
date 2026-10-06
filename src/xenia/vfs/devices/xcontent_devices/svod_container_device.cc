@@ -10,6 +10,7 @@
 #include "xenia/vfs/devices/xcontent_devices/svod_container_device.h"
 #include "xenia/base/logging.h"
 #include "xenia/vfs/devices/xcontent_devices/svod_container_entry.h"
+#include "xenia/vfs/gdfx_util.h"
 
 namespace xe {
 namespace vfs {
@@ -153,6 +154,12 @@ SvodContainerDevice::Result SvodContainerDevice::ReadEntry(
     XELOGE("ReadEntrySVOD failed to read directory entry at {:016X}",
            entry_address);
     return Result::kReadError;
+  }
+
+  if (dir_entry.node_l == kGdfxPaddingOffset) {
+    const uint32_t padded_ordinal = GdfxPaddedEntryOrdinal(ordinal);
+    return padded_ordinal ? ReadEntry(block, padded_ordinal, parent)
+                          : Result::kSuccess;
   }
 
   auto name_buffer = std::make_unique<char[]>(dir_entry.name_length);

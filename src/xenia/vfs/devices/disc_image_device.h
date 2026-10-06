@@ -74,7 +74,7 @@ class DiscImageDevice : public Device {
   bool VerifyMagic(ParseState* state, size_t offset);
   Error ReadAllEntries(ParseState* state, const uint8_t* root_buffer);
   bool ReadEntry(ParseState* state, const uint8_t* buffer,
-                 uint16_t entry_ordinal, DiscImageEntry* parent);
+                 uint32_t entry_ordinal, DiscImageEntry* parent);
 };
 
 }  // namespace vfs
