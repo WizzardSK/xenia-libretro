@@ -123,7 +123,7 @@ project("libavcodec")
 
   -- libavcodec/aarch64/Makefile:
   --   OBJS:
-  filter({"platforms:Android-ARM64"})
+  filter({"architecture:ARM64"})
   files({
     "../../FFmpeg/libavcodec/aarch64/fft_init_aarch64.c",
     "../../FFmpeg/libavcodec/aarch64/idctdsp_init_aarch64.c",
@@ -131,7 +131,7 @@ project("libavcodec")
   })
   filter({})
   --   NEON-OBJS:
-  filter({"platforms:Android-ARM64"})
+  filter({"architecture:ARM64"})
   files({
     "../../FFmpeg/libavcodec/aarch64/fft_neon.S",
     "../../FFmpeg/libavcodec/aarch64/simple_idct_neon.S",
@@ -142,7 +142,7 @@ project("libavcodec")
 
   -- libavcodec/x86/Makefile:
   --   OBJS:
-  filter({"platforms:Android-x86_64 or platforms:Linux or platforms:Windows"})
+  filter({"architecture:x86_64"})
   files({
     "../../FFmpeg/libavcodec/x86/constants.c",
     "../../FFmpeg/libavcodec/x86/dct_init.c",
@@ -153,7 +153,7 @@ project("libavcodec")
   })
   filter({})
   --   MMX-OBJS:
-  filter({"platforms:Android-x86_64 or platforms:Linux or platforms:Windows"})
+  filter({"architecture:x86_64"})
   files({
     "../../FFmpeg/libavcodec/x86/fdct.c",
   })

@@ -33,8 +33,9 @@
 #define ARCH_X86_64 0
 
 #if defined(__aarch64__)
-  /* ARM64 (Android) */
+  /* ARM64 (Android, Linux) */
   #define SLIBSUF ".so"
+  #define HAVE_MMXEXT 0 /* compared with HAVE_MMX2 in libavutil/utils.c */
   #undef  ARCH_AARCH64
   #define ARCH_AARCH64 1
   #define HAVE_ARMV8 1
