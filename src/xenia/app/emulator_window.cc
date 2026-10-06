@@ -3546,6 +3546,12 @@ xe::X_STATUS EmulatorWindow::RunTitle(
     return X_STATUS_NO_SUCH_FILE;
   }
 
+  // Launching now would race the relaunch or reset under way.
+  if (emulator_->is_relaunching()) {
+    XELOGW("RunTitle: relaunch or reset in progress, ignoring");
+    return X_STATUS_UNSUCCESSFUL;
+  }
+
   if (emulator_->is_title_open()) {
     auto abs_path = std::filesystem::absolute(path_to_file);
     config::ReloadConfig();
@@ -3663,6 +3669,7 @@ xe::X_STATUS EmulatorWindow::RunTitle(
   }
   if (auto status = emulator_->SetupSubsystems(); XFAILED(status)) {
     XELOGE("Failed to setup subsystems: {:08X}", status);
+    OnLaunchFailed();
     return status;
   }
   // Toggle before swap chain creation so it picks up the right size.

@@ -296,8 +296,6 @@ X_STATUS Emulator::Setup(
         graphics_system_factory,
     std::function<std::vector<std::unique_ptr<hid::InputDriver>>(ui::Window*)>
         input_driver_factory) {
-  X_STATUS result = X_STATUS_UNSUCCESSFUL;
-
   // Store parameters for reuse across Shutdown/Setup cycles.
   // Only overwrite if non-null so re-calls after Shutdown keep prior values.
   if (display_window) {
@@ -334,7 +332,7 @@ X_STATUS Emulator::Setup(
   memory_ = std::make_unique<Memory>();
   if (!memory_->Initialize()) {
     XELOGE("{}: Cannot initalize memory!", __func__);
-    return result;
+    return X_STATUS_UNSUCCESSFUL;
   }
 
   XELOGI("{}: Initializing Exports...", __func__);
@@ -388,8 +386,7 @@ X_STATUS Emulator::Setup(
         input_system_->AddDriver(std::move(input_drivers[i]));
       }
     }
-    result = input_system_->Setup();
-    if (result) {
+    if (const X_STATUS result = input_system_->Setup(); result) {
       return result;
     }
   }
@@ -424,7 +421,7 @@ X_STATUS Emulator::Setup(
 
   ExceptionHandler::Install(Emulator::ExceptionCallbackThunk, this);
 
-  return result;
+  return X_STATUS_SUCCESS;
 }
 
 X_STATUS Emulator::SetupSubsystems() {
@@ -1515,10 +1512,22 @@ void Emulator::RelaunchTitle(const std::string& host_path,
   // is still executing guest code when the kernel is torn down.
   kernel_state_->guest_scheduler()->Shutdown();
 
+  // Reports the relaunch failed, unless a newer request replaces it and starts
+  // over itself. ResetTitle or that request clears relaunching_.
+  auto fail = [this, request]() {
+    if (request == relaunch_requests_.load()) {
+      ResetTitle();
+      on_relaunch_failed();
+    }
+  };
+
   Shutdown();
-  Setup(nullptr, nullptr, require_cpu_backend_, nullptr, nullptr, nullptr);
-  MountStandardDrives();
-  SetupSubsystems();
+  SetupAgain();
+  if (const X_STATUS result = SetupSubsystems(); XFAILED(result)) {
+    XELOGE("RelaunchTitle: setting up subsystems failed: {:08X}", result);
+    fail();
+    return;
+  }
 
   // Populate launch data on the fresh xam module.
   auto xam_new =
@@ -1540,19 +1549,14 @@ void Emulator::RelaunchTitle(const std::string& host_path,
   auto launch_target =
       host_path.empty() ? last_launch_path_ : xe::to_path(host_path);
   XELOGI("RelaunchTitle: launching '{}'", xe::path_to_utf8(launch_target));
-  const X_STATUS result = LaunchPath(launch_target);
-
-  relaunching_ = false;
-  if (XFAILED(result)) {
+  if (const X_STATUS result = LaunchPath(launch_target); XFAILED(result)) {
     XELOGE("RelaunchTitle: launching '{}' failed: {:08X}",
            xe::path_to_utf8(launch_target), result);
-    // A newer request replaces this one and starts over itself.
-    if (request == relaunch_requests_.load()) {
-      ResetTitle();
-      on_relaunch_failed();
-    }
+    fail();
     return;
   }
+
+  relaunching_ = false;
   XELOGI("RelaunchTitle: relaunch complete");
 }
 
@@ -1602,8 +1606,7 @@ void Emulator::ResetTitle() {
   }
 
   Shutdown();
-  Setup(nullptr, nullptr, require_cpu_backend_, nullptr, nullptr, nullptr);
-  MountStandardDrives();
+  SetupAgain();
 
   relaunching_ = false;
   XELOGI("ResetTitle: complete");
@@ -2174,6 +2177,16 @@ X_STATUS Emulator::CompleteLaunch(const std::filesystem::path& path,
   main_thread_->Resume();
 
   return X_STATUS_SUCCESS;
+}
+
+void Emulator::SetupAgain() {
+  const X_STATUS result =
+      Setup(nullptr, nullptr, require_cpu_backend_, nullptr, nullptr, nullptr);
+  if (XFAILED(result)) {
+    xe::FatalError(
+        fmt::format("Failed to set the emulator up again: {:08X}", result));
+  }
+  MountStandardDrives();
 }
 
 void Emulator::ResetTitleState() {

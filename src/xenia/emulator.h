@@ -142,6 +142,8 @@ class Emulator {
 
   // Are we currently running a title?
   bool is_title_open() const { return title_id_.has_value(); }
+  // Whether a relaunch or reset is between titles.
+  bool is_relaunching() const { return relaunching_; }
 
   uint32_t main_thread_id();
 
@@ -487,6 +489,9 @@ class Emulator {
                          const std::string_view module_path);
   // Forgets the title being launched, leaving none open.
   void ResetTitleState();
+  // Sets the emulator up again after Shutdown(). Nothing runs without it, so a
+  // failure is fatal.
+  void SetupAgain();
 
   std::filesystem::path command_line_;
   std::filesystem::path last_launch_path_;  // persists across relaunch
@@ -530,7 +535,7 @@ class Emulator {
 
   bool paused_;
   bool restoring_;
-  bool relaunching_ = false;
+  std::atomic<bool> relaunching_{false};
   // Held across a launch and a whole relaunch so title teardown waits for a
   // launch to finish. Recursive, as a relaunch launches under it.
   std::recursive_mutex launch_mutex_;
