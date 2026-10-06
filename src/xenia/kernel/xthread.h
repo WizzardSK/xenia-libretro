@@ -593,8 +593,8 @@ class XThread : public XObject, public cpu::Thread {
     // user code. Code running while it is interrupted sets and clears CR bits
     // in the frame, which it resumes with.
     uint32_t interrupt_frame = 0;
-    // XeFu changes the CR at 0x1B0, where its fatal report also reads a trap
-    // frame's CR. The rest of the layout is unknown.
+    // Laid out as the trap frame the user mode trap handler receives. XeFu
+    // changes the CR in it.
     static constexpr uint32_t kInterruptFrameSize = 0x1C0;
     static constexpr uint32_t kInterruptFrameCr = 0x1B0;
     // The CR saved in the frame, to tell what was changed there.

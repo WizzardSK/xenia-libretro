@@ -51,15 +51,16 @@ constexpr uint32_t kContextUserModeControl = 0x228;
 constexpr uint32_t kContextControl = 0x1;
 constexpr uint32_t kContextInteger = 0x4;
 
-// Trap frame layout, only the GPR, lr and iar offsets come from RuntimeHost.
-constexpr uint32_t kKframesSize = 0x1C0;
+// Trap frame layout. RuntimeHost uses the GPRs, lr and iar. XeFu also uses
+// ctr, cr and xer and sets ctr before resuming. Where msr goes is unknown.
+constexpr uint32_t kKframesSize = XThread::UserMode::kInterruptFrameSize;
 constexpr uint32_t kKframesGpr = 0x50;
-constexpr uint32_t kKframesCtr = 0x150;
-constexpr uint32_t kKframesCr = 0x158;
-constexpr uint32_t kKframesXer = 0x15C;
 constexpr uint32_t kKframesMsr = 0x160;
+constexpr uint32_t kKframesCtr = 0x1A0;
 constexpr uint32_t kKframesLr = 0x1A8;
 constexpr uint32_t kKframesIar = 0x1AC;
+constexpr uint32_t kKframesCr = XThread::UserMode::kInterruptFrameCr;
+constexpr uint32_t kKframesXer = 0x1B8;
 
 // MSR[PR], which a trap frame from user mode carries.
 constexpr uint32_t kMsrUserMode = 0x4000;
