@@ -158,7 +158,7 @@ jobs:
       - name: Setup
         run: |
           sudo apt-get -y update
-          sudo apt-get -y install ninja-build
+          sudo apt-get -y install ninja-build uuid-dev
           wget -qO vulkan-sdk.tar.xz https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.xz
           mkdir -p ~/vulkan-sdk
           tar -xf vulkan-sdk.tar.xz -C ~/vulkan-sdk
