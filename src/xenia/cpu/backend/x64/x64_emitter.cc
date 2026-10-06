@@ -517,34 +517,6 @@ static uint64_t ResolveLongjmp(ppc::PPCContext_s* guest_context,
 
   */
   auto processor = guest_context->thread_state->processor();
-  auto ones_with_address = processor->FindFunctionsWithAddress(target_address);
-  // this loop to find a host address for the guest address is
-  // necessary because FindFunctionsWithAddress works via a range
-  // check, but if the function consists of multiple blocks
-  // scattered around with "holes" of instructions that cannot be
-  // reached in between those holes the instructions that cannot be
-  // reached will incorrectly be considered members of the function
-
-  X64Function* candidate = nullptr;
-  uintptr_t host_address = 0;
-  for (auto&& entry : ones_with_address) {
-    X64Function* xfunc = static_cast<X64Function*>(entry);
-
-    // Landing on a function's first instruction would skip its prolog.
-    if (xfunc->address() == target_address) {
-      continue;
-    }
-    host_address = xfunc->MapGuestAddressToMachineCode(target_address);
-    if (host_address) {
-      candidate = xfunc;
-      break;
-    }
-  }
-  // we found an existing X64Function, and a return site within that
-  // function that has a host address w/ native code
-  if (!candidate || !host_address) {
-    return 0;
-  }
   X64Backend* backend = static_cast<X64Backend*>(processor->backend());
   // grab the backend context, next we have to check whether the
   // guest and host stack are out of sync if they arent, its fine
@@ -638,14 +610,12 @@ static uint64_t ResolveLongjmp(ppc::PPCContext_s* guest_context,
     X64HelperEmitter::EmitGuestAndHostSynchronizeStackHelper, which
     we call directly.
 
-                    The helper is going to search the array of
-    stackpoints to find the first one that is greater than or
-    equal to the current stack pointer, when it finds the entry it
-    will set the current host rsp to the host stack pointer value
-    in the entry, which is that frame's own stack pointer because
-    the record is taken after the frame is allocated. the current
-    stackpoint index is adjusted to point to the one after the
-    stackpoint we restored to.
+                    The helper takes the frame recorded in
+    unwind_stackpoint_depth and sets the current host rsp to the
+    host stack pointer value in its entry, which is that frame's
+    own stack pointer because the record is taken after the frame
+    is allocated. the current stackpoint index is adjusted to
+    point to the one after the stackpoint we restored to.
 
                     The helper then jumps back to the function
     that was longjmp'ed to, with the host stack in its proper
@@ -659,13 +629,36 @@ static uint64_t ResolveLongjmp(ppc::PPCContext_s* guest_context,
   if (num_frames_bigger <= 1 || current_stackpoint_index == 0xFFFFFFFF) {
     return 0;
   }
-  /*
-   * can't do anything about this right now :(
-   * epic mickey is quite slow due to having to call resolve on
-   * every longjmp, and it longjmps a lot but if we add an
-   * indirection we lose our stack misalignment check
-   */
-  return host_address;
+  // The target's code only fits the frame of the function it was translated
+  // in. r1 alone can name the wrong frame: a callee entered at the stack
+  // pointer longjmp restores records the same r1 as its caller runs at, and
+  // XeFu's generated code keeps the x86 stack pointer in r1.
+  for (uint32_t i = current_stackpoint_index + 1; i-- > 0;) {
+    // The frame longjmp returns to made a call, so it runs below the stack
+    // pointer it was entered with.
+    if (stackpoints[i].guest_stack_ <= current_guest_stackpointer) {
+      continue;
+    }
+    X64Function* function = LookupFrameFunction(backend, stackpoints[i]);
+    // Landing on a function's first instruction would skip its prolog.
+    if (!function || function->address() == target_address) {
+      continue;
+    }
+    // A function's range can hold unreachable instructions it has no code for.
+    if (uintptr_t host_address =
+            function->MapGuestAddressToMachineCode(target_address)) {
+      // The stack synchronization helper at the target restores this frame.
+      backend_context->unwind_stackpoint_depth = i + 1;
+      /*
+       * can't do anything about this right now :(
+       * epic mickey is quite slow due to having to call resolve on
+       * every longjmp, and it longjmps a lot but if we add an
+       * indirection we lose our stack misalignment check
+       */
+      return host_address;
+    }
+  }
+  return 0;
 }
 
 // This is used by the X64ThunkEmitter's ResolveFunctionThunk.
