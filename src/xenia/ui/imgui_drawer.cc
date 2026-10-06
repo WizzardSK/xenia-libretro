@@ -796,6 +796,13 @@ void ImGuiDrawer::ClearDialogs() {
   }
 }
 
+void ImGuiDrawer::ClearNotifications() {
+  // Each one removes itself as it's deleted.
+  while (!notifications_.empty()) {
+    delete notifications_.back();
+  }
+}
+
 void ImGuiDrawer::RenderDrawLists(ImDrawData* data,
                                   UIDrawContext& ui_draw_context) {
   ImGuiIO& io = ImGui::GetIO();

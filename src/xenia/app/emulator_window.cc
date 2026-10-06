@@ -731,6 +731,11 @@ void EmulatorWindow::OnEmulatorInitialized() {
   emulator_->on_title_closing.AddListener([this]() {
     app_context_.CallInUIThreadSynchronous([this]() { ClearDialogs(); });
   });
+  // The title's threads are gone, so it queues no notifications after this.
+  emulator_->on_before_shutdown.AddListener([this]() {
+    app_context_.CallInUIThreadSynchronous(
+        [this]() { imgui_drawer_->ClearNotifications(); });
+  });
 
   window_->SetCursorVisibility(ui::Window::CursorVisibility::kAutoHidden);
 

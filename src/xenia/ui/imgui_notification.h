@@ -55,7 +55,7 @@ class ImGuiNotification {
                     std::string& description, uint8_t user_index,
                     uint8_t position_id = 0);
 
-  ~ImGuiNotification();
+  virtual ~ImGuiNotification();
 
   void Draw();
 

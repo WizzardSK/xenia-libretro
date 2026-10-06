@@ -66,6 +66,8 @@ class ImGuiDrawer : public WindowInputListener, public UIDrawer {
 
   // Destroys every dialog, which wakes anyone waiting on one.
   void ClearDialogs();
+  // Drops every queued notification.
+  void ClearNotifications();
   void EnableNotifications(bool enable) { are_notifications_enabled_ = enable; }
 
   std::unique_ptr<ImmediateTexture> LoadImGuiIcon(
