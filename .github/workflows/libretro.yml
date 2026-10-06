@@ -116,6 +116,10 @@ jobs:
           echo "PKG_CONFIG_PATH=$QT_DIR/lib/pkgconfig" >> $GITHUB_ENV
           echo "$QT_DIR/bin" >> $GITHUB_PATH
           git submodule update --init --depth=1 -j$(getconf _NPROCESSORS_ONLN) $(grep -oP '(?<=path = )(?!third_party\/(DirectXShaderCompiler|premake-(androidndk|export-compile-commands))).+' .gitmodules)
+          # FFmpeg (has207's submodule) has configs for Linux x86_64 and
+          # Android only: add Linux aarch64 and pick the aarch64 sources by
+          # architecture rather than by the Android platform
+          git -C third_party/FFmpeg apply ../../libretro/patches/ffmpeg-linux-arm64.patch
           ./xenia-build.py premake
           ./xenia-build.py fetchdata
 
