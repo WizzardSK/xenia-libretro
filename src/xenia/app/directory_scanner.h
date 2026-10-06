@@ -30,7 +30,7 @@ namespace app {
 // Lightweight summary of one launchable file found by DirectoryScanner.
 struct DiscoveredGame {
   std::filesystem::path path;
-  std::string format;        // "xex" | "iso" | "zar" | "stfs"
+  std::string format;        // "xex" | "xbe" | "iso" | "zar" | "stfs"
   uint32_t title_id = 0;     // raw value (title_id_hex is the formatted form)
   std::string title_id_hex;  // 8 uppercase hex digits
   uint32_t media_id = 0;     // identifies the specific disc / content blob

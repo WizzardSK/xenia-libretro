@@ -22,6 +22,7 @@
 #include "xenia/base/logging.h"
 #include "xenia/vfs/iso_metadata.h"
 #include "xenia/vfs/stfs_metadata.h"
+#include "xenia/vfs/xbe_metadata.h"
 #include "xenia/vfs/xex_metadata.h"
 #include "xenia/vfs/zar_metadata.h"
 #include "xenia/xbox.h"
@@ -38,7 +39,7 @@ std::string ToLowerAscii(std::string s) {
 }
 
 bool IsKnownLaunchableExtension(const std::string& ext) {
-  return ext == ".xex" || ext == ".iso" || ext == ".zar";
+  return ext == ".xex" || ext == ".xbe" || ext == ".iso" || ext == ".zar";
 }
 
 // GOD packages put their data fragments in a sibling "<hash>.data" dir of
@@ -86,6 +87,45 @@ DiscoveredGame MakeFromXex(const std::filesystem::path& path,
   return g;
 }
 
+// Keeps |png| for import and decodes it for the dialog, so the dialog never
+// has to do PNG work on the UI thread.
+void SetIcon(DiscoveredGame& g, std::vector<uint8_t> png) {
+  g.icon_png = std::move(png);
+  int w = 0, h = 0, channels = 0;
+  unsigned char* pixels = stbi_load_from_memory(
+      g.icon_png.data(), static_cast<int>(g.icon_png.size()), &w, &h, &channels,
+      STBI_rgb_alpha);
+  if (pixels) {
+    g.icon_width = w;
+    g.icon_height = h;
+    g.icon_rgba.assign(pixels, pixels + (static_cast<size_t>(w) * h * 4));
+    stbi_image_free(pixels);
+  }
+}
+
+// An original Xbox game is what its executable says it is, whatever holds it.
+void ApplyXbe(DiscoveredGame& g, const vfs::XbeMetadata& m) {
+  g.title_id = m.title_id;
+  g.title_id_hex = fmt::format("{:08X}", m.title_id);
+  g.media_id = 0;
+  g.title_name = m.title_name;
+  g.version = vfs::XexVersion::FromValue(m.version).ToString();
+  g.disc_number = static_cast<uint8_t>(m.disc_number);
+  g.disc_count = 0;
+  if (!m.icon_png.empty()) {
+    SetIcon(g, m.icon_png);
+  }
+}
+
+DiscoveredGame MakeFromXbe(const std::filesystem::path& path,
+                           const char* format, const vfs::XbeMetadata& m) {
+  DiscoveredGame g;
+  g.path = path;
+  g.format = format;
+  ApplyXbe(g, m);
+  return g;
+}
+
 DiscoveredGame MakeFromStfs(const std::filesystem::path& path,
                             const vfs::StfsMetadata& m) {
   DiscoveredGame g;
@@ -101,21 +141,8 @@ DiscoveredGame MakeFromStfs(const std::filesystem::path& path,
   g.content_type_name = ResolveContentTypeName(m.content_type);
   g.disc_number = m.disc_number;
   g.disc_count = m.disc_count;
-
-  // Keep PNG bytes for the GPD writer; decode RGBA here so the dialog
-  // never has to do PNG work on the UI thread.
   if (!m.icon_data.empty()) {
-    g.icon_png = m.icon_data;
-    int w = 0, h = 0, channels = 0;
-    unsigned char* pixels = stbi_load_from_memory(
-        g.icon_png.data(), static_cast<int>(g.icon_png.size()), &w, &h,
-        &channels, STBI_rgb_alpha);
-    if (pixels) {
-      g.icon_width = w;
-      g.icon_height = h;
-      g.icon_rgba.assign(pixels, pixels + (static_cast<size_t>(w) * h * 4));
-      stbi_image_free(pixels);
-    }
+    SetIcon(g, m.icon_data);
   }
   return g;
 }
@@ -376,7 +403,8 @@ void DirectoryScanner::ScanDirectory(const std::filesystem::path& dir) {
   size_t phase1_hits = 0;
 
   // Phase 1: only default.xex is a launchable XEX; other .xex files are
-  // modules/companions and skipped. ISO/ZAR collected as multi-game.
+  // modules/companions and skipped. The same goes for an original Xbox
+  // default.xbe. ISO/ZAR collected as multi-game.
   for (const auto& path : files) {
     if (cancel_requested_.load()) {
       return;
@@ -385,9 +413,9 @@ void DirectoryScanner::ScanDirectory(const std::filesystem::path& dir) {
     if (!IsKnownLaunchableExtension(ext)) {
       continue;
     }
-    if (ext == ".xex" &&
-        ToLowerAscii(xe::path_to_utf8(path.filename())) != "default.xex") {
-      XELOGD("DirectoryScanner:   skip non-default xex '{}'",
+    if ((ext == ".xex" || ext == ".xbe") &&
+        ToLowerAscii(xe::path_to_utf8(path.stem())) != "default") {
+      XELOGD("DirectoryScanner:   skip non-default {} '{}'", ext,
              xe::path_to_utf8(path));
       continue;
     }
@@ -407,11 +435,28 @@ void DirectoryScanner::ScanDirectory(const std::filesystem::path& dir) {
           break;  // default.xex terminates current directory.
         }
         XELOGD("DirectoryScanner:     -> xex miss");
+      } else if (ext == ".xbe") {
+        if (auto m = vfs::ExtractXbeMetadata(path)) {
+          XELOGD("DirectoryScanner:     -> xbe hit, title_id={:08X}",
+                 m->title_id);
+          RecordGame(MakeFromXbe(path, "xbe", *m));
+          found_xex = true;
+          phase1_hits++;
+          break;  // default.xbe terminates current directory.
+        }
+        XELOGD("DirectoryScanner:     -> xbe miss");
       } else if (ext == ".iso") {
         if (auto m = vfs::ExtractIsoMetadata(path)) {
           XELOGD("DirectoryScanner:     -> iso hit, title_id={:08X}",
                  m->title_id);
           RecordGame(MakeFromXex(path, "iso", *m));
+          phase1_hits++;
+        } else if (auto xbe = vfs::ExtractXbeMetadata(path)) {
+          XELOGD(
+              "DirectoryScanner:     -> original Xbox iso hit, "
+              "title_id={:08X}",
+              xbe->title_id);
+          RecordGame(MakeFromXbe(path, "iso", *xbe));
           phase1_hits++;
         } else {
           XELOGD("DirectoryScanner:     -> iso miss");
@@ -455,6 +500,19 @@ void DirectoryScanner::ScanDirectory(const std::filesystem::path& dir) {
       phase2_probed++;
       try {
         if (auto m = vfs::ExtractStfsMetadata(path, language_)) {
+          if (m->content_type == uint32_t(XContentType::kXboxTitle)) {
+            if (auto xbe = vfs::ExtractXbeMetadata(path)) {
+              XELOGD(
+                  "DirectoryScanner:   original Xbox stfs hit '{}' — "
+                  "title_id={:08X}, name='{}'",
+                  xe::path_to_utf8(path), xbe->title_id, xbe->title_name);
+              DiscoveredGame g = MakeFromStfs(path, *m);
+              ApplyXbe(g, *xbe);
+              RecordGame(std::move(g));
+              phase2_hits++;
+              continue;
+            }
+          }
           if (!IsLaunchableContentType(m->content_type)) {
             XELOGD(
                 "DirectoryScanner:   stfs filtered '{}' — content_type="
