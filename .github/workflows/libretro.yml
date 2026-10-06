@@ -63,7 +63,7 @@ jobs:
       - name: Collect
         run: |
           mkdir -p dist
-          core=$(find build -name 'xenia_edge_libretro*.so' | head -1)
+          core=$(find build -name '*xenia_edge_libretro*.so' | head -1)
           echo "core: $core"
           cp "$core" dist/xenia_edge_libretro.so
           strip --strip-unneeded dist/xenia_edge_libretro.so
@@ -132,7 +132,7 @@ jobs:
       - name: Collect
         run: |
           mkdir -p dist
-          core=$(find build -name 'xenia_edge_libretro*.so' | head -1)
+          core=$(find build -name '*xenia_edge_libretro*.so' | head -1)
           echo "core: $core"
           cp "$core" dist/xenia_edge_libretro.so
           strip --strip-unneeded dist/xenia_edge_libretro.so
