@@ -11,16 +11,6 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: src/xenia/ui/game_list_panel_wx.cc:596
-msgid ""
-"\n"
-"\n"
-"Browse for the file?"
-msgstr ""
-"\n"
-"\n"
-"ファイルを参照しますか？"
-
 #: src/xenia/ui/game_scan_progress_dialog_wx.cc:55
 msgid "   %zu already installed"
 msgstr "   %zu 件はインストール済"
@@ -1721,3 +1711,25 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:2897
 msgid "Your existing data was migrated to the new profile."
 msgstr "既存のデータを新しいプロファイルに移行しました。"
+
+#: src/xenia/ui/game_list_panel_wx.cc:441
+msgid ""
+"No file path is set for this title.\n"
+"\n"
+"Browse for the file?"
+msgstr ""
+"このタイトルにはファイルパスが設定されていません。\n"
+"\n"
+"ファイルを参照しますか？"
+
+#: src/xenia/ui/game_list_panel_wx.cc:442
+msgid ""
+"File not found:\n"
+"%s\n"
+"\n"
+"Browse for the file?"
+msgstr ""
+"ファイルが見つかりません:\n"
+"%s\n"
+"\n"
+"ファイルを参照しますか？"

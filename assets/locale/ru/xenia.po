@@ -12,16 +12,6 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-#: src/xenia/ui/game_list_panel_wx.cc:596
-msgid ""
-"\n"
-"\n"
-"Browse for the file?"
-msgstr ""
-"\n"
-"\n"
-"Найти файл вручную?"
-
 #: src/xenia/ui/game_scan_progress_dialog_wx.cc:55
 msgid "   %zu already installed"
 msgstr "   уже установлено: %zu"
@@ -1720,3 +1710,25 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:2897
 msgid "Your existing data was migrated to the new profile."
 msgstr "Ваши данные перенесены в новый профиль."
+
+#: src/xenia/ui/game_list_panel_wx.cc:441
+msgid ""
+"No file path is set for this title.\n"
+"\n"
+"Browse for the file?"
+msgstr ""
+"Для этой игры не задан путь к файлу.\n"
+"\n"
+"Найти файл вручную?"
+
+#: src/xenia/ui/game_list_panel_wx.cc:442
+msgid ""
+"File not found:\n"
+"%s\n"
+"\n"
+"Browse for the file?"
+msgstr ""
+"Файл не найден:\n"
+"%s\n"
+"\n"
+"Найти файл вручную?"

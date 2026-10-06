@@ -11,16 +11,6 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: src/xenia/ui/game_list_panel_wx.cc:596
-msgid ""
-"\n"
-"\n"
-"Browse for the file?"
-msgstr ""
-"\n"
-"\n"
-"Bläddra efter filen?"
-
 #: src/xenia/ui/game_scan_progress_dialog_wx.cc:55
 msgid "   %zu already installed"
 msgstr "   %zu redan installerade"
@@ -1718,3 +1708,25 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:2897
 msgid "Your existing data was migrated to the new profile."
 msgstr "Dina befintliga data har migrerats till den nya profilen."
+
+#: src/xenia/ui/game_list_panel_wx.cc:441
+msgid ""
+"No file path is set for this title.\n"
+"\n"
+"Browse for the file?"
+msgstr ""
+"Ingen filsökväg har angetts för denna titel.\n"
+"\n"
+"Bläddra efter filen?"
+
+#: src/xenia/ui/game_list_panel_wx.cc:442
+msgid ""
+"File not found:\n"
+"%s\n"
+"\n"
+"Browse for the file?"
+msgstr ""
+"Filen hittades inte:\n"
+"%s\n"
+"\n"
+"Bläddra efter filen?"

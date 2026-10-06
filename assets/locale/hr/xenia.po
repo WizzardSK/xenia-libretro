@@ -12,16 +12,6 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-#: src/xenia/ui/game_list_panel_wx.cc:596
-msgid ""
-"\n"
-"\n"
-"Browse for the file?"
-msgstr ""
-"\n"
-"\n"
-"Potraži datoteku?"
-
 #: src/xenia/ui/game_scan_progress_dialog_wx.cc:55
 msgid "   %zu already installed"
 msgstr "   već instalirano: %zu"
@@ -1717,3 +1707,25 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:2897
 msgid "Your existing data was migrated to the new profile."
 msgstr "Vaši postojeći podaci preneseni su u novi profil."
+
+#: src/xenia/ui/game_list_panel_wx.cc:441
+msgid ""
+"No file path is set for this title.\n"
+"\n"
+"Browse for the file?"
+msgstr ""
+"Za ovaj naslov nije postavljena putanja datoteke.\n"
+"\n"
+"Potraži datoteku?"
+
+#: src/xenia/ui/game_list_panel_wx.cc:442
+msgid ""
+"File not found:\n"
+"%s\n"
+"\n"
+"Browse for the file?"
+msgstr ""
+"Datoteka nije pronađena:\n"
+"%s\n"
+"\n"
+"Potraži datoteku?"

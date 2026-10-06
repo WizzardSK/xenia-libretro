@@ -11,16 +11,6 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: src/xenia/ui/game_list_panel_wx.cc:596
-msgid ""
-"\n"
-"\n"
-"Browse for the file?"
-msgstr ""
-"\n"
-"\n"
-"Kíván tallózni a fájl után?"
-
 #: src/xenia/ui/game_scan_progress_dialog_wx.cc:55
 msgid "   %zu already installed"
 msgstr "   %zu már telepítve"
@@ -1720,3 +1710,25 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:2897
 msgid "Your existing data was migrated to the new profile."
 msgstr "A meglévő adatai át lettek helyezve az új profilba."
+
+#: src/xenia/ui/game_list_panel_wx.cc:441
+msgid ""
+"No file path is set for this title.\n"
+"\n"
+"Browse for the file?"
+msgstr ""
+"Ehhez a címhez nincs fájl elérési útvonala beállítva.\n"
+"\n"
+"Kíván tallózni a fájl után?"
+
+#: src/xenia/ui/game_list_panel_wx.cc:442
+msgid ""
+"File not found:\n"
+"%s\n"
+"\n"
+"Browse for the file?"
+msgstr ""
+"A fájl nem található:\n"
+"%s\n"
+"\n"
+"Kíván tallózni a fájl után?"

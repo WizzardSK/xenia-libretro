@@ -11,16 +11,6 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: src/xenia/ui/game_list_panel_wx.cc:596
-msgid ""
-"\n"
-"\n"
-"Browse for the file?"
-msgstr ""
-"\n"
-"\n"
-"फ़ाइल को मैन्युअल रूप से ढूँढें?"
-
 #: src/xenia/ui/game_scan_progress_dialog_wx.cc:55
 msgid "   %zu already installed"
 msgstr "   %zu पहले से इंस्टॉल किए गए"
@@ -1712,3 +1702,25 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:2897
 msgid "Your existing data was migrated to the new profile."
 msgstr "आपका मौजूदा डेटा नई प्रोफ़ाइल में माइग्रेट कर दिया गया।"
+
+#: src/xenia/ui/game_list_panel_wx.cc:441
+msgid ""
+"No file path is set for this title.\n"
+"\n"
+"Browse for the file?"
+msgstr ""
+"इस टाइटल के लिए कोई फ़ाइल पथ सेट नहीं है।\n"
+"\n"
+"फ़ाइल को मैन्युअल रूप से ढूँढें?"
+
+#: src/xenia/ui/game_list_panel_wx.cc:442
+msgid ""
+"File not found:\n"
+"%s\n"
+"\n"
+"Browse for the file?"
+msgstr ""
+"फ़ाइल नहीं मिली:\n"
+"%s\n"
+"\n"
+"फ़ाइल को मैन्युअल रूप से ढूँढें?"

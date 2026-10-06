@@ -438,11 +438,11 @@ void GameListPanel::LaunchOrPrompt(const LibraryKey& key,
   }
   wxString warning =
       path.empty()
-          ? _("No file path is set for this title.")
-          : wxString::Format(_("File not found:\n%s"),
+          ? _("No file path is set for this title.\n\nBrowse for the file?")
+          : wxString::Format(_("File not found:\n%s\n\nBrowse for the file?"),
                              wxString::FromUTF8(xe::path_to_utf8(path)));
-  wxMessageDialog confirm(this, warning + _("\n\nBrowse for the file?"),
-                          _("Title not found"), wxYES_NO | wxICON_WARNING);
+  wxMessageDialog confirm(this, warning, _("Title not found"),
+                          wxYES_NO | wxICON_WARNING);
   if (confirm.ShowModal() != wxID_YES) {
     return;
   }

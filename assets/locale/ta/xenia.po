@@ -11,16 +11,6 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: src/xenia/ui/game_list_panel_wx.cc:596
-msgid ""
-"\n"
-"\n"
-"Browse for the file?"
-msgstr ""
-"\n"
-"\n"
-"கோப்பைத் தேடவா?"
-
 #: src/xenia/ui/game_scan_progress_dialog_wx.cc:55
 msgid "   %zu already installed"
 msgstr "   %zu ஏற்கனவே நிறுவப்பட்டுள்ளது"
@@ -1718,3 +1708,25 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:2897
 msgid "Your existing data was migrated to the new profile."
 msgstr "உங்கள் தற்போதைய தரவு புதிய சுயவிவரத்திற்கு மாற்றப்பட்டது."
+
+#: src/xenia/ui/game_list_panel_wx.cc:441
+msgid ""
+"No file path is set for this title.\n"
+"\n"
+"Browse for the file?"
+msgstr ""
+"இந்தத் தலைப்புக்கு கோப்புப் பாதை எதுவும் அமைக்கப்படவில்லை.\n"
+"\n"
+"கோப்பைத் தேடவா?"
+
+#: src/xenia/ui/game_list_panel_wx.cc:442
+msgid ""
+"File not found:\n"
+"%s\n"
+"\n"
+"Browse for the file?"
+msgstr ""
+"கோப்பு கிடைக்கவில்லை:\n"
+"%s\n"
+"\n"
+"கோப்பைத் தேடவா?"
