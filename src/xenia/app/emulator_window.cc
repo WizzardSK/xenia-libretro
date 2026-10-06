@@ -621,25 +621,33 @@ void EmulatorWindow::AddLaunchedTitleToLibrary(uint32_t title_id,
   if (!game_library_) {
     return;
   }
-  const auto& launched = emulator_->last_launch_path();
-  game_library_->AddDisc(title_id, name, launched);
-
-  // AddDisc placed it, so ask the library which release holds it rather than
-  // guessing. Nothing to point art or a default at if it declined the file,
-  // and a made-up key would have us write a folder no entry lives in.
-  const auto* entry = game_library_->FindByPath(title_id, launched);
-  if (!entry) {
+  // XeFu runs an original Xbox game, which is listed as itself, from the file
+  // it was opened from, with its executable's title image.
+  if (title_id == kXeFuTitleId) {
+    const auto& game = emulator_->xbox_game();
+    if (!game) {
+      return;
+    }
+    const auto key = RecordLaunchedDisc(game->title_id, game->title_name,
+                                        emulator_->xbox_disc_path());
+    std::error_code ec;
+    if (key && !game->icon_png.empty() &&
+        !std::filesystem::exists(game_library_->IconPath(*key), ec)) {
+      game_library_->SetIcon(*key, game->icon_png);
+    }
     return;
   }
-  const LibraryKey key = entry->key();
-  // The disc we just booted becomes the default for next launch.
-  game_library_->SetDefaultPath(key, launched);
+  const auto key =
+      RecordLaunchedDisc(title_id, name, emulator_->last_launch_path());
+  if (!key) {
+    return;
+  }
 
   // Adopt the running title's icon if we have no art yet. The SPA writes it to
   // the per-title GPD on boot, so a signed-in profile has it by now.
   std::error_code ec;
   if (title_id == 0 ||
-      std::filesystem::exists(game_library_->IconPath(key), ec)) {
+      std::filesystem::exists(game_library_->IconPath(*key), ec)) {
     return;
   }
   auto* xam_state = emulator_->kernel_state()
@@ -656,10 +664,31 @@ void EmulatorWindow::AddLaunchedTitleToLibrary(uint32_t title_id,
     }
     auto icon = profile->GetTitleIcon(title_id);
     if (!icon.empty()) {
-      game_library_->SetIcon(key, icon);
+      game_library_->SetIcon(*key, icon);
       break;
     }
   }
+}
+
+std::optional<LibraryKey> EmulatorWindow::RecordLaunchedDisc(
+    uint32_t title_id, const std::string& name,
+    const std::filesystem::path& path) {
+  game_library_->AddDisc(title_id, name, path);
+
+  // AddDisc placed it, so ask the library which release holds it rather than
+  // guessing. Nothing to point art or a default at if it declined the file,
+  // and a made-up key would have us write a folder no entry lives in.
+  const auto* entry = game_library_->FindByPath(title_id, path);
+  if (!entry) {
+    return std::nullopt;
+  }
+  const LibraryKey key = entry->key();
+  // The disc we just booted becomes the default for next launch.
+  game_library_->SetDefaultPath(key, path);
+  // A launch from outside the list is a play all the same, which the profile
+  // can't record for a title with several releases or for one XeFu runs.
+  game_library_->MarkPlayed(key, std::time(nullptr));
+  return key;
 }
 
 void EmulatorWindow::OnEmulatorInitialized() {

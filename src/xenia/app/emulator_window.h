@@ -170,6 +170,11 @@ class EmulatorWindow {
   // Registers a just-launched title in the library so games opened outside the
   // import flow still appear in the list.
   void AddLaunchedTitleToLibrary(uint32_t title_id, const std::string& name);
+  // Records the disc a title was launched from as its release's default and
+  // stamps the release as played. Empty when the library declined the disc.
+  std::optional<LibraryKey> RecordLaunchedDisc(
+      uint32_t title_id, const std::string& name,
+      const std::filesystem::path& path);
 
   void OnKeyDown(ui::KeyEvent& e);
   void OnMouseDown(const ui::MouseEvent& e);

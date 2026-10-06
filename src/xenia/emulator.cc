@@ -723,6 +723,7 @@ X_STATUS Emulator::LaunchPath(const std::filesystem::path& path) {
   if (!std::filesystem::equivalent(path.parent_path(), xefu_path(),
                                    xefu_path_error)) {
     xbox_disc_path_.clear();
+    xbox_game_.reset();
   }
 
   X_STATUS mount_result = X_STATUS_SUCCESS;
@@ -888,6 +889,7 @@ X_STATUS Emulator::LaunchXboxOriginal(const std::filesystem::path& path,
   loader_data.launch_data_present = true;
 
   xbox_disc_path_ = path;
+  xbox_game_ = vfs::ExtractXbeMetadata(path);
   X_STATUS result = MountPath(launcher, "\\Device\\Package_0");
   return result ? result : LaunchXexFile(launcher);
 }
@@ -2397,6 +2399,17 @@ X_STATUS Emulator::PrepareLaunch(const std::filesystem::path& path,
       if (!icon_block.empty()) {
         display_window_->SetIcon(icon_block.data(), icon_block.size());
       }
+    }
+  }
+
+  // XeFu goes by the original Xbox game it runs.
+  if (title_id_ == kXeFuTitleId && xbox_game_) {
+    if (!xbox_game_->title_name.empty()) {
+      title_name_ = xbox_game_->title_name;
+    }
+    if (display_window_ && !xbox_game_->icon_png.empty()) {
+      display_window_->SetIcon(xbox_game_->icon_png.data(),
+                               xbox_game_->icon_png.size());
     }
   }
 

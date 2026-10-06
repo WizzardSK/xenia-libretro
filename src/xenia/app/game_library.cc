@@ -20,8 +20,10 @@
 #include "xenia/base/logging.h"
 #include "xenia/base/string_util.h"
 #include "xenia/base/utf8.h"
+#include "xenia/emulator.h"
 #include "xenia/vfs/iso_metadata.h"
 #include "xenia/vfs/stfs_metadata.h"
+#include "xenia/vfs/xbe_metadata.h"
 #include "xenia/vfs/xex_metadata.h"
 #include "xenia/vfs/zar_metadata.h"
 
@@ -84,11 +86,28 @@ std::string VersionToString(uint32_t version) {
   return vfs::XexVersion::FromValue(version).ToString();
 }
 
+namespace {
+// An original Xbox game describes itself in its executable's certificate,
+// which has no media id.
+GameFileInfo FromXbe(vfs::XbeMetadata m) {
+  GameFileInfo info;
+  info.version = m.version;
+  info.disc_number = uint8_t(m.disc_number);
+  info.icon = std::move(m.icon_png);
+  info.title_name = std::move(m.title_name);
+  return info;
+}
+}  // namespace
+
 std::optional<GameFileInfo> ReadGameFileInfo(
     const std::filesystem::path& path) {
   const auto extension =
       xe::utf8::lower_ascii(xe::path_to_utf8(path.extension()));
-  if (extension == ".xex") {
+  if (extension == ".xbe") {
+    if (auto m = vfs::ExtractXbeMetadata(path)) {
+      return FromXbe(std::move(*m));
+    }
+  } else if (extension == ".xex") {
     if (auto m = vfs::ExtractXexMetadata(path)) {
       return GameFileInfo{m->media_id, m->version.value(), m->disc_number,
                           m->disc_count};
@@ -98,12 +117,22 @@ std::optional<GameFileInfo> ReadGameFileInfo(
       return GameFileInfo{m->media_id, m->version.value(), m->disc_number,
                           m->disc_count};
     }
+    if (auto m = vfs::ExtractXbeMetadata(path)) {
+      return FromXbe(std::move(*m));
+    }
   } else if (extension == ".zar") {
     if (auto m = vfs::ExtractZarMetadata(path)) {
       return GameFileInfo{m->media_id, m->version.value(), m->disc_number,
                           m->disc_count};
     }
   } else if (auto m = vfs::ExtractStfsMetadata(path)) {
+    // An Xbox Original package is listed as the game its executable names.
+    if (m->content_type == uint32_t(XContentType::kXboxTitle)) {
+      if (auto xbe = vfs::ExtractXbeMetadata(path)) {
+        return FromXbe(std::move(*xbe));
+      }
+      return std::nullopt;
+    }
     // The container describes this release specifically, so take all of it
     // while we are here. The title-level record cannot tell releases apart.
     return GameFileInfo{m->media_id,
@@ -382,6 +411,11 @@ void GameLibrary::Load() {
       xe::filesystem::ListDirectories(root_), std::regex("[0-9A-Fa-f]{8}"));
 
   for (const auto& title_dir : title_dirs) {
+    // XeFu runs original Xbox games, which are listed as themselves.
+    if (xe::string_util::from_string<uint32_t>(xe::path_to_utf8(title_dir.name),
+                                               true) == kXeFuTitleId) {
+      continue;
+    }
     const auto dir = title_dir.path / title_dir.name;
 
     // One version folder is proof the title is in the current layout, so the
@@ -550,6 +584,9 @@ bool GameLibrary::WriteEntryAtomic(const LibraryEntry& entry,
 }
 
 bool GameLibrary::Upsert(LibraryEntry entry) {
+  if (entry.title_id == kXeFuTitleId) {
+    return false;
+  }
   NormalizeDefault(entry);
 
   auto* existing = Find(entry.key());

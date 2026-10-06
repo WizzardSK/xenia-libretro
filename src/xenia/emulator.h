@@ -33,6 +33,7 @@
 #include "xenia/ui/immediate_drawer.h"
 #include "xenia/vfs/device.h"
 #include "xenia/vfs/virtual_file_system.h"
+#include "xenia/vfs/xbe_metadata.h"
 #include "xenia/xbox.h"
 
 namespace xe {
@@ -102,6 +103,14 @@ class Emulator {
   }
   void ReportMissingXeFuFile(std::string file) {
     missing_xefu_file_ = std::move(file);
+  }
+  // The original Xbox game XeFu runs, the file it was launched from and what
+  // its executable says about it. Empty when the executable can't be read.
+  const std::filesystem::path& xbox_disc_path() const {
+    return xbox_disc_path_;
+  }
+  const std::optional<vfs::XbeMetadata>& xbox_game() const {
+    return xbox_game_;
   }
 
   // Folder guest content is stored in.
@@ -475,6 +484,7 @@ class Emulator {
   // The original Xbox game XeFu runs, its .xbe file, disc image or package,
   // shown to XeFu as the disc. Persists across launches from xefu_path.
   std::filesystem::path xbox_disc_path_;
+  std::optional<vfs::XbeMetadata> xbox_game_;
   std::string missing_xefu_file_;
   DiscProvider disc_provider_;
   DiscRecorder disc_recorder_;
