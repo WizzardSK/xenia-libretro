@@ -170,6 +170,11 @@ class XexModule : public xe::cpu::Module {
   const std::vector<ImportLibrary>* import_libraries() const {
     return &import_libs_;
   }
+  // The modules it imports from that failed to load, whose imports are left
+  // unresolved.
+  const std::vector<std::string>& missing_import_libraries() const {
+    return missing_import_libs_;
+  }
 
   const xex2_opt_execution_info* opt_execution_info() const {
     xex2_opt_execution_info* retval = nullptr;
@@ -294,6 +299,7 @@ class XexModule : public xe::cpu::Module {
 
   std::vector<ImportLibrary>
       import_libs_;  // pre-loaded import libraries for ease of use
+  std::vector<std::string> missing_import_libs_;
   std::vector<PESection> pe_sections_;
 
   // XEX_HEADER_ALTERNATE_TITLE_IDS loaded into a safe std::vector

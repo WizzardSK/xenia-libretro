@@ -2254,6 +2254,17 @@ X_STATUS Emulator::PrepareLaunch(const std::filesystem::path& path,
     XELOGE("Failed to initialize user module {}", path);
     return result;
   }
+  // A XeFu build calls into the modules it imports from without checking they
+  // loaded.
+  if (module->title_id() == kXeFuTitleId) {
+    const auto& missing = module->xex_module()->missing_import_libraries();
+    if (!missing.empty()) {
+      XELOGE("XeFu needs {} in {}", missing.front(),
+             xe::path_to_utf8(path.parent_path()));
+      ReportMissingXeFuFile(missing.front());
+      return X_STATUS_DLL_NOT_FOUND;
+    }
+  }
   // Grab the current title ID.
   xex2_opt_execution_info* info = nullptr;
   uint32_t workspace_address = 0;

@@ -1012,6 +1012,33 @@ bool XexModule::Load(const std::string_view name, const std::string_view path,
   return true;
 }
 
+// The names to load an import library by, in order.
+static std::vector<std::string> ImportLibraryNames(
+    const std::string_view module_name, uint32_t title_id,
+    const std::string_view library_name) {
+  std::vector<std::string> names;
+  // xefu2019.xex and the xefu2021 builds all import xefutitle.xex. A folder
+  // holding several names each after its build, as xefutitle2019.xex, or
+  // without the build letter, as xefutitle2021.xex for xefu2021c.xex.
+  if (title_id == kXeFuTitleId &&
+      xe::utf8::equal_case(library_name, "xefutitle.xex") &&
+      module_name.size() > 4 &&
+      xe::utf8::starts_with_case(module_name, "xefu")) {
+    const std::string suffix(module_name.substr(4));
+    names.push_back("xefutitle" + suffix + ".xex");
+    std::string build = suffix;
+    while (!build.empty() && ((build.back() >= 'a' && build.back() <= 'z') ||
+                              (build.back() >= 'A' && build.back() <= 'Z'))) {
+      build.pop_back();
+    }
+    if (!build.empty() && build != suffix) {
+      names.push_back("xefutitle" + build + ".xex");
+    }
+  }
+  names.emplace_back(library_name);
+  return names;
+}
+
 bool XexModule::LoadContinue() {
   // Second part of image load
   // Split from Load() so that we can patch the XEX before loading this data
@@ -1091,6 +1118,10 @@ bool XexModule::LoadContinue() {
       }
     }
 
+    const auto* execution_info = opt_execution_info();
+    const uint32_t title_id =
+        execution_info ? static_cast<uint32_t>(execution_info->title_id) : 0;
+
     auto library_data = reinterpret_cast<uint8_t*>(opt_import_libraries);
     uint32_t library_offset = opt_import_libraries->string_table.size + 12;
     while (library_offset < opt_import_libraries->size) {
@@ -1106,10 +1137,30 @@ bool XexModule::LoadContinue() {
       auto library_name = std::string(string_table[library_name_index]);
 
       if (!kernel_state_->IsModuleLoaded(library_name)) {
-        if (auto module = kernel_state_->LoadUserModule(library_name)) {
-          if (kernel_state_->FinishLoadingUserModule(module, false)) {
-            library_name = module->path();
+        kernel::object_ref<kernel::UserModule> module;
+        for (const auto& name :
+             ImportLibraryNames(name_, title_id, library_name)) {
+          // A name other than its own is only tried beside this module where
+          // it exists, so as not to log not finding it.
+          std::string load_path = name;
+          if (name != library_name) {
+            load_path = xe::utf8::join_guest_paths(
+                xe::utf8::find_base_guest_path(path_), name);
+            if (!kernel_state_->file_system()->ResolvePath(load_path)) {
+              continue;
+            }
           }
+          module = kernel_state_->LoadUserModule(load_path);
+          if (module) {
+            break;
+          }
+        }
+        if (module) {
+          kernel_state_->FinishLoadingUserModule(module, false);
+          // Its name can differ from the import's.
+          library_name = module->path();
+        } else {
+          missing_import_libs_.push_back(library_name);
         }
       }
 
