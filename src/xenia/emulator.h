@@ -18,6 +18,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "xenia/apu/audio_media_player.h"
@@ -90,6 +91,18 @@ class Emulator {
 
   // Folder persistent internal emulator data is stored in.
   const std::filesystem::path& storage_root() const { return storage_root_; }
+
+  // Folder XeFu and its xbox.xex are in, shown to them as the system partition
+  // Compatibility folder.
+  std::filesystem::path xefu_path() const;
+  // The file in xefu_path() an original Xbox game needed and didn't find, for
+  // the UI to explain once. Empty when none is missing.
+  std::string TakeMissingXeFuFile() {
+    return std::exchange(missing_xefu_file_, {});
+  }
+  void ReportMissingXeFuFile(std::string file) {
+    missing_xefu_file_ = std::move(file);
+  }
 
   // Folder guest content is stored in.
   const std::filesystem::path& content_root() const { return content_root_; }
@@ -248,6 +261,11 @@ class Emulator {
 
   // Launches a game from a disc image file (.iso, etc).
   X_STATUS LaunchDiscImage(const std::filesystem::path& path);
+
+  // Launches an original Xbox game through XeFu from its .xbe file, a disc
+  // image or an Xbox Original package, with |xbe_name| the game's file in it.
+  X_STATUS LaunchXboxOriginal(const std::filesystem::path& path,
+                              std::string_view xbe_name);
 
   // Launches a game from a disc archive file (.zar, etc).
   X_STATUS LaunchDiscArchive(const std::filesystem::path& path);
@@ -454,6 +472,10 @@ class Emulator {
 
   std::filesystem::path command_line_;
   std::filesystem::path last_launch_path_;  // persists across relaunch
+  // The original Xbox game XeFu runs, its .xbe file, disc image or package,
+  // shown to XeFu as the disc. Persists across launches from xefu_path.
+  std::filesystem::path xbox_disc_path_;
+  std::string missing_xefu_file_;
   DiscProvider disc_provider_;
   DiscRecorder disc_recorder_;
   std::filesystem::path storage_root_;

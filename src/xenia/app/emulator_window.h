@@ -106,6 +106,9 @@ class EmulatorWindow {
   void ToggleControllerVibration();
   void FileOpen();
   void FileAddGames();
+  // Tells the user which XeFu file an original Xbox game was missing and where
+  // to put it.
+  void ShowMissingXeFuFile(const std::string& file);
 
   // Helper methods for updating cvars from config dialogs.
   void UpdateAntiAliasingCvar(gpu::CommandProcessor::SwapPostEffect effect);

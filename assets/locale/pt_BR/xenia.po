@@ -1672,3 +1672,21 @@ msgstr "Guitarra Alternativa"
 #: src/xenia/app/emulator_window.cc:407
 msgid "Bass Guitar"
 msgstr "Baixo"
+
+#: src/xenia/app/emulator_window.cc:2027
+msgid ""
+"Original Xbox games run through XeFu, the Xbox 360's backward compatibility emulator, and %s is missing from its folder:\n"
+"\n"
+"%s\n"
+"\n"
+"Copy xbox.xex and the xefu*.xex files there from the Compatibility folder of an Xbox 360 hard drive."
+msgstr ""
+"Os jogos do Xbox original são executados pelo XeFu, o emulador de retrocompatibilidade do Xbox 360, mas %s está faltando na pasta dele:\n"
+"\n"
+"%s\n"
+"\n"
+"Copie para lá o xbox.xex e os arquivos xefu*.xex da pasta Compatibility de um disco rígido do Xbox 360."
+
+#: src/xenia/app/emulator_window.cc:2034
+msgid "XeFu not found"
+msgstr "XeFu não encontrado"

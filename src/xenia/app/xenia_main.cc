@@ -788,6 +788,13 @@ void EmulatorApp::EmulatorThread() {
 
     // TODO(has207): Add archive format check like in RunTitle?
     result = emulator_->LaunchPath(abs_path);
+    if (const std::string file = emulator_->TakeMissingXeFuFile();
+        !file.empty()) {
+      app_context().CallInUIThreadSynchronous(
+          [this, &file]() { emulator_window_->ShowMissingXeFuFile(file); });
+      app_context().RequestDeferredQuit();
+      return;
+    }
     if (XFAILED(result)) {
       xe::FatalError(fmt::format("Failed to launch target: {:08X}", result));
       app_context().RequestDeferredQuit();

@@ -12,6 +12,7 @@
 #include "xenia/emulator.h"
 
 #include <algorithm>
+#include <cstring>
 #include "config.h"
 #include "third_party/fmt/include/fmt/format.h"
 #include "xenia/apu/audio_system.h"
@@ -24,9 +25,11 @@
 #include "xenia/base/literals.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/mapped_memory.h"
+#include "xenia/base/memory.h"
 #include "xenia/base/platform.h"
 #include "xenia/base/string.h"
 #include "xenia/base/system.h"
+#include "xenia/base/utf8.h"
 #include "xenia/cpu/backend/code_cache.h"
 #include "xenia/cpu/backend/null_backend.h"
 #include "xenia/cpu/cpu_flags.h"
@@ -61,6 +64,7 @@
 #include "xenia/vfs/devices/xcontent_container_device.h"
 #include "xenia/vfs/entry.h"
 #include "xenia/vfs/file.h"
+#include "xenia/vfs/gdfx_util.h"
 #include "xenia/vfs/virtual_file_system.h"
 
 #if XE_ARCH_AMD64
@@ -138,6 +142,22 @@ UPDATE_from_bool(mount_cache, 2024, 8, 31, 20, false);
 
 DEFINE_bool(mount_memory_unit, false, "Enable memory unit (MU) mount",
             "Storage");
+
+DEFINE_path(xefu_path, "",
+            "Folder with XeFu, the Xbox 360's original Xbox emulator: xbox.xex "
+            "and the xefu*.xex builds it picks from, as the console's system "
+            "partition Compatibility folder holds them. Opening an original "
+            "Xbox game, as an .xbe, a disc image or an Xbox Original package, "
+            "runs it through xbox.xex from there. Empty for the xefu folder "
+            "under the storage root.",
+            "Storage");
+
+DEFINE_string(xefu_launcher, "xbox.xex",
+              "File in xefu_path that original Xbox games start through. "
+              "xbox.xex picks the XeFu build for each game as the console "
+              "does. A XeFu build, such as config_loader_xefu7.xex, runs every "
+              "game.",
+              "General");
 
 DECLARE_bool(force_mount_devkit);
 
@@ -498,7 +518,8 @@ const std::unique_ptr<vfs::Device> Emulator::CreateVfsDevice(
     case FileSignatureType::XEX25:
     case FileSignatureType::XEX1:
     case FileSignatureType::XEX2:
-    case FileSignatureType::ELF: {
+    case FileSignatureType::ELF:
+    case FileSignatureType::XBE: {
       device = std::make_unique<vfs::HostPathDevice>(
           mount_path, path.parent_path(), !cvars::allow_game_relative_writes);
     } break;
@@ -514,7 +535,6 @@ const std::unique_ptr<vfs::Device> Emulator::CreateVfsDevice(
     case FileSignatureType::ZAR: {
       device = std::make_unique<vfs::DiscZarchiveDevice>(mount_path, path);
     } break;
-    case FileSignatureType::XBE:
     case FileSignatureType::EXE:
     case FileSignatureType::Unknown:
     default:
@@ -682,12 +702,34 @@ Emulator::FileSignatureType Emulator::GetFileSignature(
   return FileSignatureType::Unknown;
 }
 
+// Whether a disc image holds an original Xbox game rather than an Xbox 360
+// one, from the executables in its root.
+static bool IsXboxOriginalDisc(const std::filesystem::path& path) {
+  auto mmap = xe::MappedMemory::Open(path, xe::MappedMemory::Mode::kRead);
+  if (!mmap) {
+    return false;
+  }
+  auto partition = vfs::GdfxFindPartition(mmap->data(), mmap->size());
+  return partition &&
+         vfs::GdfxFindFile(mmap->data(), mmap->size(), *partition,
+                           "default.xbe") &&
+         !vfs::GdfxFindFile(mmap->data(), mmap->size(), *partition,
+                            "default.xex");
+}
+
 X_STATUS Emulator::LaunchPath(const std::filesystem::path& path) {
   // A relaunch must not tear down what this mounts into and loads from.
   std::lock_guard<std::recursive_mutex> launch_lock(launch_mutex_);
   // Remember for relaunch fallback
   if (!path.empty()) {
     last_launch_path_ = path;
+  }
+  // The original Xbox game stays in the drive while XeFu launches from its own
+  // folder, as xbox.xex does the build it picks.
+  std::error_code xefu_path_error;
+  if (!std::filesystem::equivalent(path.parent_path(), xefu_path(),
+                                   xefu_path_error)) {
+    xbox_disc_path_.clear();
   }
 
   X_STATUS mount_result = X_STATUS_SUCCESS;
@@ -706,16 +748,23 @@ X_STATUS Emulator::LaunchPath(const std::filesystem::path& path) {
     case FileSignatureType::LIVE:
     case FileSignatureType::CON:
     case FileSignatureType::PIRS: {
+      auto header = vfs::XContentContainerDevice::ReadContainerHeader(path);
+      if (header && header->content_metadata.content_type.get() ==
+                        XContentType::kXboxTitle) {
+        return LaunchXboxOriginal(path, "default.xbe");
+      }
       mount_result = MountPath(path, "\\Device\\Package_0");
       return mount_result ? mount_result : LaunchStfsContainer(path);
     } break;
     case FileSignatureType::XISO: {
+      if (IsXboxOriginalDisc(path)) {
+        return LaunchXboxOriginal(path, "default.xbe");
+      }
       mount_result = MountPath(path, "\\Device\\Cdrom0");
       return mount_result ? mount_result : LaunchDiscImage(path);
     } break;
     case FileSignatureType::XBE: {
-      XELOGE("OG Xbox games are not supported");
-      return X_STATUS_NOT_SUPPORTED;
+      return LaunchXboxOriginal(path, xe::path_to_utf8(path.filename()));
     } break;
     case FileSignatureType::ZAR: {
       mount_result = MountPath(path, "\\Device\\Cdrom0");
@@ -802,6 +851,52 @@ X_STATUS Emulator::LaunchDiscImage(const std::filesystem::path& path) {
   }
   SetDeploymentType(XDeploymentType::kOpticalDisc);
   return result;
+}
+
+std::filesystem::path Emulator::xefu_path() const {
+  return cvars::xefu_path.empty() ? storage_root_ / "xefu" : cvars::xefu_path;
+}
+
+X_STATUS Emulator::LaunchXboxOriginal(const std::filesystem::path& path,
+                                      std::string_view xbe_name) {
+  // As on the console, xbox.xex picks the XeFu build for the game and launches
+  // it with the game's path, unless a XeFu build is set to run every game.
+  const std::filesystem::path launcher = xefu_path() / cvars::xefu_launcher;
+  if (!std::filesystem::is_regular_file(launcher)) {
+    XELOGE("Original Xbox games run through XeFu, which needs {} in {}",
+           cvars::xefu_launcher, xe::path_to_utf8(xefu_path()));
+    // Somewhere for the user to copy XeFu to.
+    std::error_code create_error;
+    std::filesystem::create_directories(xefu_path(), create_error);
+    ReportMissingXeFuFile(cvars::xefu_launcher);
+    return X_STATUS_NOT_SUPPORTED;
+  }
+  // The dashboard starts xbox.xex with launch data that names the game, at the
+  // offset XeFu reads it from too. Its first word is 0 from the dashboard and
+  // 1 from xbox.xex starting XeFu.
+  const uint32_t launched_by =
+      xe::utf8::equal_case(cvars::xefu_launcher, "xbox.xex") ? 0 : 1;
+  constexpr size_t kLaunchDataSize = 0x3FC;
+  constexpr size_t kLaunchDataPathOffset = 0x1FC;
+  const std::string xbe_path = "\\Device\\Cdrom0\\" + std::string(xbe_name);
+  if (xbe_path.size() >= kLaunchDataSize - kLaunchDataPathOffset) {
+    XELOGE("The original Xbox game's file name is too long: {}", xbe_name);
+    return X_STATUS_INVALID_PARAMETER;
+  }
+  auto xam = kernel_state_->GetKernelModule<kernel::xam::XamModule>("xam.xex");
+  if (!xam) {
+    return X_STATUS_UNSUCCESSFUL;
+  }
+  auto& loader_data = xam->loader_data();
+  loader_data.launch_data.assign(kLaunchDataSize, 0);
+  xe::store_and_swap<uint32_t>(loader_data.launch_data.data(), launched_by);
+  std::memcpy(loader_data.launch_data.data() + kLaunchDataPathOffset,
+              xbe_path.data(), xbe_path.size());
+  loader_data.launch_data_present = true;
+
+  xbox_disc_path_ = path;
+  X_STATUS result = MountPath(launcher, "\\Device\\Package_0");
+  return result ? result : LaunchXexFile(launcher);
 }
 
 X_STATUS Emulator::LaunchDiscArchive(const std::filesystem::path& path) {
@@ -2168,6 +2263,23 @@ X_STATUS Emulator::PrepareLaunch(const std::filesystem::path& path,
         storage_root_ / "compatibility", false);
     if (compatibility_device->Initialize()) {
       file_system_->RegisterDevice(std::move(compatibility_device));
+    }
+    // xbox.xex and the XeFu builds, which XeFu also writes its config.bin to.
+    auto system_device = std::make_unique<vfs::HostPathDevice>(
+        "\\Device\\Harddisk0\\SystemPartition\\Compatibility", xefu_path(),
+        false);
+    if (system_device->Initialize()) {
+      file_system_->RegisterDevice(std::move(system_device));
+    }
+    // The original Xbox game is the disc in the drive, which D: names.
+    if (!xbox_disc_path_.empty()) {
+      auto disc_device = CreateVfsDevice(xbox_disc_path_, "\\Device\\Cdrom0");
+      if (disc_device && disc_device->Initialize()) {
+        file_system_->RegisterDevice(std::move(disc_device));
+        file_system_->UnregisterSymbolicLink(kDefaultPartitionSymbolicLink);
+        file_system_->RegisterSymbolicLink(kDefaultPartitionSymbolicLink,
+                                           "\\Device\\Cdrom0");
+      }
     }
   }
 

@@ -2012,9 +2012,27 @@ bool EmulatorWindow::StopTitleAndReturnToList() {
       }
       target_pending_launch_ = false;
       ApplyContentVisibility();
+      // XeFu exits when the build it picked for the game isn't there.
+      if (const std::string file = emulator_->TakeMissingXeFuFile();
+          !file.empty()) {
+        ShowMissingXeFuFile(file);
+      }
     });
   }).detach();
   return true;
+}
+
+void EmulatorWindow::ShowMissingXeFuFile(const std::string& file) {
+  const wxString message = wxString::Format(
+      _("Original Xbox games run through XeFu, the Xbox 360's backward "
+        "compatibility emulator, and %s is missing from its folder:\n\n%s\n\n"
+        "Copy xbox.xex and the xefu*.xex files there from the Compatibility "
+        "folder of an Xbox 360 hard drive."),
+      wxString::FromUTF8(file),
+      wxString::FromUTF8(xe::path_to_utf8(emulator_->xefu_path())));
+  auto* wx_window = dynamic_cast<ui::WxWindow*>(window_.get());
+  wxMessageBox(message, _("XeFu not found"), wxOK | wxICON_WARNING,
+               wx_window ? wx_window->frame() : nullptr);
 }
 
 void EmulatorWindow::ApplyContentVisibility() {
@@ -3594,13 +3612,19 @@ xe::X_STATUS EmulatorWindow::RunTitle(
       ClearDialogs();
       if (result) {
         XELOGE("Failed to launch target: {:08X}", result);
-        xe::ui::ImGuiDialog::ShowMessageBox(
-            imgui_drawer_.get(), "Title Launch Failed!",
-            "Failed to launch title.\n\nCheck xenia.log for technical "
-            "details.");
+        const std::string missing_xefu_file = emulator_->TakeMissingXeFuFile();
+        if (missing_xefu_file.empty()) {
+          xe::ui::ImGuiDialog::ShowMessageBox(
+              imgui_drawer_.get(), "Title Launch Failed!",
+              "Failed to launch title.\n\nCheck xenia.log for technical "
+              "details.");
+        }
         emulator_->file_system()->Clear();
         target_pending_launch_ = false;
         ApplyContentVisibility();
+        if (!missing_xefu_file.empty()) {
+          ShowMissingXeFuFile(missing_xefu_file);
+        }
       } else {
         auto xam =
             emulator_->kernel_state()->GetKernelModule<kernel::xam::XamModule>(

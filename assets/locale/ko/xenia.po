@@ -1666,3 +1666,21 @@ msgstr "대체 기타"
 #: src/xenia/app/emulator_window.cc:407
 msgid "Bass Guitar"
 msgstr "베이스 기타"
+
+#: src/xenia/app/emulator_window.cc:2027
+msgid ""
+"Original Xbox games run through XeFu, the Xbox 360's backward compatibility emulator, and %s is missing from its folder:\n"
+"\n"
+"%s\n"
+"\n"
+"Copy xbox.xex and the xefu*.xex files there from the Compatibility folder of an Xbox 360 hard drive."
+msgstr ""
+"초대 Xbox 게임은 Xbox 360의 하위 호환성 에뮬레이터인 XeFu로 실행되지만, XeFu 폴더에 %s 파일이 없습니다:\n"
+"\n"
+"%s\n"
+"\n"
+"Xbox 360 하드 드라이브의 Compatibility 폴더에서 xbox.xex와 xefu*.xex 파일을 이 폴더로 복사하세요."
+
+#: src/xenia/app/emulator_window.cc:2034
+msgid "XeFu not found"
+msgstr "XeFu를 찾을 수 없음"

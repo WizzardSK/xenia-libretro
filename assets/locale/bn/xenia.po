@@ -1665,3 +1665,21 @@ msgstr "বিকল্প গিটার"
 #: src/xenia/app/emulator_window.cc:407
 msgid "Bass Guitar"
 msgstr "বেস গিটার"
+
+#: src/xenia/app/emulator_window.cc:2027
+msgid ""
+"Original Xbox games run through XeFu, the Xbox 360's backward compatibility emulator, and %s is missing from its folder:\n"
+"\n"
+"%s\n"
+"\n"
+"Copy xbox.xex and the xefu*.xex files there from the Compatibility folder of an Xbox 360 hard drive."
+msgstr ""
+"আসল Xbox-এর গেমগুলো XeFu-এর মাধ্যমে চলে, যা Xbox 360-এর ব্যাকওয়ার্ড কম্প্যাটিবিলিটি এমুলেটর, কিন্তু এর ফোল্ডারে %s নেই:\n"
+"\n"
+"%s\n"
+"\n"
+"অনুগ্রহ করে একটি Xbox 360 হার্ড ড্রাইভের Compatibility ফোল্ডার থেকে xbox.xex এবং xefu*.xex ফাইলগুলো এই ফোল্ডারে কপি করুন।"
+
+#: src/xenia/app/emulator_window.cc:2034
+msgid "XeFu not found"
+msgstr "XeFu পাওয়া যায়নি"

@@ -543,6 +543,14 @@ static void LaunchTitle(std::string path, std::string_view d_drive_path,
     if (!entry) {
       XELOGW("XamLoaderLaunchTitle: {} does not exist, exiting to dashboard",
              path);
+      // xbox.xex starts the XeFu build it picked for the game from XeFu's
+      // folder. XeFu exits to xbox.xex, which a folder can do without.
+      auto emulator = kernel_state()->emulator();
+      const std::string name = xe::utf8::find_name_from_guest_path(path);
+      if (emulator->title_id() == kXeFuTitleId &&
+          !xe::utf8::equal_case(name, "xbox.xex")) {
+        emulator->ReportMissingXeFuFile(name);
+      }
       path.clear();
     }
   }
