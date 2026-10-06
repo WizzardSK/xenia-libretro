@@ -4,6 +4,9 @@ if _ACTION == "export-compile-commands" then
 end
 if os.istarget("android") then
   require("third_party/premake-androidndk/androidndk")
+  -- This premake-core's --os does not list android; it is checked only once
+  -- the scripts have run
+  table.insert(premake.option.list["os"].allowed, { "android", "Android" })
 end
 if _ACTION == "cmake" then
   require("third_party/premake-cmake/cmake")

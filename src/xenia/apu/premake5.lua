@@ -21,6 +21,6 @@ project("xenia-apu")
       "xenia-helper-sdl",
       "SDL2",
     })
-    sdl2_include()
+    if sdl2_include then sdl2_include() end
   filter({})
   local_platform_files()

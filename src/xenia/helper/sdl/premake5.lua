@@ -10,4 +10,4 @@ project("xenia-helper-sdl")
     "SDL2",
   })
   local_platform_files()
-  sdl2_include()
+  if sdl2_include then sdl2_include() end
