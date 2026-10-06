@@ -1689,3 +1689,17 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:2034
 msgid "XeFu not found"
 msgstr "XeFu が見つかりません"
+
+#: src/xenia/app/emulator_window.cc:3665
+msgid ""
+"Failed to launch title.\n"
+"\n"
+"Check xenia.log for technical details."
+msgstr ""
+"タイトルを起動できませんでした。\n"
+"\n"
+"技術的な詳細は xenia.log を確認してください。"
+
+#: src/xenia/app/emulator_window.cc:3664
+msgid "Title Launch Failed!"
+msgstr "タイトルの起動に失敗しました"

@@ -475,6 +475,15 @@ class AboutDialog : public wxGenericAboutDialog {
     AddControl(row);
   }
 };
+
+// Shows a message over whatever the window holds. ImGui dialogs draw in the
+// render pane, which the game list hides.
+void ShowWindowMessage(ui::Window* window, const wxString& caption,
+                       const wxString& message, long icon) {
+  auto* wx_window = dynamic_cast<ui::WxWindow*>(window);
+  wxMessageBox(message, caption, wxOK | icon,
+               wx_window ? wx_window->frame() : nullptr);
+}
 }  // namespace
 
 using xe::ui::FileDropEvent;
@@ -609,9 +618,8 @@ void EmulatorWindow::InitializeGameLibrary() {
     // Deferred: this runs partway through OnEmulatorInitialized, and a modal
     // would hold the rest of startup behind it.
     app_context_.CallInUIThreadDeferred([this, message]() {
-      auto* wx_window = dynamic_cast<ui::WxWindow*>(window_.get());
-      wxMessageBox(message, _("Library updated"), wxOK | wxICON_INFORMATION,
-                   wx_window ? wx_window->frame() : nullptr);
+      ShowWindowMessage(window_.get(), _("Library updated"), message,
+                        wxICON_INFORMATION);
     });
   }
 }
@@ -2059,9 +2067,8 @@ void EmulatorWindow::ShowMissingXeFuFile(const std::string& file) {
         "folder of an Xbox 360 hard drive."),
       wxString::FromUTF8(file),
       wxString::FromUTF8(xe::path_to_utf8(emulator_->xefu_path())));
-  auto* wx_window = dynamic_cast<ui::WxWindow*>(window_.get());
-  wxMessageBox(message, _("XeFu not found"), wxOK | wxICON_WARNING,
-               wx_window ? wx_window->frame() : nullptr);
+  ShowWindowMessage(window_.get(), _("XeFu not found"), message,
+                    wxICON_WARNING);
 }
 
 void EmulatorWindow::ApplyContentVisibility() {
@@ -3488,10 +3495,14 @@ xe::X_STATUS EmulatorWindow::RunTitle(
 
     XELOGE("{}", log_msg);
 
-    ClearDialogs();
-
-    xe::ui::ImGuiDialog::ShowMessageBox(imgui_drawer_.get(),
-                                        "Title Launch Failed!", log_msg);
+    ShowWindowMessage(
+        window_.get(), _("Title not found"),
+        path_to_file.empty()
+            ? _("No file path is set for this title.")
+            : wxString::Format(
+                  _("File not found:\n%s"),
+                  wxString::FromUTF8(xe::path_to_utf8(path_to_file))),
+        wxICON_WARNING);
 
     return X_STATUS_NO_SUCH_FILE;
   }
@@ -3642,17 +3653,16 @@ xe::X_STATUS EmulatorWindow::RunTitle(
       if (result) {
         XELOGE("Failed to launch target: {:08X}", result);
         const std::string missing_xefu_file = emulator_->TakeMissingXeFuFile();
-        if (missing_xefu_file.empty()) {
-          xe::ui::ImGuiDialog::ShowMessageBox(
-              imgui_drawer_.get(), "Title Launch Failed!",
-              "Failed to launch title.\n\nCheck xenia.log for technical "
-              "details.");
-        }
         emulator_->file_system()->Clear();
         target_pending_launch_ = false;
         ApplyContentVisibility();
         if (!missing_xefu_file.empty()) {
           ShowMissingXeFuFile(missing_xefu_file);
+        } else {
+          ShowWindowMessage(window_.get(), _("Title Launch Failed!"),
+                            _("Failed to launch title.\n\nCheck xenia.log "
+                              "for technical details."),
+                            wxICON_ERROR);
         }
       } else {
         auto xam =
