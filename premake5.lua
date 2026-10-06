@@ -77,6 +77,11 @@ filter("kind:StaticLib")
     "_LIB",
   })
 
+-- The libretro core is a shared library, and the static libraries go into it
+filter("platforms:Linux")
+  pic("On")
+filter({})
+
 filter("configurations:Checked")
   runtime("Debug")
   inlining("Auto")  -- /Ob2 for Checked builds
@@ -404,7 +409,12 @@ workspace("xenia")
       architecture("x86_64")
     filter({})
   else
-    architecture("x86_64")
+    -- Linux on ARM64 too, with the a64 backend (os.outputof gives the host's)
+    if os.istarget("linux") and os.outputof("uname -m") == "aarch64" then
+      architecture("ARM64")
+    else
+      architecture("x86_64")
+    end
     if os.istarget("linux") then
       platforms({"Linux"})
     elseif os.istarget("macosx") then
@@ -525,6 +535,9 @@ workspace("xenia")
   include("src/xenia/base")
   include("src/xenia/cpu")
   include("src/xenia/cpu/backend/x64")
+  if os.istarget("linux") and os.outputof("uname -m") == "aarch64" then
+    include("src/xenia/cpu/backend/a64")
+  end
   include("src/xenia/debug/ui")
   include("src/xenia/gpu")
   include("src/xenia/gpu/null")

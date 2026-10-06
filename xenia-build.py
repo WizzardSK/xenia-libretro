@@ -1377,10 +1377,12 @@ class BaseBuildCommand(Command):
             if result != 0:
                 print_error("cmake failed with one or more errors.")
                 return result
+            # Only the targets asked for, as on Windows: without them ninja
+            # builds every project, the standalone app included.
             result = subprocess.call([
                     "ninja",
                     f"-Cbuild/build_{args['config']}",
-                ] + pass_args, env=dict(os.environ))
+                ] + args["target"] + pass_args, env=dict(os.environ))
             if result != 0:
                 print_error("ninja failed with one or more errors.")
         return result

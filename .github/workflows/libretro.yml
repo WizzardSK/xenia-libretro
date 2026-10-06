@@ -75,6 +75,71 @@ jobs:
           name: xenia_edge_libretro-linux-x86_64
           path: dist/
 
+  linux-arm64:
+    name: Linux ARM64
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup
+        run: |
+          UBUNTU_BASE=$(lsb_release -cs)
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          sudo apt-add-repository -y "deb http://apt.llvm.org/${UBUNTU_BASE}/ llvm-toolchain-${UBUNTU_BASE}-21 main"
+          sudo apt-get -y update
+          sudo apt-get -y install libc++-dev libc++abi-dev libsdl2-dev libvulkan-dev libx11-xcb-dev clang-21 \
+            ninja-build spirv-tools libfontconfig1-dev libxtst-dev libgtk-3-dev
+          # LunarG has no Vulkan SDK for Linux on ARM64, so the shader tools
+          # the build runs (glslangValidator, spirv-opt, spirv-dis) are built
+          # from the SDK's own tags instead
+          V=vulkan-sdk-$(curl -s https://vulkan.lunarg.com/sdk/latest.json | python3 -c "import json,sys; print(json.load(sys.stdin)['linux'])")
+          git clone -q --depth 1 -b $V https://github.com/KhronosGroup/SPIRV-Tools.git ~/spirv-tools
+          git clone -q --depth 1 -b $V https://github.com/KhronosGroup/SPIRV-Headers.git ~/spirv-tools/external/spirv-headers
+          git clone -q --depth 1 -b $V https://github.com/KhronosGroup/glslang.git ~/glslang
+          cmake -S ~/spirv-tools -B ~/spirv-tools/build -GNinja -DCMAKE_BUILD_TYPE=Release -DSPIRV_SKIP_TESTS=ON -DCMAKE_INSTALL_PREFIX=$HOME/vksdk
+          ninja -C ~/spirv-tools/build install
+          cmake -S ~/glslang -B ~/glslang/build -GNinja -DCMAKE_BUILD_TYPE=Release -DENABLE_OPT=OFF -DGLSLANG_TESTS=OFF -DCMAKE_INSTALL_PREFIX=$HOME/vksdk
+          ninja -C ~/glslang/build install
+          echo "VULKAN_SDK=$HOME/vksdk" >> $GITHUB_ENV
+          echo "$HOME/vksdk/bin" >> $GITHUB_PATH
+          export PATH="$HOME/vksdk/bin:$PATH"
+          # Qt as upstream: on Linux xenia-ui's widgets are Qt ones, and the
+          # core is linked against xenia-ui
+          pip install aqtinstall
+          aqt install-qt linux_arm64 desktop 6.10.1 linux_gcc_arm64 -O /opt/Qt
+          export QT_DIR=/opt/Qt/6.10.1/gcc_arm64
+          export CMAKE_PREFIX_PATH=$QT_DIR PKG_CONFIG_PATH=$QT_DIR/lib/pkgconfig PATH="$QT_DIR/bin:$PATH"
+          echo "QT_DIR=$QT_DIR" >> $GITHUB_ENV
+          echo "CMAKE_PREFIX_PATH=$QT_DIR" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$QT_DIR/lib/pkgconfig" >> $GITHUB_ENV
+          echo "$QT_DIR/bin" >> $GITHUB_PATH
+          git submodule update --init --depth=1 -j$(getconf _NPROCESSORS_ONLN) $(grep -oP '(?<=path = )(?!third_party\/(DirectXShaderCompiler|premake-(androidndk|export-compile-commands))).+' .gitmodules)
+          ./xenia-build.py premake
+          ./xenia-build.py fetchdata
+
+      - name: Build
+        env:
+          CC: clang-21
+          CXX: clang++-21
+        run: ./xenia-build.py build --config=Release --target=xenia-libretro
+
+      - name: Collect
+        run: |
+          mkdir -p dist
+          core=$(find build -name 'xenia_edge_libretro*.so' | head -1)
+          echo "core: $core"
+          cp "$core" dist/xenia_edge_libretro.so
+          strip --strip-unneeded dist/xenia_edge_libretro.so
+          ls -la dist
+          readelf -d dist/xenia_edge_libretro.so | grep NEEDED
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xenia_edge_libretro-linux-arm64
+          path: dist/
+
   windows:
     name: Windows x86_64
     runs-on: windows-2025
