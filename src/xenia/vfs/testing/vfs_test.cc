@@ -12,6 +12,7 @@
 
 #include "xenia/vfs/devices/stfs_xbox.h"
 #include "xenia/vfs/gdfx_util.h"
+#include "xenia/vfs/xbe_metadata.h"
 
 #include "third_party/catch/include/catch.hpp"
 
@@ -78,6 +79,76 @@ TEST_CASE("GDFX directory padding", "[gdfx]") {
     std::memset(&image[kGdfxSectorSize], 0xFF, kGdfxSectorSize);
     const GdfxPartitionInfo partition = {0, 1, kGdfxSectorSize};
     REQUIRE(!GdfxFindFile(image.data(), image.size(), partition, "a.bin"));
+  }
+}
+
+template <typename T>
+static void Put(std::vector<uint8_t>& data, size_t offset, T value) {
+  std::memcpy(&data[offset], &value, sizeof(value));
+}
+
+// An executable with a certificate and a 4x4 title image in |texel_format|.
+static std::vector<uint8_t> MakeXbe(uint32_t texel_format) {
+  constexpr uint32_t kBase = 0x10000;
+  std::vector<uint8_t> xbe(0x1000 + 0x20 + 4 * 4 * 4);
+  std::memcpy(&xbe[0], "XBEH", 4);
+  Put<uint32_t>(xbe, 0x104, kBase);
+  Put<uint32_t>(xbe, 0x108, 0x1000);
+  Put<uint32_t>(xbe, 0x118, kBase + 0x200);
+  Put<uint32_t>(xbe, 0x11C, 1);
+  Put<uint32_t>(xbe, 0x120, kBase + 0x300);
+  // The certificate.
+  Put<uint32_t>(xbe, 0x200 + 0x8, 0x4C410005);
+  const char16_t name[] = u"Jedi";
+  std::memcpy(&xbe[0x200 + 0xC], name, sizeof(name));
+  Put<uint32_t>(xbe, 0x200 + 0xA8, 1);
+  Put<uint32_t>(xbe, 0x200 + 0xAC, 6);
+  // The title image section and its name.
+  Put<uint32_t>(xbe, 0x300 + 0xC, 0x1000);
+  Put<uint32_t>(xbe, 0x300 + 0x10, 0x20 + 4 * 4 * 4);
+  Put<uint32_t>(xbe, 0x300 + 0x14, kBase + 0x400);
+  std::memcpy(&xbe[0x400], "$$XTIMAGE", 10);
+  // One 4x4 texture, its texels right after the bundle's header.
+  std::memcpy(&xbe[0x1000], "XPR0", 4);
+  Put<uint32_t>(xbe, 0x1004, 0x20 + 4 * 4 * 4);
+  Put<uint32_t>(xbe, 0x1008, 0x20);
+  Put<uint32_t>(xbe, 0x1000 + 24, (texel_format << 8) | (2 << 20) | (2 << 24));
+  std::memset(&xbe[0x1020], 0x80, 4 * 4 * 4);
+  return xbe;
+}
+
+TEST_CASE("XBE metadata", "[xbe]") {
+  SECTION("The certificate describes the game") {
+    const auto xbe = MakeXbe(0x12);
+    auto m = ExtractXbeMetadata(xbe.data(), xbe.size());
+    REQUIRE(m);
+    REQUIRE(m->title_id == 0x4C410005);
+    REQUIRE(m->title_name == "Jedi");
+    REQUIRE(m->disc_number == 1);
+    REQUIRE(m->version == 6);
+  }
+
+  SECTION("The title image comes back as PNG") {
+    for (uint32_t format : {0x06u, 0x12u}) {
+      const auto xbe = MakeXbe(format);
+      auto m = ExtractXbeMetadata(xbe.data(), xbe.size());
+      REQUIRE(m);
+      REQUIRE(m->icon_png.size() > 8);
+      REQUIRE(std::memcmp(m->icon_png.data(), "\x89PNG", 4) == 0);
+    }
+  }
+
+  SECTION("A format it doesn't decode leaves no icon") {
+    const auto xbe = MakeXbe(0x0B);
+    auto m = ExtractXbeMetadata(xbe.data(), xbe.size());
+    REQUIRE(m);
+    REQUIRE(m->icon_png.empty());
+  }
+
+  SECTION("Anything else is not an executable") {
+    auto xbe = MakeXbe(0x12);
+    xbe[0] = 0;
+    REQUIRE(!ExtractXbeMetadata(xbe.data(), xbe.size()));
   }
 }
 

@@ -64,8 +64,8 @@
 #include "xenia/vfs/devices/xcontent_container_device.h"
 #include "xenia/vfs/entry.h"
 #include "xenia/vfs/file.h"
-#include "xenia/vfs/gdfx_util.h"
 #include "xenia/vfs/virtual_file_system.h"
+#include "xenia/vfs/xbe_metadata.h"
 
 #if XE_ARCH_AMD64
 #include "xenia/cpu/backend/x64/x64_backend.h"
@@ -706,15 +706,8 @@ Emulator::FileSignatureType Emulator::GetFileSignature(
 // one, from the executables in its root.
 static bool IsXboxOriginalDisc(const std::filesystem::path& path) {
   auto mmap = xe::MappedMemory::Open(path, xe::MappedMemory::Mode::kRead);
-  if (!mmap) {
-    return false;
-  }
-  auto partition = vfs::GdfxFindPartition(mmap->data(), mmap->size());
-  return partition &&
-         vfs::GdfxFindFile(mmap->data(), mmap->size(), *partition,
-                           "default.xbe") &&
-         !vfs::GdfxFindFile(mmap->data(), mmap->size(), *partition,
-                            "default.xex");
+  return mmap &&
+         vfs::FindXboxOriginalXbe(mmap->data(), mmap->size()).has_value();
 }
 
 X_STATUS Emulator::LaunchPath(const std::filesystem::path& path) {
