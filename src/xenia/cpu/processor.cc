@@ -34,7 +34,9 @@
 #include "xenia/cpu/xex_module.h"
 
 // TODO(benvanik): based on compiler support
+#if XE_ARCH_AMD64
 #include "xenia/cpu/backend/x64/x64_backend.h"
+#endif  // XE_ARCH_AMD64
 
 #if 0 && DEBUG
 #define DEFAULT_DEBUG_FLAG true

@@ -172,7 +172,7 @@ jobs:
           ./xenia-build.py buildshaders --target=spirv
           ./xenia-build.py premake --target_os=android
           ls build/*.mk
-          "$ANDROID_NDK_LATEST_HOME/ndk-build" -j$(getconf _NPROCESSORS_ONLN) \
+          "$ANDROID_NDK_LATEST_HOME/ndk-build" -k -j$(getconf _NPROCESSORS_ONLN) \
             NDK_PROJECT_PATH:=build NDK_APPLICATION_MK:=build/xenia.Application.mk \
             PREMAKE_ANDROIDNDK_PLATFORMS:=Android-ARM64 PREMAKE_ANDROIDNDK_PLATFORMS+=Android-x86_64 \
             PREMAKE_ANDROIDNDK_CONFIGURATIONS:=Release \
