@@ -1692,3 +1692,21 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:3664
 msgid "Title Launch Failed!"
 msgstr "游戏启动失败！"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid "Data migration"
+msgstr "数据迁移"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid ""
+"Some of your existing data couldn't be migrated to the new profile. Items that failed: %u\n"
+"\n"
+"Check xenia.log for technical details."
+msgstr ""
+"部分现有数据无法迁移到新配置文件。失败的项目：%u\n"
+"\n"
+"请查看 xenia.log 了解技术详情。"
+
+#: src/xenia/app/emulator_window.cc:2897
+msgid "Your existing data was migrated to the new profile."
+msgstr "现有数据已迁移到新配置文件。"

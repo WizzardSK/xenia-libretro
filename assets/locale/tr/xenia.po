@@ -1701,3 +1701,21 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:3664
 msgid "Title Launch Failed!"
 msgstr "Oyun başlatılamadı!"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid "Data migration"
+msgstr "Veri taşıma"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid ""
+"Some of your existing data couldn't be migrated to the new profile. Items that failed: %u\n"
+"\n"
+"Check xenia.log for technical details."
+msgstr ""
+"Mevcut verilerinizin bir kısmı yeni profile taşınamadı. Başarısız öğeler: %u\n"
+"\n"
+"Teknik ayrıntılar için xenia.log dosyasına bakın."
+
+#: src/xenia/app/emulator_window.cc:2897
+msgid "Your existing data was migrated to the new profile."
+msgstr "Mevcut verileriniz yeni profile taşındı."

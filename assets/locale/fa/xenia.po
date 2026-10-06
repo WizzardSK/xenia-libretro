@@ -1698,3 +1698,21 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:3664
 msgid "Title Launch Failed!"
 msgstr "اجرای بازی ناموفق بود!"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid "Data migration"
+msgstr "انتقال داده‌ها"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid ""
+"Some of your existing data couldn't be migrated to the new profile. Items that failed: %u\n"
+"\n"
+"Check xenia.log for technical details."
+msgstr ""
+"برخی از داده‌های موجود شما به نمایه جدید منتقل نشد. موارد ناموفق: %u\n"
+"\n"
+"برای جزئیات فنی، xenia.log را بررسی کنید."
+
+#: src/xenia/app/emulator_window.cc:2897
+msgid "Your existing data was migrated to the new profile."
+msgstr "داده‌های موجود شما به نمایه جدید منتقل شد."

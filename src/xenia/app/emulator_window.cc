@@ -2842,9 +2842,7 @@ void EmulatorWindow::ShowNoProfilePrompt() {
   auto* wx_window = dynamic_cast<ui::WxWindow*>(window_.get());
   wxWindow* parent = wx_window ? wx_window->frame() : nullptr;
 
-  const auto content_dirs =
-      xe::filesystem::ListDirectories(emulator_->content_root());
-  const bool offer_migration = !content_dirs.empty();
+  const bool offer_migration = emulator_->HasDataToMigrate();
 
   wxMessageDialog prompt(
       parent,
@@ -2886,7 +2884,16 @@ void EmulatorWindow::ShowNoProfilePrompt() {
   const bool created = pm->CreateProfile(gt, /*autologin=*/true,
                                          /*default_xuid=*/offer_migration);
   if (created && offer_migration) {
-    emulator_->DataMigration(0xB13EBABEBABEBABE);
+    const uint32_t failures = emulator_->DataMigration(0xB13EBABEBABEBABE);
+    ShowWindowMessage(
+        window_.get(), _("Data migration"),
+        failures ? wxString::Format(
+                       _("Some of your existing data couldn't be migrated to "
+                         "the new profile. Items that failed: %u\n\nCheck "
+                         "xenia.log for technical details."),
+                       failures)
+                 : _("Your existing data was migrated to the new profile."),
+        failures ? wxICON_WARNING : wxICON_INFORMATION);
   }
   if (!created) {
     return;

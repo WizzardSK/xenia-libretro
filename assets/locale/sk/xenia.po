@@ -1698,3 +1698,21 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:3664
 msgid "Title Launch Failed!"
 msgstr "Spustenie titulu zlyhalo!"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid "Data migration"
+msgstr "Presun údajov"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid ""
+"Some of your existing data couldn't be migrated to the new profile. Items that failed: %u\n"
+"\n"
+"Check xenia.log for technical details."
+msgstr ""
+"Niektoré vaše existujúce údaje sa nepodarilo presunúť do nového profilu. Neúspešné položky: %u\n"
+"\n"
+"Technické podrobnosti nájdete v súbore xenia.log."
+
+#: src/xenia/app/emulator_window.cc:2897
+msgid "Your existing data was migrated to the new profile."
+msgstr "Vaše existujúce údaje boli presunuté do nového profilu."

@@ -360,8 +360,11 @@ class Emulator {
     std::unique_ptr<std::mutex> mutex_ = std::make_unique<std::mutex>();
   };
 
+  // Whether content holds title data from before profiles for DataMigration.
+  bool HasDataToMigrate() const;
   // Migrates data from content to content/xuid with respect to common data.
-  X_STATUS DataMigration(const uint64_t xuid);
+  // Returns how many moves and copies failed.
+  uint32_t DataMigration(const uint64_t xuid);
 
   X_STATUS ProcessContentPackageHeader(const std::filesystem::path& path,
                                        ContentInstallEntry& installation_info);

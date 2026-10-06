@@ -1699,3 +1699,21 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:3664
 msgid "Title Launch Failed!"
 msgstr "Pokretanje naslova nije uspjelo!"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid "Data migration"
+msgstr "Prijenos podataka"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid ""
+"Some of your existing data couldn't be migrated to the new profile. Items that failed: %u\n"
+"\n"
+"Check xenia.log for technical details."
+msgstr ""
+"Neke vaše postojeće podatke nije bilo moguće prenijeti u novi profil. Neuspjele stavke: %u\n"
+"\n"
+"Tehničke pojedinosti potražite u datoteci xenia.log."
+
+#: src/xenia/app/emulator_window.cc:2897
+msgid "Your existing data was migrated to the new profile."
+msgstr "Vaši postojeći podaci preneseni su u novi profil."

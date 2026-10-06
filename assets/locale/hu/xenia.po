@@ -1702,3 +1702,21 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:3664
 msgid "Title Launch Failed!"
 msgstr "A cím indítása sikertelen!"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid "Data migration"
+msgstr "Adatok áthelyezése"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid ""
+"Some of your existing data couldn't be migrated to the new profile. Items that failed: %u\n"
+"\n"
+"Check xenia.log for technical details."
+msgstr ""
+"Néhány meglévő adatát nem sikerült áthelyezni az új profilba. Sikertelen elemek: %u\n"
+"\n"
+"A technikai részleteket az xenia.log fájlban találja."
+
+#: src/xenia/app/emulator_window.cc:2897
+msgid "Your existing data was migrated to the new profile."
+msgstr "A meglévő adatai át lettek helyezve az új profilba."

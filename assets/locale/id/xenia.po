@@ -1702,3 +1702,21 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:3664
 msgid "Title Launch Failed!"
 msgstr "Gagal menjalankan title!"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid "Data migration"
+msgstr "Migrasi data"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid ""
+"Some of your existing data couldn't be migrated to the new profile. Items that failed: %u\n"
+"\n"
+"Check xenia.log for technical details."
+msgstr ""
+"Sebagian data Anda yang ada tidak dapat dimigrasikan ke profil baru. Item yang gagal: %u\n"
+"\n"
+"Periksa xenia.log untuk detail teknis."
+
+#: src/xenia/app/emulator_window.cc:2897
+msgid "Your existing data was migrated to the new profile."
+msgstr "Data Anda yang ada telah dimigrasikan ke profil baru."

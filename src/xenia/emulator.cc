@@ -53,7 +53,6 @@
 #include "xenia/ui/file_picker.h"
 #include "xenia/ui/imgui_dialog.h"
 #include "xenia/ui/imgui_drawer.h"
-#include "xenia/ui/imgui_host_notification.h"
 #include "xenia/ui/window.h"
 #include "xenia/ui/windowed_app_context.h"
 #include "xenia/vfs/device.h"
@@ -942,27 +941,32 @@ X_STATUS Emulator::LaunchDefaultModule(const std::filesystem::path& path) {
   return result;
 }
 
-X_STATUS Emulator::DataMigration(const uint64_t xuid) {
+// Title folders from before profiles, which content/<xuid> replaces. Dashboard
+// and profile data stays where it is.
+static std::vector<xe::filesystem::FileInfo> ListTitlesToMigrate(
+    const std::filesystem::path& content_root) {
+  auto titles = xe::filesystem::FilterByName(
+      xe::filesystem::ListDirectories(content_root), std::regex("[A-F0-9]{8}"));
+  std::erase_if(titles, [](const xe::filesystem::FileInfo& title) {
+    const std::string name = xe::path_to_utf8(title.name);
+    return name == "FFFE07D1" || name == "00000000";
+  });
+  return titles;
+}
+
+bool Emulator::HasDataToMigrate() const {
+  return !ListTitlesToMigrate(content_root_).empty();
+}
+
+uint32_t Emulator::DataMigration(const uint64_t xuid) {
   uint32_t failure_count = 0;
   const std::string xuid_string = fmt::format("{:016X}", xuid);
   const std::string common_xuid_string = fmt::format("{:016X}", 0);
   const std::filesystem::path path_to_profile_data =
       content_root_ / xuid_string / "FFFE07D1" / "00010000" / xuid_string;
-  // Filter directories inside. First we need to find any content type
-  // directories.
   // Savefiles must go to user specific directory
   // Everything else goes to common
-  const auto titles_to_move = xe::filesystem::FilterByName(
-      xe::filesystem::ListDirectories(content_root_),
-      std::regex("[A-F0-9]{8}"));
-
-  for (const auto& title : titles_to_move) {
-    if (xe::path_to_utf8(title.name) == "FFFE07D1" ||
-        xe::path_to_utf8(title.name) == "00000000") {
-      // SKip any dashboard/profile related data that was previously installed
-      continue;
-    }
-
+  for (const auto& title : ListTitlesToMigrate(content_root_)) {
     const auto content_type_dirs = xe::filesystem::FilterByName(
         xe::filesystem::ListDirectories(title.path / title.name),
         std::regex("[A-F0-9]{8}"));
@@ -1084,17 +1088,7 @@ X_STATUS Emulator::DataMigration(const uint64_t xuid) {
     }
   }
 
-  std::string migration_status_message =
-      fmt::format("Migration finished with {} {}.", failure_count,
-                  failure_count == 1 ? "error" : "errors");
-
-  if (failure_count) {
-    migration_status_message.append(
-        " For more information check xenia.log file.");
-  }
-  new xe::ui::HostNotificationWindow(imgui_drawer_, "Migration Status",
-                                     migration_status_message, 0);
-  return X_STATUS_SUCCESS;
+  return failure_count;
 }
 
 X_STATUS Emulator::ProcessContentPackageHeader(

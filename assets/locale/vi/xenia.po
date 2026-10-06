@@ -1696,3 +1696,21 @@ msgstr ""
 #: src/xenia/app/emulator_window.cc:3664
 msgid "Title Launch Failed!"
 msgstr "Khởi chạy tựa game thất bại!"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid "Data migration"
+msgstr "Di chuyển dữ liệu"
+
+#: src/xenia/app/emulator_window.cc:2891
+msgid ""
+"Some of your existing data couldn't be migrated to the new profile. Items that failed: %u\n"
+"\n"
+"Check xenia.log for technical details."
+msgstr ""
+"Không thể di chuyển một số dữ liệu hiện có của bạn sang hồ sơ mới. Mục bị lỗi: %u\n"
+"\n"
+"Xem xenia.log để biết chi tiết kỹ thuật."
+
+#: src/xenia/app/emulator_window.cc:2897
+msgid "Your existing data was migrated to the new profile."
+msgstr "Dữ liệu hiện có của bạn đã được di chuyển sang hồ sơ mới."
