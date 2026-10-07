@@ -10,6 +10,7 @@
 #include "xenia/base/logging.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdlib>
 #include <cstring>
 
@@ -69,6 +70,7 @@ DEFINE_int32(
 
 namespace dp = disruptorplus;
 using namespace xe::literals;
+using namespace std::chrono_literals;
 
 namespace xe {
 
@@ -76,9 +78,14 @@ class Logger;
 
 Logger* logger_ = nullptr;
 
+// Present-frame counter, advanced once per guest present. Stamped into each
+// log line at emit time.
+std::atomic<uint32_t> global_frame_number_{0};
+
 struct LogLine {
   size_t buffer_length;
   uint32_t thread_id;
+  uint32_t frame_number;
   uint16_t _pad_0;  // (2b) padding
   bool terminate;
   char prefix_char;
@@ -250,9 +257,14 @@ class Logger {
     }
   }
 
+  bool IsWriteThread() const {
+    return xe::threading::current_thread_system_id() ==
+           write_thread_id_.load(std::memory_order_relaxed);
+  }
+
  private:
   static constexpr size_t kBufferSize = 8_MiB;
-  uint8_t buffer_[kBufferSize];
+  uint8_t buffer_[kBufferSize] = {};
 
   static constexpr size_t kBlockSize = 256;
   static constexpr size_t kBlockCount = kBufferSize / kBlockSize;
@@ -276,6 +288,7 @@ class Logger {
   std::vector<std::unique_ptr<LogSink>> sinks_;
 
   std::unique_ptr<xe::threading::Thread> write_thread_;
+  std::atomic<uint32_t> write_thread_id_{0};
 
   void Write(const char* buf, size_t size) {
     for (const auto& sink : sinks_) {
@@ -284,6 +297,8 @@ class Logger {
   }
 
   void WriteThread() {
+    write_thread_id_.store(xe::threading::current_thread_system_id(),
+                           std::memory_order_relaxed);
     RingBuffer rb(buffer_, kBufferSize);
 
     size_t idle_loops = 0;
@@ -323,24 +338,12 @@ class Logger {
           i += needed_count;
 
           if (line.prefix_char) {
-            char prefix[] = {
-                line.prefix_char,
-                '>',
-                ' ',
-                '?',  // Thread ID gets placed here (8 chars).
-                '?',
-                '?',
-                '?',
-                '?',
-                '?',
-                '?',
-                '?',
-                ' ',
-                0,
-            };
-            fmt::format_to_n(prefix + 3, sizeof(prefix) - 3, "{:08X}",
-                             line.thread_id);
-            Write(prefix, sizeof(prefix) - 1);
+            // <type>> f:<frame> <thread id>
+            char prefix[32];
+            auto result = fmt::format_to_n(
+                prefix, sizeof(prefix), "{}> f:{:07} {:08X} ", line.prefix_char,
+                line.frame_number, line.thread_id);
+            Write(prefix, result.size);
           }
 
           if (line.buffer_length) {
@@ -392,9 +395,7 @@ class Logger {
         desired_count = 1;
 
         if (cvars::flush_log) {
-          for (const auto& sink : sinks_) {
-            sink->Flush();
-          }
+          FlushAllSinks();
         }
 
         idle_loops = 0;
@@ -425,6 +426,7 @@ class Logger {
     LogLine line = {};
     line.buffer_length = buffer_length;
     line.thread_id = thread_id;
+    line.frame_number = global_frame_number_.load(std::memory_order_relaxed);
     line.prefix_char = prefix_char;
     line.terminate = terminate;
 
@@ -437,7 +439,7 @@ class Logger {
   }
 };
 
-void InitializeLogging(const std::string_view app_name, bool is_game_process) {
+void InitializeLogging(const std::string_view app_name) {
   auto mem = memory::AlignedAlloc<Logger>(0x10);
   logger_ = new (mem) Logger(app_name);
 
@@ -448,18 +450,14 @@ void InitializeLogging(const std::string_view app_name, bool is_game_process) {
     logger_->AddLogSink(std::make_unique<AndroidLogSink>(app_name));
   }
 #else
-  // Only enable file logging for game processes, not the UI process
-  if (is_game_process) {
+  {
     FILE* log_file = nullptr;
-    // Use append mode for title-to-title launches to preserve log history
     const char* file_mode = cvars::log_append ? "at" : "wt";
     if (cvars::log_file.empty()) {
-      // Default log file name for game process
       std::string file_name = fmt::format("{}.log", app_name);
       auto file_path = xe::filesystem::GetExecutableFolder() / file_name;
       log_file = xe::filesystem::OpenFile(file_path, file_mode);
     } else {
-      // User specified log file - use as-is for game process
       xe::filesystem::CreateParentFolder(cvars::log_file);
       log_file = xe::filesystem::OpenFile(cvars::log_file, file_mode);
     }
@@ -494,17 +492,19 @@ void FlushLog() {
   logger_->FlushAllSinks();
 }
 
-static int g_saved_loglevel = static_cast<int>(LogLevel::Disabled);
-void logging::ToggleLogLevel() {
-  auto swap = g_saved_loglevel;
-
-  g_saved_loglevel = cvars::log_level;
-  cvars::log_level = swap;
-}
+bool IsLogWriterThread() { return logger_ && logger_->IsWriteThread(); }
 
 bool logging::ShouldLog(LogLevel log_level, uint32_t log_mask) {
   return static_cast<int32_t>(log_level) <= cvars::log_level &&
          (log_mask & cvars::log_mask) == 0;
+}
+
+uint32_t logging::GetFrameNumber() {
+  return global_frame_number_.load(std::memory_order_relaxed);
+}
+
+void logging::IncrementFrameNumber() {
+  global_frame_number_.fetch_add(1, std::memory_order_relaxed);
 }
 
 uint32_t logging::internal::GetLogLevel() { return cvars::log_level; }
@@ -544,7 +544,10 @@ void FatalError(const std::string_view str) {
   // Throw an error that can be reported to the developers via the store.
   std::abort();
 #else
-  std::exit(EXIT_FAILURE);
+  // skip static destructors so they can't race with worker threads still
+  // running and corrupt the heap, at_quick_exit handlers will take care
+  // of necessary cleanup (e.g. /dev/shm/xenia* files on linux )
+  std::quick_exit(EXIT_FAILURE);
 #endif  // XE_PLATFORM_ANDROID
 }
 

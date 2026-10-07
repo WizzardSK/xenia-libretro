@@ -210,6 +210,18 @@ bool Instr::IsFake() const {
   return false;
 }
 
+Label* Instr::BranchLabel() const {
+  switch (opcode->num) {
+    case OPCODE_BRANCH:
+      return src1.label;
+    case OPCODE_BRANCH_TRUE:
+    case OPCODE_BRANCH_FALSE:
+      return src2.label;
+    default:
+      return nullptr;
+  }
+}
+
 const Instr* Instr::GetNonFakePrev() const {
   const Instr* curr = prev;
 

@@ -33,6 +33,8 @@ class ImGuiDialog {
   void Then(xe::threading::Fence* fence);
 
   void Draw();
+  // Closes and deletes the dialog now rather than on its next draw.
+  void Destroy();
 
   bool IsClosing() const { return has_close_pending_; }
 

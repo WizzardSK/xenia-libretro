@@ -29,9 +29,6 @@ void LaunchFileExplorer(const std::filesystem::path& path);
 
 bool SetProcessPriorityClass(const uint32_t priority_class);
 
-// Determine if the Xbox Gamebar is enabled via the Windows registry
-bool IsUseNexusForGameBarEnabled();
-
 enum class SimpleMessageBoxType {
   Help,
   Warning,
@@ -40,6 +37,11 @@ enum class SimpleMessageBoxType {
 
 // This is expected to block the caller until the message box is closed.
 void ShowSimpleMessageBox(SimpleMessageBoxType type, std::string_view message);
+
+#if XE_PLATFORM_MAC
+// Whether the running executable carries an x86_64 slice Rosetta can launch.
+bool ExecutableHasX86_64Slice();
+#endif
 
 }  // namespace xe
 

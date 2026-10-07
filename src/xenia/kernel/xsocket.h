@@ -13,7 +13,9 @@
 // Asio must be included before Windows headers to avoid macro conflicts
 #include <asio.hpp>
 
+#include <atomic>
 #include <cstring>
+#include <functional>
 #include <optional>
 #include <queue>
 
@@ -22,12 +24,16 @@
 
 namespace xe {
 namespace kernel {
+
+class XEvent;
+
 enum class X_WSAError : uint32_t {
   X_WSA_INVALID_PARAMETER = 0x0057,
   X_WSAEFAULT = 0x271E,
   X_WSAEINVAL = 0x2726,
   X_WSAENOTSOCK = 0x2736,
   X_WSAEMSGSIZE = 0x2738,
+  X_WSAHOST_NOT_FOUND = 0x2AF9,
 };
 
 struct XSOCKADDR {
@@ -125,8 +131,8 @@ class XSocket : public XObject {
   X_STATUS Connect(N_XSOCKADDR* name, int name_len);
   X_STATUS Bind(N_XSOCKADDR_IN* name, int name_len);
   X_STATUS Listen(int backlog);
-  X_STATUS GetSockName(uint8_t* buf, int* buf_len);
-  X_STATUS GetPeerName(uint8_t* buf, int* buf_len);
+  X_STATUS GetSockName(N_XSOCKADDR_IN* name);
+  X_STATUS GetPeerName(N_XSOCKADDR_IN* name);
   object_ref<XSocket> Accept(N_XSOCKADDR* name, int* name_len);
   int Shutdown(int how);
 
@@ -137,6 +143,10 @@ class XSocket : public XObject {
                N_XSOCKADDR_IN* from, uint32_t* from_len);
   int SendTo(uint8_t* buf, uint32_t buf_len, uint32_t flags, N_XSOCKADDR_IN* to,
              uint32_t to_len);
+
+  // Associates the socket with an XEvent signaled on readiness for any of the
+  // requested Winsock FD_* flags. flags == 0 detaches.
+  int WSAEventSelect(object_ref<XEvent> event, uint32_t flags);
 
   uint32_t GetLastWSAError() const;
 
@@ -157,6 +167,21 @@ class XSocket : public XObject {
   // Private constructor for accepted sockets
   XSocket(KernelState* kernel_state, asio::ip::tcp::socket socket);
 
+  // Retry shape for RunCooperatively. A connect reports progress through error
+  // codes a transfer never sees, and receive and send pick different guest
+  // timeouts.
+  enum class RetryMode { kReceive, kSend, kConnect };
+
+  // Runs |attempt| so the guest still sees a blocking call while the host
+  // thread stays free. On a fiber the socket goes non-blocking and we park
+  // between attempts, otherwise |attempt| just runs once.
+  void RunCooperatively(asio::error_code& ec, RetryMode mode,
+                        const std::function<void()>& attempt);
+  void SetHostNonBlocking(bool enable);
+  // Reads the local or remote address into xenia's own layout. Some hosts lay
+  // sockaddr_in out differently.
+  X_STATUS QueryName(bool peer, N_XSOCKADDR_IN* name);
+
   // Socket storage - either TCP or UDP
   std::optional<asio::ip::tcp::socket> tcp_socket_;
   std::optional<asio::ip::udp::socket> udp_socket_;
@@ -174,12 +199,26 @@ class XSocket : public XObject {
 
   bool broadcast_socket_ = false;
 
+  // The guest's own FIONBIO/WSAEventSelect choice, tracked separately from the
+  // socket's live flag because RunCooperatively toggles that one itself.
+  bool guest_non_blocking_ = false;
+  // Cooperative operations in flight, so the last one out restores blocking.
+  std::atomic<uint32_t> cooperative_io_depth_{0};
+  // SO_RCVTIMEO / SO_SNDTIMEO in ms, 0 for none. Enforced by RunCooperatively,
+  // since the host option has no effect on a non-blocking socket.
+  uint32_t recv_timeout_ms_ = 0;
+  uint32_t send_timeout_ms_ = 0;
+
   // Last error code for this socket
   mutable uint32_t last_error_ = 0;
 
   std::unique_ptr<xe::threading::Event> event_;
   std::mutex incoming_packet_mutex_;
   std::queue<uint8_t*> incoming_packets_;
+
+  std::mutex select_mutex_;
+  object_ref<XEvent> selected_event_;
+  uint32_t selected_event_flags_ = 0;
 };
 
 }  // namespace kernel

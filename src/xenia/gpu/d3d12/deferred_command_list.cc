@@ -28,7 +28,8 @@ DeferredCommandList::DeferredCommandList(
 void DeferredCommandList::Reset() { command_stream_.clear(); }
 
 void DeferredCommandList::Execute(ID3D12GraphicsCommandList* command_list,
-                                  ID3D12GraphicsCommandList1* command_list_1) {
+                                  ID3D12GraphicsCommandList1* command_list_1,
+                                  ID3D12GraphicsCommandList2* command_list_2) {
 #if XE_GPU_FINE_GRAINED_DRAW_SCOPES
   SCOPE_profile_cpu_f("gpu");
 #endif  // XE_GPU_FINE_GRAINED_DRAW_SCOPES
@@ -134,6 +135,12 @@ void DeferredCommandList::Execute(ID3D12GraphicsCommandList* command_list,
             args.query_heap, args.query_type, args.start_index,
             args.query_count, args.destination_buffer, args.destination_offset);
       } break;
+      case Command::kD3DSetPredication: {
+        auto& args =
+            *reinterpret_cast<const D3DSetPredicationArguments*>(stream);
+        command_list->SetPredication(args.buffer, args.aligned_buffer_offset,
+                                     args.operation);
+      } break;
       case Command::kD3DIASetIndexBuffer: {
         auto view = reinterpret_cast<const D3D12_INDEX_BUFFER_VIEW*>(stream);
         command_list->IASetIndexBuffer(
@@ -200,15 +207,13 @@ void DeferredCommandList::Execute(ID3D12GraphicsCommandList* command_list,
       } break;
       case Command::kD3DSetComputeRootConstantBufferView: {
         auto& args =
-            *reinterpret_cast<const SetRootConstantBufferViewArguments*>(
-                stream);
+            *reinterpret_cast<const SetRootDescriptorArguments*>(stream);
         command_list->SetComputeRootConstantBufferView(
             args.root_parameter_index, args.buffer_location);
       } break;
       case Command::kD3DSetGraphicsRootConstantBufferView: {
         auto& args =
-            *reinterpret_cast<const SetRootConstantBufferViewArguments*>(
-                stream);
+            *reinterpret_cast<const SetRootDescriptorArguments*>(stream);
         command_list->SetGraphicsRootConstantBufferView(
             args.root_parameter_index, args.buffer_location);
       } break;
@@ -224,6 +229,18 @@ void DeferredCommandList::Execute(ID3D12GraphicsCommandList* command_list,
         command_list->SetGraphicsRootDescriptorTable(args.root_parameter_index,
                                                      args.base_descriptor);
       } break;
+      case Command::kD3DSetComputeRootShaderResourceView: {
+        auto& args =
+            *reinterpret_cast<const SetRootDescriptorArguments*>(stream);
+        command_list->SetComputeRootShaderResourceView(
+            args.root_parameter_index, args.buffer_location);
+      } break;
+      case Command::kD3DSetGraphicsRootShaderResourceView: {
+        auto& args =
+            *reinterpret_cast<const SetRootDescriptorArguments*>(stream);
+        command_list->SetGraphicsRootShaderResourceView(
+            args.root_parameter_index, args.buffer_location);
+      } break;
       case Command::kD3DSetComputeRootSignature: {
         command_list->SetComputeRootSignature(
             *reinterpret_cast<ID3D12RootSignature* const*>(stream));
@@ -231,6 +248,18 @@ void DeferredCommandList::Execute(ID3D12GraphicsCommandList* command_list,
       case Command::kD3DSetGraphicsRootSignature: {
         command_list->SetGraphicsRootSignature(
             *reinterpret_cast<ID3D12RootSignature* const*>(stream));
+      } break;
+      case Command::kD3DSetComputeRootUnorderedAccessView: {
+        auto& args =
+            *reinterpret_cast<const SetRootDescriptorArguments*>(stream);
+        command_list->SetComputeRootUnorderedAccessView(
+            args.root_parameter_index, args.buffer_location);
+      } break;
+      case Command::kD3DSetGraphicsRootUnorderedAccessView: {
+        auto& args =
+            *reinterpret_cast<const SetRootDescriptorArguments*>(stream);
+        command_list->SetGraphicsRootUnorderedAccessView(
+            args.root_parameter_index, args.buffer_location);
       } break;
       case Command::kSetDescriptorHeaps: {
         auto& args =
@@ -271,6 +300,19 @@ void DeferredCommandList::Execute(ID3D12GraphicsCommandList* command_list,
               (args.num_samples_per_pixel && args.num_pixels)
                   ? const_cast<D3D12_SAMPLE_POSITION*>(args.sample_positions)
                   : nullptr);
+        }
+      } break;
+      case Command::kD3DWriteBufferImmediate: {
+        if (command_list_2 != nullptr) {
+          auto& args =
+              *reinterpret_cast<const D3DWriteBufferImmediateArguments*>(
+                  stream);
+          D3D12_WRITEBUFFERIMMEDIATE_PARAMETER param;
+          param.Dest = args.dest;
+          param.Value = args.value;
+          D3D12_WRITEBUFFERIMMEDIATE_MODE mode =
+              D3D12_WRITEBUFFERIMMEDIATE_MODE_DEFAULT;
+          command_list_2->WriteBufferImmediate(1, &param, &mode);
         }
       } break;
       case Command::kBeginDebugMarker: {

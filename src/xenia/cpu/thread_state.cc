@@ -51,14 +51,14 @@ static void* AllocateContext() {
     }
   }
 
-  assert_always("giving up on allocating context, likely leaking contexts");
-  return nullptr;
+  xe::FatalError("Unable to allocate PPC thread context memory.");
 }
 
 static void FreeContext(void* ctx) {
-  char* true_start_of_ctx = &reinterpret_cast<char*>(
-      ctx)[-static_cast<ptrdiff_t>(xe::memory::allocation_granularity())];
-  memory::DeallocFixed(true_start_of_ctx, 0,
+  size_t granularity = xe::memory::allocation_granularity();
+  char* true_start_of_ctx =
+      &reinterpret_cast<char*>(ctx)[-static_cast<ptrdiff_t>(granularity)];
+  memory::DeallocFixed(true_start_of_ctx, granularity + sizeof(ppc::PPCContext),
                        memory::DeallocationType::kRelease);
 }
 
@@ -89,6 +89,7 @@ ThreadState::ThreadState(Processor* processor, uint32_t thread_id,
   context_->processor = processor_;
   context_->thread_state = this;
   context_->thread_id = thread_id_;
+  context_->trace_counts = processor->AcquireTraceCounts(thread_id_);
 
   // Set initial registers.
   context_->r[1] = stack_base;
@@ -118,6 +119,8 @@ ThreadState::~ThreadState() {
     thread_state_ = nullptr;
   }
   if (context_) {
+    processor_->ReleaseTraceCounts(context_->trace_counts);
+    context_->trace_counts = nullptr;
     processor_->backend()->DeinitializeBackendContext(context_);
     FreeContext(reinterpret_cast<void*>(context_));
   }

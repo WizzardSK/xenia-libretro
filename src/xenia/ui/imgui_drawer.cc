@@ -13,6 +13,7 @@
 #include <cstring>
 #include <ranges>
 
+#include "embedded_font.h"
 #include "third_party/imgui/imgui.h"
 #include "xenia/base/assert.h"
 #include "xenia/base/clock.h"
@@ -35,9 +36,12 @@
 #include <fontconfig/fontconfig.h>
 #endif
 
-DEFINE_path(custom_font_path, "assets/font/Inter-VariableFont_opsz,wght.ttf",
-            "Path to custom font file. Set to empty to use system fonts.",
+DEFINE_path(custom_font_path, "",
+            "Path to custom font file (overrides the embedded UI font). "
+            "Empty uses the bundled Inter font.",
             "UI");
+UPDATE_from_path(custom_font_path, 2026, 5, 1, 0,
+                 "assets/font/Inter-VariableFont_opsz,wght.ttf");
 
 DEFINE_uint32(font_size, 13, "Allows user to set custom font size.", "UI");
 UPDATE_from_uint32(font_size, 2024, 8, 31, 20, 12);
@@ -79,16 +83,26 @@ ImGuiDrawer::~ImGuiDrawer() {
 void ImGuiDrawer::AddDialog(ImGuiDialog* dialog) {
   assert_not_null(dialog);
   // Check if already added.
-  if (std::find(dialogs_.cbegin(), dialogs_.cend(), dialog) !=
-      dialogs_.cend()) {
+  if (std::ranges::find(std::as_const(dialogs_), dialog) != dialogs_.cend()) {
     return;
   }
+  ResetFrameTimeIfIdle();
   if (dialogs_.empty() && !IsDrawingDialogs()) {
     // First dialog added. !IsDrawingDialogs() is also checked because in a
     // situation of removing the only dialog, then adding a dialog, from within
     // a dialog's Draw function, re-registering the ImGuiDrawer may result in
     // ImGui being drawn multiple times in the current frame.
     window_->AddInputListener(this, z_order_);
+    // No events arrive while detached, so seed the pointer position
+    int32_t mouse_x, mouse_y;
+    if (window_->GetMousePosition(mouse_x, mouse_y)) {
+      UpdateMousePosition(float(mouse_x), float(mouse_y));
+    }
+    if (!cursor_visibility_overridden_) {
+      cursor_visibility_before_dialogs_ = window_->GetCursorVisibility();
+      cursor_visibility_overridden_ = true;
+      window_->SetCursorVisibility(Window::CursorVisibility::kVisible);
+    }
     if (presenter_) {
       presenter_->AddUIDrawerFromUIThread(this, z_order_);
     }
@@ -98,7 +112,7 @@ void ImGuiDrawer::AddDialog(ImGuiDialog* dialog) {
 
 void ImGuiDrawer::RemoveDialog(ImGuiDialog* dialog) {
   assert_not_null(dialog);
-  auto it = std::find(dialogs_.cbegin(), dialogs_.cend(), dialog);
+  auto it = std::ranges::find(std::as_const(dialogs_), dialog);
   if (it == dialogs_.cend()) {
     return;
   }
@@ -116,10 +130,11 @@ void ImGuiDrawer::RemoveDialog(ImGuiDialog* dialog) {
 void ImGuiDrawer::AddNotification(ImGuiNotification* dialog) {
   assert_not_null(dialog);
   // Check if already added.
-  if (std::find(notifications_.cbegin(), notifications_.cend(), dialog) !=
+  if (std::ranges::find(std::as_const(notifications_), dialog) !=
       notifications_.cend()) {
     return;
   }
+  ResetFrameTimeIfIdle();
   if (notifications_.empty()) {
     if (presenter_) {
       presenter_->AddUIDrawerFromUIThread(this, z_order_);
@@ -134,7 +149,7 @@ void ImGuiDrawer::AddNotification(ImGuiNotification* dialog) {
 
 void ImGuiDrawer::RemoveNotification(ImGuiNotification* dialog) {
   assert_not_null(dialog);
-  auto it = std::find(notifications_.cbegin(), notifications_.cend(), dialog);
+  auto it = std::ranges::find(std::as_const(notifications_), dialog);
   if (it == notifications_.cend()) {
     return;
   }
@@ -151,6 +166,7 @@ void ImGuiDrawer::Initialize() {
   auto& io = ImGui::GetIO();
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
   const float font_size = std::max((float)cvars::font_size, 8.f);
   const float title_font_size = font_size + 6.f;
@@ -226,10 +242,6 @@ void ImGuiDrawer::LoadInputSystem(hid::InputSystem* input_system) {
   }
 
   input_system_ = input_system;
-}
-
-void ImGuiDrawer::SetGuideButtonAction(std::function<void(uint8_t)> func) {
-  onGuidePressFunction_ = func;
 }
 
 void ImGuiDrawer::PostDeferredCallback(std::function<void()> callback) {
@@ -327,6 +339,7 @@ void ImGuiDrawer::SetupNotificationTextures() {
   }
 }
 
+// https://everythingfonts.com/unicode/maps
 static constexpr ImWchar font_glyph_ranges[] = {
     0x0020, 0x00FF,  // Basic Latin + Latin Supplement
     0x0100, 0x024F,  // Extended Latin
@@ -334,35 +347,45 @@ static constexpr ImWchar font_glyph_ranges[] = {
     0x0400, 0x04FF,  // Cyrillic
     0x2000, 0x206F,  // General Punctuation
     0x2070, 0x209F,  // Superscripts & Subscripts
+    0x20A0, 0x20CF,  // Currency Symbols
     0x2100, 0x214F,  // Letterlike Symbols
     0x2150, 0x218F,  // Number Forms
+    0x2500, 0x257F,  // Box Drawing
+    0x2580, 0x259F,  // Block Elements
+    0x25A0, 0x25FF,  // Geometric Shapes
+    0x2600, 0x26FF,  // Miscellaneous Symbols
     0,
 };
 
 bool ImGuiDrawer::LoadCustomFont(ImGuiIO& io, ImFontConfig& font_config,
                                  float font_size) {
-  if (cvars::custom_font_path.empty()) {
-    return false;
+  ImFont* font = nullptr;
+  if (!cvars::custom_font_path.empty()) {
+    std::filesystem::path font_path = cvars::custom_font_path;
+    if (font_path.is_relative()) {
+      font_path = xe::filesystem::GetExecutableFolder() / font_path;
+    }
+    if (std::filesystem::exists(font_path)) {
+      font = io.Fonts->AddFontFromFileTTF(xe::path_to_utf8(font_path).c_str(),
+                                          font_size, &font_config,
+                                          font_glyph_ranges);
+    }
   }
-
-  // Resolve relative paths from executable directory
-  std::filesystem::path font_path = cvars::custom_font_path;
-  if (font_path.is_relative()) {
-    font_path = xe::filesystem::GetExecutableFolder() / font_path;
+  if (!font) {
+    // Embedded buffer is const and outlives the atlas; let ImGui read it
+    // in place rather than copy + own.
+    font_config.FontDataOwnedByAtlas = false;
+    font = io.Fonts->AddFontFromMemoryTTF(
+        const_cast<unsigned char*>(
+            xe::ui::embedded_font::Inter_VariableFont_opsz_wght_ttf_data),
+        static_cast<int>(
+            xe::ui::embedded_font::Inter_VariableFont_opsz_wght_ttf_size),
+        font_size, &font_config, font_glyph_ranges);
   }
-
-  if (!std::filesystem::exists(font_path)) {
-    return false;
-  }
-
-  const std::string font_path_str = xe::path_to_utf8(font_path);
-  ImFont* font = io.Fonts->AddFontFromFileTTF(font_path_str.c_str(), font_size,
-                                              &font_config, font_glyph_ranges);
 
   io.Fonts->Build();
-
-  if (!font->IsLoaded()) {
-    XELOGE("Failed to load custom font: {}", font_path);
+  if (!font || !font->IsLoaded()) {
+    XELOGE("Failed to load UI font");
     io.Fonts->Clear();
     return false;
   }
@@ -756,15 +779,27 @@ void ImGuiDrawer::Draw(UIDrawContext& ui_draw_context) {
     }
   }
   if (needs_continuous_repaint) {
-    presenter_->RequestUIPaintFromUIThread();
+    if (presenter_->IsGuestOutputDrivingPaints()) {
+      // Ride the guest's paints, but look again in case it stops presenting
+      window_->RequestPaintAfter(Presenter::kGuestOutputStallTimeoutMillis);
+    } else {
+      presenter_->RequestUIPaintFromUIThread();
+    }
   }
 }
 
 void ImGuiDrawer::ClearDialogs() {
-  size_t dialog_loop = 0;
+  assert_false(IsDrawingDialogs());
+  // Each one removes itself as it's destroyed.
+  while (!dialogs_.empty()) {
+    dialogs_.back()->Destroy();
+  }
+}
 
-  while (dialog_loop < dialogs_.size()) {
-    RemoveDialog(dialogs_[dialog_loop++]);
+void ImGuiDrawer::ClearNotifications() {
+  // Each one removes itself as it's deleted.
+  while (!notifications_.empty()) {
+    delete notifications_.back();
   }
 }
 
@@ -845,11 +880,13 @@ void ImGuiDrawer::OnMouseDown(MouseEvent& e) {
     }
   }
   if (button >= 0 && button < std::size(io.MouseDown)) {
-    if (!io.MouseDown[button]) {
-      if (!ImGui::IsAnyMouseDown()) {
+    const uint32_t mask = uint32_t(1) << button;
+    if (!(mouse_buttons_held_ & mask)) {
+      if (mouse_buttons_held_ == 0) {
         window_->CaptureMouse();
       }
-      io.MouseDown[button] = true;
+      mouse_buttons_held_ |= mask;
+      io.AddMouseButtonEvent(button, true);
     }
   }
 }
@@ -877,9 +914,11 @@ void ImGuiDrawer::OnMouseUp(MouseEvent& e) {
     }
   }
   if (button >= 0 && button < std::size(io.MouseDown)) {
-    if (io.MouseDown[button]) {
-      io.MouseDown[button] = false;
-      if (!ImGui::IsAnyMouseDown()) {
+    const uint32_t mask = uint32_t(1) << button;
+    if (mouse_buttons_held_ & mask) {
+      mouse_buttons_held_ &= ~mask;
+      io.AddMouseButtonEvent(button, false);
+      if (mouse_buttons_held_ == 0) {
         window_->ReleaseMouse();
       }
     }
@@ -889,7 +928,8 @@ void ImGuiDrawer::OnMouseUp(MouseEvent& e) {
 void ImGuiDrawer::OnMouseWheel(MouseEvent& e) {
   SwitchToPhysicalMouseAndUpdateMousePosition(e);
   auto& io = GetIO();
-  io.MouseWheel += float(e.scroll_y()) / float(MouseEvent::kScrollPerDetent);
+  io.AddMouseWheelEvent(
+      0.0f, float(e.scroll_y()) / float(MouseEvent::kScrollPerDetent));
 }
 
 void ImGuiDrawer::OnTouchEvent(TouchEvent& e) {
@@ -967,8 +1007,7 @@ void ImGuiDrawer::UpdateMousePosition(float x, float y) {
   auto& io = GetIO();
   float physical_to_logical =
       float(window_->GetMediumDpi()) / float(window_->GetDpi());
-  io.MousePos.x = x * physical_to_logical;
-  io.MousePos.y = y * physical_to_logical;
+  io.AddMousePosEvent(x * physical_to_logical, y * physical_to_logical);
 }
 
 void ImGuiDrawer::SwitchToPhysicalMouseAndUpdateMousePosition(
@@ -986,6 +1025,13 @@ void ImGuiDrawer::SwitchToPhysicalMouseAndUpdateMousePosition(
   UpdateMousePosition(float(e.x()), float(e.y()));
 }
 
+void ImGuiDrawer::ResetFrameTimeIfIdle() {
+  // Draw isn't called while nothing is shown, so the idle gap would skew delta
+  if (dialogs_.empty() && notifications_.empty()) {
+    last_frame_time_ticks_ = Clock::QueryHostTickCount();
+  }
+}
+
 void ImGuiDrawer::DetachIfLastWindowRemoved() {
   // IsDrawingDialogs() is also checked because in a situation of removing the
   // only dialog, then adding a dialog, from within a dialog's Draw function,
@@ -998,6 +1044,10 @@ void ImGuiDrawer::DetachIfLastWindowRemoved() {
     presenter_->RemoveUIDrawerFromUIThread(this);
   }
   window_->RemoveInputListener(this);
+  if (cursor_visibility_overridden_) {
+    cursor_visibility_overridden_ = false;
+    window_->SetCursorVisibility(cursor_visibility_before_dialogs_);
+  }
   // Clear all input since no input will be received anymore, and when the
   // drawer becomes active again, it'd have an outdated input state otherwise
   // which will be persistent until new events actualize individual input
@@ -1053,14 +1103,6 @@ void ImGuiDrawer::UpdateGamepads() {
 
   io.BackendFlags |= ImGuiBackendFlags_HasGamepad;
   hid::X_INPUT_GAMEPAD& gamepad = gamepad_state.gamepad;
-
-  // GUIDE BUTTON - More info needed
-  if (gamepad_state.gamepad.buttons ==
-      hid::X_INPUT_GAMEPAD_BUTTON::X_INPUT_GAMEPAD_GUIDE) {
-    if (onGuidePressFunction_) {
-      onGuidePressFunction_(controller_to_poke);
-    }
-  }
 
 #define IM_SATURATE(V) (V < 0.0f ? 0.0f : V > 1.0f ? 1.0f : V)
 #define MAP_BUTTON(KEY_NO, BUTTON_ENUM)                           \

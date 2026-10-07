@@ -18,11 +18,17 @@
 
 DECLARE_bool(dump_xex);
 
+DEFINE_bool(dump_module_images, false,
+            "Dump each loaded module's decrypted image to "
+            "<name>.<base_address>.bin in the current directory",
+            "Kernel");
+
 namespace xe {
 namespace kernel {
 
+// Host object: the loader owns module handles, not the title's namespace.
 UserModule::UserModule(KernelState* kernel_state)
-    : XModule(kernel_state, ModuleType::kUserModule) {}
+    : XModule(kernel_state, ModuleType::kUserModule, true) {}
 
 UserModule::~UserModule() { Unload(); }
 
@@ -135,7 +141,9 @@ X_STATUS UserModule::LoadFromMemory(const void* addr, const size_t length) {
 
   be<fourcc_t> magic;
   magic.value = xe::load<fourcc_t>(addr);
-  if (magic == xe::cpu::kXEX2Signature || magic == xe::cpu::kXEX1Signature) {
+  if (magic == xe::cpu::kXEX2Signature || magic == xe::cpu::kXEX1Signature ||
+      magic == xe::cpu::kXEXQSignature || magic == xe::cpu::kXEXHSignature ||
+      magic == xe::cpu::kXEX25Signature || magic == xe::cpu::kXEX0Signature) {
     module_format_ = kModuleFormatXex;
   } else if (magic == xe::cpu::kElfSignature) {
     module_format_ = kModuleFormatElf;
@@ -149,6 +157,8 @@ X_STATUS UserModule::LoadFromMemory(const void* addr, const size_t length) {
       XELOGE("XNA executables are not yet implemented");
       return X_STATUS_NOT_IMPLEMENTED;
     } else {
+      // restore it back
+      magic.value = xe::load<fourcc_t>(addr);
       XELOGE("Unknown module magic: {:08X}", magic.get());
       return X_STATUS_NOT_IMPLEMENTED;
     }
@@ -262,9 +272,33 @@ X_STATUS UserModule::LoadContinue() {
 
   ldr_data->entry_point = entry_point_;
 
+  if (cvars::dump_module_images) {
+    DumpImage();
+  }
+
   OnLoad();
 
   return X_STATUS_SUCCESS;
+}
+
+// The image as the guest sees it. Disassembly addresses then match the log.
+void UserModule::DumpImage() {
+  auto* xex = xex_module();
+  const uint32_t base = xex->base_address();
+  const uint32_t size = xex->image_size();
+  if (!base || !size) {
+    return;
+  }
+  auto dump_name = fmt::format("{}.{:08X}.bin", name_, base);
+  auto dump_file = xe::filesystem::OpenFile(dump_name, "wb");
+  if (!dump_file) {
+    XELOGE("Failed to open {} for a module image dump", dump_name);
+    return;
+  }
+  fwrite(memory()->TranslateVirtual(base), 1, size, dump_file);
+  fclose(dump_file);
+  XELOGI("Dumped image of '{}' at {:08X} ({} bytes) to {}", name_, base, size,
+         dump_name);
 }
 
 X_STATUS UserModule::Unload() {
@@ -777,20 +811,29 @@ void UserModule::Dump() {
       case XEX_HEADER_SYSTEM_FLAGS: {
         sb.AppendFormat("  XEX_HEADER_SYSTEM_FLAGS: {:08X}\n",
                         static_cast<uint32_t>(opt_header.value));
-
+        uint32_t unused_flag = opt_header.value;
         for (const auto& entry : xex2_system_flags_map) {
           if (opt_header.value & entry.first) {
             sb.AppendFormat("    {}\n", entry.second);
+            unused_flag &= ~entry.first;
           }
+        }
+        if (unused_flag) {
+          sb.AppendFormat("    Unk flag: {:08X}\n", unused_flag);
         }
       } break;
       case XEX_HEADER_SYSTEM_FLAGS_32: {
         sb.AppendFormat("  XEX_HEADER_SYSTEM_FLAGS_32: {:08X}\n",
                         static_cast<uint32_t>(opt_header.value));
+        uint32_t unused_flag = opt_header.value;
         for (const auto& entry : xex2_system_flags_32_map) {
           if (opt_header.value & entry.first) {
             sb.AppendFormat("    {}\n", entry.second);
+            unused_flag &= ~entry.first;
           }
+        }
+        if (unused_flag) {
+          sb.AppendFormat("    Unk flag: {:08X}\n", unused_flag);
         }
       } break;
       case XEX_HEADER_SYSTEM_FLAGS_64: {

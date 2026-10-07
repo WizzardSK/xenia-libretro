@@ -93,6 +93,8 @@
 #include <intrin.h>
 #elif XE_ARCH_AMD64
 #include <x86intrin.h>
+#elif XE_ARCH_ARM64
+#include <arm_acle.h>
 #endif  // XE_PLATFORM_WIN32
 
 #if XE_PLATFORM_MAC
@@ -187,8 +189,26 @@ constexpr char kPathSeparator = '/';
 
 constexpr char kGuestPathSeparator = '\\';
 
+// Hint to the core that it is spinning on a contended location.
+inline void SpinPause() {
+#if XE_ARCH_AMD64 == 1
+  _mm_pause();
+#elif XE_ARCH_ARM64 == 1
+  // Not yield: the architecture only gives yield meaning on SMT cores, and
+  // almost no consumer arm64 part has SMT, so it retires as a nop there. isb
+  // is what Arm's own porting guidance substitutes for pause.
+#if XE_COMPILER_MSVC
+  __isb(_ARM64_BARRIER_SY);
+#else
+  __isb(15);
+#endif
+#endif
+}
+
 }  // namespace xe
 #if XE_ARCH_AMD64 == 1
 #include "platform_amd64.h"
+#elif XE_ARCH_ARM64 == 1
+#include "platform_arm64.h"
 #endif
 #endif  // XENIA_BASE_PLATFORM_H_

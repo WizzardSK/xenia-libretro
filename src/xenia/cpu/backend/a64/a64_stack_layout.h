@@ -2,7 +2,7 @@
  ******************************************************************************
  * Xenia : Xbox 360 Emulator Research Project                                 *
  ******************************************************************************
- * Copyright 2024 Ben Vanik. All rights reserved.                             *
+ * Copyright 2026 Ben Vanik. All rights reserved.                             *
  * Released under the BSD license - see LICENSE in the root for more details. *
  ******************************************************************************
  */
@@ -11,8 +11,6 @@
 #define XENIA_CPU_BACKEND_A64_A64_STACK_LAYOUT_H_
 
 #include "xenia/base/vec128.h"
-#include "xenia/cpu/backend/a64/a64_backend.h"
-#include "xenia/cpu/backend/a64/a64_emitter.h"
 
 namespace xe {
 namespace cpu {
@@ -22,103 +20,52 @@ namespace a64 {
 class StackLayout {
  public:
   /**
-   * Stack Layout
-   * ----------------------------
-   * NOTE: stack must always be 16b aligned.
+   * ARM64 Thunk Stack Layout (HostToGuest)
+   * NOTE: stack must always be 16-byte aligned.
    *
-   * Thunk stack:
-   *      Non-Volatile         Volatile
-   *  +------------------+------------------+
-   *  | arg temp, 3 * 8  | arg temp, 3 * 8  | sp + 0x000
-   *  |                  |                  |
-   *  |                  |                  |
-   *  +------------------+------------------+
-   *  | rbx              | (unused)         | sp + 0x018
-   *  +------------------+------------------+
-   *  | rbp              | X1               | sp + 0x020
-   *  +------------------+------------------+
-   *  | rcx (Win32)      | X2               | sp + 0x028
-   *  +------------------+------------------+
-   *  | rsi (Win32)      | X3               | sp + 0x030
-   *  +------------------+------------------+
-   *  | rdi (Win32)      | X4               | sp + 0x038
-   *  +------------------+------------------+
-   *  | r12              | X5               | sp + 0x040
-   *  +------------------+------------------+
-   *  | r13              | X6               | sp + 0x048
-   *  +------------------+------------------+
-   *  | r14              | X7               | sp + 0x050
-   *  +------------------+------------------+
-   *  | r15              | X8               | sp + 0x058
-   *  +------------------+------------------+
-   *  | xmm6 (Win32)     | X9               | sp + 0x060
-   *  |                  |                  |
-   *  +------------------+------------------+
-   *  | xmm7 (Win32)     | X10              | sp + 0x070
-   *  |                  |                  |
-   *  +------------------+------------------+
-   *  | xmm8 (Win32)     | X11              | sp + 0x080
-   *  |                  |                  |
-   *  +------------------+------------------+
-   *  | xmm9 (Win32)     | X12              | sp + 0x090
-   *  |                  |                  |
-   *  +------------------+------------------+
-   *  | xmm10 (Win32)    | X13              | sp + 0x0A0
-   *  |                  |                  |
-   *  +------------------+------------------+
-   *  | xmm11 (Win32)    | X14              | sp + 0x0B0
-   *  |                  |                  |
-   *  +------------------+------------------+
-   *  | xmm12 (Win32)    | X15              | sp + 0x0C0
-   *  |                  |                  |
-   *  +------------------+------------------+
-   *  | xmm13 (Win32)    | X16              | sp + 0x0D0
-   *  |                  |                  |
-   *  +------------------+------------------+
-   *  | xmm14 (Win32)    | X17              | sp + 0x0E0
-   *  |                  |                  |
-   *  +------------------+------------------+
-   *  | xmm15 (Win32)    | X18              | sp + 0x0F0
-   *  |                  |                  |
-   *  +------------------+------------------+
+   *  +------------------+
+   *  | x19, x20         | sp + 0x000
+   *  | x21, x22         | sp + 0x010
+   *  | x23, x24         | sp + 0x020
+   *  | x25, x26         | sp + 0x030
+   *  | x27, x28         | sp + 0x040
+   *  | x29 (fp), x30    | sp + 0x050
+   *  | q8, q9           | sp + 0x060  (full 128-bit, used by JIT)
+   *  | q10, q11         | sp + 0x080
+   *  | q12, q13         | sp + 0x0A0
+   *  | q14, q15         | sp + 0x0C0
+   *  | host FPCR        | sp + 0x0E0  (HostToGuestThunk, 16 bytes)
+   *  +------------------+
+   *  Total: 0xF0 = 240 bytes (16-byte aligned)
    */
-  XEPACKEDSTRUCT(Thunk, {
-    uint64_t arg_temp[3];
-    uint64_t r[17];
-    vec128_t xmm[22];
-  });
-  static_assert(sizeof(Thunk) % 16 == 0,
-                "sizeof(Thunk) must be a multiple of 16!");
-  static const size_t THUNK_STACK_SIZE = sizeof(Thunk);
+  static constexpr size_t THUNK_STACK_SIZE = 240;
+  static constexpr size_t THUNK_HOST_FPCR = 0xE0;
 
   /**
-   *
-   *
-   * Guest stack:
+   * ARM64 Guest Stack Layout
    *  +------------------+
-   *  | arg temp, 3 * 8  | sp + 0
-   *  |                  |
-   *  |                  |
-   *  +------------------+
-   *  | scratch, 48b     | sp + 32(kStashOffset)
-   *  |                  |
-   *  +------------------+
-   *  | X0  / context    | sp + 80
-   *  +------------------+
-   *  | guest ret addr   | sp + 88
-   *  +------------------+
-   *  | call ret addr    | sp + 96
-   *  +------------------+
-   *    ... locals ...
-   *  +------------------+
-   *  | (return address) |
+   *  | scratch, 48b     | sp + 0x000  (3 x Q for VMX FP scratch)
+   *  | guest ret addr   | sp + 0x030  (guest PPC return address)
+   *  | call ret addr    | sp + 0x038  (next call's guest PPC return addr)
+   *  | host ret addr    | sp + 0x040  (host x30/LR, for ret instruction)
+   *  | reserved         | sp + 0x048
+   *  |  ... locals ...  |
    *  +------------------+
    *
+   * Minimum size: 80 bytes (aligned to 16).
+   *
+   * Convention: at guest function entry, x0 holds the guest PPC return
+   * address. The prolog stores it to GUEST_RET_ADDR and saves x30 (host
+   * LR) to HOST_RET_ADDR.
    */
-  static const size_t GUEST_STACK_SIZE = 96 + 16;
-  static const size_t GUEST_CTX_HOME = 80;
-  static const size_t GUEST_RET_ADDR = 88;
-  static const size_t GUEST_CALL_RET_ADDR = 96;
+  static constexpr size_t GUEST_STACK_SIZE = 80;  // 16-byte aligned
+  static constexpr size_t GUEST_SCRATCH = 0;      // 48 bytes (3 x Q)
+  static constexpr size_t GUEST_RET_ADDR = 48;
+  static constexpr size_t GUEST_CALL_RET_ADDR = 56;
+  static constexpr size_t HOST_RET_ADDR = 64;
+  // Reserved padding. Longjmp detection state lives in A64BackendContext so it
+  // can be checked even when native SP still points at a skipped frame.
+  static constexpr size_t GUEST_RESERVED = 72;
 };
 
 }  // namespace a64

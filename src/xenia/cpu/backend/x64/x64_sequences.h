@@ -13,6 +13,7 @@
 #include "xenia/base/logging.h"
 #include "xenia/cpu/hir/instr.h"
 
+#include <string>
 #include <unordered_map>
 #define assert_impossible_sequence(name)          \
   assert_always("impossible sequence hit" #name); \
@@ -26,11 +27,11 @@ namespace x64 {
 class X64Emitter;
 
 typedef bool (*SequenceSelectFn)(X64Emitter&, const hir::Instr*, uint32_t ikey);
-extern std::unordered_map<uint32_t, SequenceSelectFn> sequence_table;
+std::unordered_map<uint32_t, SequenceSelectFn>& SequenceTable();
 
 template <typename T>
 bool Register() {
-  sequence_table.insert({T::head_key(), T::Select});
+  SequenceTable().insert({T::head_key(), T::Select});
   return true;
 }
 
@@ -46,6 +47,10 @@ static bool Register() {
 
 bool SelectSequence(X64Emitter* e, const hir::Instr* i,
                     const hir::Instr** new_tail);
+
+// Renders a selection key as "OPCODE_NAME dest,src1,src2,src3". Lives here
+// because the key layout belongs to this file's InstrKey.
+std::string FormatSequenceKey(uint64_t key);
 
 }  // namespace x64
 }  // namespace backend

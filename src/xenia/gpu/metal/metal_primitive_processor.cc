@@ -16,6 +16,8 @@
 
 #include "xenia/base/assert.h"
 #include "xenia/base/logging.h"
+#include "xenia/base/profiling.h"
+#include "xenia/gpu/gpu_flags.h"
 #include "xenia/gpu/metal/metal_command_processor.h"
 
 namespace xe {
@@ -31,21 +33,57 @@ MetalPrimitiveProcessor::MetalPrimitiveProcessor(
 MetalPrimitiveProcessor::~MetalPrimitiveProcessor() { Shutdown(true); }
 
 bool MetalPrimitiveProcessor::Initialize() {
-  // Initialize the base primitive processor
-  // Metal supports all primitive types through conversion
-  if (!InitializeCommon(
-          true,   // full_32bit_vertex_indices_supported
-          false,  // triangle_fans_supported (will convert)
-          false,  // line_loops_supported (will convert)
-          false,  // quad_lists_supported (will convert)
-          true,   // point_sprites_supported_without_vs_expansion
-          true))  // rectangle_lists_supported_without_vs_expansion
-  {
+  // When using SPIRV-Cross (no mesh shaders / MSC), point sprites and
+  // rectangle lists must be expanded in the vertex shader because there
+  // are no geometry shaders available.  The SpirvShaderTranslator has
+  // built-in support for kPointListAsTriangleStrip and
+  // kRectangleListAsTriangleStrip host vertex shader types.
+  if (!InitializeCommon(true,   // full_32bit_vertex_indices_supported
+                        false,  // triangle_fans_supported (will convert)
+                        false,  // line_loops_supported (will convert)
+                        false,  // quad_lists_supported (will convert)
+                        false,  // point_sprites_without_expansion
+                        false)) {
     Shutdown();
     return false;
   }
 
-  XELOGI("MetalPrimitiveProcessor initialized successfully");
+  XELOGI("MetalPrimitiveProcessor initialized");
+
+  {
+    // The generic primitive processor emits restart-separated triangle strips
+    // for VS expansion. Keep a no-restart triangle-list fallback for Metal
+    // SPIRV-Cross draws in case strip restart semantics diverge.
+    constexpr uint32_t kMaxExpandedPrimitiveCount = UINT16_MAX;
+    constexpr uint32_t kIndicesPerExpandedPrimitive = 6;
+    size_t index_count =
+        size_t(kMaxExpandedPrimitiveCount) * kIndicesPerExpandedPrimitive;
+    size_t buffer_size_bytes = index_count * sizeof(uint32_t);
+    MTL::Device* device = command_processor_.GetMetalDevice();
+    expansion_triangle_list_index_buffer_ =
+        device->newBuffer(buffer_size_bytes, MTL::ResourceStorageModeShared);
+    if (!expansion_triangle_list_index_buffer_) {
+      XELOGE(
+          "Failed to create Metal expansion triangle-list fallback index "
+          "buffer");
+      Shutdown();
+      return false;
+    }
+    expansion_triangle_list_index_buffer_->setLabel(NS::String::string(
+        "Xenia Expansion Triangle List Index Buffer", NS::UTF8StringEncoding));
+    uint32_t* indices = reinterpret_cast<uint32_t*>(
+        expansion_triangle_list_index_buffer_->contents());
+    for (uint32_t i = 0; i < kMaxExpandedPrimitiveCount; ++i) {
+      uint32_t base = i << 2;
+      size_t write_index = size_t(i) * kIndicesPerExpandedPrimitive;
+      indices[write_index + 0] = base + 0;
+      indices[write_index + 1] = base + 1;
+      indices[write_index + 2] = base + 2;
+      indices[write_index + 3] = base + 2;
+      indices[write_index + 4] = base + 1;
+      indices[write_index + 5] = base + 3;
+    }
+  }
   return true;
 }
 
@@ -65,6 +103,10 @@ void MetalPrimitiveProcessor::Shutdown(bool from_destructor) {
     builtin_index_buffer_gpu_address_ = 0;
     builtin_index_buffer_size_ = 0;
   }
+  if (expansion_triangle_list_index_buffer_) {
+    expansion_triangle_list_index_buffer_->release();
+    expansion_triangle_list_index_buffer_ = nullptr;
+  }
 
   if (!from_destructor) {
     ShutdownCommon();
@@ -72,14 +114,19 @@ void MetalPrimitiveProcessor::Shutdown(bool from_destructor) {
 }
 
 void MetalPrimitiveProcessor::CompletedSubmissionUpdated() {
+  SCOPE_profile_cpu_f("gpu");
   // Nothing to do for Metal
 }
 
 void MetalPrimitiveProcessor::BeginSubmission() {
+  SCOPE_profile_cpu_f("gpu");
   // Nothing to do for Metal
 }
 
 void MetalPrimitiveProcessor::BeginFrame() {
+  SCOPE_profile_cpu_f("gpu");
+  converted_index_buffers_.clear();
+
   // Clean up old frame index buffers
   ++current_frame_;
   uint64_t current_frame = current_frame_;
@@ -99,14 +146,24 @@ void MetalPrimitiveProcessor::BeginFrame() {
       frame_index_buffers_.end());
 }
 
-void MetalPrimitiveProcessor::EndFrame() { ClearPerFrameCache(); }
+void MetalPrimitiveProcessor::EndFrame() {
+  SCOPE_profile_cpu_f("gpu");
+  ClearPerFrameCache();
+  converted_index_buffers_.clear();
+}
 
 MTL::Buffer* MetalPrimitiveProcessor::GetConvertedIndexBuffer(
     size_t handle, uint64_t& offset_bytes_out) const {
-  // The handle is actually a pointer to the MTL::Buffer
-  MTL::Buffer* buffer = reinterpret_cast<MTL::Buffer*>(handle);
-  offset_bytes_out = 0;  // We use the full buffer from the start
-  return buffer;
+  if (handle >= converted_index_buffers_.size()) {
+    XELOGE("Converted index buffer handle {} is out of range {}", handle,
+           converted_index_buffers_.size());
+    offset_bytes_out = 0;
+    return nullptr;
+  }
+
+  const ConvertedIndexBufferBinding& binding = converted_index_buffers_[handle];
+  offset_bytes_out = binding.offset_bytes;
+  return binding.buffer;
 }
 
 bool MetalPrimitiveProcessor::InitializeBuiltinIndexBuffer(
@@ -142,6 +199,7 @@ bool MetalPrimitiveProcessor::InitializeBuiltinIndexBuffer(
 void* MetalPrimitiveProcessor::RequestHostConvertedIndexBufferForCurrentFrame(
     xenos::IndexFormat format, uint32_t index_count, bool coalign_for_simd,
     uint32_t coalignment_original_address, size_t& backend_handle_out) {
+  SCOPE_profile_cpu_f("gpu");
   // Calculate required size
   size_t element_size = format == xenos::IndexFormat::kInt16 ? sizeof(uint16_t)
                                                              : sizeof(uint32_t);
@@ -198,8 +256,8 @@ void* MetalPrimitiveProcessor::RequestHostConvertedIndexBufferForCurrentFrame(
   // Mark buffer as used this frame
   chosen_buffer->last_frame_used = current_frame;
 
-  // Return the buffer handle and CPU mapping
-  backend_handle_out = reinterpret_cast<size_t>(chosen_buffer->buffer);
+  // Return the buffer handle and CPU mapping.
+  uint64_t gpu_offset = 0;
   void* cpu_buffer = chosen_buffer->buffer->contents();
 
   // Apply SIMD co-alignment if requested
@@ -207,7 +265,11 @@ void* MetalPrimitiveProcessor::RequestHostConvertedIndexBufferForCurrentFrame(
     ptrdiff_t offset =
         GetSimdCoalignmentOffset(cpu_buffer, coalignment_original_address);
     cpu_buffer = static_cast<uint8_t*>(cpu_buffer) + offset;
+    gpu_offset += uint64_t(offset);
   }
+
+  backend_handle_out = converted_index_buffers_.size();
+  converted_index_buffers_.push_back({chosen_buffer->buffer, gpu_offset});
 
   return cpu_buffer;
 }

@@ -149,14 +149,12 @@ class Window {
     kVisible,
     // Temporarily revealed, hidden if not interacting with the mouse.
     kAutoHidden,
-    kHidden,
   };
 
   static std::unique_ptr<Window> Create(WindowedAppContext& app_context,
                                         const std::string_view title,
                                         uint32_t desired_logical_width,
-                                        uint32_t desired_logical_height,
-                                        bool is_game_process = false);
+                                        uint32_t desired_logical_height);
 
   virtual ~Window();
 
@@ -263,6 +261,10 @@ class Window {
   // user resizes a non-maximized window.
   uint32_t GetDesiredLogicalWidth() const { return desired_logical_width_; }
   uint32_t GetDesiredLogicalHeight() const { return desired_logical_height_; }
+  void SetDesiredLogicalSize(uint32_t width, uint32_t height) {
+    desired_logical_width_ = width;
+    desired_logical_height_ = height;
+  }
 
   // 0 width or height may be returned even in case of an open window with a
   // valid non-zero-area surface depending on the platform.
@@ -310,6 +312,9 @@ class Window {
   void CaptureMouse();
   void ReleaseMouse();
 
+  // Pointer position in MouseEvent coordinates, false if it can't be reported
+  virtual bool GetMousePosition(int32_t& x, int32_t& y) const { return false; }
+
   // Desired state stored by the common Window, externally modifiable, read-only
   // in the implementation.
   CursorVisibility GetCursorVisibility() const { return cursor_visibility_; }
@@ -342,6 +347,13 @@ class Window {
   void RequestPaint() {
     if (presenter_surface_) {
       RequestPaintImpl();
+    }
+  }
+  // Request repainting after the delay, restarting the wait if one is already
+  // pending. UI thread only.
+  void RequestPaintAfter(uint32_t milliseconds) {
+    if (presenter_surface_) {
+      RequestPaintAfterImpl(milliseconds);
     }
   }
   void RequestPresenterUIPaintFromUIThread() {
@@ -542,6 +554,10 @@ class Window {
       Surface::TypeFlags allowed_types) = 0;
   // Called only if the Surface exists.
   virtual void RequestPaintImpl() = 0;
+  // Called only if the Surface exists. Backends with no timer paint right away.
+  virtual void RequestPaintAfterImpl(uint32_t milliseconds) {
+    RequestPaintImpl();
+  }
 
   // Will also disconnect the surface if needed.
   void OnBeforeClose(WindowDestructionReceiver& destruction_receiver);
@@ -554,6 +570,8 @@ class Window {
   void OnDpiChanged(UISetupEvent& e,
                     WindowDestructionReceiver& destruction_receiver);
   void OnMonitorUpdate(MonitorUpdateEvent& e);
+  void OnUsbDeviceChanged(bool is_arrival,
+                          WindowDestructionReceiver& destruction_receiver);
   // For calling when the platform changes something in the non-maximized,
   // non-fullscreen size of the window.
   void OnDesiredLogicalSizeUpdate(uint32_t new_desired_logical_width,

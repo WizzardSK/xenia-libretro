@@ -10,10 +10,12 @@
 #ifndef XENIA_CPU_MMIO_HANDLER_H_
 #define XENIA_CPU_MMIO_HANDLER_H_
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <vector>
 
+#include "xenia/base/exception_handler.h"
 #include "xenia/base/mutex.h"
 #include "xenia/base/platform.h"
 
@@ -51,7 +53,7 @@ class MMIOHandler {
       global_unique_lock_type
           global_lock_locked_once,  // not passed by reference with const like
                                     // the others?
-      void* context, void* host_address, bool is_write);
+      void* context, void* host_address, bool is_write, Exception* ex);
 
   // access_violation_callback is called with global_critical_region locked once
   // on the thread, so if multiple threads trigger an access violation in the
@@ -78,6 +80,11 @@ class MMIOHandler {
     record_mmio_callback_ = callback;
   }
 
+  // Faults in the user mode views go straight to the access violation callback.
+  void SetUserMembase(uint8_t* user_membase) {
+    user_membase_.store(user_membase, std::memory_order_relaxed);
+  }
+
  protected:
   MMIOHandler(uint8_t* virtual_membase, uint8_t* physical_membase,
               uint8_t* membase_end, HostToGuestVirtual host_to_guest_virtual,
@@ -93,6 +100,7 @@ class MMIOHandler {
   uint8_t* virtual_membase_;
   uint8_t* physical_membase_;
   uint8_t* memory_end_;
+  std::atomic<uint8_t*> user_membase_{nullptr};
 
   std::vector<MMIORange> mapped_ranges_;
 

@@ -81,6 +81,9 @@ Symbol::Status Module::DeclareSymbol(Symbol::Type type, uint32_t address,
         symbol = new Symbol(Symbol::Type::kVariable, this, address);
         break;
     }
+    // Mark in-progress under the lock so concurrent lookups of the same
+    // address spin until the caller finishes declaring it.
+    symbol->set_status(Symbol::Status::kDeclaring);
     map_[address] = symbol;
     list_.emplace_back(symbol);
     status = Symbol::Status::kNew;
@@ -140,6 +143,11 @@ Symbol::Status Module::DefineFunction(Function* symbol) {
 
 Symbol::Status Module::DefineVariable(Symbol* symbol) {
   return DefineSymbol(symbol);
+}
+
+void Module::ForgetSymbol(uint32_t address) {
+  auto global_lock = global_critical_region_.Acquire();
+  map_.erase(address);
 }
 
 const std::vector<uint32_t> Module::GetAddressedFunctions() {

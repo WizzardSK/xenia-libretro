@@ -14,6 +14,7 @@
 #include <mutex>
 #include <string>
 
+#include "xenia/base/memory.h"
 #include "xenia/base/mutex.h"
 #include "xenia/base/vec128.h"
 #include "xenia/guest_pointers.h"
@@ -394,6 +395,9 @@ typedef struct alignas(64) PPCContext_s {
   // These are split to make it easier to do DCE on unused stores.
   uint64_t cr() const;
   void set_cr(uint64_t value);
+  // Only CA, OV and SO are modelled, the rest read as zero.
+  uint32_t xer() const;
+  void set_xer(uint32_t value);
   // todo: remove, saturation should be represented by a vector
   uint8_t vscr_sat;
 
@@ -425,10 +429,26 @@ typedef struct alignas(64) PPCContext_s {
 
   uint8_t* physical_membase;
 
-  // Value of last reserved load
-  uint64_t reserved_val;
   ThreadState* thread_state;
   uint8_t* virtual_membase;
+
+  // Base of this thread's instruction coverage counter arena. The JIT
+  // increments these without synchronization so each thread owns its own.
+  // Every thread gets one, shared with others only if a private arena could
+  // not be reserved, so emitted counters never have to null check.
+  uint8_t* trace_counts;
+
+  // Nonzero asks the running fiber to yield at its next JIT safepoint. Other
+  // host threads write it as a single byte store, raced reads are benign. Not
+  // std::atomic because this struct lives in raw memory no constructor runs
+  // over.
+  uint8_t preempt_requested;
+
+  // Guest address of the last JIT safepoint this fiber executed, recorded only
+  // when log_safepoint_pc is on. A wedged fiber's link register names the last
+  // call it made, which is often nowhere near the loop it is actually stuck in;
+  // this names a block it provably reached.
+  uint32_t last_safepoint_pc;
 
   template <typename T = uint8_t*>
   inline T TranslateVirtual(uint32_t guest_address) XE_RESTRICT const {
@@ -437,6 +457,12 @@ typedef struct alignas(64) PPCContext_s {
 #if XE_PLATFORM_WIN32 == 1
     if (guest_address >=
         static_cast<uint32_t>(reinterpret_cast<uintptr_t>(this))) {
+      host_address += 0x1000;
+    }
+#else
+    // Match vE0000000 PhysicalHeap shift (see Memory::TranslateVirtual).
+    if (guest_address >= 0xE0000000u &&
+        xe::memory::allocation_granularity() > 0x1000) {
       host_address += 0x1000;
     }
 #endif
@@ -465,6 +491,11 @@ typedef struct alignas(64) PPCContext_s {
         reinterpret_cast<const uint8_t*>(host_ptr) - virtual_membase);
 #if XE_PLATFORM_WIN32 == 1
     if (guest_tmp >= static_cast<uint32_t>(reinterpret_cast<uintptr_t>(this))) {
+      guest_tmp -= 0x1000;
+    }
+#else
+    if (xe::memory::allocation_granularity() > 0x1000 &&
+        guest_tmp >= 0xE0000000u) {
       guest_tmp -= 0x1000;
     }
 #endif

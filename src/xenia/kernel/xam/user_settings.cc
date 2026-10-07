@@ -53,10 +53,12 @@ std::optional<UserSetting> UserSetting::GetDefaultSetting(uint32_t setting_id) {
 
   switch (type) {
     case X_USER_DATA_TYPE::CONTEXT:
+      return std::make_optional<UserSetting>(
+          static_cast<UserSettingId>(setting_id), static_cast<uint32_t>(0));
     case X_USER_DATA_TYPE::INT32:
     case X_USER_DATA_TYPE::UNSET:
       return std::make_optional<UserSetting>(
-          static_cast<UserSettingId>(setting_id), 0);
+          static_cast<UserSettingId>(setting_id), static_cast<int32_t>(0));
     case X_USER_DATA_TYPE::INT64:
     case X_USER_DATA_TYPE::DATETIME:
       return std::make_optional<UserSetting>(
@@ -91,23 +93,27 @@ void UserSetting::WriteToGuest(X_USER_PROFILE_SETTING* setting_ptr,
   memcpy(&setting_ptr->data.data, &data_.data, sizeof(X_USER_DATA_UNION));
   setting_ptr->data.type = data_.type;
 
-  if (requires_additional_data()) {
-    const auto extended_data = get_extended_data();
+  // Keyed off the id, since the caller sized the buffer from the id too
+  if (!requires_additional_data(get_setting_id())) {
+    return;
+  }
 
-    if (extended_data.empty()) {
-      return;
-    }
+  // The caller only reserved max_size bytes for this setting
+  const uint32_t max_size = get_max_size(get_setting_id());
+  const auto extended_data = get_extended_data();
+  const uint32_t size =
+      std::min(static_cast<uint32_t>(extended_data.size()), max_size);
 
-    setting_ptr->data.data.binary.size =
-        static_cast<uint32_t>(extended_data_.size());
+  if (size) {
+    setting_ptr->data.data.binary.size = size;
     setting_ptr->data.data.binary.ptr = extended_data_address;
 
     memcpy(kernel_memory()->TranslateVirtual(extended_data_address),
-           extended_data_.data(), extended_data_.size());
-
-    extended_data_address +=
-        static_cast<uint32_t>(get_max_size(get_setting_id()));
+           extended_data.data(), size);
   }
+
+  // Advance even when empty, else the next setting lands in this slot
+  extended_data_address += max_size;
 }
 
 std::vector<uint8_t> UserSetting::Serialize() const {

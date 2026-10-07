@@ -10,19 +10,26 @@
 #ifndef XENIA_VFS_DEVICES_HOST_PATH_DEVICE_H_
 #define XENIA_VFS_DEVICES_HOST_PATH_DEVICE_H_
 
+#include <filesystem>
 #include <string>
+#include <vector>
 
 #include "xenia/vfs/device.h"
 
 namespace xe {
 namespace vfs {
 
+// Xenia keeps a package thumbnail as a file inside the package directory.
+// The console holds it in the STFS header, so the guest never sees it.
+inline constexpr char kPackageThumbnailFileName[] = "__thumbnail.png";
+
 class HostPathEntry;
 
 class HostPathDevice : public Device {
  public:
   HostPathDevice(const std::string_view mount_path,
-                 const std::filesystem::path& host_path, bool read_only);
+                 const std::filesystem::path& host_path, bool read_only,
+                 bool collapse_content_packages = false);
   ~HostPathDevice() override;
 
   bool Initialize() override;
@@ -30,6 +37,8 @@ class HostPathDevice : public Device {
   Entry* ResolvePath(const std::string_view path) override;
 
   bool is_read_only() const override { return read_only_; }
+
+  bool supports_concurrent_io() const override { return true; }
 
   const std::string& name() const override { return name_; }
   uint32_t attributes() const override { return 0; }
@@ -46,11 +55,15 @@ class HostPathDevice : public Device {
 
  private:
   void PopulateEntry(HostPathEntry* parent_entry);
+  // Canonical paths on the recursion stack, so a directory symlink cycle ends.
+  void PopulateEntry(HostPathEntry* parent_entry,
+                     std::vector<std::filesystem::path>& ancestors);
 
   std::string name_;
   std::filesystem::path host_path_;
   std::unique_ptr<Entry> root_entry_;
   bool read_only_;
+  bool collapse_content_packages_;
 };
 
 }  // namespace vfs

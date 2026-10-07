@@ -7,7 +7,14 @@
  ******************************************************************************
  */
 
+#include <atomic>
+#include <cctype>
+#include <cstring>
+#include <string>
+#include <string_view>
+
 #include "xenia/base/logging.h"
+#include "xenia/kernel/guest_scheduler.h"
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/kernel/util/shim_utils.h"
 #include "xenia/kernel/xam/xam_module.h"
@@ -25,7 +32,7 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS  // inet_addr
 #endif
 #include <winsock2.h>  // NOLINT(build/include_order)
-#elif XE_PLATFORM_LINUX
+#else
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -99,6 +106,13 @@ struct X_WSADATA {
   xe::be<uint32_t> vendor_info_ptr;
 };
 static_assert_size(X_WSADATA, 0x190);
+
+struct XAUTH_SETTINGS {
+  xe::be<uint32_t> SizeOfStruct;
+  xe::be<uint32_t> Flags;
+  xe::be<uint32_t> title_buffer;
+};
+static_assert_size(XAUTH_SETTINGS, 0xC);
 
 struct XWSABUF {
   xe::be<uint32_t> len;
@@ -220,6 +234,13 @@ dword_result_t NetDll_XNetCleanup_entry(dword_t caller, lpvoid_t params) {
   return 0;
 }
 DECLARE_XAM_EXPORT1(NetDll_XNetCleanup, kNetworking, kImplemented);
+
+dword_result_t XNetLogonGetMachineID_entry(lpqword_t machine_id_ptr) {
+  // See Netplay
+  *machine_id_ptr = 0;
+  return 0x80151802;  // X_ERROR_LOGON_NOT_LOGGED_ON;
+}
+DECLARE_XAM_EXPORT1(XNetLogonGetMachineID, kNetworking, kStub);
 
 dword_result_t NetDll_XNetGetOpt_entry(dword_t one, dword_t option_id,
                                        lpvoid_t buffer_ptr,
@@ -579,14 +600,66 @@ dword_result_t NetDll_XNetGetEthernetLinkStatus_entry(dword_t caller) {
 }
 DECLARE_XAM_EXPORT1(NetDll_XNetGetEthernetLinkStatus, kNetworking, kStub);
 
+// Fills |dns| with the IPv4 addresses |host| resolves to.
+static void ResolveDnsHost(const std::string& host, XNDNS* dns) {
+  asio::error_code ec;
+  asio::io_context io;
+  asio::ip::tcp::resolver resolver(io);
+  auto results = resolver.resolve(host, "", ec);
+  if (ec) {
+    return;
+  }
+  for (const auto& entry : results) {
+    if (dns->cina >= xe::countof(dns->aina)) {
+      break;
+    }
+    auto address = entry.endpoint().address();
+    if (address.is_v4()) {
+      dns->aina[dns->cina].s_addr = htonl(address.to_v4().to_uint());
+      dns->cina = dns->cina + 1;
+    }
+  }
+  if (dns->cina) {
+    dns->status = 0;
+  }
+}
+
 dword_result_t NetDll_XNetDnsLookup_entry(dword_t caller, lpstring_t host,
                                           dword_t event_handle,
                                           lpdword_t pdns) {
-  // TODO(gibbed): actually implement this
   if (pdns) {
+    XNDNS result = {};
+    result.status = int32_t(X_WSAError::X_WSAHOST_NOT_FOUND);
+    if (host) {
+      const std::string name(host.value());
+      // A lookup blocks for as long as the resolver takes. On a fiber it runs
+      // on an I/O worker so the other fibers on this host thread keep running.
+      if (GuestScheduler::CurrentThreadOffloadsBlockingCalls()) {
+        auto* scheduler = kernel_state()->guest_scheduler();
+        std::atomic<bool> done{false};
+        scheduler->PostHostCall(
+            [&name, &result, &done]() {
+              // The fiber waits for |done| however the lookup ends.
+              try {
+                ResolveDnsHost(name, &result);
+              } catch (...) {
+              }
+              done.store(true, std::memory_order_release);
+            },
+            GuestScheduler::BlockingCallClass::kConcurrent);
+        // The worker writes into this frame so a terminate must not end the
+        // wait.
+        while (!done.load(std::memory_order_acquire)) {
+          scheduler->BlockCurrentThread(0, 0, false, false);
+        }
+      } else {
+        ResolveDnsHost(name, &result);
+      }
+      XELOGD("XNetDnsLookup({}) = {} addresses", name, uint32_t(result.cina));
+    }
     auto dns_guest = kernel_memory()->SystemHeapAlloc(sizeof(XNDNS));
-    auto dns = kernel_memory()->TranslateVirtual<XNDNS*>(dns_guest);
-    dns->status = 1;  // non-zero = error
+    std::memcpy(kernel_memory()->TranslateVirtual(dns_guest), &result,
+                sizeof(XNDNS));
     *pdns = dns_guest;
   }
   if (event_handle) {
@@ -597,7 +670,7 @@ dword_result_t NetDll_XNetDnsLookup_entry(dword_t caller, lpstring_t host,
   }
   return 0;
 }
-DECLARE_XAM_EXPORT1(NetDll_XNetDnsLookup, kNetworking, kStub);
+DECLARE_XAM_EXPORT1(NetDll_XNetDnsLookup, kNetworking, kImplemented);
 
 dword_result_t NetDll_XNetDnsRelease_entry(dword_t caller,
                                            pointer_t<XNDNS> dns) {
@@ -662,6 +735,37 @@ dword_result_t NetDll_inet_addr_entry(lpstring_t addr_ptr) {
   return xe::byte_swap(addr);
 }
 DECLARE_XAM_EXPORT1(NetDll_inet_addr, kNetworking, kImplemented);
+
+dword_result_t XampXAuthStartup_entry(pointer_t<XAUTH_SETTINGS> setttings) {
+  // TODO: save setttings for use later, save current count of setttings, use
+  // ExRegisterTitleTerminateNotification with priority = 0x6c000001 and
+  // notification_routine set to some xam function and create true. call again
+  // with create false and set registor values to zero after. also checks a pre
+  // set overlapped if result = X_ERROR_IO_PENDING and if true call
+  // XMsgCancelIORequest for that overlap with wait true
+  if (setttings->SizeOfStruct != 8) {
+    return 0x80158401;
+  }
+
+  return 0x80158406;
+}
+DECLARE_XAM_EXPORT1(XampXAuthStartup, kNetworking, kStub);
+
+void XampXAuthShutdown_entry(lpdword_t xauth_count_ptr) {
+  // reduce xauth_count by 1 and return current count. if xauth_count = 0 then
+  // check a pre set overlapped if result = X_ERROR_IO_PENDING and if true call
+  // XMsgCancelIORequest for that overlap with wait true, next call
+  // ExRegisterTitleTerminateNotification with same registor as XampXAuthStartup
+  // with create set false
+  *xauth_count_ptr = 0;
+}
+DECLARE_XAM_EXPORT1(XampXAuthShutdown, kNetworking, kStub);
+
+dword_result_t XampXAuthGetTitleBuffer_entry() {
+  // returns title buffer set by XampXAuthStartup, non-zero causes crash
+  return 0;
+}
+DECLARE_XAM_EXPORT1(XampXAuthGetTitleBuffer, kNetworking, kStub);
 
 dword_result_t NetDll_socket_entry(dword_t caller, dword_t af, dword_t type,
                                    dword_t protocol) {
@@ -918,7 +1022,11 @@ struct host_set {
   void Store(fd_set* native_set) {
     FD_ZERO(native_set);
     for (uint32_t i = 0; i < this->count; ++i) {
-      FD_SET(this->sockets[i]->native_handle(), native_set);
+      // Another guest thread can close a socket while select waits.
+      const auto handle = this->sockets[i]->native_handle();
+      if (handle != static_cast<uint64_t>(-1)) {
+        FD_SET(handle, native_set);
+      }
     }
   }
 
@@ -970,9 +1078,44 @@ int_result_t NetDll_select_entry(dword_t caller, dword_t nfds,
         reinterpret_cast<int32_t*>(&timeout.tv_usec));
     timeout_in = &timeout;
   }
-  int ret = select(nfds, readfds ? &native_readfds : nullptr,
+  int ret;
+  if (!GuestScheduler::CurrentThreadOffloadsBlockingCalls()) {
+    ret = select(nfds, readfds ? &native_readfds : nullptr,
+                 writefds ? &native_writefds : nullptr,
+                 exceptfds ? &native_exceptfds : nullptr, timeout_in);
+  } else {
+    // A blocking select would stall the other guest threads on this host
+    // thread. Poll instead and park between polls until the timeout.
+    auto* scheduler = kernel_state()->guest_scheduler();
+    uint64_t deadline_ms = 0;
+    if (timeout_in) {
+      // Rounded up so it never waits less than asked.
+      deadline_ms = Clock::QueryHostUptimeMillis() +
+                    uint64_t(timeout.tv_sec) * 1000 +
+                    (timeout.tv_usec + 999) / 1000;
+    }
+    while (true) {
+      timeval poll_timeout = {0, 0};
+      ret = select(nfds, readfds ? &native_readfds : nullptr,
                    writefds ? &native_writefds : nullptr,
-                   exceptfds ? &native_exceptfds : nullptr, timeout_in);
+                   exceptfds ? &native_exceptfds : nullptr, &poll_timeout);
+      if (ret != 0 ||
+          (timeout_in && Clock::QueryHostUptimeMillis() >= deadline_ms)) {
+        break;
+      }
+      // A select with nothing ready empties the sets. Refill them first.
+      if (readfds) {
+        host_readfds.Store(&native_readfds);
+      }
+      if (writefds) {
+        host_writefds.Store(&native_writefds);
+      }
+      if (exceptfds) {
+        host_exceptfds.Store(&native_exceptfds);
+      }
+      scheduler->BlockCurrentThread(deadline_ms);
+    }
+  }
   if (readfds) {
     host_readfds.UpdateFrom(&native_readfds);
     host_readfds.Store(readfds);
@@ -1082,6 +1225,34 @@ dword_result_t NetDll_sendto_entry(dword_t caller, dword_t socket_handle,
 }
 DECLARE_XAM_EXPORT1(NetDll_sendto, kNetworking, kImplemented);
 
+dword_result_t NetDll_WSAEventSelect_entry(dword_t caller,
+                                           dword_t socket_handle,
+                                           dword_t event_handle,
+                                           dword_t network_events) {
+  auto socket =
+      kernel_state()->object_table()->LookupObject<XSocket>(socket_handle);
+  if (!socket) {
+    XThread::SetLastError(uint32_t(X_WSAError::X_WSAENOTSOCK));
+    return -1;
+  }
+
+  object_ref<XEvent> ev;
+  if (event_handle) {
+    ev = kernel_state()->object_table()->LookupObject<XEvent>(event_handle);
+    if (!ev) {
+      XThread::SetLastError(uint32_t(X_WSAError::X_WSAENOTSOCK));
+      return -1;
+    }
+  }
+
+  int ret = socket->WSAEventSelect(std::move(ev), network_events);
+  if (ret < 0) {
+    XThread::SetLastError(socket->GetLastWSAError());
+  }
+  return ret;
+}
+DECLARE_XAM_EXPORT1(NetDll_WSAEventSelect, kNetworking, kImplemented);
+
 dword_result_t NetDll___WSAFDIsSet_entry(dword_t socket_handle,
                                          pointer_t<x_fd_set> fd_set) {
   const uint8_t max_fd_count =
@@ -1100,27 +1271,49 @@ void NetDll_WSASetLastError_entry(dword_t error_code) {
 }
 DECLARE_XAM_EXPORT1(NetDll_WSASetLastError, kNetworking, kImplemented);
 
-dword_result_t NetDll_getsockname_entry(dword_t caller, dword_t socket_handle,
-                                        lpvoid_t buf_ptr, lpdword_t len_ptr) {
+// getsockname and getpeername, which write the guest's sockaddr_in.
+static int GetSocketName(uint32_t socket_handle, bool peer,
+                         pointer_t<XSOCKADDR_IN> name_ptr, lpdword_t len_ptr) {
   auto socket =
       kernel_state()->object_table()->LookupObject<XSocket>(socket_handle);
   if (!socket) {
     XThread::SetLastError(uint32_t(X_WSAError::X_WSAENOTSOCK));
     return -1;
   }
+  if (!name_ptr || !len_ptr || *len_ptr < sizeof(XSOCKADDR_IN)) {
+    XThread::SetLastError(uint32_t(X_WSAError::X_WSAEFAULT));
+    return -1;
+  }
 
-  int buffer_len = *len_ptr;
-
-  X_STATUS status = socket->GetSockName(buf_ptr, &buffer_len);
+  N_XSOCKADDR_IN name;
+  X_STATUS status =
+      peer ? socket->GetPeerName(&name) : socket->GetSockName(&name);
   if (XFAILED(status)) {
     XThread::SetLastError(socket->GetLastWSAError());
     return -1;
   }
 
-  *len_ptr = buffer_len;
+  name_ptr->sin_family = name.sin_family;
+  name_ptr->sin_port = name.sin_port;
+  name_ptr->sin_addr = name.sin_addr;
+  std::memset(name_ptr->x_sin_zero, 0, sizeof(name_ptr->x_sin_zero));
+  *len_ptr = sizeof(XSOCKADDR_IN);
   return 0;
 }
+
+dword_result_t NetDll_getsockname_entry(dword_t caller, dword_t socket_handle,
+                                        pointer_t<XSOCKADDR_IN> name_ptr,
+                                        lpdword_t len_ptr) {
+  return GetSocketName(socket_handle, false, name_ptr, len_ptr);
+}
 DECLARE_XAM_EXPORT1(NetDll_getsockname, kNetworking, kImplemented);
+
+dword_result_t NetDll_getpeername_entry(dword_t caller, dword_t socket_handle,
+                                        pointer_t<XSOCKADDR_IN> name_ptr,
+                                        lpdword_t len_ptr) {
+  return GetSocketName(socket_handle, true, name_ptr, len_ptr);
+}
+DECLARE_XAM_EXPORT1(NetDll_getpeername, kNetworking, kImplemented);
 
 dword_result_t NetDll_XNetCreateKey_entry(dword_t caller, lpdword_t key_id,
                                           lpdword_t exchange_key) {
@@ -1141,6 +1334,182 @@ dword_result_t NetDll_XNetUnregisterKey_entry(dword_t caller,
   return 0;
 }
 DECLARE_XAM_EXPORT1(NetDll_XNetUnregisterKey, kNetworking, kStub);
+
+// URL_COMPONENTSA with 32-bit guest pointers.
+struct X_URL_COMPONENTS {
+  xe::be<uint32_t> struct_size;
+  xe::be<uint32_t> scheme_ptr;
+  xe::be<uint32_t> scheme_length;
+  xe::be<uint32_t> scheme;
+  xe::be<uint32_t> host_name_ptr;
+  xe::be<uint32_t> host_name_length;
+  xe::be<uint16_t> port;
+  xe::be<uint16_t> padding;
+  xe::be<uint32_t> user_name_ptr;
+  xe::be<uint32_t> user_name_length;
+  xe::be<uint32_t> password_ptr;
+  xe::be<uint32_t> password_length;
+  xe::be<uint32_t> url_path_ptr;
+  xe::be<uint32_t> url_path_length;
+  xe::be<uint32_t> extra_info_ptr;
+  xe::be<uint32_t> extra_info_length;
+};
+static_assert_size(X_URL_COMPONENTS, 0x3C);
+
+constexpr uint32_t X_ICU_DECODE = 0x10000000;
+constexpr uint32_t X_ICU_ESCAPE = 0x80000000;
+constexpr uint32_t X_ERROR_WINHTTP_INVALID_URL = 12005;
+constexpr uint32_t X_ERROR_WINHTTP_UNRECOGNIZED_SCHEME = 12006;
+
+enum X_INTERNET_SCHEME : uint32_t {
+  X_INTERNET_SCHEME_HTTP = 1,
+  X_INTERNET_SCHEME_HTTPS = 2,
+};
+
+dword_result_t NetDll_XHttpCrackUrl_entry(dword_t caller, lpvoid_t url_ptr,
+                                          dword_t url_length, dword_t flags,
+                                          pointer_t<X_URL_COMPONENTS> parts) {
+  // TODO(has207): ICU_DECODE and ICU_ESCAPE are accepted but not applied.
+  if (!url_ptr || !parts || parts->struct_size != sizeof(X_URL_COMPONENTS) ||
+      (flags & ~(X_ICU_DECODE | X_ICU_ESCAPE))) {
+    XThread::SetLastError(X_ERROR_INVALID_PARAMETER);
+    return 0;
+  }
+  // A length still stops at the first NUL.
+  const char* url = url_ptr.as<const char*>();
+  const std::string_view text(
+      url, url_length ? strnlen(url, url_length) : std::strlen(url));
+
+  const size_t scheme_end = text.find(':');
+  if (scheme_end == std::string_view::npos) {
+    XThread::SetLastError(X_ERROR_WINHTTP_UNRECOGNIZED_SCHEME);
+    return 0;
+  }
+  std::string scheme(text.substr(0, scheme_end));
+  for (char& c : scheme) {
+    c = char(std::tolower(uint8_t(c)));
+  }
+  uint32_t scheme_id;
+  uint16_t port;
+  if (scheme == "http") {
+    scheme_id = X_INTERNET_SCHEME_HTTP;
+    port = 80;
+  } else if (scheme == "https") {
+    scheme_id = X_INTERNET_SCHEME_HTTPS;
+    port = 443;
+  } else {
+    XThread::SetLastError(X_ERROR_WINHTTP_UNRECOGNIZED_SCHEME);
+    return 0;
+  }
+  if (text.substr(scheme_end + 1, 2) != "//") {
+    XThread::SetLastError(X_ERROR_WINHTTP_INVALID_URL);
+    return 0;
+  }
+
+  // Offsets into text of each component.
+  const size_t authority_begin = scheme_end + 3;
+  size_t authority_end = text.find_first_of("/?#", authority_begin);
+  if (authority_end == std::string_view::npos) {
+    authority_end = text.size();
+  }
+  size_t host_begin = authority_begin;
+  size_t user_begin = 0, user_size = 0, password_begin = 0, password_size = 0;
+  bool has_user = false, has_password = false;
+  const size_t at = text.rfind('@', authority_end - 1);
+  if (at != std::string_view::npos && at >= authority_begin) {
+    has_user = true;
+    user_begin = authority_begin;
+    const size_t colon = text.find(':', authority_begin);
+    if (colon != std::string_view::npos && colon < at) {
+      user_size = colon - authority_begin;
+      has_password = true;
+      password_begin = colon + 1;
+      password_size = at - password_begin;
+    } else {
+      user_size = at - authority_begin;
+    }
+    host_begin = at + 1;
+  }
+  size_t host_end = authority_end;
+  // An IPv6 literal's colons are inside its brackets.
+  size_t port_search_begin = host_begin;
+  if (host_begin < authority_end && text[host_begin] == '[') {
+    const size_t bracket = text.find(']', host_begin);
+    port_search_begin = bracket < authority_end ? bracket + 1 : authority_end;
+  }
+  const size_t port_colon = text.rfind(':', authority_end - 1);
+  if (port_colon != std::string_view::npos && port_colon >= port_search_begin) {
+    const std::string_view digits =
+        text.substr(port_colon + 1, authority_end - port_colon - 1);
+    if (!digits.empty()) {
+      uint32_t value = 0;
+      for (char c : digits) {
+        if (c < '0' || c > '9') {
+          XThread::SetLastError(X_ERROR_WINHTTP_INVALID_URL);
+          return 0;
+        }
+        value = value * 10 + uint32_t(c - '0');
+        if (value > 0xFFFF) {
+          XThread::SetLastError(X_ERROR_WINHTTP_INVALID_URL);
+          return 0;
+        }
+      }
+      port = uint16_t(value);
+    }
+    host_end = port_colon;
+  }
+  if (host_end == host_begin) {
+    XThread::SetLastError(X_ERROR_WINHTTP_INVALID_URL);
+    return 0;
+  }
+  size_t extra_begin = text.find_first_of("?#", authority_end);
+  if (extra_begin == std::string_view::npos) {
+    extra_begin = text.size();
+  }
+
+  // Per component: a null pointer with a nonzero length gets a pointer into the
+  // URL. A buffer gets a terminated copy. A zero length skips it.
+  bool insufficient = false;
+  auto set = [&](xe::be<uint32_t>& ptr, xe::be<uint32_t>& length, bool present,
+                 size_t offset, size_t size) {
+    if (!length) {
+      return;
+    }
+    if (!ptr) {
+      ptr = present ? url_ptr.guest_address() + uint32_t(offset) : 0;
+      length = present ? uint32_t(size) : 0;
+      return;
+    }
+    if (length <= size) {
+      length = uint32_t(size + 1);
+      insufficient = true;
+      return;
+    }
+    char* out = kernel_memory()->TranslateVirtual<char*>(ptr);
+    std::memcpy(out, url + offset, size);
+    out[size] = '\0';
+    length = uint32_t(size);
+  };
+  set(parts->scheme_ptr, parts->scheme_length, true, 0, scheme_end);
+  set(parts->host_name_ptr, parts->host_name_length, true, host_begin,
+      host_end - host_begin);
+  set(parts->user_name_ptr, parts->user_name_length, has_user, user_begin,
+      user_size);
+  set(parts->password_ptr, parts->password_length, has_password, password_begin,
+      password_size);
+  set(parts->url_path_ptr, parts->url_path_length, true, authority_end,
+      extra_begin - authority_end);
+  set(parts->extra_info_ptr, parts->extra_info_length, true, extra_begin,
+      text.size() - extra_begin);
+  parts->scheme = scheme_id;
+  parts->port = port;
+  if (insufficient) {
+    XThread::SetLastError(X_ERROR_INSUFFICIENT_BUFFER);
+    return 0;
+  }
+  return 1;
+}
+DECLARE_XAM_EXPORT1(NetDll_XHttpCrackUrl, kNetworking, kImplemented);
 
 }  // namespace xam
 }  // namespace kernel

@@ -830,17 +830,18 @@ void Value::RotateLeft(Value* other) {
 void Value::Extract(Value* vec, Value* index) {
   assert_true(vec->type == VEC128_TYPE);
   switch (type) {
+    // Guest element numbers need the backends' VEC128_B/W flip.
     case INT8_TYPE:
-      constant.u8 = vec->constant.v128.u8[index->constant.u8 & 0x1F];
+      constant.u8 = vec->constant.v128.u8[(index->constant.u8 & 0xF) ^ 3];
       break;
     case INT16_TYPE:
-      constant.u16 = vec->constant.v128.u16[index->constant.u16 & 0x7];
+      constant.u16 = vec->constant.v128.u16[(index->constant.u8 & 0x7) ^ 1];
       break;
     case INT32_TYPE:
-      constant.u32 = vec->constant.v128.u32[index->constant.u32 & 0x3];
+      constant.u32 = vec->constant.v128.u32[index->constant.u8 & 0x3];
       break;
     case INT64_TYPE:
-      constant.u64 = vec->constant.v128.u64[index->constant.u64 & 0x1];
+      constant.u64 = vec->constant.v128.u64[index->constant.u8 & 0x1];
       break;
     default:
       assert_unhandled_case(type);
@@ -869,18 +870,20 @@ void Value::Permute(Value* src1, Value* src2, TypeName type) {
       perm.u8[i * 2] = v * 2;
       perm.u8[i * 2 + 1] = v * 2 + 1;
     }
-#if XE_ARCH_AMD64
-    auto lod = [](const vec128_t& v) {
-      return _mm_loadu_si128((const __m128i*)&v);
-    };
-    auto sto = [](vec128_t& v, __m128i x) {
-      return _mm_storeu_si128((__m128i*)&v, x);
+    // Shuffle bytes: for each byte in perm, select from src
+    // (equivalent to _mm_shuffle_epi8)
+    auto shuffle_bytes = [](const vec128_t& src, const vec128_t& idx,
+                            vec128_t& out) {
+      for (int i = 0; i < 16; i++) {
+        uint8_t sel = idx.u8[i];
+        out.u8[i] = (sel & 0x80) ? 0 : src.u8[sel & 0xF];
+      }
     };
 
-    __m128i xmm1 = lod(src1->constant.v128);
-    __m128i xmm2 = lod(src2->constant.v128);
-    xmm1 = _mm_shuffle_epi8(xmm1, lod(perm));
-    xmm2 = _mm_shuffle_epi8(xmm2, lod(perm));
+    vec128_t shuf1, shuf2;
+    shuffle_bytes(src1->constant.v128, perm, shuf1);
+    shuffle_bytes(src2->constant.v128, perm, shuf2);
+
     uint8_t mask = 0;
     for (int i = 0; i < 8; i++) {
       if (perm_ctrl.i16[i] == 0) {
@@ -888,37 +891,15 @@ void Value::Permute(Value* src1, Value* src2, TypeName type) {
       }
     }
 
-    vec128_t unp_mask = vec128b(0);
+    // Blend the same way the backends do: vpblendw takes its *second* source
+    // where the mask bit is set, so a set bit selects shuf2.
     for (int i = 0; i < 8; i++) {
       if (mask & (1 << i)) {
-        unp_mask.u16[i] = 0xFFFF;
+        constant.v128.u16[i] = shuf2.u16[i];
+      } else {
+        constant.v128.u16[i] = shuf1.u16[i];
       }
     }
-
-    sto(constant.v128, _mm_blendv_epi8(xmm1, xmm2, lod(unp_mask)));
-#else
-    // pshufb on each source, then pblendvb by the mask, byte by byte
-    uint8_t mask = 0;
-    for (int i = 0; i < 8; i++) {
-      if (perm_ctrl.i16[i] == 0) {
-        mask |= 1 << (7 - i);
-      }
-    }
-    vec128_t unp_mask = vec128b(0);
-    for (int i = 0; i < 8; i++) {
-      if (mask & (1 << i)) {
-        unp_mask.u16[i] = 0xFFFF;
-      }
-    }
-    vec128_t result;
-    for (int i = 0; i < 16; i++) {
-      uint8_t index = perm.u8[i];
-      uint8_t a = (index & 0x80) ? 0 : src1->constant.v128.u8[index & 15];
-      uint8_t b = (index & 0x80) ? 0 : src2->constant.v128.u8[index & 15];
-      result.u8[i] = (unp_mask.u8[i] & 0x80) ? b : a;
-    }
-    constant.v128 = result;
-#endif  // XE_ARCH_AMD64
 
   } else {
     assert_unhandled_case(type);
@@ -1026,17 +1007,29 @@ void Value::VectorCompareEQ(Value* other, TypeName type) {
       }
       break;
     case INT32_TYPE:
-    case FLOAT32_TYPE:
       for (int i = 0; i < 4; i++) {
         constant.v128.u32[i] =
             constant.v128.u32[i] == other->constant.v128.u32[i] ? -1 : 0;
       }
       break;
     case INT64_TYPE:
-    case FLOAT64_TYPE:
       for (int i = 0; i < 2; i++) {
         constant.v128.u64[i] =
             constant.v128.u64[i] == other->constant.v128.u64[i] ? -1 : 0;
+      }
+      break;
+    // Float compares are unordered and treat the two zeroes as equal, which
+    // a bitwise compare gets wrong both ways.
+    case FLOAT32_TYPE:
+      for (int i = 0; i < 4; i++) {
+        constant.v128.u32[i] =
+            constant.v128.f32[i] == other->constant.v128.f32[i] ? -1 : 0;
+      }
+      break;
+    case FLOAT64_TYPE:
+      for (int i = 0; i < 2; i++) {
+        constant.v128.u64[i] =
+            constant.v128.f64[i] == other->constant.v128.f64[i] ? -1 : 0;
       }
       break;
     default:

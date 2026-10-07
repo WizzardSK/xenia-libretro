@@ -155,6 +155,16 @@ void CloseFileMappingHandle(FileMappingHandle handle,
 void* MapFileView(FileMappingHandle handle, void* base_address, size_t length,
                   PageAccess access, size_t file_offset);
 bool UnmapFileView(FileMappingHandle handle, void* base_address, size_t length);
+// Reserves a range that takes one view per page, where views mapped directly
+// need the allocation granularity. A page without a view faults.
+bool ReserveFileViewPages(void* base_address, size_t length);
+// Maps a view of one page into a ReserveFileViewPages range. |file_offset| only
+// has to be page aligned.
+void* MapFileViewPages(FileMappingHandle handle, void* base_address,
+                       size_t length, PageAccess access, size_t file_offset);
+// Releases a ReserveFileViewPages range with the views mapped into it.
+bool ReleaseFileViewPages(FileMappingHandle handle, void* base_address,
+                          size_t length);
 
 inline size_t hash_combine(size_t seed) { return seed; }
 

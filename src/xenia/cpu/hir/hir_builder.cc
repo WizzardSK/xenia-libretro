@@ -206,7 +206,11 @@ void HIRBuilder::DumpOp(StringBuffer* str, OpcodeSignatureType sig_type,
     case OPCODE_SIG_TYPE_S:
       if (true) {
         auto target = op->symbol;
-        str->Append(!target->name().empty() ? target->name() : "<fn>");
+        if (!target->name().empty()) {
+          str->Append(target->name());
+        } else {
+          str->AppendFormat("sub_{:08X}", target->address());
+        }
       }
       break;
     case OPCODE_SIG_TYPE_V:
@@ -811,6 +815,10 @@ void HIRBuilder::Nop() {
   i->src1.value = i->src2.value = i->src3.value = NULL;
 }
 
+Instr* HIRBuilder::CheckPreempt() {
+  return AppendInstr(OPCODE_CHECK_PREEMPT_info, 0);
+}
+
 void HIRBuilder::SourceOffset(uint32_t offset) {
   Instr* i = AppendInstr(OPCODE_SOURCE_OFFSET_info, 0);
   i->src1.offset = offset;
@@ -1198,6 +1206,18 @@ Value* HIRBuilder::LoadClock() {
   return i->dest;
 }
 
+void HIRBuilder::ClearFpExceptions() {
+  Instr* i = AppendInstr(OPCODE_CLEAR_FP_EXCEPTIONS_info, 0);
+  i->src1.value = i->src2.value = i->src3.value = NULL;
+}
+
+Value* HIRBuilder::LoadFpExceptions() {
+  Instr* i =
+      AppendInstr(OPCODE_LOAD_FP_EXCEPTIONS_info, 0, AllocValue(INT32_TYPE));
+  i->src1.value = i->src2.value = i->src3.value = NULL;
+  return i->dest;
+}
+
 Value* HIRBuilder::AllocLocal(TypeName type) {
   Value* slot = AllocValue(type);
   locals_.push_back(slot);
@@ -1355,6 +1375,8 @@ void HIRBuilder::CacheControl(Value* address, size_t cache_line_size,
 
 void HIRBuilder::MemoryBarrier() { AppendInstr(OPCODE_MEMORY_BARRIER_info, 0); }
 
+void HIRBuilder::LoadBarrier() { AppendInstr(OPCODE_LOAD_BARRIER_info, 0); }
+
 void HIRBuilder::DelayExecution() {
   AppendInstr(OPCODE_DELAY_EXECUTION_info, 0);
 }
@@ -1380,6 +1402,18 @@ Value* HIRBuilder::Max(Value* value1, Value* value2) {
   i->set_src1(value1);
   i->set_src2(value2);
   i->src3.value = NULL;
+  return i->dest;
+}
+
+// quirk = (any operand denormal) && (all operands finite), as i8 0/1. Unused
+// slots repeat an operand.
+Value* HIRBuilder::DenormalQuirk(Value* value1, Value* value2, Value* value3) {
+  assert_true(value1->type == FLOAT64_TYPE && value2->type == FLOAT64_TYPE &&
+              value3->type == FLOAT64_TYPE);
+  Instr* i = AppendInstr(OPCODE_DENORMAL_QUIRK_info, 0, AllocValue(INT8_TYPE));
+  i->set_src1(value1);
+  i->set_src2(value2);
+  i->set_src3(value3);
   return i->dest;
 }
 
@@ -1439,26 +1473,10 @@ Value* HIRBuilder::Select(Value* cond, Value* value1, Value* value2) {
   i->set_src3(value2);
   return i->dest;
 }
-static Value* OrLanes32(HIRBuilder& f, Value* value) {
-  hir::Value* v1 = f.Extract(value, (uint8_t)0, INT32_TYPE);
-  hir::Value* v2 = f.Extract(value, (uint8_t)1, INT32_TYPE);
-  hir::Value* v3 = f.Extract(value, (uint8_t)2, INT32_TYPE);
-  hir::Value* ored = f.Or(v1, v2);
-
-  hir::Value* v4 = f.Extract(value, (uint8_t)3, INT32_TYPE);
-  ored = f.Or(ored, v3);
-
-  ored = f.Or(ored, v4);
-  return ored;
-}
 Value* HIRBuilder::IsTrue(Value* value) {
   assert_true(value);
   if (value->type == VEC128_TYPE) {
-    // chrispy: this probably doesnt happen often enough to be worth its own
-    // opcode or special code path but this could be optimized to not require as
-    // many extracts, we can shuffle and or v128 and then extract the low
-
-    return CompareEQ(OrLanes32(*this, value), LoadZeroInt32());
+    return CompareEQ(VectorNoneSet(value), LoadZeroInt8());
   }
 
   if (value->IsConstant()) {
@@ -1472,11 +1490,7 @@ Value* HIRBuilder::IsFalse(Value* value) {
   assert_true(value);
 
   if (value->type == VEC128_TYPE) {
-    // chrispy: this probably doesnt happen often enough to be worth its own
-    // opcode or special code path but this could be optimized to not require as
-    // many extracts, we can shuffle and or v128 and then extract the low
-
-    return CompareEQ(OrLanes32(*this, value), LoadZeroInt32());
+    return VectorNoneSet(value);
   }
 
   if (value->IsConstant()) {
@@ -1484,6 +1498,22 @@ Value* HIRBuilder::IsFalse(Value* value) {
   }
 
   return CompareEQ(value, LoadZero(value->type));
+}
+
+Value* HIRBuilder::VectorAllSet(Value* value) {
+  assert_true(value->type == VEC128_TYPE);
+  Instr* i = AppendInstr(OPCODE_VECTOR_ALL_SET_info, 0, AllocValue(INT8_TYPE));
+  i->set_src1(value);
+  i->src2.value = i->src3.value = NULL;
+  return i->dest;
+}
+
+Value* HIRBuilder::VectorNoneSet(Value* value) {
+  assert_true(value->type == VEC128_TYPE);
+  Instr* i = AppendInstr(OPCODE_VECTOR_NONE_SET_info, 0, AllocValue(INT8_TYPE));
+  i->set_src1(value);
+  i->src2.value = i->src3.value = NULL;
+  return i->dest;
 }
 
 Value* HIRBuilder::IsNan(Value* value) {
@@ -1614,6 +1644,23 @@ Value* HIRBuilder::ToSingle(Value* value) {
   i->src3.value = nullptr;
   return i->dest;
 }
+Value* HIRBuilder::UnpackSingle(Value* single_bits) {
+  assert_true(single_bits->type == INT32_TYPE);
+  Instr* i =
+      AppendInstr(OPCODE_UNPACK_SINGLE_info, 0, AllocValue(FLOAT64_TYPE));
+  i->set_src1(single_bits);
+  i->src2.value = nullptr;
+  i->src3.value = nullptr;
+  return i->dest;
+}
+Value* HIRBuilder::PackSingle(Value* value) {
+  assert_true(value->type == FLOAT64_TYPE);
+  Instr* i = AppendInstr(OPCODE_PACK_SINGLE_info, 0, AllocValue(INT32_TYPE));
+  i->set_src1(value);
+  i->src2.value = nullptr;
+  i->src3.value = nullptr;
+  return i->dest;
+}
 Value* HIRBuilder::Add(Value* value1, Value* value2,
                        uint32_t arithmetic_flags) {
   ASSERT_TYPES_EQUAL(value1, value2);
@@ -1735,22 +1782,28 @@ Value* HIRBuilder::Div(Value* value1, Value* value2,
   return i->dest;
 }
 
-Value* HIRBuilder::MulAdd(Value* value1, Value* value2, Value* value3) {
+Value* HIRBuilder::MulAdd(Value* value1, Value* value2, Value* value3,
+                          bool negate_result) {
   ASSERT_TYPES_EQUAL(value1, value2);
   ASSERT_TYPES_EQUAL(value1, value3);
 
-  Instr* i = AppendInstr(OPCODE_MUL_ADD_info, 0, AllocValue(value1->type));
+  Instr* i = AppendInstr(OPCODE_MUL_ADD_info,
+                         negate_result ? ARITHMETIC_NEGATE_RESULT : 0,
+                         AllocValue(value1->type));
   i->set_src1(value1);
   i->set_src2(value2);
   i->set_src3(value3);
   return i->dest;
 }
 
-Value* HIRBuilder::MulSub(Value* value1, Value* value2, Value* value3) {
+Value* HIRBuilder::MulSub(Value* value1, Value* value2, Value* value3,
+                          bool negate_result) {
   ASSERT_TYPES_EQUAL(value1, value2);
   ASSERT_TYPES_EQUAL(value1, value3);
 
-  Instr* i = AppendInstr(OPCODE_MUL_SUB_info, 0, AllocValue(value1->type));
+  Instr* i = AppendInstr(OPCODE_MUL_SUB_info,
+                         negate_result ? ARITHMETIC_NEGATE_RESULT : 0,
+                         AllocValue(value1->type));
   i->set_src1(value1);
   i->set_src2(value2);
   i->set_src3(value3);
@@ -2222,17 +2275,6 @@ Value* HIRBuilder::Unpack(Value* value, uint32_t pack_flags) {
       AppendInstr(OPCODE_UNPACK_info, pack_flags, AllocValue(VEC128_TYPE));
   i->set_src1(value);
   i->src2.value = i->src3.value = NULL;
-  return i->dest;
-}
-
-Value* HIRBuilder::AtomicExchange(Value* address, Value* new_value) {
-  ASSERT_ADDRESS_TYPE(address);
-  ASSERT_INTEGER_TYPE(new_value);
-  Instr* i =
-      AppendInstr(OPCODE_ATOMIC_EXCHANGE_info, 0, AllocValue(new_value->type));
-  i->set_src1(address);
-  i->set_src2(new_value);
-  i->src3.value = NULL;
   return i->dest;
 }
 

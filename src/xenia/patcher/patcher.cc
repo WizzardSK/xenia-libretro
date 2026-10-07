@@ -14,13 +14,14 @@
 namespace xe {
 namespace patcher {
 
-Patcher::Patcher(const std::filesystem::path patches_root) {
+Patcher::Patcher(std::filesystem::path patches_dir) {
   is_any_patch_applied_ = false;
-  patch_db_ = new PatchDB(patches_root);
+  patch_db_ = new PatchDB(std::move(patches_dir));
 }
 
 void Patcher::ApplyPatchesForTitle(Memory* memory, const uint32_t title_id,
                                    const std::optional<uint64_t> hash) {
+  patch_db_->LoadPatches();
   const auto title_patches = patch_db_->GetTitlePatches(title_id, hash);
 
   for (const PatchFileEntry& patchFile : title_patches) {

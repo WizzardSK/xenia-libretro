@@ -2,7 +2,7 @@
  ******************************************************************************
  * Xenia : Xbox 360 Emulator Research Project                                 *
  ******************************************************************************
- * Copyright 2024 Ben Vanik. All rights reserved.                             *
+ * Copyright 2026 Ben Vanik. All rights reserved.                             *
  * Released under the BSD license - see LICENSE in the root for more details. *
  ******************************************************************************
  */
@@ -11,7 +11,7 @@
 
 #include <climits>
 
-#include "third_party/capstone/include/capstone/arm64.h"
+#include "third_party/capstone/include/capstone/aarch64.h"
 #include "third_party/capstone/include/capstone/capstone.h"
 #include "xenia/base/profiling.h"
 #include "xenia/base/reset_scope.h"
@@ -34,16 +34,13 @@ using xe::cpu::hir::HIRBuilder;
 
 A64Assembler::A64Assembler(A64Backend* backend)
     : Assembler(backend), a64_backend_(backend), capstone_handle_(0) {
-  if (cs_open(CS_ARCH_AARCH64, CS_MODE_LITTLE_ENDIAN, &capstone_handle_) !=
-      CS_ERR_OK) {
-    assert_always("Failed to initialize capstone");
+  if (cs_open(CS_ARCH_AARCH64, CS_MODE_ARM, &capstone_handle_) != CS_ERR_OK) {
+    assert_always("Failed to initialize capstone for ARM64");
   }
-  // Remove Intel syntax option as it's not applicable to ARM64
   cs_option(capstone_handle_, CS_OPT_DETAIL, CS_OPT_OFF);
 }
 
 A64Assembler::~A64Assembler() {
-  // Emitter must be freed before the allocator.
   emitter_.reset();
 
   if (capstone_handle_) {
@@ -56,7 +53,7 @@ bool A64Assembler::Initialize() {
     return false;
   }
 
-  emitter_.reset(new A64Emitter(a64_backend_));
+  emitter_.reset(new A64Emitter(a64_backend_, &allocator_));
 
   return true;
 }
@@ -74,7 +71,7 @@ bool A64Assembler::Assemble(GuestFunction* function, HIRBuilder* builder,
   // Reset when we leave.
   xe::make_reset_scope(this);
 
-  // Lower HIR -> a64.
+  // Lower HIR -> ARM64.
   void* machine_code = nullptr;
   size_t code_size = 0;
   if (!emitter_->Emit(function, builder, debug_info_flags, debug_info.get(),
@@ -93,19 +90,11 @@ bool A64Assembler::Assemble(GuestFunction* function, HIRBuilder* builder,
   function->set_debug_info(std::move(debug_info));
   static_cast<A64Function*>(function)->Setup(
       reinterpret_cast<uint8_t*>(machine_code), code_size);
-  // Install into indirection table.
-  const uint64_t host_address = reinterpret_cast<uint64_t>(machine_code);
-#if XE_A64_INDIRECTION_64BIT
-  // On ARM64 platforms, machine code might be allocated in high address space.
-  // Use the 64-bit version of AddIndirection to store the full address.
+
+  // Install into indirection table (supports code cache at any 64-bit VA).
   reinterpret_cast<A64CodeCache*>(backend_->code_cache())
-      ->AddIndirection64(function->address(), host_address);
-#else
-  assert_true((host_address >> 32) == 0);
-  reinterpret_cast<A64CodeCache*>(backend_->code_cache())
-      ->AddIndirection(function->address(),
-                       static_cast<uint32_t>(host_address));
-#endif
+      ->AddIndirection64(function->address(),
+                         reinterpret_cast<uint64_t>(machine_code));
 
   return true;
 }
@@ -122,7 +111,7 @@ void A64Assembler::DumpMachineCode(
   const uint8_t* code_ptr = reinterpret_cast<uint8_t*>(machine_code);
   size_t remaining_code_size = code_size;
   uint64_t address = uint64_t(machine_code);
-  cs_insn insn = {};
+  cs_insn insn = {0};
   while (remaining_code_size &&
          cs_disasm_iter(capstone_handle_, &code_ptr, &remaining_code_size,
                         &address, &insn)) {
@@ -130,11 +119,11 @@ void A64Assembler::DumpMachineCode(
     auto code_offset =
         uint32_t(code_ptr - reinterpret_cast<uint8_t*>(machine_code));
     if (code_offset >= next_code_offset &&
-        source_map_index < static_cast<int>(source_map.size())) {
+        source_map_index < source_map.size()) {
       auto& source_map_entry = source_map[source_map_index];
       str->AppendFormat("{:08X} ", source_map_entry.guest_address);
       ++source_map_index;
-      next_code_offset = source_map_index < static_cast<int>(source_map.size())
+      next_code_offset = source_map_index < source_map.size()
                              ? source_map[source_map_index].code_offset
                              : UINT_MAX;
     } else {

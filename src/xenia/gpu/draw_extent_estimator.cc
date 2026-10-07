@@ -34,7 +34,7 @@ DEFINE_bool(
     "this prevents corruption of other render targets located after the "
     "current ones in the EDRAM by lossy range ownership transfers done for "
     "those draws.",
-    "GPU");
+    "GPU.Debug");
 DEFINE_bool(
     execute_unclipped_draw_vs_on_cpu_with_scissor, false,
     "Don't restrict the usage of execute_unclipped_draw_vs_on_cpu to only "
@@ -45,7 +45,7 @@ DEFINE_bool(
     "Enabling this may cause excessive processing of vertices on the CPU, as "
     "some games draw rectangles (for their UI, for instance) without clipping, "
     "but with a proper scissor rectangle.",
-    "GPU");
+    "GPU.Debug");
 
 namespace xe {
 namespace gpu {
@@ -109,7 +109,9 @@ uint32_t DrawExtentEstimator::EstimateVertexMaxY(const Shader& vertex_shader) {
   xenos::Endian index_endian = vgt_dma_size.swap_mode;
   if (vgt_draw_initiator.source_select == xenos::SourceSelect::kDMA) {
     xenos::IndexFormat index_format = vgt_draw_initiator.index_size;
-    uint32_t index_buffer_base = regs[XE_GPU_REG_VGT_DMA_BASE];
+    // Mask to physical like the PrimitiveProcessor - the guest may use a
+    // mirror window, and TranslatePhysical only covers 512 MB.
+    uint32_t index_buffer_base = xenos::CpuToGpu(regs[XE_GPU_REG_VGT_DMA_BASE]);
     uint32_t index_buffer_read_count =
         std::min(uint32_t(vgt_draw_initiator.num_indices),
                  uint32_t(vgt_dma_size.num_words));

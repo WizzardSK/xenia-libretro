@@ -241,12 +241,6 @@ void Win32X64CodeCache::PlaceCode(uint32_t guest_address, void* machine_code,
     // We do this outside of the lock, but with the latest total count.
     grow_table_(unwind_table_handle_, unwind_table_count_);
   }
-
-  // This isn't needed on x64 (probably), but is convention.
-  // On UWP, FlushInstructionCache available starting from 10.0.16299.0.
-  // https://docs.microsoft.com/en-us/uwp/win32-and-com/win32-apis
-  FlushInstructionCache(GetCurrentProcess(), code_execute_address,
-                        func_info.code_size.total);
 }
 
 void Win32X64CodeCache::InitializeUnwindEntry(
@@ -324,12 +318,12 @@ void Win32X64CodeCache::InitializeUnwindEntry(
 }
 
 void* Win32X64CodeCache::LookupUnwindInfo(uint64_t host_pc) {
+  const uintptr_t rva =
+      host_pc - reinterpret_cast<uintptr_t>(generated_code_execute_base_);
   return std::bsearch(
-      &host_pc, unwind_table_.data(), unwind_table_count_,
-      sizeof(RUNTIME_FUNCTION),
+      &rva, unwind_table_.data(), unwind_table_count_, sizeof(RUNTIME_FUNCTION),
       [](const void* key_ptr, const void* element_ptr) {
-        auto key = *reinterpret_cast<const uintptr_t*>(key_ptr) -
-                   kGeneratedCodeExecuteBase;
+        auto key = *reinterpret_cast<const uintptr_t*>(key_ptr);
         auto element = reinterpret_cast<const RUNTIME_FUNCTION*>(element_ptr);
         if (key < element->BeginAddress) {
           return -1;

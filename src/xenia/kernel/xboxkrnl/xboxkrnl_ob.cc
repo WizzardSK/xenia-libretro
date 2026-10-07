@@ -8,6 +8,11 @@
  */
 
 #include "xenia/kernel/xboxkrnl/xboxkrnl_ob.h"
+
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
 #include "xenia/base/logging.h"
 #include "xenia/cpu/processor.h"
 #include "xenia/kernel/kernel_state.h"
@@ -20,11 +25,105 @@ namespace xe {
 namespace kernel {
 namespace xboxkrnl {
 
+// Guest objects whose last reference was dropped on this thread. NtClose and
+// ObDereferenceObject run their type's procedures.
+struct PendingGuestObjectDelete {
+  uint32_t body;
+  uint32_t type_ptr;
+};
+static thread_local std::vector<PendingGuestObjectDelete>
+    pending_guest_object_deletes;
+
+// An object of a type the title defines itself, which has no dispatch header
+// for a host object to keep its handle in. The handle table only names it.
+// TODO(has207): NtClose doesn't call the type's close procedure. It takes the
+// object's handle count, which xenia doesn't keep apart from references.
+class XGuestObject : public XObject {
+ public:
+  XGuestObject(KernelState* kernel_state, uint32_t body, uint32_t type_ptr)
+      : XObject(kernel_state, Type::Undefined),
+        body_(body),
+        type_ptr_(type_ptr) {
+    auto global_lock = global_critical_region::AcquireDirect();
+    by_body_[body] = this;
+  }
+  ~XGuestObject() override {
+    auto global_lock = global_critical_region::AcquireDirect();
+    by_body_.erase(body_);
+    // A host thread can't run guest code. At teardown that is fine and
+    // elsewhere the guest memory leaks.
+    if (XThread::IsInThread()) {
+      pending_guest_object_deletes.push_back({body_, type_ptr_});
+    }
+  }
+
+  uint32_t body() const { return body_; }
+  uint32_t type_ptr() const { return type_ptr_; }
+
+  static XGuestObject* FromBody(uint32_t body) {
+    auto global_lock = global_critical_region::AcquireDirect();
+    auto it = by_body_.find(body);
+    return it != by_body_.end() ? it->second : nullptr;
+  }
+
+ private:
+  uint32_t body_;
+  uint32_t type_ptr_;
+  static inline std::unordered_map<uint32_t, XGuestObject*> by_body_;
+};
+
+// Runs the type's delete and free procedures for the guest objects this thread
+// released.
+static void RunPendingGuestObjectDeletes() {
+  // The procedures can block and resume on another host thread. Take the queue
+  // before running any. Objects they release are run by the nested call.
+  std::vector<PendingGuestObjectDelete> pending_deletes =
+      std::move(pending_guest_object_deletes);
+  pending_guest_object_deletes.clear();
+  auto thread_state = cpu::ThreadState::Get();
+  for (const PendingGuestObjectDelete& pending : pending_deletes) {
+    auto type =
+        kernel_memory()->TranslateVirtual<X_OBJECT_TYPE*>(pending.type_ptr);
+    auto processor = kernel_state()->processor();
+    if (type->delete_proc) {
+      uint64_t args[] = {pending.body};
+      processor->Execute(thread_state, type->delete_proc, args, 1);
+    }
+    // A named object's allocation starts with its name info.
+    uint32_t allocation = pending.body - uint32_t(sizeof(X_OBJECT_HEADER));
+    auto header =
+        kernel_memory()->TranslateVirtual<X_OBJECT_HEADER*>(allocation);
+    if (header->flags & OBJECT_HEADER_FLAG_NAMED_OBJECT) {
+      allocation -= uint32_t(sizeof(X_OBJECT_HEADER_NAME_INFO));
+    }
+    if (type->free_proc) {
+      uint64_t args[] = {allocation};
+      processor->Execute(thread_state, type->free_proc, args, 1);
+    }
+  }
+}
+
 void xeObSplitName(X_ANSI_STRING input_string,
                    X_ANSI_STRING* leading_path_component,
                    X_ANSI_STRING* remaining_path_components,
                    PPCContext* context) {
-  xe::FatalError("xeObSplitName unimplemented!");
+  // Skips one leading separator, splits off the component up to the next one
+  // and leaves the rest after it.
+  const uint32_t pointer = input_string.pointer;
+  const uint16_t length = input_string.length;
+  const char* text = context->TranslateVirtual<const char*>(pointer);
+  const uint16_t start = (length && text[0] == '\\') ? 1 : 0;
+  uint16_t end = start;
+  while (end < length && text[end] != '\\') {
+    ++end;
+  }
+  leading_path_component->pointer = pointer + start;
+  leading_path_component->length = uint16_t(end - start);
+  leading_path_component->maximum_length = uint16_t(end - start);
+  const uint16_t rest = end < length ? uint16_t(end + 1) : end;
+  remaining_path_components->pointer = pointer + rest;
+  remaining_path_components->length = uint16_t(length - rest);
+  remaining_path_components->maximum_length = uint16_t(length - rest);
 }
 
 uint32_t xeObHashObjectName(X_ANSI_STRING* ElementName, PPCContext* context) {
@@ -214,6 +313,20 @@ dword_result_t ObOpenObjectByPointer_entry(lpvoid_t object_ptr,
     return X_STATUS_UNSUCCESSFUL;
   }
 
+  // A host object's own handle is not in the title's numbering and must never
+  // reach the guest, so give it a guest one. AddHandle retains, so this needs
+  // no RetainHandle of its own.
+  if (object->is_host_object()) {
+    X_HANDLE guest_handle = X_INVALID_HANDLE_VALUE;
+    X_STATUS result = kernel_state()->object_table()->AddHandle(
+        object.get(), &guest_handle, true);
+    if (XFAILED(result)) {
+      return result;
+    }
+    *out_handle_ptr = guest_handle;
+    return X_STATUS_SUCCESS;
+  }
+
   // Retain the handle. Will be released in NtClose.
   object->RetainHandle();
   *out_handle_ptr = object->handle();
@@ -251,6 +364,17 @@ dword_result_t ObReferenceObjectByHandle_entry(dword_t handle,
   auto object = kernel_state()->object_table()->LookupObject<XObject>(handle);
   if (!object) {
     return X_STATUS_INVALID_HANDLE;
+  }
+
+  if (auto guest_object = dynamic_cast<XGuestObject*>(object.get())) {
+    if (object_type_ptr && object_type_ptr != guest_object->type_ptr()) {
+      return X_STATUS_OBJECT_TYPE_MISMATCH;
+    }
+    object->RetainHandle();
+    if (out_object_ptr.guest_address()) {
+      *out_object_ptr = guest_object->body();
+    }
+    return X_STATUS_SUCCESS;
   }
 
   uint32_t native_ptr = object->guest_object();
@@ -312,6 +436,11 @@ void xeObDereferenceObject(PPCContext* context, uint32_t native_ptr) {
     XELOGE("Null native ptr in ObDereferenceObject!");
     return;
   }
+  if (auto guest_object = XGuestObject::FromBody(native_ptr)) {
+    guest_object->ReleaseHandle();
+    RunPendingGuestObjectDeletes();
+    return;
+  }
 
   auto object = XObject::GetNativeObject<XObject>(
       kernel_state(), kernel_memory()->TranslateVirtual(native_ptr));
@@ -333,6 +462,10 @@ void ObDereferenceObject_entry(dword_t native_ptr, const ppc_context_t& ctx) {
 DECLARE_XBOXKRNL_EXPORT1(ObDereferenceObject, kNone, kImplemented);
 
 void ObReferenceObject_entry(dword_t native_ptr) {
+  if (auto guest_object = XGuestObject::FromBody(native_ptr)) {
+    guest_object->RetainHandle();
+    return;
+  }
   // Check if a dummy value from ObReferenceObjectByHandle.
   auto object = XObject::GetNativeObject<XObject>(
       kernel_state(), kernel_memory()->TranslateVirtual(native_ptr));
@@ -348,15 +481,33 @@ void ObReferenceObject_entry(dword_t native_ptr) {
 }
 DECLARE_XBOXKRNL_EXPORT1(ObReferenceObject, kNone, kImplemented);
 
+void xeObStripDosDevicesPrefix(std::string& path) {
+  // Bytes, as a guest name need not be valid UTF-8.
+  if (path.starts_with("\\??\\")) {
+    path.erase(0, 4);
+  }
+}
+
+std::string xeObSymbolicLinkName(const std::string_view name) {
+  auto path = xe::utf8::canonicalize_guest_path(name);
+  xeObStripDosDevicesPrefix(path);
+
+  if (xe::utf8::starts_with_case(path, "\\System??\\")) {
+    path.erase(0, 10);
+  }
+  return path;
+}
+
 dword_result_t ObCreateSymbolicLink_entry(pointer_t<X_ANSI_STRING> path_ptr,
                                           pointer_t<X_ANSI_STRING> target_ptr) {
-  auto path = xe::utf8::canonicalize_guest_path(
-      util::TranslateAnsiPath(kernel_memory(), path_ptr));
+  auto path =
+      xeObSymbolicLinkName(util::TranslateAnsiPath(kernel_memory(), path_ptr));
   auto target = xe::utf8::canonicalize_guest_path(
       util::TranslateAnsiPath(kernel_memory(), target_ptr));
 
-  if (xe::utf8::starts_with(path, "\\??\\")) {
-    path = path.substr(4);  // Strip the full qualifier
+  // 4D5307DC expects success.
+  if (kernel_state()->file_system()->FindSymbolicLink(path, target)) {
+    return X_STATUS_SUCCESS;
   }
 
   if (!kernel_state()->file_system()->RegisterSymbolicLink(path, target)) {
@@ -368,7 +519,8 @@ dword_result_t ObCreateSymbolicLink_entry(pointer_t<X_ANSI_STRING> path_ptr,
 DECLARE_XBOXKRNL_EXPORT1(ObCreateSymbolicLink, kNone, kImplemented);
 
 dword_result_t ObDeleteSymbolicLink_entry(pointer_t<X_ANSI_STRING> path_ptr) {
-  auto path = util::TranslateAnsiPath(kernel_memory(), path_ptr);
+  auto path =
+      xeObSymbolicLinkName(util::TranslateAnsiPath(kernel_memory(), path_ptr));
   if (!kernel_state()->file_system()->UnregisterSymbolicLink(path)) {
     return X_STATUS_UNSUCCESSFUL;
   }
@@ -403,7 +555,9 @@ dword_result_t NtDuplicateObject_entry(dword_t handle, lpdword_t new_handle_ptr,
 DECLARE_XBOXKRNL_EXPORT1(NtDuplicateObject, kNone, kImplemented);
 
 uint32_t NtClose(uint32_t handle) {
-  return kernel_state()->object_table()->ReleaseHandle(handle);
+  const uint32_t result = kernel_state()->object_table()->ReleaseHandle(handle);
+  RunPendingGuestObjectDeletes();
+  return result;
 }
 
 dword_result_t NtClose_entry(dword_t handle) { return NtClose(handle); }
@@ -423,6 +577,28 @@ dword_result_t ObCreateObject_entry(
   return result;
 }
 DECLARE_XBOXKRNL_EXPORT1(ObCreateObject, kNone, kImplemented);
+
+dword_result_t ObInsertObject_entry(dword_t object,
+                                    pointer_t<X_OBJECT_ATTRIBUTES> attributes,
+                                    dword_t pointer_bias,
+                                    lpdword_t out_handle) {
+  if (!object || !out_handle) {
+    return X_STATUS_INVALID_PARAMETER;
+  }
+  auto header = kernel_memory()->TranslateVirtual<X_OBJECT_HEADER*>(
+      object - uint32_t(sizeof(X_OBJECT_HEADER)));
+  // The creation reference passes to the handle and the caller gets
+  // |pointer_bias| more, which it later drops with ObDereferenceObject.
+  auto guest_object = object_ref<XGuestObject>(
+      new XGuestObject(kernel_state(), object, header->object_type_ptr));
+  for (uint32_t i = 0; i < pointer_bias; ++i) {
+    guest_object->RetainHandle();
+  }
+  guest_object->SetAttributes(attributes.guest_address());
+  *out_handle = guest_object->handle();
+  return X_STATUS_SUCCESS;
+}
+DECLARE_XBOXKRNL_EXPORT1(ObInsertObject, kNone, kSketchy);
 
 }  // namespace xboxkrnl
 }  // namespace kernel

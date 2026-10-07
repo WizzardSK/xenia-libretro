@@ -111,28 +111,38 @@ bool VulkanImmediateDrawer::Initialize() {
   const VulkanDevice::Functions& dfn = vulkan_device_->functions();
   const VkDevice device = vulkan_device_->device();
 
-  VkDescriptorSetLayoutBinding texture_descriptor_set_layout_binding;
-  texture_descriptor_set_layout_binding.binding = 0;
-  texture_descriptor_set_layout_binding.descriptorType =
-      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  texture_descriptor_set_layout_binding.descriptorCount = 1;
-  texture_descriptor_set_layout_binding.stageFlags =
+  // Separate sampled image (binding 0) and sampler (binding 1), matching the
+  // slang-compiled immediate pixel shader (Slang emits separate texture and
+  // sampler, not a GLSL-style combined image sampler).
+  VkDescriptorSetLayoutBinding texture_descriptor_set_layout_bindings[2] = {};
+  texture_descriptor_set_layout_bindings[0].binding = 0;
+  texture_descriptor_set_layout_bindings[0].descriptorType =
+      VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+  texture_descriptor_set_layout_bindings[0].descriptorCount = 1;
+  texture_descriptor_set_layout_bindings[0].stageFlags =
       VK_SHADER_STAGE_FRAGMENT_BIT;
-  texture_descriptor_set_layout_binding.pImmutableSamplers = nullptr;
+  texture_descriptor_set_layout_bindings[0].pImmutableSamplers = nullptr;
+  texture_descriptor_set_layout_bindings[1].binding = 1;
+  texture_descriptor_set_layout_bindings[1].descriptorType =
+      VK_DESCRIPTOR_TYPE_SAMPLER;
+  texture_descriptor_set_layout_bindings[1].descriptorCount = 1;
+  texture_descriptor_set_layout_bindings[1].stageFlags =
+      VK_SHADER_STAGE_FRAGMENT_BIT;
+  texture_descriptor_set_layout_bindings[1].pImmutableSamplers = nullptr;
   VkDescriptorSetLayoutCreateInfo texture_descriptor_set_layout_create_info;
   texture_descriptor_set_layout_create_info.sType =
       VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   texture_descriptor_set_layout_create_info.pNext = nullptr;
   texture_descriptor_set_layout_create_info.flags = 0;
-  texture_descriptor_set_layout_create_info.bindingCount = 1;
+  texture_descriptor_set_layout_create_info.bindingCount = 2;
   texture_descriptor_set_layout_create_info.pBindings =
-      &texture_descriptor_set_layout_binding;
+      texture_descriptor_set_layout_bindings;
   if (dfn.vkCreateDescriptorSetLayout(
           device, &texture_descriptor_set_layout_create_info, nullptr,
           &texture_descriptor_set_layout_) != VK_SUCCESS) {
     XELOGE(
-        "VulkanImmediateDrawer: Failed to create the combined image sampler "
-        "descriptor set layout");
+        "VulkanImmediateDrawer: Failed to create the texture descriptor set "
+        "layout");
     return false;
   }
 
@@ -803,9 +813,12 @@ uint32_t VulkanImmediateDrawer::AllocateTextureDescriptor() {
   }
 
   // Create a new pool and allocate the descriptor from it.
-  VkDescriptorPoolSize descriptor_pool_size;
-  descriptor_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  descriptor_pool_size.descriptorCount =
+  VkDescriptorPoolSize descriptor_pool_sizes[2];
+  descriptor_pool_sizes[0].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+  descriptor_pool_sizes[0].descriptorCount =
+      TextureDescriptorPool::kDescriptorCount;
+  descriptor_pool_sizes[1].type = VK_DESCRIPTOR_TYPE_SAMPLER;
+  descriptor_pool_sizes[1].descriptorCount =
       TextureDescriptorPool::kDescriptorCount;
   VkDescriptorPoolCreateInfo descriptor_pool_create_info;
   descriptor_pool_create_info.sType =
@@ -813,14 +826,14 @@ uint32_t VulkanImmediateDrawer::AllocateTextureDescriptor() {
   descriptor_pool_create_info.pNext = nullptr;
   descriptor_pool_create_info.flags = 0;
   descriptor_pool_create_info.maxSets = TextureDescriptorPool::kDescriptorCount;
-  descriptor_pool_create_info.poolSizeCount = 1;
-  descriptor_pool_create_info.pPoolSizes = &descriptor_pool_size;
+  descriptor_pool_create_info.poolSizeCount = 2;
+  descriptor_pool_create_info.pPoolSizes = descriptor_pool_sizes;
   VkDescriptorPool descriptor_pool;
   if (dfn.vkCreateDescriptorPool(device, &descriptor_pool_create_info, nullptr,
                                  &descriptor_pool) != VK_SUCCESS) {
     XELOGE(
-        "VulkanImmediateDrawer: Failed to create a combined image sampler "
-        "descriptor pool with {} descriptors",
+        "VulkanImmediateDrawer: Failed to create a texture descriptor pool "
+        "with {} descriptors",
         TextureDescriptorPool::kDescriptorCount);
     return UINT32_MAX;
   }
@@ -828,9 +841,7 @@ uint32_t VulkanImmediateDrawer::AllocateTextureDescriptor() {
   VkDescriptorSet descriptor_set;
   if (dfn.vkAllocateDescriptorSets(device, &allocate_info, &descriptor_set) !=
       VK_SUCCESS) {
-    XELOGE(
-        "VulkanImmediateDrawer: Failed to allocate a combined image sampler "
-        "descriptor");
+    XELOGE("VulkanImmediateDrawer: Failed to allocate a texture descriptor");
     dfn.vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
     return UINT32_MAX;
   }
@@ -968,18 +979,26 @@ bool VulkanImmediateDrawer::CreateTextureResource(
   descriptor_image_info.sampler = ui_samplers_->samplers()[ui_sampler_index];
   descriptor_image_info.imageView = image_view;
   descriptor_image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  VkWriteDescriptorSet descriptor_write;
-  descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptor_write.pNext = nullptr;
-  descriptor_write.dstSet = GetTextureDescriptor(descriptor_index);
-  descriptor_write.dstBinding = 0;
-  descriptor_write.dstArrayElement = 0;
-  descriptor_write.descriptorCount = 1;
-  descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  descriptor_write.pImageInfo = &descriptor_image_info;
-  descriptor_write.pBufferInfo = nullptr;
-  descriptor_write.pTexelBufferView = nullptr;
-  dfn.vkUpdateDescriptorSets(device, 1, &descriptor_write, 0, nullptr);
+  // One VkDescriptorImageInfo serves both writes - the sampled image write
+  // uses imageView/imageLayout, the sampler write uses sampler.
+  VkDescriptorSet texture_descriptor_set =
+      GetTextureDescriptor(descriptor_index);
+  VkWriteDescriptorSet descriptor_writes[2] = {};
+  descriptor_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  descriptor_writes[0].dstSet = texture_descriptor_set;
+  descriptor_writes[0].dstBinding = 0;
+  descriptor_writes[0].dstArrayElement = 0;
+  descriptor_writes[0].descriptorCount = 1;
+  descriptor_writes[0].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+  descriptor_writes[0].pImageInfo = &descriptor_image_info;
+  descriptor_writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  descriptor_writes[1].dstSet = texture_descriptor_set;
+  descriptor_writes[1].dstBinding = 1;
+  descriptor_writes[1].dstArrayElement = 0;
+  descriptor_writes[1].descriptorCount = 1;
+  descriptor_writes[1].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+  descriptor_writes[1].pImageInfo = &descriptor_image_info;
+  dfn.vkUpdateDescriptorSets(device, 2, descriptor_writes, 0, nullptr);
 
   // Create and fill the upload buffer.
 

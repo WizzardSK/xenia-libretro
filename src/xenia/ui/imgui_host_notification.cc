@@ -48,9 +48,9 @@ void HostNotificationWindow::OnDraw(ImGuiIO& io) {
     return;
   }
 
-  const std::string longest_notification_text_line =
-      GetTitle().size() > GetDescription().size() ? GetTitle().c_str()
-                                                  : GetDescription().c_str();
+  const std::string_view longest_notification_text_line =
+      GetTitle().size() > GetDescription().size() ? GetTitle()
+                                                  : GetDescription();
 
   const ImVec2 screen_size = io.DisplaySize;
   const float window_scale =
@@ -59,7 +59,7 @@ void HostNotificationWindow::OnDraw(ImGuiIO& io) {
   const float font_size = io.Fonts->Fonts[0]->FontSize;
   const ImVec2 text_size = io.Fonts->Fonts[0]->CalcTextSizeA(
       font_size * window_scale, FLT_MAX, -1.0f,
-      longest_notification_text_line.c_str());
+      longest_notification_text_line.data());
 
   const ImVec2 notification_size =
       CalculateNotificationSize(text_size, window_scale);
@@ -78,9 +78,9 @@ void HostNotificationWindow::OnDraw(ImGuiIO& io) {
   {
     ImGui::SetWindowFontScale(window_scale);
 
-    ImGui::Text("%s", GetTitle().c_str());
+    ImGui::Text("%s", GetTitle().data());
     ImGui::Separator();
-    ImGui::Text("%s", GetDescription().c_str());
+    ImGui::Text("%s", GetDescription().data());
   }
   ImGui::End();
 }

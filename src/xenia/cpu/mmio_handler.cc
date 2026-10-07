@@ -411,6 +411,18 @@ bool MMIOHandler::ExceptionCallback(Exception* ex) {
     return false;
   }
   bool is_write = operation == Exception::AccessViolationOperation::kWrite;
+  // No MMIO range applies to the user mode views. The memory callback takes
+  // their faults, write watches included.
+  const uint64_t user_membase =
+      uint64_t(user_membase_.load(std::memory_order_relaxed));
+  if (user_membase && ex->fault_address() - user_membase < 0x100000000ull) {
+    if (!access_violation_callback_) {
+      return false;
+    }
+    return access_violation_callback_(
+        global_critical_region_.Acquire(), access_violation_callback_context_,
+        reinterpret_cast<void*>(ex->fault_address()), is_write, ex);
+  }
   if (ex->fault_address() < uint64_t(virtual_membase_) ||
       ex->fault_address() > uint64_t(memory_end_)) {
     // Quick kill anything outside our mapping.
@@ -440,6 +452,22 @@ bool MMIOHandler::ExceptionCallback(Exception* ex) {
     // clears the watch we just hit).
     // Do this under the lock so we don't introduce another race condition.
     auto lock = global_critical_region_.Acquire();
+#if XE_PLATFORM_LINUX || XE_PLATFORM_MAC
+    // POSIX exception handling runs inside a signal handler (SIGSEGV / SIGBUS).
+    // QueryProtect is not async-signal-safe on either platform: Linux reads
+    // /proc/self/maps via std::ifstream, and macOS issues a mach_msg via
+    // mach_vm_region. Either can deadlock or corrupt state if the signal
+    // interrupted malloc, the C++ runtime, or another mach reply-port use.
+    // Skip the race-condition check and go straight to the callback — if
+    // watches were already cleared by another thread, TriggerCallbacks finds
+    // no watches and the page is unprotected by the time we retry.
+    if (access_violation_callback_) {
+      return access_violation_callback_(std::move(lock),
+                                        access_violation_callback_context_,
+                                        fault_host_address, is_write, ex);
+    }
+    return false;
+#else
     memory::PageAccess cur_access;
     size_t page_length = memory::page_size();
     memory::QueryProtect(fault_host_address, page_length, cur_access);
@@ -454,9 +482,10 @@ bool MMIOHandler::ExceptionCallback(Exception* ex) {
     if (access_violation_callback_) {
       return access_violation_callback_(std::move(lock),
                                         access_violation_callback_context_,
-                                        fault_host_address, is_write);
+                                        fault_host_address, is_write, ex);
     }
     return false;
+#endif
   }
 
   auto rip = ex->pc();

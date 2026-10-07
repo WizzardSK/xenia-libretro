@@ -27,7 +27,13 @@ ImGuiNotification::ImGuiNotification(ui::ImGuiDrawer* imgui_drawer,
       description_(description),
       user_index_(user_index),
       position_(position_id),
-      creation_time_(0) {}
+      creation_time_(0) {
+  notification_text_ = title_;
+  if (!description_.empty()) {
+    notification_text_.append("\n");
+    notification_text_.append(description_);
+  }
+}
 
 ImGuiNotification::~ImGuiNotification() {
   imgui_drawer_->RemoveNotification(this);

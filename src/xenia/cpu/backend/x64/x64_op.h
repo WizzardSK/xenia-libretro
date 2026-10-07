@@ -9,6 +9,8 @@
 #ifndef XENIA_CPU_BACKEND_X64_X64_OP_H_
 #define XENIA_CPU_BACKEND_X64_X64_OP_H_
 
+#include <type_traits>
+
 #include "xenia/cpu/backend/x64/x64_emitter.h"
 
 #include "xenia/cpu/hir/instr.h"
@@ -119,6 +121,10 @@ struct CombinedStruct<> {};
 template <typename T, typename... Ts>
 struct CombinedStruct<T, Ts...> : T, CombinedStruct<Ts...> {};
 
+// Set by reg() on a constant operand. SelectSequence reports it, since only it
+// knows the function and instruction being emitted.
+inline thread_local bool constant_read_as_reg = false;
+
 struct OpBase {};
 
 template <typename T, KeyType KEY_TYPE>
@@ -176,8 +182,7 @@ struct ValueOp : Op<ValueOp<T, KEY_TYPE, REG_TYPE, CONST_TYPE>, KEY_TYPE> {
   const REG_TYPE& reg() const {
     assert_true(!is_constant);
     if (is_constant) {
-      XELOGE("{} - Invalid handling of constant! Report this to developers!",
-             __FUNCTION__);
+      constant_read_as_reg = true;
     }
     return reg_;
   }
@@ -556,15 +561,31 @@ struct Sequence {
     }
   }
 
+  // src2 goes in dest, which callbacks must already allow to alias src2, or in
+  // xmm1 when dest is a GPR.
+  template <typename FN>
+  static void EmitBothConstantXmmOp(X64Emitter& e, const EmitArgType& i,
+                                    const FN& fn) {
+    e.LoadConstantXmm(e.xmm0, i.src1.constant());
+    if constexpr (std::is_same_v<typename decltype(i.dest)::reg_type,
+                                 Xbyak::Xmm>) {
+      e.LoadConstantXmm(i.dest.reg(), i.src2.constant());
+      fn(e, i.dest, e.xmm0, i.dest.reg());
+    } else {
+      e.LoadConstantXmm(e.xmm1, i.src2.constant());
+      fn(e, i.dest, e.xmm0, e.xmm1);
+    }
+  }
+
   template <typename FN>
   static void EmitCommutativeBinaryXmmOp(X64Emitter& e, const EmitArgType& i,
                                          const FN& fn) {
-    if (i.src1.is_constant) {
-      assert_true(!i.src2.is_constant);
+    if (i.src1.is_constant && i.src2.is_constant) {
+      EmitBothConstantXmmOp(e, i, fn);
+    } else if (i.src1.is_constant) {
       e.LoadConstantXmm(e.xmm0, i.src1.constant());
       fn(e, i.dest, e.xmm0, i.src2);
     } else if (i.src2.is_constant) {
-      assert_true(!i.src1.is_constant);
       e.LoadConstantXmm(e.xmm0, i.src2.constant());
       fn(e, i.dest, i.src1, e.xmm0);
     } else {
@@ -575,12 +596,12 @@ struct Sequence {
   template <typename FN>
   static void EmitAssociativeBinaryXmmOp(X64Emitter& e, const EmitArgType& i,
                                          const FN& fn) {
-    if (i.src1.is_constant) {
-      assert_true(!i.src2.is_constant);
+    if (i.src1.is_constant && i.src2.is_constant) {
+      EmitBothConstantXmmOp(e, i, fn);
+    } else if (i.src1.is_constant) {
       e.LoadConstantXmm(e.xmm0, i.src1.constant());
       fn(e, i.dest, e.xmm0, i.src2);
     } else if (i.src2.is_constant) {
-      assert_true(!i.src1.is_constant);
       e.LoadConstantXmm(e.xmm0, i.src2.constant());
       fn(e, i.dest, i.src1, e.xmm0);
     } else {
@@ -667,6 +688,52 @@ static Xmm GetInputRegOrConstant(X64Emitter& e, const T& input,
   } else {
     return input;
   }
+}
+
+// Runs a VMX float binop and gives an invalid operation PPC's answer. x86
+// supplies its negative indefinite where PPC supplies the positive default
+// QNaN, and only a lane that went NaN with no NaN operand is affected. That
+// is rare, so the rewrite lives in tail code and the result keeps a bare op
+// on its dependency chain.
+//
+// Scratch use is constrained by the callers: a constant operand lands in
+// xmm0 or xmm1, so only xmm2 and xmm3 are free before the sources die.
+template <typename FN>
+static void EmitVmxFloatBinOp(X64Emitter& e, const Xmm& dest, const Xmm& src1,
+                              const Xmm& src2, const FN& op) {
+  // The op destroys any source that shares dest's register, and the tail
+  // still needs both operands, so keep a copy of the one that collides.
+  Xmm s1 = src1;
+  Xmm s2 = src2;
+  if (dest.getIdx() == src1.getIdx()) {
+    e.vmovaps(e.xmm2, src1);
+    s1 = e.xmm2;
+    if (src2.getIdx() == src1.getIdx()) {
+      s2 = e.xmm2;
+    }
+  } else if (dest.getIdx() == src2.getIdx()) {
+    e.vmovaps(e.xmm2, src2);
+    s2 = e.xmm2;
+  }
+
+  op(e, dest, src1, src2);
+
+  Xbyak::Label& done = e.NewCachedLabel();
+  Xbyak::Label& fixup =
+      e.AddToTail([&done, dest, s1, s2](X64Emitter& e, Xbyak::Label& tail) {
+        e.L(tail);
+        // Read the operands before xmm0 is touched: one of them may be there.
+        e.vcmpunordps(e.xmm3, s1, s2);
+        e.vcmpunordps(e.xmm0, dest, dest);
+        e.vandnps(e.xmm0, e.xmm3, e.xmm0);
+        e.vblendvps(dest, dest, e.GetXmmConstPtr(XMMQNaN), e.xmm0);
+        e.jmp(done, e.T_NEAR);
+      });
+  // xmm3 rather than xmm0, which may still hold a constant operand.
+  e.vcmpunordps(e.xmm3, dest, dest);
+  e.vptest(e.xmm3, e.xmm3);
+  e.jnz(fixup, e.T_NEAR);
+  e.L(done);
 }
 }  // namespace x64
 }  // namespace backend

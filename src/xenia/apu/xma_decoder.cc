@@ -56,13 +56,19 @@ extern "C" {
 DEFINE_bool(ffmpeg_verbose, false, "Verbose FFmpeg output (debug and above)",
             "APU");
 
-DEFINE_bool(use_dedicated_xma_thread, true,
-            "Enables XMA decoding on separate thread. Disabled should produce "
-            "better results, but decrease performance a bit.",
+DEFINE_bool(use_dedicated_xma_thread, false,
+            "Decode XMA on a separate thread.\n"
+            "Off decodes on the guest thread that kicked the context, costing "
+            "that thread the decode but leaving the title's data always "
+            "current.\n"
+            "On returns from the kick before the decode finishes, moving the "
+            "work off the guest thread at the cost of a title that reads its "
+            "context straight afterwards seeing stale data.",
             "APU");
+UPDATE_from_bool(use_dedicated_xma_thread, 2026, 8, 21, 0, true);
 
 DEFINE_string(
-    xma_decoder, "old",
+    xma_decoder, "new",
     "Decoder version used to process XMA audio.\n"
     "Use: [fake, master, old, new]\n"
     " fake: \n  No audio will be decoded.\n"
@@ -72,6 +78,8 @@ DEFINE_string(
     " new: \n  New version of decoder. Provides highest stability, but isn't "
     "yet finished.\n",
     "APU");
+
+UPDATE_from_string(xma_decoder, 2026, 2, 16, 12, "old");
 
 namespace xe {
 namespace apu {
@@ -195,17 +203,11 @@ X_STATUS XmaDecoder::Setup(kernel::KernelState* kernel_state) {
 }
 
 void XmaDecoder::WorkerThreadMain() {
-  uint32_t idle_loop_count = 0;
   while (worker_running_) {
     // Okay, let's loop through XMA contexts to find ones we need to decode!
     bool did_work = false;
     for (uint32_t n = 0; n < kContextCount; n++) {
       did_work = contexts_[n]->Work() || did_work;
-
-      // TODO: Need thread safety to do this.
-      // Probably not too important though.
-      // registers_.current_context = n;
-      // registers_.next_context = (n + 1) % kContextCount;
     }
 
     if (paused_) {
@@ -213,10 +215,8 @@ void XmaDecoder::WorkerThreadMain() {
       resume_fence_.Wait();
     }
 
-    if (!did_work) {
-      idle_loop_count++;
-    } else {
-      idle_loop_count = 0;
+    if (did_work) {
+      continue;
     }
     xe::threading::Wait(work_event_.get(), false);
   }
@@ -362,11 +362,10 @@ void XmaDecoder::WriteRegister(uint32_t addr, uint32_t value) {
       const uint32_t context_id = base_context_id + std::countr_zero(value);
       auto& context = *contexts_[context_id];
       context.Disable();
+      // Ensure the worker isn't mid-processing this context.
+      context.Block(false);
       value &= value - 1;
     }
-
-    // Signal the decoder thread to start processing.
-    // work_event_->Set();
   } else if (r >= XmaRegister::Context0Clear &&
              r <= XmaRegister::Context9Clear) {
     // Context clear command.

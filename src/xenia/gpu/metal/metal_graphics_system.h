@@ -15,8 +15,6 @@
 #include "xenia/gpu/command_processor.h"
 #include "xenia/gpu/graphics_system.h"
 
-#include "third_party/metal-cpp/Metal/Metal.hpp"
-
 namespace xe {
 namespace gpu {
 namespace metal {

@@ -12,6 +12,7 @@
 
 #include <cstring>
 #include <string>
+#include <tuple>
 #include <type_traits>
 
 #include "xenia/base/byte_order.h"
@@ -28,23 +29,6 @@ namespace kernel {
 
 using PPCContext = xe::cpu::ppc::PPCContext;
 
-#define SHIM_CALL void
-#define SHIM_SET_MAPPING(library_name, export_name, shim_data) \
-  export_resolver->SetFunctionMapping(                         \
-      library_name, ordinals::export_name,                     \
-      (xe::cpu::xe_kernel_export_shim_fn)export_name##_entry);
-
-#define SHIM_MEM_ADDR(a) ((a) ? ppc_context->TranslateVirtual(a) : nullptr)
-
-#define SHIM_MEM_8(a) xe::load_and_swap<uint8_t>(SHIM_MEM_ADDR(a))
-#define SHIM_MEM_16(a) xe::load_and_swap<uint16_t>(SHIM_MEM_ADDR(a))
-#define SHIM_MEM_32(a) xe::load_and_swap<uint32_t>(SHIM_MEM_ADDR(a))
-#define SHIM_MEM_64(a) xe::load_and_swap<uint64_t>(SHIM_MEM_ADDR(a))
-#define SHIM_SET_MEM_8(a, v) xe::store_and_swap<uint8_t>(SHIM_MEM_ADDR(a), v)
-#define SHIM_SET_MEM_16(a, v) xe::store_and_swap<uint16_t>(SHIM_MEM_ADDR(a), v)
-#define SHIM_SET_MEM_32(a, v) xe::store_and_swap<uint32_t>(SHIM_MEM_ADDR(a), v)
-#define SHIM_SET_MEM_64(a, v) xe::store_and_swap<uint64_t>(SHIM_MEM_ADDR(a), v)
-
 namespace util {
 inline uint32_t get_arg_stack_ptr(PPCContext* ppc_context, uint8_t index) {
   return ((uint32_t)ppc_context->r[1]) + 0x54 + index * 8;
@@ -54,32 +38,36 @@ inline uint8_t get_arg_8(PPCContext* ppc_context, uint8_t index) {
   if (index <= 7) {
     return (uint8_t)ppc_context->r[3 + index];
   }
-  uint32_t stack_address = get_arg_stack_ptr(ppc_context, index - 8);
-  return SHIM_MEM_8(stack_address);
+  const uint32_t stack_address = get_arg_stack_ptr(ppc_context, index - 8);
+  return xe::load_and_swap<uint8_t>(
+      ppc_context->TranslateVirtual(stack_address));
 }
 
 inline uint16_t get_arg_16(PPCContext* ppc_context, uint8_t index) {
   if (index <= 7) {
     return (uint16_t)ppc_context->r[3 + index];
   }
-  uint32_t stack_address = get_arg_stack_ptr(ppc_context, index - 8);
-  return SHIM_MEM_16(stack_address);
+  const uint32_t stack_address = get_arg_stack_ptr(ppc_context, index - 8);
+  return xe::load_and_swap<uint16_t>(
+      ppc_context->TranslateVirtual(stack_address));
 }
 
 inline uint32_t get_arg_32(PPCContext* ppc_context, uint8_t index) {
   if (index <= 7) {
     return (uint32_t)ppc_context->r[3 + index];
   }
-  uint32_t stack_address = get_arg_stack_ptr(ppc_context, index - 8);
-  return SHIM_MEM_32(stack_address);
+  const uint32_t stack_address = get_arg_stack_ptr(ppc_context, index - 8);
+  return xe::load_and_swap<uint32_t>(
+      ppc_context->TranslateVirtual(stack_address));
 }
 
 inline uint64_t get_arg_64(PPCContext* ppc_context, uint8_t index) {
   if (index <= 7) {
     return ppc_context->r[3 + index];
   }
-  uint32_t stack_address = get_arg_stack_ptr(ppc_context, index - 8);
-  return SHIM_MEM_64(stack_address);
+  const uint32_t stack_address = get_arg_stack_ptr(ppc_context, index - 8);
+  return xe::load_and_swap<uint64_t>(
+      ppc_context->TranslateVirtual(stack_address));
 }
 
 inline std::string_view TranslateAnsiString(const Memory* memory,
@@ -98,13 +86,18 @@ inline std::string TranslateAnsiPath(const Memory* memory,
       std::string(TranslateAnsiString(memory, ansi_string)));
 }
 
+// A null pointer is no string. Translating it would point at guest address 0.
+inline const X_ANSI_STRING* TranslateAnsiStringPointer(const Memory* memory,
+                                                       uint32_t guest_address) {
+  return guest_address
+             ? memory->TranslateVirtual<const X_ANSI_STRING*>(guest_address)
+             : nullptr;
+}
+
 inline std::string_view TranslateAnsiStringAddress(const Memory* memory,
                                                    uint32_t guest_address) {
-  if (!guest_address) {
-    return "";
-  }
-  return TranslateAnsiString(
-      memory, memory->TranslateVirtual<const X_ANSI_STRING*>(guest_address));
+  return TranslateAnsiString(memory,
+                             TranslateAnsiStringPointer(memory, guest_address));
 }
 
 inline std::u16string TranslateUnicodeString(
@@ -128,14 +121,7 @@ inline std::u16string TranslateUnicodeString(
 }
 }  // namespace util
 
-#define SHIM_GET_ARG_8(n) util::get_arg_8(ppc_context, n)
-#define SHIM_GET_ARG_16(n) util::get_arg_16(ppc_context, n)
-#define SHIM_GET_ARG_32(n) util::get_arg_32(ppc_context, n)
-#define SHIM_GET_ARG_64(n) util::get_arg_64(ppc_context, n)
 #define SHIM_SET_RETURN_32(v) ppc_context->r[3] = (uint64_t)((int32_t)v)
-
-#define SHIM_STRUCT(type, address) \
-  reinterpret_cast<type*>(SHIM_MEM_ADDR(address))
 
 namespace shim {
 
@@ -467,7 +453,7 @@ inline void AppendParam(StringBuffer* string_buffer,
   string_buffer->AppendHexUInt32(record.guest_address());
   if (record) {
     auto name_string =
-        kernel_memory()->TranslateVirtual<X_ANSI_STRING*>(record->name_ptr);
+        util::TranslateAnsiStringPointer(kernel_memory(), record->name_ptr);
     std::string_view name =
         name_string == nullptr
             ? "(null)"
@@ -576,7 +562,13 @@ struct ExportRegistrerHelper {
         if (TAGS & xe::cpu::ExportTag::kLog &&
             (!(TAGS & xe::cpu::ExportTag::kHighFrequency) ||
              cvars::log_high_frequency_kernel_calls)) {
-          PrintKernelCall(export_entry, params);
+          const LogLevel needed_level =
+              (export_entry->tags & xe::cpu::ExportTag::kImportant)
+                  ? LogLevel::Info
+                  : LogLevel::Debug;
+          if (logging::ShouldLog(needed_level, LogSrc::Kernel)) {
+            PrintKernelCall(export_entry, params);
+          }
         }
         if constexpr (std::is_void<R>::value) {
           KernelTrampoline(fn, std::forward<std::tuple<Ps...>>(params),

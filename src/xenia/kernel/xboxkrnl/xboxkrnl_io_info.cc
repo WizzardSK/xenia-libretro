@@ -7,7 +7,9 @@
  ******************************************************************************
  */
 
+#include "xenia/base/filesystem.h"
 #include "xenia/base/logging.h"
+#include "xenia/base/utf8.h"
 #include "xenia/kernel/info/file.h"
 #include "xenia/kernel/info/volume.h"
 #include "xenia/kernel/kernel_state.h"
@@ -116,8 +118,11 @@ dword_result_t NtQueryInformationFile_entry(
     case XFileNetworkOpenInformation: {
       // Make sure we're working with up-to-date information, just in case the
       // file size has changed via something other than NtSetInfoFile
-      // (eg. seems NtWriteFile might extend the file in some cases)
-      file->entry()->update();
+      // (eg. seems NtWriteFile might extend the file in some cases). The host
+      // lookup can block on a slow drive.
+      kernel_state()->RunBlockingIo(
+          [&]() { file->entry()->update(); },
+          GuestScheduler::BlockingCallClass::kConcurrent);
 
       auto info = info_ptr.as<X_FILE_NETWORK_OPEN_INFORMATION*>();
       info->creation_time = file->entry()->create_timestamp();
@@ -203,21 +208,28 @@ dword_result_t NtSetInformationFile_entry(
     case XFileBasicInformation: {
       auto info = info_ptr.as<X_FILE_BASIC_INFORMATION*>();
 
+      // The host calls can block on a slow drive.
       bool basic_result = true;
-      if (info->creation_time) {
-        basic_result &= file->entry()->SetCreateTimestamp(info->creation_time);
-      }
+      kernel_state()->RunBlockingIo(
+          [&]() {
+            if (info->creation_time) {
+              basic_result &=
+                  file->entry()->SetCreateTimestamp(info->creation_time);
+            }
 
-      if (info->last_access_time) {
-        basic_result &=
-            file->entry()->SetAccessTimestamp(info->last_access_time);
-      }
+            if (info->last_access_time) {
+              basic_result &=
+                  file->entry()->SetAccessTimestamp(info->last_access_time);
+            }
 
-      if (info->last_write_time) {
-        basic_result &= file->entry()->SetWriteTimestamp(info->last_write_time);
-      }
+            if (info->last_write_time) {
+              basic_result &=
+                  file->entry()->SetWriteTimestamp(info->last_write_time);
+            }
 
-      basic_result &= file->entry()->SetAttributes(info->attributes);
+            basic_result &= file->entry()->SetAttributes(info->attributes);
+          },
+          GuestScheduler::BlockingCallClass::kConcurrent);
       if (!basic_result) {
         result = X_STATUS_UNSUCCESSFUL;
       }
@@ -232,7 +244,7 @@ dword_result_t NtSetInformationFile_entry(
           util::TranslateAnsiPath(kernel_memory(), &info->ansi_string);
 
       // Place IsValidPath in path from where it can be accessed everywhere
-      if (!IsValidPath(target_path.string(), false)) {
+      if (!IsValidPath(xe::path_to_utf8(target_path), false)) {
         return X_STATUS_OBJECT_NAME_INVALID;
       }
 
@@ -265,7 +277,9 @@ dword_result_t NtSetInformationFile_entry(
       out_length = sizeof(*info);
 
       // Update the files vfs::Entry information
-      file->entry()->update();
+      kernel_state()->RunBlockingIo(
+          [&]() { file->entry()->update(); },
+          GuestScheduler::BlockingCallClass::kConcurrent);
       break;
     }
     case XFileEndOfFileInformation: {
@@ -274,7 +288,9 @@ dword_result_t NtSetInformationFile_entry(
       out_length = sizeof(*info);
 
       // Update the files vfs::Entry information
-      file->entry()->update();
+      kernel_state()->RunBlockingIo(
+          [&]() { file->entry()->update(); },
+          GuestScheduler::BlockingCallClass::kConcurrent);
       break;
     }
     case XFileCompletionInformation: {
@@ -393,7 +409,11 @@ dword_result_t NtQueryVolumeInformationFile_entry(
       XELOGW("Stub XFileFsDeviceInformation!");
       info->device_type =
           FILE_DEVICE_UNKNOWN;  // 415608D8 checks for FILE_DEVICE_EHSTOR;
-      info->characteristics = 0;
+      // 58480880 deletes a content package it reopens unless its volume
+      // reports exactly 2. What the value means isn't known.
+      const bool is_content_package = xe::utf8::starts_with(
+          file_device->mount_path(), "\\Device\\Content\\");
+      info->characteristics = is_content_package ? 2 : 0;
       out_length = sizeof(X_FILE_FS_DEVICE_INFORMATION);
       break;
     }

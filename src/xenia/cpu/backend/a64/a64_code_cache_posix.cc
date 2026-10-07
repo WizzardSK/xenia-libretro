@@ -2,48 +2,99 @@
  ******************************************************************************
  * Xenia : Xbox 360 Emulator Research Project                                 *
  ******************************************************************************
- * Copyright 2025 Ben Vanik. All rights reserved.
- * Released under the BSD license - see LICENSE in the root for more details.
+ * Copyright 2026 Ben Vanik. All rights reserved.                             *
+ * Released under the BSD license - see LICENSE in the root for more details. *
  ******************************************************************************
  */
 
 #include "xenia/cpu/backend/a64/a64_code_cache.h"
 
-#include <sys/mman.h>
-#include <unistd.h>
-#include <cstdlib>
 #include <cstring>
-
-#ifdef XE_PLATFORM_MAC
-#include <libkern/OSCacheControl.h>
-#include <pthread.h>
-#endif
+#include <vector>
 
 #include "xenia/base/assert.h"
-#include "xenia/base/clock.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/math.h"
-#include "xenia/base/memory.h"
-#include "xenia/cpu/function.h"
+#include "xenia/base/platform.h"
+
+// libgcc/libunwind APIs for registering DWARF .eh_frame unwind info.
+// libgcc takes a pointer to a [CIE | FDEs | terminator] section and walks it.
+// Apple/LLVM libunwind takes a single FDE pointer and must be called once
+// per FDE, so on XE_PLATFORM_MAC we walk the buffer ourselves.
+extern "C" void __register_frame(void*);
+extern "C" void __deregister_frame(void*);
 
 namespace xe {
 namespace cpu {
 namespace backend {
 namespace a64 {
 
-// ARM64 unwind-op codes for POSIX (simplified)
-typedef enum _UNWIND_OP_CODES_POSIX {
-  UWOP_POSIX_NOP = 0x00,
-  UWOP_POSIX_ALLOC_STACK = 0x01,
-  UWOP_POSIX_SAVE_FP_LR = 0x02,
-  UWOP_POSIX_SET_FP = 0x03,
-  UWOP_POSIX_END = 0xFF,
-} UNWIND_CODE_OPS_POSIX;
+// Maximum size of DWARF .eh_frame data per function (CIE + FDE + terminator).
+static constexpr uint32_t kMaxUnwindInfoSize = 128;
 
-using UNWIND_CODE_POSIX = uint8_t;
+// DWARF register numbers for AArch64.
+static constexpr uint8_t kDwarfRegX19 = 19;
+static constexpr uint8_t kDwarfRegX20 = 20;
+static constexpr uint8_t kDwarfRegX21 = 21;
+static constexpr uint8_t kDwarfRegX22 = 22;
+static constexpr uint8_t kDwarfRegX23 = 23;
+static constexpr uint8_t kDwarfRegX24 = 24;
+static constexpr uint8_t kDwarfRegX25 = 25;
+static constexpr uint8_t kDwarfRegX26 = 26;
+static constexpr uint8_t kDwarfRegX27 = 27;
+static constexpr uint8_t kDwarfRegX28 = 28;
+static constexpr uint8_t kDwarfRegFP = 29;  // x29 / frame pointer
+static constexpr uint8_t kDwarfRegLR = 30;  // x30 / link register
+static constexpr uint8_t kDwarfRegSP = 31;  // stack pointer
+static constexpr uint8_t kDwarfRegD8 = 72;  // d8-d15 are callee-saved
+static constexpr uint8_t kDwarfRegD9 = 73;
+static constexpr uint8_t kDwarfRegD10 = 74;
+static constexpr uint8_t kDwarfRegD11 = 75;
+static constexpr uint8_t kDwarfRegD12 = 76;
+static constexpr uint8_t kDwarfRegD13 = 77;
+static constexpr uint8_t kDwarfRegD14 = 78;
+static constexpr uint8_t kDwarfRegD15 = 79;
 
-// Size of unwind info per function.
-static const size_t kUnwindInfoSize = 16;
+// DWARF CFA opcodes.
+static constexpr uint8_t kDW_CFA_advance_loc1 = 0x02;
+static constexpr uint8_t kDW_CFA_advance_loc2 = 0x03;
+static constexpr uint8_t kDW_CFA_offset_extended = 0x05;
+static constexpr uint8_t kDW_CFA_def_cfa = 0x0c;
+static constexpr uint8_t kDW_CFA_def_cfa_offset = 0x0e;
+static constexpr uint8_t kDW_CFA_nop = 0x00;
+
+// DWARF pointer encoding constants.
+static constexpr uint8_t kDW_EH_PE_pcrel = 0x10;
+static constexpr uint8_t kDW_EH_PE_sdata4 = 0x0b;
+
+static size_t WriteULEB128(uint8_t* p, uint64_t value) {
+  size_t count = 0;
+  do {
+    uint8_t byte = value & 0x7F;
+    value >>= 7;
+    if (value) {
+      byte |= 0x80;
+    }
+    p[count++] = byte;
+  } while (value);
+  return count;
+}
+
+static size_t WriteSLEB128(uint8_t* p, int64_t value) {
+  size_t count = 0;
+  bool more = true;
+  while (more) {
+    uint8_t byte = value & 0x7F;
+    value >>= 7;
+    if ((value == 0 && !(byte & 0x40)) || (value == -1 && (byte & 0x40))) {
+      more = false;
+    } else {
+      byte |= 0x80;
+    }
+    p[count++] = byte;
+  }
+  return count;
+}
 
 class PosixA64CodeCache : public A64CodeCache {
  public:
@@ -52,32 +103,20 @@ class PosixA64CodeCache : public A64CodeCache {
 
   bool Initialize() override;
 
-  void* LookupUnwindInfo(uint64_t host_pc) override;
-
- protected:
-  void CopyMachineCode(void* dest, const void* src, size_t size) override;
+  void* LookupUnwindInfo(uint64_t host_pc) override { return nullptr; }
 
  private:
-  struct UnwindInfo {
-    uint64_t begin_address;
-    uint64_t end_address;
-    // Additional unwind information can be added here
-  };
-
   UnwindReservation RequestUnwindReservation(uint8_t* entry_address) override;
   void PlaceCode(uint32_t guest_address, void* machine_code,
                  const EmitFunctionInfo& func_info, void* code_execute_address,
                  UnwindReservation unwind_reservation) override;
 
   void InitializeUnwindEntry(uint8_t* unwind_entry_address,
-                             size_t unwind_table_slot,
                              void* code_execute_address,
                              const EmitFunctionInfo& func_info);
 
-  // Unwind table entries.
-  std::vector<UnwindInfo> unwind_table_;
-  // Current number of entries in the table.
-  std::atomic<uint32_t> unwind_table_count_ = {0};
+  std::vector<void*> registered_frames_;
+  uint32_t unwind_table_count_ = 0;
 };
 
 std::unique_ptr<A64CodeCache> A64CodeCache::Create() {
@@ -87,35 +126,33 @@ std::unique_ptr<A64CodeCache> A64CodeCache::Create() {
 PosixA64CodeCache::PosixA64CodeCache() = default;
 
 PosixA64CodeCache::~PosixA64CodeCache() {
-  // Cleanup if necessary
+  for (auto frame : registered_frames_) {
+    __deregister_frame(frame);
+  }
 }
 
 bool PosixA64CodeCache::Initialize() {
   if (!A64CodeCache::Initialize()) {
     return false;
   }
-
-  // Resize (not reserve) space for unwind table entries to ensure vector has
-  // actual elements
-  unwind_table_.resize(kMaximumFunctionCount);
-
-  // Additional POSIX-specific initialization can be done here
-
+  registered_frames_.reserve(kMaximumFunctionCount);
   return true;
 }
 
-void PosixA64CodeCache::CopyMachineCode(void* dest, const void* src,
-                                        size_t size) {
-  std::memcpy(dest, src, size);
-}
-
-PosixA64CodeCache::UnwindReservation
-PosixA64CodeCache::RequestUnwindReservation(uint8_t* entry_address) {
-  uint32_t current_count = unwind_table_count_.fetch_add(1);
-  assert_false(current_count >= kMaximumFunctionCount);
+A64CodeCache::UnwindReservation PosixA64CodeCache::RequestUnwindReservation(
+    uint8_t* entry_address) {
+#if defined(NDEBUG)
+  if (unwind_table_count_ >= kMaximumFunctionCount) {
+    xe::FatalError(
+        "Unwind table count exceeded maximum! Please report this to "
+        "Xenia developers");
+  }
+#else
+  assert_false(unwind_table_count_ >= kMaximumFunctionCount);
+#endif
   UnwindReservation unwind_reservation;
-  unwind_reservation.data_size = xe::round_up(kUnwindInfoSize, 16);
-  unwind_reservation.table_slot = current_count;
+  unwind_reservation.data_size = xe::round_up(kMaxUnwindInfoSize, 16);
+  unwind_reservation.table_slot = unwind_table_count_++;
   unwind_reservation.entry_address = entry_address;
   return unwind_reservation;
 }
@@ -124,75 +161,223 @@ void PosixA64CodeCache::PlaceCode(uint32_t guest_address, void* machine_code,
                                   const EmitFunctionInfo& func_info,
                                   void* code_execute_address,
                                   UnwindReservation unwind_reservation) {
-  // Add unwind info.
-  InitializeUnwindEntry(
-      reinterpret_cast<uint8_t*>(unwind_reservation.entry_address),
-      unwind_reservation.table_slot, code_execute_address, func_info);
+  InitializeUnwindEntry(unwind_reservation.entry_address, code_execute_address,
+                        func_info);
 
-  // Add entry to unwind table at the reserved slot only
-  UnwindInfo unwind_info;
-  unwind_info.begin_address = reinterpret_cast<uintptr_t>(code_execute_address);
-  unwind_info.end_address =
-      unwind_info.begin_address + func_info.code_size.total;
-
-  // Store in the reserved slot
-  unwind_table_[unwind_reservation.table_slot] = unwind_info;
-
-  // Validate address alignment before cache flushing
-  if (reinterpret_cast<uintptr_t>(code_execute_address) % 4 != 0) {
-    XELOGW(
-        "PosixA64CodeCache::PlaceCode: WARNING - code address 0x{:016X} is not "
-        "4-byte aligned",
-        reinterpret_cast<uintptr_t>(code_execute_address));
+  uint8_t* unwind_execute_address = unwind_reservation.entry_address -
+                                    generated_code_write_base_ +
+                                    generated_code_execute_base_;
+#if XE_PLATFORM_MAC
+  // Walk [CIE | FDE | terminator] and register each FDE individually.
+  const uint8_t* p = unwind_reservation.entry_address;
+  uint8_t* p_execute = unwind_execute_address;
+  while (true) {
+    uint32_t length = *reinterpret_cast<const uint32_t*>(p);
+    if (length == 0) {
+      break;
+    }
+    uint32_t cie_id_or_ptr = *reinterpret_cast<const uint32_t*>(p + 4);
+    if (cie_id_or_ptr != 0) {
+      __register_frame(p_execute);
+      registered_frames_.push_back(p_execute);
+    }
+    p += 4 + length;
+    p_execute += 4 + length;
   }
-
-  if (func_info.code_size.total % 4 != 0) {
-    XELOGW(
-        "PosixA64CodeCache::PlaceCode: WARNING - code size {} is not 4-byte "
-        "aligned",
-        func_info.code_size.total);
-  }
-
-  // Flush instruction cache
-#ifdef XE_PLATFORM_MAC
-  // On macOS, use sys_icache_invalidate
-  sys_icache_invalidate(code_execute_address, func_info.code_size.total);
 #else
-  // On Linux and other POSIX systems, use GCC builtin
-  __builtin___clear_cache(
-      static_cast<char*>(code_execute_address),
-      static_cast<char*>(code_execute_address) + func_info.code_size.total);
+  __register_frame(unwind_execute_address);
+  registered_frames_.push_back(unwind_execute_address);
 #endif
 }
 
 void PosixA64CodeCache::InitializeUnwindEntry(
-    uint8_t* unwind_entry_address, size_t unwind_table_slot,
-    void* code_execute_address, const EmitFunctionInfo& func_info) {
-  // Initialize unwind information for POSIX (simplified example)
-  // In practice, you would populate this with proper unwind info
-  // based on the function prologue and epilogue.
+    uint8_t* unwind_entry_address, void* code_execute_address,
+    const EmitFunctionInfo& func_info) {
+  // Compute execute-side base address of the unwind buffer.
+  uint8_t* unwind_execute_base = unwind_entry_address -
+                                 generated_code_write_base_ +
+                                 generated_code_execute_base_;
 
-  // NOTE: Unwind info is already stored in PlaceCode, so we don't store it
-  // again here to avoid the double-storage bug that was causing memory
-  // corruption.
-}
+  uint8_t* p = unwind_entry_address;
+  uint8_t* cie_start = p;
 
-void* PosixA64CodeCache::LookupUnwindInfo(uint64_t host_pc) {
-  // Binary search the unwind table for the given program counter
-  size_t left = 0;
-  size_t right = unwind_table_count_.load();
-  while (left < right) {
-    size_t mid = left + (right - left) / 2;
-    const UnwindInfo& info = unwind_table_[mid];
-    if (host_pc < info.begin_address) {
-      right = mid;
-    } else if (host_pc >= info.end_address) {
-      left = mid + 1;
-    } else {
-      return &unwind_table_[mid];
+  // === CIE (Common Information Entry) ===
+  uint8_t* cie_length_ptr = p;
+  p += 4;
+
+  uint8_t* cie_content_start = p;
+
+  // CIE ID = 0.
+  *reinterpret_cast<uint32_t*>(p) = 0;
+  p += 4;
+
+  // Version = 1.
+  *p++ = 1;
+
+  // Augmentation string "zR".
+  *p++ = 'z';
+  *p++ = 'R';
+  *p++ = '\0';
+
+  // Code alignment factor = 4 (ARM64 instructions are 4 bytes).
+  p += WriteULEB128(p, 4);
+
+  // Data alignment factor = -8.
+  p += WriteSLEB128(p, -8);
+
+  // Return address register = x30 (LR).
+  p += WriteULEB128(p, kDwarfRegLR);
+
+  // Augmentation data length = 1.
+  p += WriteULEB128(p, 1);
+
+  // FDE pointer encoding: pc-relative, signed 32-bit.
+  *p++ = kDW_EH_PE_pcrel | kDW_EH_PE_sdata4;
+
+  // Initial instructions:
+  // DW_CFA_def_cfa SP, 0 — at function entry, CFA = SP.
+  *p++ = kDW_CFA_def_cfa;
+  p += WriteULEB128(p, kDwarfRegSP);
+  p += WriteULEB128(p, 0);
+
+  // Pad CIE to pointer-size (8-byte) alignment.
+  size_t cie_content_len = static_cast<size_t>(p - cie_content_start);
+  size_t cie_padded_len = xe::round_up(cie_content_len, sizeof(void*));
+  while (p < cie_content_start + cie_padded_len) {
+    *p++ = kDW_CFA_nop;
+  }
+
+  *reinterpret_cast<uint32_t*>(cie_length_ptr) =
+      static_cast<uint32_t>(p - cie_content_start);
+
+  // === FDE (Frame Description Entry) ===
+  uint8_t* fde_length_ptr = p;
+  p += 4;
+
+  uint8_t* fde_content_start = p;
+
+  // CIE pointer.
+  *reinterpret_cast<uint32_t*>(p) = static_cast<uint32_t>(p - cie_start);
+  p += 4;
+
+  // PC begin (pc-relative).
+  uint8_t* pc_begin_execute_addr =
+      unwind_execute_base + (p - unwind_entry_address);
+  *reinterpret_cast<int32_t*>(p) =
+      static_cast<int32_t>(reinterpret_cast<intptr_t>(code_execute_address) -
+                           reinterpret_cast<intptr_t>(pc_begin_execute_addr));
+  p += 4;
+
+  // PC range.
+  *reinterpret_cast<uint32_t*>(p) =
+      static_cast<uint32_t>(func_info.code_size.total);
+  p += 4;
+
+  // Augmentation data length = 0.
+  p += WriteULEB128(p, 0);
+
+  // FDE instructions.
+  if (func_info.stack_size > 0) {
+    // Advance to the instruction after the stack allocation.
+    size_t alloc_offset = func_info.prolog_stack_alloc_offset;
+    if (alloc_offset > 0) {
+      // ARM64 code alignment factor is 4, so divide by 4.
+      uint32_t factored_offset = static_cast<uint32_t>(alloc_offset / 4);
+      if (factored_offset < 64) {
+        *p++ = 0x40 | static_cast<uint8_t>(factored_offset);
+      } else if (factored_offset < 256) {
+        *p++ = kDW_CFA_advance_loc1;
+        *p++ = static_cast<uint8_t>(factored_offset);
+      } else {
+        *p++ = kDW_CFA_advance_loc2;
+        *reinterpret_cast<uint16_t*>(p) =
+            static_cast<uint16_t>(factored_offset);
+        p += 2;
+      }
+    }
+
+    // DW_CFA_def_cfa_offset: CFA = SP + stack_size.
+    *p++ = kDW_CFA_def_cfa_offset;
+    p += WriteULEB128(p, func_info.stack_size);
+
+    if (func_info.is_host_to_guest_thunk) {
+      // HostToGuest thunk: encode all callee-saved register save locations.
+      // See a64_stack_layout.h for the layout.
+      size_t cfa = func_info.stack_size;
+
+      // GPRs: x19-x28 saved as stp pairs at sp+0x00..0x48
+      *p++ = 0x80 | kDwarfRegX19;
+      p += WriteULEB128(p, (cfa - 0x000) / 8);
+      *p++ = 0x80 | kDwarfRegX20;
+      p += WriteULEB128(p, (cfa - 0x008) / 8);
+      *p++ = 0x80 | kDwarfRegX21;
+      p += WriteULEB128(p, (cfa - 0x010) / 8);
+      *p++ = 0x80 | kDwarfRegX22;
+      p += WriteULEB128(p, (cfa - 0x018) / 8);
+      *p++ = 0x80 | kDwarfRegX23;
+      p += WriteULEB128(p, (cfa - 0x020) / 8);
+      *p++ = 0x80 | kDwarfRegX24;
+      p += WriteULEB128(p, (cfa - 0x028) / 8);
+      *p++ = 0x80 | kDwarfRegX25;
+      p += WriteULEB128(p, (cfa - 0x030) / 8);
+      *p++ = 0x80 | kDwarfRegX26;
+      p += WriteULEB128(p, (cfa - 0x038) / 8);
+      *p++ = 0x80 | kDwarfRegX27;
+      p += WriteULEB128(p, (cfa - 0x040) / 8);
+      *p++ = 0x80 | kDwarfRegX28;
+      p += WriteULEB128(p, (cfa - 0x048) / 8);
+      // x29 (FP) and x30 (LR) at sp+0x050, sp+0x058
+      *p++ = 0x80 | kDwarfRegFP;
+      p += WriteULEB128(p, (cfa - 0x050) / 8);
+      *p++ = 0x80 | kDwarfRegLR;
+      p += WriteULEB128(p, (cfa - 0x058) / 8);
+      // NEON: d8-d15 saved as full q8-q15 via stp pairs at sp+0x060..0xDF.
+      // Each Q is 16 bytes; d8-d15 are the low 64 bits of q8-q15.
+      // stp q8,q9 at sp+0x060: d8=sp+0x060, d9=sp+0x070
+      // stp q10,q11 at sp+0x080: d10=sp+0x080, d11=sp+0x090
+      // stp q12,q13 at sp+0x0A0: d12=sp+0x0A0, d13=sp+0x0B0
+      // stp q14,q15 at sp+0x0C0: d14=sp+0x0C0, d15=sp+0x0D0
+      // d8-d15 are DWARF regs 72-79; the 0x80|reg shorthand only fits regs
+      // < 64, so encode them with DW_CFA_offset_extended (op, regULEB,
+      // offULEB).
+      auto emit_offset_extended = [&p](uint8_t reg, uint64_t factored_offset) {
+        *p++ = kDW_CFA_offset_extended;
+        p += WriteULEB128(p, reg);
+        p += WriteULEB128(p, factored_offset);
+      };
+      emit_offset_extended(kDwarfRegD8, (cfa - 0x060) / 8);
+      emit_offset_extended(kDwarfRegD9, (cfa - 0x070) / 8);
+      emit_offset_extended(kDwarfRegD10, (cfa - 0x080) / 8);
+      emit_offset_extended(kDwarfRegD11, (cfa - 0x090) / 8);
+      emit_offset_extended(kDwarfRegD12, (cfa - 0x0A0) / 8);
+      emit_offset_extended(kDwarfRegD13, (cfa - 0x0B0) / 8);
+      emit_offset_extended(kDwarfRegD14, (cfa - 0x0C0) / 8);
+      emit_offset_extended(kDwarfRegD15, (cfa - 0x0D0) / 8);
+    } else if (func_info.lr_save_offset > 0) {
+      // Record where x30 (LR / return address) is saved.
+      // Without this, the unwinder cannot find the return address.
+      *p++ = 0x80 | kDwarfRegLR;
+      p += WriteULEB128(p,
+                        (func_info.stack_size - func_info.lr_save_offset) / 8);
     }
   }
-  return nullptr;
+
+  // Pad FDE.
+  size_t fde_content_len = static_cast<size_t>(p - fde_content_start);
+  size_t fde_padded_len = xe::round_up(fde_content_len, sizeof(void*));
+  while (p < fde_content_start + fde_padded_len) {
+    *p++ = kDW_CFA_nop;
+  }
+
+  *reinterpret_cast<uint32_t*>(fde_length_ptr) =
+      static_cast<uint32_t>(p - fde_content_start);
+
+  // === Terminator ===
+  *reinterpret_cast<uint32_t*>(p) = 0;
+  p += 4;
+
+  assert_true(static_cast<size_t>(p - unwind_entry_address) <=
+              kMaxUnwindInfoSize);
 }
 
 }  // namespace a64

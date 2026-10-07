@@ -10,7 +10,14 @@
 #ifndef XENIA_PLUGIN_LOADER_H_
 #define XENIA_PLUGIN_LOADER_H_
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wabsolute-value"
+#endif
 #include "third_party/tomlplusplus/toml.hpp"
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/memory.h"
 

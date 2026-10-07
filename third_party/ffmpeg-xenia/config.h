@@ -11,8 +11,13 @@
 #define FFMPEG_LICENSE "LGPL version 2.1 or later"
 #define CONFIG_THIS_YEAR 2021
 #define av_restrict restrict
+#ifdef __APPLE__
+#define EXTERN_PREFIX "_"
+#define EXTERN_ASM _
+#else
 #define EXTERN_PREFIX ""
 #define EXTERN_ASM
+#endif
 #define BUILDSUF ""
 #define HAVE_MMX2 HAVE_MMXEXT
 #define SWS_MAX_FILTER_SIZE 256
@@ -32,10 +37,13 @@
 #define ARCH_X86 0
 #define ARCH_X86_64 0
 
-#if defined(__aarch64__)
-  /* ARM64 (Android, Linux) */
-  #define SLIBSUF ".so"
-  #define HAVE_MMXEXT 0 /* compared with HAVE_MMX2 in libavutil/utils.c */
+#if defined(__aarch64__) || defined(_M_ARM64)
+  /* ARM64 */
+  #if defined(_WIN32)
+    #define SLIBSUF ".dll"
+  #else
+    #define SLIBSUF ".so"
+  #endif
   #undef  ARCH_AARCH64
   #define ARCH_AARCH64 1
   #define HAVE_ARMV8 1
@@ -44,14 +52,33 @@
   #define HAVE_ARMV8_EXTERNAL 1
   #define HAVE_NEON_EXTERNAL 1
   #define HAVE_VFP_EXTERNAL 1
-  #define HAVE_ARMV8_INLINE 1
-  #define HAVE_NEON_INLINE 1
-  #define HAVE_VFP_INLINE 1
+  #if defined(_MSC_VER)
+    #define HAVE_ARMV8_INLINE 0
+    #define HAVE_NEON_INLINE 0
+    #define HAVE_VFP_INLINE 0
+  #else
+    #define HAVE_ARMV8_INLINE 1
+    #define HAVE_NEON_INLINE 1
+    #define HAVE_VFP_INLINE 1
+  #endif
   #define HAVE_INTRINSICS_NEON 1
+  #define HAVE_AS_FUNC 0
+  #define HAVE_AS_ARCH_DIRECTIVE 0
+  #define HAVE_AS_ARCHEXT_CRC_DIRECTIVE 0
+  #define HAVE_AS_ARCHEXT_DOTPROD_DIRECTIVE 0
+  #define HAVE_AS_ARCHEXT_I8MM_DIRECTIVE 0
+  #define HAVE_AS_ARCHEXT_SVE_DIRECTIVE 0
+  #define HAVE_AS_ARCHEXT_SVE2_DIRECTIVE 0
+  #define HAVE_AS_ARCHEXT_SME_DIRECTIVE 0
+  #define HAVE_AS_ARCHEXT_SME_I16I64_DIRECTIVE 0
+  #define HAVE_AS_ARCHEXT_SME2_DIRECTIVE 0
   #define HAVE_ALIGNED_STACK 1
   #define HAVE_FAST_64BIT 1
   #define HAVE_FAST_CLZ 1
+  #define HAVE_LOCAL_ALIGNED 1
   #define HAVE_SIMD_ALIGN_16 1
+  #define HAVE_SIMD_ALIGN_32 0
+  #define HAVE_SIMD_ALIGN_64 0
 #elif defined(__x86_64__) || defined(_M_X64)
   /* x86_64 (Windows, Linux, Android x86_64) */
   #if defined(_WIN32)
@@ -270,7 +297,11 @@
   #define HAVE_TERMIOS_H 1
   #define HAVE_SEM_TIMEDWAIT 1
   #define HAVE_SYNC_VAL_COMPARE_AND_SWAP 1
+#ifdef __APPLE__
+  #define HAVE_SECTION_DATA_REL_RO 0
+#else
   #define HAVE_SECTION_DATA_REL_RO 1
+#endif
   #define HAVE_CLOCK_GETTIME 1
   #define HAVE_FCNTL 1
   #define HAVE_GETADDRINFO 1
@@ -329,7 +360,11 @@
 #define HAVE_THREADS 1
 #define HAVE_ACCESS 1
 #define HAVE_ISATTY 1
+#ifdef __APPLE__
+#define HAVE_MALLOC_H 0
+#else
 #define HAVE_MALLOC_H 1
+#endif
 #define HAVE_PRAGMA_DEPRECATED 1
 
 /* Math functions */

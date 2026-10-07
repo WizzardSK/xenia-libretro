@@ -55,7 +55,7 @@ class ImGuiNotification {
                     std::string& description, uint8_t user_index,
                     uint8_t position_id = 0);
 
-  ~ImGuiNotification();
+  virtual ~ImGuiNotification();
 
   void Draw();
 
@@ -82,22 +82,14 @@ class ImGuiNotification {
     return current_time - creation_time_ > time_to_close_;
   }
 
-  const std::string GetNotificationText() const {
-    std::string text = title_;
-
-    if (!description_.empty()) {
-      text.append("\n" + description_);
-    }
-    return text;
-  }
-
   void SetCreationTime(uint64_t new_creation_time) {
     creation_time_ = new_creation_time;
   }
 
   const bool IsMarkedForDeletion() const { return marked_for_deletion_; }
-  const std::string GetTitle() const { return title_; }
-  const std::string GetDescription() const { return description_; }
+  std::string_view GetTitle() const { return title_; }
+  std::string_view GetDescription() const { return description_; }
+  std::string_view GetNotificationText() const { return notification_text_; }
 
   const uint8_t GetPositionId() const { return position_; }
   const uint8_t GetUserIndex() const { return user_index_; }
@@ -128,6 +120,7 @@ class ImGuiNotification {
 
   std::string title_;
   std::string description_;
+  std::string notification_text_;
 
   bool marked_for_deletion_ = false;
 

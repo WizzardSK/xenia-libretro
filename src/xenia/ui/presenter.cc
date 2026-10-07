@@ -276,6 +276,15 @@ void Presenter::PaintFromUIThread(bool force_paint) {
       // is consistent with painting from the UI thread.
       SetPaintModeFromUIThread(PaintMode::kUIThreadOnRequest);
 
+      // Whether a guest frame arrived since the previous paint, used by the
+      // UI tick rate limit to avoid outpacing the guest
+      uint64_t guest_output_refresh_count =
+          guest_output_refresh_count_.load(std::memory_order_relaxed);
+      guest_output_drove_current_ui_paint_ =
+          guest_output_refresh_count !=
+          guest_output_refresh_count_prev_ui_paint_;
+      guest_output_refresh_count_prev_ui_paint_ = guest_output_refresh_count;
+
       // Limit the frame rate of the UI, usually to the monitor refresh rate,
       // in a way so that the UI won't be stealing all the remaining GPU
       // resources if it's repainted continuously, and the window system itself
@@ -418,6 +427,13 @@ bool Presenter::RefreshGuestOutput(
     guest_output_mailbox_writable_ =
         (3 - last_acquired - guest_output_mailbox_writable_) % 3;
   }
+
+  // Count this frame so the UI thread can tell the guest output is driving the
+  // paint cadence and UI drawers don't request extra repaints on top of it.
+  guest_output_refresh_count_.fetch_add(1, std::memory_order_relaxed);
+  guest_output_last_refresh_ticks_.store(
+      std::chrono::steady_clock::now().time_since_epoch().count(),
+      std::memory_order_relaxed);
 
   // Trigger the presentation on the host.
   PaintResult paint_result = PaintResult::kNotPresented;
@@ -563,6 +579,14 @@ void Presenter::RemoveUIDrawerFromUIThread(UIDrawer* drawer) {
     HandleUIDrawersChangeFromUIThread(false);
     return;
   }
+}
+
+bool Presenter::IsGuestOutputDrivingPaints() const {
+  std::chrono::steady_clock::time_point last_refresh(
+      std::chrono::steady_clock::duration(
+          guest_output_last_refresh_ticks_.load(std::memory_order_relaxed)));
+  return std::chrono::steady_clock::now() - last_refresh <
+         std::chrono::milliseconds(kGuestOutputStallTimeoutMillis);
 }
 
 void Presenter::RequestUIPaintFromUIThread() {
@@ -1079,6 +1103,12 @@ Presenter::PaintMode Presenter::GetDesiredPaintModeFromUIThread(
   if (!cvars::host_present_from_non_ui_thread) {
     return PaintMode::kUIThreadOnRequest;
   }
+  if (surface_ && surface_->GetType() == Surface::kTypeIndex_WaylandWindow) {
+    // Wayland connections aren't thread-safe — GTK dispatches wl_display from
+    // the UI thread, so the GPU thread must not call vkQueuePresentKHR (which
+    // dispatches the same display) concurrently.
+    return PaintMode::kUIThreadOnRequest;
+  }
   if (surface_paint_connection_has_implicit_vsync_) {
     // Don't be causing host vertical sync CPU waits in the thread generating
     // the guest output.
@@ -1208,8 +1238,6 @@ void Presenter::UpdateSurfaceMonitorFromUIThread(
 #if XE_PLATFORM_WIN32
   HMONITOR surface_new_win32_monitor = nullptr;
   if (surface_) {
-    // Get HWND from the surface instead of assuming Win32Window
-    // This supports both Win32Window and QtWindow
     HWND hwnd = nullptr;
     if (surface_->GetType() == Surface::kTypeIndex_Win32Hwnd) {
       hwnd = static_cast<const Win32HwndSurface*>(surface_)->hwnd();
@@ -1391,14 +1419,17 @@ void Presenter::WaitForUITickFromUIThread() {
   if (!AreUITicksNeededFromUIThread()) {
     return;
   }
-  // On Linux, implement timer-based rate limiting at 60 FPS to match game frame
-  // rate.
-  auto now = std::chrono::steady_clock::now();
-  auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
-      now - linux_ui_tick_last_paint_time_);
-  constexpr auto frame_time = std::chrono::microseconds(16667);  // ~60 FPS
-  if (elapsed < frame_time) {
-    std::this_thread::sleep_for(frame_time - elapsed);
+  // Pace only the UI's own repaints, which would otherwise run uncapped (~3000
+  // fps) with a dialog open over an idle guest. While the guest output is
+  // driving paints, don't limit, so the present rate tracks the guest.
+  if (!guest_output_drove_current_ui_paint_) {
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+        now - linux_ui_tick_last_paint_time_);
+    constexpr auto frame_time = std::chrono::microseconds(16667);
+    if (elapsed < frame_time) {
+      std::this_thread::sleep_for(frame_time - elapsed);
+    }
   }
   linux_ui_tick_last_paint_time_ = std::chrono::steady_clock::now();
 #endif  // XE_PLATFORM

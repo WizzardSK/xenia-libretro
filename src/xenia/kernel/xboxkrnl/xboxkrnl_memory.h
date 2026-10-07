@@ -50,11 +50,14 @@ uint32_t xeMmAllocatePhysicalMemoryEx(uint32_t flags, uint32_t region_size,
 dword_result_t xeMmQueryStatistics(
     pointer_t<X_MM_QUERY_STATISTICS_RESULT> stats_ptr);
 uint32_t xeAllocatePoolTypeWithTag(PPCContext* context, uint32_t size,
-                                   uint32_t tag, uint32_t zero);
+                                   uint32_t tag, uint32_t pool_selector);
 
 void xeFreePool(PPCContext* context, uint32_t base_address);
 
 uint32_t xeMmCreateKernelStack(uint32_t size, uint32_t r4);
+
+// Forgets segment array copies a title left mapped, as its memory goes away.
+void xeMmForgetSegmentArrays();
 }  // namespace xboxkrnl
 }  // namespace kernel
 }  // namespace xe

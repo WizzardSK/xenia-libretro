@@ -536,9 +536,36 @@ struct ParsedTextureFetchInstruction {
   // is not always zero.
   uint32_t GetNonZeroResultComponents() const;
 
+  // Whether the fetch can return a single texel with no instruction override to
+  // linear/anisotropic filtering.
+  bool AllowsPointSampling(bool use_computed_lod) const {
+    return attributes.mag_filter != xenos::TextureFilter::kLinear &&
+           attributes.min_filter != xenos::TextureFilter::kLinear &&
+           attributes.mip_filter != xenos::TextureFilter::kLinear &&
+           (!use_computed_lod ||
+            attributes.aniso_filter == xenos::AnisoFilter::kDisabled ||
+            attributes.aniso_filter == xenos::AnisoFilter::kUseFetchConst);
+  }
+
+  // Whether a tfetch snaps its coordinates to the texel center instead of
+  // adding kTextureCoordEpsilon. Only point sampled 2D fetches with normalized
+  // coordinates snap. The fetch constant side is bit 26 in GetIntegerScaleBits.
+  // The epsilon is there so host rounding picks the texel guest trunc would,
+  // but near an edge it can push the sample into the next texel. That shows up
+  // as texture seams in 425307EC's virtual texture tables.
+  bool CanSnapToTexelCenter(bool use_computed_lod) const {
+    return opcode == ucode::FetchOpcode::kTextureFetch &&
+           dimension == xenos::FetchOpDimension::k2D &&
+           !attributes.unnormalized_coordinates &&
+           AllowsPointSampling(use_computed_lod);
+  }
+
   // Disassembles the instruction into ucode assembly text.
   void Disassemble(StringBuffer* out) const;
 };
+
+// Fixed point texture coordinate ULP (see ProcessTextureFetchInstruction).
+constexpr float kTextureCoordEpsilon = 1.5f / 1024.0f;
 
 struct ParsedAluInstruction {
   // Opcode for the vector part of the instruction.
@@ -791,10 +818,21 @@ class Shader {
     uint64_t modification() const { return modification_; }
 
     // True if the shader was translated and prepared without error.
-    bool is_valid() const { return is_valid_; }
+    bool is_valid() const { return is_valid_.load(std::memory_order_acquire); }
 
-    // True if the shader has already been translated.
-    bool is_translated() const { return is_translated_; }
+    // True if the shader has already been translated. Acquire-paired with the
+    // release store at the end of translation, so once this reads true, the
+    // validity, the errors and the translated binary are all published.
+    bool is_translated() const {
+      return is_translated_.load(std::memory_order_acquire);
+    }
+
+    // For background-thread translation: atomically claim the right to
+    // translate. Returns true if the caller should translate, false if another
+    // thread already claimed it (and is_translated() should be awaited).
+    bool TryClaimTranslation() {
+      return !translation_claimed_.test_and_set(std::memory_order_acq_rel);
+    }
 
     // Errors that occurred during translation.
     const std::vector<Error>& errors() const { return errors_; }
@@ -829,7 +867,7 @@ class Shader {
         : shader_(shader), modification_(modification) {}
 
     // If there was some failure during preparation on the implementation side.
-    void MakeInvalid() { is_valid_ = false; }
+    void MakeInvalid() { is_valid_.store(false, std::memory_order_release); }
 
     std::vector<uint8_t> translated_binary_;
 
@@ -840,8 +878,9 @@ class Shader {
     Shader& shader_;
     uint64_t modification_;
 
-    bool is_valid_ = false;
-    bool is_translated_ = false;
+    std::atomic<bool> is_valid_{false};
+    std::atomic<bool> is_translated_{false};
+    std::atomic_flag translation_claimed_ = ATOMIC_FLAG_INIT;
     std::vector<Error> errors_;
     std::string host_disassembly_;
   };
@@ -899,6 +938,9 @@ class Shader {
     return memexport_eM_potentially_written_before_end_;
   }
 
+  // Whether the shader contains subroutine calls (cond_call).
+  bool uses_subroutine_calls() const { return uses_subroutine_calls_; }
+
   // c# registers used as the addend in MAD operations to eA.
   const std::set<uint32_t>& memexport_stream_constants() const {
     return memexport_stream_constants_;
@@ -906,6 +948,19 @@ class Shader {
 
   // Labels that jumps (explicit or from loops) can be done to.
   const std::set<uint32_t>& label_addresses() const { return label_addresses_; }
+  // Components of registers 0-15, 4 bits per register, that may be written
+  // after the label in the program and then reach it by jumping back or
+  // returning from a subroutine. Zero for labels only jumped to forward.
+  uint64_t GetRegisterComponentsWrittenBeforeReentering(uint32_t label) const {
+    return label < reentered_label_register_components_written_.size()
+               ? reentered_label_register_components_written_[label]
+               : 0;
+  }
+  // Registers 0-15 used with absolute addressing as coordinates of texture
+  // fetches that may snap to texel centers (see CanSnapToTexelCenter).
+  uint32_t point_fetch_coordinate_registers() const {
+    return point_fetch_coordinate_registers_;
+  }
 
   // Exclusive upper bound of the indexes of paired control flow instructions
   // (each corresponds to 3 dwords).
@@ -1062,6 +1117,10 @@ class Shader {
   std::vector<TextureBinding> texture_bindings_;
   ConstantRegisterMap constant_register_map_ = {0};
   std::set<uint32_t> label_addresses_;
+  // Per control flow instruction index.
+  std::vector<uint64_t> cf_register_components_written_;
+  std::vector<uint64_t> reentered_label_register_components_written_;
+  uint32_t point_fetch_coordinate_registers_ = 0;
   uint32_t cf_pair_index_bound_ = 0;
   uint32_t register_static_address_bound_ = 0;
   uint32_t writes_interpolators_ = 0;
@@ -1082,6 +1141,8 @@ class Shader {
   // multiple predecessor chains exporting to memory).
   uint8_t memexport_eM_potentially_written_before_end_ = 0;
   std::set<uint32_t> memexport_stream_constants_;
+  // Set during analysis if the shader contains any cond_call.
+  bool uses_subroutine_calls_ = false;
 
   // Modification bits -> translation.
   std::unordered_map<uint64_t, Translation*> translations_;
@@ -1094,19 +1155,23 @@ class Shader {
       ucode::VertexFetchInstruction& previous_vfetch_full,
       uint32_t& unique_texture_bindings, StringBuffer& ucode_disasm_buffer);
   void GatherVertexFetchInformation(
-      const ucode::VertexFetchInstruction& op,
+      const ucode::VertexFetchInstruction& op, uint32_t exec_cf_index,
       ucode::VertexFetchInstruction& previous_vfetch_full,
       StringBuffer& ucode_disasm_buffer);
   void GatherTextureFetchInformation(const ucode::TextureFetchInstruction& op,
+                                     uint32_t exec_cf_index,
                                      uint32_t& unique_texture_bindings,
                                      StringBuffer& ucode_disasm_buffer);
   void GatherAluInstructionInformation(const ucode::AluInstruction& op,
                                        uint32_t exec_cf_index,
                                        StringBuffer& ucode_disasm_buffer);
   void GatherOperandInformation(const InstructionOperand& operand);
-  void GatherFetchResultInformation(const InstructionResult& result);
+  void GatherFetchResultInformation(const InstructionResult& result,
+                                    uint32_t exec_cf_index);
   void GatherAluResultInformation(const InstructionResult& result,
                                   uint32_t exec_cf_index);
+  void GatherRegisterWriteInformation(const InstructionResult& result,
+                                      uint32_t exec_cf_index);
 };
 
 }  // namespace gpu

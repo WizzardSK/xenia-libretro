@@ -54,3 +54,30 @@ test_vperm_5:
   #_ REGISTER_OUT v5 [10111213, 14151617, 18191A1B, 1C1D1E1F]
   #_ REGISTER_OUT v6 [01020003, 14150001, 1F1C1D1E, 00141518]
   
+
+# Inputs built from immediates rather than REGISTER_IN, so both permute
+# tables are compile time constants and Value::Permute folds the result
+# instead of the backend emitting it. Needs context_promote_vec128.
+
+test_vperm_const_1:
+  vspltisb v3, 1
+  vspltisb v4, 2
+  vspltisb v5, 0
+  vperm v6, v3, v4, v5
+  blr
+  #_ REGISTER_OUT v3 [01010101, 01010101, 01010101, 01010101]
+  #_ REGISTER_OUT v4 [02020202, 02020202, 02020202, 02020202]
+  #_ REGISTER_OUT v5 [00000000, 00000000, 00000000, 00000000]
+  #_ REGISTER_OUT v6 [01010101, 01010101, 01010101, 01010101]
+
+test_vperm_const_2:
+  # -16 is F0, which masks to 16 and so selects the first byte of vB
+  vspltisb v3, 1
+  vspltisb v4, 2
+  vspltisb v5, -16
+  vperm v6, v3, v4, v5
+  blr
+  #_ REGISTER_OUT v3 [01010101, 01010101, 01010101, 01010101]
+  #_ REGISTER_OUT v4 [02020202, 02020202, 02020202, 02020202]
+  #_ REGISTER_OUT v5 [F0F0F0F0, F0F0F0F0, F0F0F0F0, F0F0F0F0]
+  #_ REGISTER_OUT v6 [02020202, 02020202, 02020202, 02020202]

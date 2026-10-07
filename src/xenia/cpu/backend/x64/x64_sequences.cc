@@ -24,6 +24,7 @@
 
 #include "xenia/cpu/backend/x64/x64_sequences.h"
 
+#include <cstdio>
 #include <cstring>
 
 #include "xenia/base/assert.h"
@@ -33,22 +34,18 @@
 #include "xenia/cpu/backend/x64/x64_emitter.h"
 #include "xenia/cpu/backend/x64/x64_op.h"
 #include "xenia/cpu/backend/x64/x64_tracers.h"
-// needed for stmxcsr
+// Needed for MXCSR scratch storage.
 #include "xenia/cpu/backend/x64/x64_stack_layout.h"
 #include "xenia/cpu/backend/x64/x64_util.h"
+#include "xenia/cpu/cpu_flags.h"
 #include "xenia/cpu/hir/hir_builder.h"
 #include "xenia/cpu/processor.h"
 
 DEFINE_bool(use_fast_dot_product, false,
-            "Experimental optimization, much shorter sequence on dot products, "
-            "treating inf as overflow instead of using mcxsr"
-            "four insn dotprod",
+            "Use less accurate dot-product exception handling that converts "
+            "all infinite results to QNaN.",
             "CPU");
 
-DEFINE_bool(no_round_to_single, false,
-            "Not for users, breaks games. Skip rounding double values to "
-            "single precision and back",
-            "CPU");
 DEFINE_bool(inline_loadclock, false,
             "Directly read cached guest clock without calling the LoadClock "
             "method (it gets repeatedly updated by calls from other threads)",
@@ -70,8 +67,21 @@ using namespace xe::cpu::hir;
 
 using xe::cpu::hir::Instr;
 
+// The multiply-add family and the dot products flush denormals whatever NJM
+// says. Pinning that on needs an MXCSR of its own, which costs a mode switch
+// wherever they interleave with the rest of VMX, so it is opt in. Without it
+// they follow NJM like every other VMX op, which only differs once a title
+// clears VSCR.NJ.
+static MXCSRMode VmxDenormalFlushMode() {
+  return cvars::accurate_vmx_denormal_flush ? MXCSRMode::VmxDaz
+                                            : MXCSRMode::Vmx;
+}
+
 typedef bool (*SequenceSelectFn)(X64Emitter&, const Instr*, InstrKeyValue ikey);
-std::unordered_map<uint32_t, SequenceSelectFn> sequence_table;
+std::unordered_map<uint32_t, SequenceSelectFn>& SequenceTable() {
+  static auto* table = new std::unordered_map<uint32_t, SequenceSelectFn>();
+  return *table;
+}
 
 // ============================================================================
 // OPCODE_COMMENT
@@ -437,6 +447,70 @@ struct TOSINGLE_F64_F64
   }
 };
 EMITTER_OPCODE_TABLE(OPCODE_TO_SINGLE, TOSINGLE_F64_F64);
+
+// ============================================================================
+// OPCODE_UNPACK_SINGLE
+// ============================================================================
+// lfs widens without quieting, so only a signaling NaN needs the quiet bit the
+// host convert set cleared again.
+struct UNPACK_SINGLE
+    : Sequence<UNPACK_SINGLE, I<OPCODE_UNPACK_SINGLE, F64Op, I32Op>> {
+  static void Emit(X64Emitter& e, const EmitArgType& i) {
+    e.ChangeMxcsrMode(MXCSRMode::Fpu);
+    if (i.src1.is_constant) {
+      e.mov(e.eax, i.src1.constant());
+    } else {
+      e.mov(e.eax, i.src1);
+    }
+    e.vmovd(e.xmm0, e.eax);
+    e.vcvtss2sd(i.dest, e.xmm0);
+
+    Xbyak::Label done;
+    // An all-ones exponent is a NaN or an infinity; an infinity's bit 51 is
+    // already clear.
+    e.mov(e.edx, e.eax);
+    e.and_(e.edx, 0x7FFFFFFFu);
+    e.cmp(e.edx, 0x7F800000u);
+    e.jb(done);
+    // A quiet NaN already has the bit the convert set.
+    e.test(e.eax, 1u << 22);
+    e.jnz(done);
+    e.vmovq(e.rdx, i.dest);
+    e.btr(e.rdx, 51);
+    e.vmovq(i.dest, e.rdx);
+    e.L(done);
+  }
+};
+EMITTER_OPCODE_TABLE(OPCODE_UNPACK_SINGLE, UNPACK_SINGLE);
+
+// ============================================================================
+// OPCODE_PACK_SINGLE
+// ============================================================================
+// stfs narrows without quieting: a NaN gets the double's quiet bit back.
+struct PACK_SINGLE
+    : Sequence<PACK_SINGLE, I<OPCODE_PACK_SINGLE, I32Op, F64Op>> {
+  static void Emit(X64Emitter& e, const EmitArgType& i) {
+    e.ChangeMxcsrMode(MXCSRMode::Fpu);
+    Xbyak::Xmm src = GetInputRegOrConstant(e, i.src1, e.xmm1);
+    e.vcvtsd2ss(e.xmm0, src);
+    e.vmovd(i.dest, e.xmm0);
+
+    Xbyak::Label done;
+    e.vmovq(e.rax, src);
+    e.mov(e.rdx, e.rax);
+    // AND r64 only takes a sign-extended imm32, so clear the sign with BTR.
+    e.btr(e.rdx, 63);
+    e.mov(e.rcx, 0x7FF0000000000000ull);
+    e.cmp(e.rdx, e.rcx);
+    e.jbe(done);
+    e.shr(e.rax, 51 - 22);
+    e.and_(e.eax, 1u << 22);
+    e.and_(i.dest, ~(1u << 22));
+    e.or_(i.dest, e.eax);
+    e.L(done);
+  }
+};
+EMITTER_OPCODE_TABLE(OPCODE_PACK_SINGLE, PACK_SINGLE);
 // ============================================================================
 // OPCODE_ROUND
 // ============================================================================
@@ -461,6 +535,10 @@ struct ROUND_F64 : Sequence<ROUND_F64, I<OPCODE_ROUND, F64Op, F64Op>> {
         break;
       case ROUND_TO_POSITIVE_INFINITY:
         e.vroundsd(i.dest, src1, 0b00000010);
+        break;
+      case ROUND_DYNAMIC:
+        // Bit 2 takes the mode from MXCSR, which carries the guest's.
+        e.vroundsd(i.dest, src1, 0b00000100);
         break;
     }
   }
@@ -487,6 +565,42 @@ struct ROUND_V128 : Sequence<ROUND_V128, I<OPCODE_ROUND, V128Op, V128Op>> {
   }
 };
 EMITTER_OPCODE_TABLE(OPCODE_ROUND, ROUND_F32, ROUND_F64, ROUND_V128);
+
+// ============================================================================
+// OPCODE_CLEAR_FP_EXCEPTIONS
+// ============================================================================
+struct CLEAR_FP_EXCEPTIONS
+    : Sequence<CLEAR_FP_EXCEPTIONS, I<OPCODE_CLEAR_FP_EXCEPTIONS, VoidOp>> {
+  static void Emit(X64Emitter& e, const EmitArgType& i) {
+    // The stored mxcsr always has the sticky flags clear, so reloading it is
+    // both the mode we want and the clear.
+    e.ChangeMxcsrMode(MXCSRMode::Fpu);
+    e.vldmxcsr(e.GetBackendCtxPtr(offsetof(X64BackendContext, mxcsr_fpu)));
+  }
+};
+EMITTER_OPCODE_TABLE(OPCODE_CLEAR_FP_EXCEPTIONS, CLEAR_FP_EXCEPTIONS);
+
+// ============================================================================
+// OPCODE_LOAD_FP_EXCEPTIONS
+// ============================================================================
+struct LOAD_FP_EXCEPTIONS
+    : Sequence<LOAD_FP_EXCEPTIONS, I<OPCODE_LOAD_FP_EXCEPTIONS, I32Op>> {
+  static void Emit(X64Emitter& e, const EmitArgType& i) {
+    e.ChangeMxcsrMode(MXCSRMode::Fpu);
+    auto scratch =
+        e.GetBackendCtxPtr(offsetof(X64BackendContext, helper_scratch_u64s[0]));
+    e.vstmxcsr(scratch);
+    e.mov(i.dest, scratch);
+    // IE DE ZE OE UE PE -> invalid, div by zero, overflow, underflow, inexact.
+    // Dropping DE closes the gap, so everything above it shifts down one.
+    e.mov(e.eax, i.dest);
+    e.shr(i.dest, 1);
+    e.and_(i.dest, 0x1E);
+    e.and_(e.eax, FP_EXCEPTION_INVALID);
+    e.or_(i.dest, e.eax);
+  }
+};
+EMITTER_OPCODE_TABLE(OPCODE_LOAD_FP_EXCEPTIONS, LOAD_FP_EXCEPTIONS);
 
 // ============================================================================
 // OPCODE_LOAD_CLOCK
@@ -548,7 +662,11 @@ EMITTER_OPCODE_TABLE(OPCODE_CONTEXT_BARRIER, CONTEXT_BARRIER);
 // ============================================================================
 struct MAX_F32 : Sequence<MAX_F32, I<OPCODE_MAX, F32Op, F32Op, F32Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
-    assert_impossible_sequence(MAX_F32);
+    e.ChangeMxcsrMode(MXCSRMode::Fpu);
+    EmitCommutativeBinaryXmmOp(e, i,
+                               [](X64Emitter& e, Xmm dest, Xmm src1, Xmm src2) {
+                                 e.vmaxss(dest, src1, src2);
+                               });
   }
 };
 struct MAX_F64 : Sequence<MAX_F64, I<OPCODE_MAX, F64Op, F64Op, F64Op>> {
@@ -564,14 +682,73 @@ struct MAX_V128 : Sequence<MAX_V128, I<OPCODE_MAX, V128Op, V128Op, V128Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
     e.ChangeMxcsrMode(MXCSRMode::Vmx);
     // if 0 and -0, return 0! opposite of minfp
-    auto src1 = GetInputRegOrConstant(e, i.src1, e.xmm0);
-    auto src2 = GetInputRegOrConstant(e, i.src2, e.xmm1);
+    const Xmm src1 = GetInputRegOrConstant(e, i.src1, e.xmm0);
+    const Xmm src2 = GetInputRegOrConstant(e, i.src2, e.xmm1);
+
     e.vmaxps(e.xmm2, src1, src2);
     e.vmaxps(e.xmm3, src2, src1);
-    e.vorps(i.dest, e.xmm2, e.xmm3);
+    e.vandps(e.xmm2, e.xmm2, e.xmm3);
+
+    e.vcmpunordps(e.xmm3, src1, src1);  // mask: vA is NaN
+    e.vblendvps(e.xmm3, src2, src1, e.xmm3);
+    // Hardware returns that operand quieted. Lanes with no NaN are dropped by
+    // the blend below, so this needs no mask of its own.
+    e.vorps(e.xmm3, e.xmm3, e.GetXmmConstPtr(XMMQuietBit));
+
+    e.vcmpunordps(i.dest, src1, src2);  // mask: vA or vB is NaN
+    e.vblendvps(i.dest, e.xmm2, e.xmm3, i.dest);
   }
 };
 EMITTER_OPCODE_TABLE(OPCODE_MAX, MAX_F32, MAX_F64, MAX_V128);
+
+// ============================================================================
+// OPCODE_DENORMAL_QUIRK
+// ============================================================================
+// quirk = (any operand denormal) && (all operands finite), as i8 0/1.
+struct DENORMAL_QUIRK
+    : Sequence<DENORMAL_QUIRK,
+               I<OPCODE_DENORMAL_QUIRK, I8Op, F64Op, F64Op, F64Op>> {
+  static void Emit(X64Emitter& e, const EmitArgType& i) {
+    const Xmm ops[3] = {GetInputRegOrConstant(e, i.src1, e.xmm0),
+                        GetInputRegOrConstant(e, i.src2, e.xmm1),
+                        GetInputRegOrConstant(e, i.src3, e.xmm2)};
+    // rcx = min(|op| - 1): below 0x000FFFFFFFFFFFFF iff some operand is
+    // denormal. Subtracting one wraps a zero up to the top.
+    for (int k = 0; k < 3; ++k) {
+      const auto& gp = (k == 0) ? e.rcx : e.rax;
+      e.vmovq(gp, ops[k]);
+      e.btr(gp, 63);
+      e.sub(gp, 1);
+      if (k != 0) {
+        e.cmp(e.rax, e.rcx);
+        e.cmovb(e.rcx, e.rax);
+      }
+    }
+    e.mov(e.rax, 0x000FFFFFFFFFFFFFull);
+    e.cmp(e.rcx, e.rax);
+    Xbyak::Label slow, done;
+    e.jb(slow);
+    e.xor_(i.dest.reg().cvt32(), i.dest.reg().cvt32());
+    e.jmp(done);
+
+    // rcx = max(|op|): below infinity iff every operand is finite.
+    e.L(slow);
+    for (int k = 0; k < 3; ++k) {
+      const auto& gp = (k == 0) ? e.rcx : e.rax;
+      e.vmovq(gp, ops[k]);
+      e.btr(gp, 63);
+      if (k != 0) {
+        e.cmp(e.rax, e.rcx);
+        e.cmova(e.rcx, e.rax);
+      }
+    }
+    e.mov(e.rax, 0x7FF0000000000000ull);
+    e.cmp(e.rcx, e.rax);
+    e.setb(i.dest);
+    e.L(done);
+  }
+};
+EMITTER_OPCODE_TABLE(OPCODE_DENORMAL_QUIRK, DENORMAL_QUIRK);
 
 // ============================================================================
 // OPCODE_MIN
@@ -608,7 +785,11 @@ struct MIN_I64 : Sequence<MIN_I64, I<OPCODE_MIN, I64Op, I64Op, I64Op>> {
 };
 struct MIN_F32 : Sequence<MIN_F32, I<OPCODE_MIN, F32Op, F32Op, F32Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
-    assert_impossible_sequence(MIN_F32);
+    e.ChangeMxcsrMode(MXCSRMode::Fpu);
+    EmitCommutativeBinaryXmmOp(e, i,
+                               [](X64Emitter& e, Xmm dest, Xmm src1, Xmm src2) {
+                                 e.vminss(dest, src1, src2);
+                               });
   }
 };
 struct MIN_F64 : Sequence<MIN_F64, I<OPCODE_MIN, F64Op, F64Op, F64Op>> {
@@ -623,11 +804,21 @@ struct MIN_F64 : Sequence<MIN_F64, I<OPCODE_MIN, F64Op, F64Op, F64Op>> {
 struct MIN_V128 : Sequence<MIN_V128, I<OPCODE_MIN, V128Op, V128Op, V128Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
     e.ChangeMxcsrMode(MXCSRMode::Vmx);
-    auto src1 = GetInputRegOrConstant(e, i.src1, e.xmm0);
-    auto src2 = GetInputRegOrConstant(e, i.src2, e.xmm1);
+    const Xmm src1 = GetInputRegOrConstant(e, i.src1, e.xmm0);
+    const Xmm src2 = GetInputRegOrConstant(e, i.src2, e.xmm1);
+
     e.vminps(e.xmm2, src1, src2);
     e.vminps(e.xmm3, src2, src1);
-    e.vorps(i.dest, e.xmm2, e.xmm3);
+    e.vorps(e.xmm2, e.xmm2, e.xmm3);
+
+    e.vcmpunordps(e.xmm3, src1, src1);  // mask: vA is NaN
+    e.vblendvps(e.xmm3, src2, src1, e.xmm3);
+    // Hardware returns that operand quieted. Lanes with no NaN are dropped by
+    // the blend below, so this needs no mask of its own.
+    e.vorps(e.xmm3, e.xmm3, e.GetXmmConstPtr(XMMQuietBit));
+
+    e.vcmpunordps(i.dest, src1, src2);  // mask: vA or vB is NaN
+    e.vblendvps(i.dest, e.xmm2, e.xmm3, i.dest);
   }
 };
 EMITTER_OPCODE_TABLE(OPCODE_MIN, MIN_I8, MIN_I16, MIN_I32, MIN_I64, MIN_F32,
@@ -711,6 +902,24 @@ struct SELECT_F64
     e.ChangeMxcsrMode(MXCSRMode::Fpu);
     // dest = src1 != 0 ? src2 : src3
 
+    // A constant arm starts free in a GPR rather than needing an xmm of its
+    // own, so the choice itself runs on the integer ports and only the other
+    // arm and the result cross domains.
+    if (i.src2.is_constant != i.src3.is_constant) {
+      const bool constant_is_true_arm = i.src2.is_constant;
+      e.mov(e.rax, constant_is_true_arm ? i.src2.value->constant.u64
+                                        : i.src3.value->constant.u64);
+      e.vmovq(e.rcx, constant_is_true_arm ? i.src3.reg() : i.src2.reg());
+      e.test(i.src1, i.src1);
+      if (constant_is_true_arm) {
+        e.cmovz(e.rax, e.rcx);
+      } else {
+        e.cmovnz(e.rax, e.rcx);
+      }
+      e.vmovq(i.dest, e.rax);
+      return;
+    }
+
     if (e.IsFeatureEnabled(kX64EmitAVX512Ortho)) {
       e.movzx(e.rax, i.src1);
       e.vmovq(e.xmm0, e.rax);
@@ -730,23 +939,23 @@ struct SELECT_F64
       return;
     }
 
+    // Negating the 0/1 condition fills the sign bit the blend selects on.
     e.movzx(e.eax, i.src1);
-    e.vmovd(e.xmm1, e.eax);
-    e.vpxor(e.xmm0, e.xmm0);
-    e.vpcmpeqq(e.xmm0, e.xmm1);
+    e.neg(e.rax);
+    e.vmovq(e.xmm0, e.rax);
 
-    Xmm src2 = i.src2.is_constant ? e.xmm2 : i.src2;
+    // Distinct scratch per arm: a blend reads both at once.
+    Xmm src2 = i.src2.is_constant ? e.xmm1 : i.src2;
     if (i.src2.is_constant) {
       e.LoadConstantXmm(src2, i.src2.constant());
     }
-    e.vpandn(e.xmm1, e.xmm0, src2);
 
     Xmm src3 = i.src3.is_constant ? e.xmm2 : i.src3;
     if (i.src3.is_constant) {
       e.LoadConstantXmm(src3, i.src3.constant());
     }
-    e.vpand(i.dest, e.xmm0, src3);
-    e.vpor(i.dest, e.xmm1);
+
+    e.vblendvpd(i.dest, src3, src2, e.xmm0);
   }
 };
 struct SELECT_V128_I8
@@ -761,31 +970,81 @@ static bool IsVectorCompare(const Instr* i) {
   Opcode op = i->opcode->num;
   return op >= OPCODE_VECTOR_COMPARE_EQ && op <= OPCODE_VECTOR_COMPARE_UGE;
 }
+// vpblendvb only needs each byte to be 0x00 or 0xFF, but vblendvps picks a
+// whole 32-bit lane off that lane's high bit, so it additionally needs the
+// lane to be uniform.
+static PermittedBlend GetPermittedBlendForConstant(const vec128_t& c) {
+  for (int i = 0; i < 16; ++i) {
+    if (c.u8[i] != 0x00 && c.u8[i] != 0xFF) {
+      return PermittedBlend::NotPermitted;
+    }
+  }
+  for (int i = 0; i < 4; ++i) {
+    if (c.u32[i] != 0x00000000u && c.u32[i] != 0xFFFFFFFFu) {
+      return PermittedBlend::Int8;
+    }
+  }
+  return PermittedBlend::Ps;
+}
+
+// Bounds the walk below over selectors built from chained bitwise ops.
+static constexpr unsigned kMaxBlendSelectorDepth = 4;
+
 /*
     OPCODE_SELECT does a bit by bit selection, however, if the selector is the
    result of a comparison or if each element may only be 0xff or 0 we may use a
    blend instruction instead
 */
-static PermittedBlend GetPermittedBlendForSelectV128(const Value* src1v) {
+static PermittedBlend GetPermittedBlendForSelectV128(const Value* src1v,
+                                                     unsigned depth = 0) {
+  if (src1v->IsConstant()) {
+    return GetPermittedBlendForConstant(src1v->constant.v128);
+  }
   const Instr* df = src1v->def;
   if (!df) {
     return PermittedBlend::NotPermitted;
-  } else {
-    if (!IsVectorCompare(df)) {
-      return PermittedBlend::NotPermitted;  // todo: check ors, ands of
-                                            // condition
-    } else {
-      switch (df->flags) {  // check what datatype we compared as
-        case INT16_TYPE:
-        case INT32_TYPE:
-        case INT8_TYPE:
-          return PermittedBlend::Int8;  // use vpblendvb
-        case FLOAT32_TYPE:
-          return PermittedBlend::Ps;  // use vblendvps
-        default:                      // unknown type! just ignore
-          return PermittedBlend::NotPermitted;
-      }
+  }
+  if (IsVectorCompare(df)) {
+    switch (df->flags) {  // check what datatype we compared as
+      case INT16_TYPE:
+      case INT32_TYPE:
+      case INT8_TYPE:
+        return PermittedBlend::Int8;  // use vpblendvb
+      case FLOAT32_TYPE:
+        return PermittedBlend::Ps;  // use vblendvps
+      default:                      // unknown type! just ignore
+        return PermittedBlend::NotPermitted;
     }
+  }
+  if (depth >= kMaxBlendSelectorDepth) {
+    return PermittedBlend::NotPermitted;
+  }
+  // The bitwise ops map {0x00, 0xFF} onto itself bytewise, so a selector built
+  // by combining comparisons still blends.
+  switch (df->opcode->num) {
+    case OPCODE_NOT:
+      return GetPermittedBlendForSelectV128(df->src1.value, depth + 1);
+    case OPCODE_AND:
+    case OPCODE_AND_NOT:
+    case OPCODE_OR:
+    case OPCODE_XOR: {
+      PermittedBlend lhs =
+          GetPermittedBlendForSelectV128(df->src1.value, depth + 1);
+      if (lhs == PermittedBlend::NotPermitted) {
+        return PermittedBlend::NotPermitted;
+      }
+      PermittedBlend rhs =
+          GetPermittedBlendForSelectV128(df->src2.value, depth + 1);
+      if (rhs == PermittedBlend::NotPermitted) {
+        return PermittedBlend::NotPermitted;
+      }
+      // Lane uniformity only survives if both sides had it.
+      return (lhs == PermittedBlend::Ps && rhs == PermittedBlend::Ps)
+                 ? PermittedBlend::Ps
+                 : PermittedBlend::Int8;
+    }
+    default:
+      return PermittedBlend::NotPermitted;
   }
 }
 struct SELECT_V128_V128
@@ -794,8 +1053,8 @@ struct SELECT_V128_V128
   static void Emit(X64Emitter& e, const EmitArgType& i) {
     const Xmm src1 = i.src1.is_constant ? e.xmm0 : i.src1;
     PermittedBlend mayblend = GetPermittedBlendForSelectV128(i.src1.value);
-    // todo: detect whether src1 is only 0 or FFFF and use blends if so.
-    // currently we only detect cmps
+    // todo: prove src1 is only 0 or FFFF for the cases the walk above can't
+    // reach, e.g. a mask loaded from memory
     if (i.src1.is_constant) {
       e.LoadConstantXmm(src1, i.src1.constant());
     }
@@ -957,8 +1216,9 @@ struct COMPARE_EQ_I8
           [](X64Emitter& e, const Reg8& src1, int32_t constant) {
             if (constant == 0) {
               e.test(src1, src1);
-            } else
+            } else {
               e.cmp(src1, constant);
+            }
           });
     }
     CompareEqDoSete(e, i.instr, i.dest);
@@ -976,8 +1236,9 @@ struct COMPARE_EQ_I16
           [](X64Emitter& e, const Reg16& src1, int32_t constant) {
             if (constant == 0) {
               e.test(src1, src1);
-            } else
+            } else {
               e.cmp(src1, constant);
+            }
           });
     }
     CompareEqDoSete(e, i.instr, i.dest);
@@ -995,8 +1256,9 @@ struct COMPARE_EQ_I32
           [](X64Emitter& e, const Reg32& src1, int32_t constant) {
             if (constant == 0) {
               e.test(src1, src1);
-            } else
+            } else {
               e.cmp(src1, constant);
+            }
           });
     }
     CompareEqDoSete(e, i.instr, i.dest);
@@ -1014,8 +1276,9 @@ struct COMPARE_EQ_I64
           [](X64Emitter& e, const Reg64& src1, int32_t constant) {
             if (constant == 0) {
               e.test(src1, src1);
-            } else
+            } else {
               e.cmp(src1, constant);
+            }
           });
     }
     CompareEqDoSete(e, i.instr, i.dest);
@@ -1137,7 +1400,10 @@ struct COMPARE_NE_F32
   static void Emit(X64Emitter& e, const EmitArgType& i) {
     e.ChangeMxcsrMode(MXCSRMode::Fpu);
     if (!HasPrecedingCmpOfSameValues(i.instr)) {
-      e.vcomiss(i.src1, i.src2);
+      EmitCommutativeBinaryXmmOp(
+          e, i, [](X64Emitter& e, I8Op dest, const Xmm& src1, const Xmm& src2) {
+            e.vcomiss(src1, src2);
+          });
     }
     CompareNeDoSetne(e, i.instr, i.dest);
   }
@@ -1147,7 +1413,10 @@ struct COMPARE_NE_F64
   static void Emit(X64Emitter& e, const EmitArgType& i) {
     e.ChangeMxcsrMode(MXCSRMode::Fpu);
     if (!HasPrecedingCmpOfSameValues(i.instr)) {
-      e.vcomisd(i.src1, i.src2);
+      EmitCommutativeBinaryXmmOp(
+          e, i, [](X64Emitter& e, I8Op dest, const Xmm& src1, const Xmm& src2) {
+            e.vcomisd(src1, src2);
+          });
     }
     CompareNeDoSetne(e, i.instr, i.dest);
   }
@@ -1218,48 +1487,48 @@ EMITTER_ASSOCIATIVE_COMPARE_XX(UGE, setae, setbe);
 
 // https://web.archive.org/web/20171129015931/https://x86.renejeschke.de/html/file_module_x86_id_288.html
 // Original link: https://x86.renejeschke.de/html/file_module_x86_id_288.html
-#define EMITTER_ASSOCIATIVE_COMPARE_FLT_XX(op, emit_instr)            \
-  struct COMPARE_##op##_F32                                           \
-      : Sequence<COMPARE_##op##_F32,                                  \
-                 I<OPCODE_COMPARE_##op, I8Op, F32Op, F32Op>> {        \
-    static void Emit(X64Emitter& e, const EmitArgType& i) {           \
-      e.ChangeMxcsrMode(MXCSRMode::Fpu);                              \
-      if (!HasPrecedingCmpOfSameValues(i.instr)) {                    \
-        e.vcomiss(i.src1, i.src2);                                    \
-      }                                                               \
-      unsigned ctxoffset = 0;                                         \
-      if (MayCombineSetxWithFollowingCtxStore(i.instr, ctxoffset)) {  \
-        e.emit_instr(e.byte[e.GetContextReg() + ctxoffset]);          \
-      } else {                                                        \
-        e.emit_instr(i.dest);                                         \
-      }                                                               \
-    }                                                                 \
-  };                                                                  \
-  struct COMPARE_##op##_F64                                           \
-      : Sequence<COMPARE_##op##_F64,                                  \
-                 I<OPCODE_COMPARE_##op, I8Op, F64Op, F64Op>> {        \
-    static void Emit(X64Emitter& e, const EmitArgType& i) {           \
-      e.ChangeMxcsrMode(MXCSRMode::Fpu);                              \
-      if (!HasPrecedingCmpOfSameValues(i.instr)) {                    \
-        if (i.src1.is_constant) {                                     \
-          e.LoadConstantXmm(e.xmm0, i.src1.constant());               \
-          e.vcomisd(e.xmm0, i.src2);                                  \
-        } else if (i.src2.is_constant) {                              \
-          e.LoadConstantXmm(e.xmm0, i.src2.constant());               \
-          e.vcomisd(i.src1, e.xmm0);                                  \
-        } else {                                                      \
-          e.vcomisd(i.src1, i.src2);                                  \
-        }                                                             \
-      }                                                               \
-      unsigned ctxoffset = 0;                                         \
-      if (MayCombineSetxWithFollowingCtxStore(i.instr, ctxoffset)) {  \
-        e.emit_instr(e.byte[e.GetContextReg() + ctxoffset]);          \
-      } else {                                                        \
-        e.emit_instr(i.dest);                                         \
-      }                                                               \
-    }                                                                 \
-  };                                                                  \
-  EMITTER_OPCODE_TABLE(OPCODE_COMPARE_##op##_FLT, COMPARE_##op##_F32, \
+#define EMITTER_ASSOCIATIVE_COMPARE_FLT_XX(op, emit_instr)                   \
+  struct COMPARE_##op##_F32                                                  \
+      : Sequence<COMPARE_##op##_F32,                                         \
+                 I<OPCODE_COMPARE_##op, I8Op, F32Op, F32Op>> {               \
+    static void Emit(X64Emitter& e, const EmitArgType& i) {                  \
+      e.ChangeMxcsrMode(MXCSRMode::Fpu);                                     \
+      if (!HasPrecedingCmpOfSameValues(i.instr)) {                           \
+        EmitAssociativeBinaryXmmOp(                                          \
+            e, i,                                                            \
+            [](X64Emitter& e, I8Op dest, const Xmm& src1, const Xmm& src2) { \
+              e.vcomiss(src1, src2);                                         \
+            });                                                              \
+      }                                                                      \
+      unsigned ctxoffset = 0;                                                \
+      if (MayCombineSetxWithFollowingCtxStore(i.instr, ctxoffset)) {         \
+        e.emit_instr(e.byte[e.GetContextReg() + ctxoffset]);                 \
+      } else {                                                               \
+        e.emit_instr(i.dest);                                                \
+      }                                                                      \
+    }                                                                        \
+  };                                                                         \
+  struct COMPARE_##op##_F64                                                  \
+      : Sequence<COMPARE_##op##_F64,                                         \
+                 I<OPCODE_COMPARE_##op, I8Op, F64Op, F64Op>> {               \
+    static void Emit(X64Emitter& e, const EmitArgType& i) {                  \
+      e.ChangeMxcsrMode(MXCSRMode::Fpu);                                     \
+      if (!HasPrecedingCmpOfSameValues(i.instr)) {                           \
+        EmitAssociativeBinaryXmmOp(                                          \
+            e, i,                                                            \
+            [](X64Emitter& e, I8Op dest, const Xmm& src1, const Xmm& src2) { \
+              e.vcomisd(src1, src2);                                         \
+            });                                                              \
+      }                                                                      \
+      unsigned ctxoffset = 0;                                                \
+      if (MayCombineSetxWithFollowingCtxStore(i.instr, ctxoffset)) {         \
+        e.emit_instr(e.byte[e.GetContextReg() + ctxoffset]);                 \
+      } else {                                                               \
+        e.emit_instr(i.dest);                                                \
+      }                                                                      \
+    }                                                                        \
+  };                                                                         \
+  EMITTER_OPCODE_TABLE(OPCODE_COMPARE_##op##_FLT, COMPARE_##op##_F32,        \
                        COMPARE_##op##_F64);
 EMITTER_ASSOCIATIVE_COMPARE_FLT_XX(SLT, setb);
 EMITTER_ASSOCIATIVE_COMPARE_FLT_XX(SLE, setbe);
@@ -1281,6 +1550,50 @@ struct DID_SATURATE
   }
 };
 EMITTER_OPCODE_TABLE(OPCODE_DID_SATURATE, DID_SATURATE);
+
+// An invalid operation with no NaN operand answers with the default QNaN, and
+// x86's is negative where PPC's is positive. Only a NaN result can need the
+// fixup, so the test stays off the result's dependency chain and the work goes
+// to a tail block.
+template <typename ARGS, typename FN>
+static void EmitBinaryFpWithPpcDefaultNan_F64(X64Emitter& e, const ARGS& i,
+                                              FN&& emit_op) {
+  // The tail reads the original operands, so an aliased dest stages via xmm2.
+  const bool aliased = (!i.src1.is_constant && i.dest.reg() == i.src1.reg()) ||
+                       (!i.src2.is_constant && i.dest.reg() == i.src2.reg());
+  const Xmm target = aliased ? e.xmm2 : i.dest.reg();
+  Xbyak::Label& done = e.NewCachedLabel();
+  Xbyak::Label& invalid =
+      e.AddToTail([i, aliased, &done](X64Emitter& e, Xbyak::Label& tail) {
+        e.L(tail);
+        Xbyak::Label propagate;
+        // Re-derive rather than capture: a constant operand lives in xmm0 or
+        // xmm1, which the hot path is free to reuse.
+        Xmm s1 = GetInputRegOrConstant(e, i.src1, e.xmm0);
+        Xmm s2 = GetInputRegOrConstant(e, i.src2, e.xmm1);
+        e.vucomisd(s1, s1);
+        e.jp(propagate);
+        e.vucomisd(s2, s2);
+        e.jp(propagate);
+        e.mov(e.rax, 0x7FF8000000000000ull);
+        e.vmovq(i.dest, e.rax);
+        e.jmp(done, X64Emitter::T_NEAR);
+        e.L(propagate);
+        if (aliased) {
+          e.vmovapd(i.dest, e.xmm2);
+        }
+        e.jmp(done, X64Emitter::T_NEAR);
+      });
+  Xmm src1 = GetInputRegOrConstant(e, i.src1, e.xmm0);
+  Xmm src2 = GetInputRegOrConstant(e, i.src2, e.xmm1);
+  emit_op(e, target, src1, src2);
+  e.vucomisd(target, target);
+  e.jp(invalid, X64Emitter::T_NEAR);
+  if (aliased) {
+    e.vmovapd(i.dest, e.xmm2);
+  }
+  e.L(done);
+}
 
 // ============================================================================
 // OPCODE_ADD
@@ -1333,10 +1646,10 @@ struct ADD_F32 : Sequence<ADD_F32, I<OPCODE_ADD, F32Op, F32Op, F32Op>> {
 struct ADD_F64 : Sequence<ADD_F64, I<OPCODE_ADD, F64Op, F64Op, F64Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
     e.ChangeMxcsrMode(MXCSRMode::Fpu);
-
-    Xmm src1 = GetInputRegOrConstant(e, i.src1, e.xmm0);
-    Xmm src2 = GetInputRegOrConstant(e, i.src2, e.xmm1);
-    e.vaddsd(i.dest, src1, src2);
+    EmitBinaryFpWithPpcDefaultNan_F64(
+        e, i, [](X64Emitter& e, const Xmm& dest, const Xmm& s1, const Xmm& s2) {
+          e.vaddsd(dest, s1, s2);
+        });
   }
 };
 struct ADD_V128 : Sequence<ADD_V128, I<OPCODE_ADD, V128Op, V128Op, V128Op>> {
@@ -1456,9 +1769,10 @@ struct SUB_F64 : Sequence<SUB_F64, I<OPCODE_SUB, F64Op, F64Op, F64Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
     assert_true(!i.instr->flags);
     e.ChangeMxcsrMode(MXCSRMode::Fpu);
-    Xmm src1 = GetInputRegOrConstant(e, i.src1, e.xmm0);
-    Xmm src2 = GetInputRegOrConstant(e, i.src2, e.xmm1);
-    e.vsubsd(i.dest, src1, src2);
+    EmitBinaryFpWithPpcDefaultNan_F64(
+        e, i, [](X64Emitter& e, const Xmm& dest, const Xmm& s1, const Xmm& s2) {
+          e.vsubsd(dest, s1, s2);
+        });
   }
 };
 struct SUB_V128 : Sequence<SUB_V128, I<OPCODE_SUB, V128Op, V128Op, V128Op>> {
@@ -1602,10 +1916,10 @@ struct MUL_F64 : Sequence<MUL_F64, I<OPCODE_MUL, F64Op, F64Op, F64Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
     assert_true(!i.instr->flags);
     e.ChangeMxcsrMode(MXCSRMode::Fpu);
-
-    Xmm src1 = GetInputRegOrConstant(e, i.src1, e.xmm0);
-    Xmm src2 = GetInputRegOrConstant(e, i.src2, e.xmm1);
-    e.vmulsd(i.dest, src1, src2);
+    EmitBinaryFpWithPpcDefaultNan_F64(
+        e, i, [](X64Emitter& e, const Xmm& dest, const Xmm& s1, const Xmm& s2) {
+          e.vmulsd(dest, s1, s2);
+        });
   }
 };
 struct MUL_V128 : Sequence<MUL_V128, I<OPCODE_MUL, V128Op, V128Op, V128Op>> {
@@ -1614,7 +1928,9 @@ struct MUL_V128 : Sequence<MUL_V128, I<OPCODE_MUL, V128Op, V128Op, V128Op>> {
     e.ChangeMxcsrMode(MXCSRMode::Vmx);
     Xmm src1 = GetInputRegOrConstant(e, i.src1, e.xmm0);
     Xmm src2 = GetInputRegOrConstant(e, i.src2, e.xmm1);
-    e.vmulps(i.dest, src1, src2);
+    EmitVmxFloatBinOp(e, i.dest, src1, src2,
+                      [](X64Emitter& e, const Xmm& d, const Xmm& a,
+                         const Xmm& b) { e.vmulps(d, a, b); });
   }
 };
 EMITTER_OPCODE_TABLE(OPCODE_MUL, MUL_I8, MUL_I16, MUL_I32, MUL_I64, MUL_F32,
@@ -1886,10 +2202,10 @@ struct DIV_F64 : Sequence<DIV_F64, I<OPCODE_DIV, F64Op, F64Op, F64Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
     assert_true(!i.instr->flags);
     e.ChangeMxcsrMode(MXCSRMode::Fpu);
-
-    Xmm src1 = GetInputRegOrConstant(e, i.src1, e.xmm0);
-    Xmm src2 = GetInputRegOrConstant(e, i.src2, e.xmm1);
-    e.vdivsd(i.dest, src1, src2);
+    EmitBinaryFpWithPpcDefaultNan_F64(
+        e, i, [](X64Emitter& e, const Xmm& dest, const Xmm& s1, const Xmm& s2) {
+          e.vdivsd(dest, s1, s2);
+        });
   }
 };
 struct DIV_V128 : Sequence<DIV_V128, I<OPCODE_DIV, V128Op, V128Op, V128Op>> {
@@ -1909,6 +2225,118 @@ EMITTER_OPCODE_TABLE(OPCODE_DIV, DIV_I8, DIV_I16, DIV_I32, DIV_I64, DIV_F32,
 // - 132 -> $1 = $1 * $3 + $2
 // - 213 -> $1 = $2 * $1 + $3
 // - 231 -> $1 = $2 * $3 + $1
+//
+// PPC multiply-add NaN semantics. Hardware returns the first NaN operand in
+// A, B, C order (the HIR operands are A, C, B, so the walk is src1, src3,
+// src2), quieted, rather than whatever the host FMA picked, and leaves its sign
+// alone even for the negated forms.
+//
+// Every scalar form takes the fixup; of the packed ones only the negated
+// vnmsubfp does. Putting it on vmaddfp as well costs ~8.5fps, and vmaddfp is
+// the only multiply-add hot enough to notice.
+//
+// The fixup is only reached when the result is already NaN, which covers every
+// case needing one: a NaN operand always yields a NaN result, and an invalid
+// operation with no NaN operand needs the PPC default rather than x86's.
+
+// Packed single. Branchless, since every lane may need a different answer. The
+// sources are stashed first so xmm0-2 can be clobbered even when they hold
+// materialized constants.
+static void EmitFmaPpcNanFixup_V128(X64Emitter& e, const Xmm& dest,
+                                    const Xmm& result, const Xmm& src1,
+                                    const Xmm& src2, const Xmm& src3) {
+  e.StashXmm(0, src1);
+  e.StashXmm(1, src2);
+  e.StashXmm(2, src3);
+  auto stash = [&e](int index) {
+    return e.ptr[e.rsp + X64Emitter::kStashOffset + index * 16];
+  };
+  // Lowest priority first, so an earlier operand overwrites a later one:
+  // src2 (C), then src3 (B), then src1 (A).
+  const int order[3] = {1, 2, 0};
+
+  e.vmovaps(e.xmm0, e.GetXmmConstPtr(XMMQNaN));
+  for (int step = 0; step < 3; ++step) {
+    e.vmovaps(e.xmm1, stash(order[step]));
+    e.vcmpunordps(e.xmm2, e.xmm1, e.xmm1);
+    e.vorps(e.xmm1, e.xmm1, e.GetXmmConstPtr(XMMQuietBit));
+    e.vblendvps(e.xmm0, e.xmm0, e.xmm1, e.xmm2);
+  }
+  // Lanes whose result is not NaN keep the arithmetic answer.
+  e.vcmpunordps(e.xmm2, result, result);
+  e.vblendvps(dest, result, e.xmm0, e.xmm2);
+}
+
+// Scalar double. One lane, so a branch chain beats the blend sequence.
+static void EmitFmaPpcNanFixup_F64(X64Emitter& e, const Xmm& dest,
+                                   const Xmm& src1, const Xmm& src2,
+                                   const Xmm& src3, Xbyak::Label& done) {
+  const Xmm order[3] = {src1, src3, src2};  // A, B, C
+  for (int step = 0; step < 3; ++step) {
+    Xbyak::Label not_nan;
+    e.vucomisd(order[step], order[step]);
+    e.jnp(not_nan);
+    e.vmovq(e.rax, order[step]);
+    e.mov(e.rdx, 1ull << 51);  // ensure quiet
+    e.or_(e.rax, e.rdx);
+    e.vmovq(dest, e.rax);
+    e.jmp(done, e.T_NEAR);
+    e.L(not_nan);
+  }
+  // No NaN operand, so this is an invalid operation.
+  e.mov(e.rax, 0x7FF8000000000000ull);
+  e.vmovq(dest, e.rax);
+  e.jmp(done, e.T_NEAR);
+}
+
+// Negates the arithmetic result in xmm3 when the opcode asks for it, then
+// routes a NaN result to the fixup.
+template <typename ARGS>
+static void EmitPpcFmaResult_F64(X64Emitter& e, const ARGS& i, bool negate) {
+  if (negate) {
+    // Not the vfnmadd/vfnmsub forms: those negate the operands, which differs
+    // from negating the result when the addends are zeros of opposite sign.
+    e.vxorps(e.xmm3, e.xmm3, e.GetXmmConstPtr(XMMSignMaskPD));
+  }
+  // Tail code is emitted at the end of the whole function, so the label has to
+  // outlive this sequence.
+  Xbyak::Label& done = e.NewCachedLabel();
+  Xbyak::Label& fixup =
+      e.AddToTail([&done, i](X64Emitter& e, Xbyak::Label& tail) {
+        e.L(tail);
+        Xmm s1 = GetInputRegOrConstant(e, i.src1, e.xmm0);
+        Xmm s2 = GetInputRegOrConstant(e, i.src2, e.xmm1);
+        Xmm s3 = GetInputRegOrConstant(e, i.src3, e.xmm2);
+        EmitFmaPpcNanFixup_F64(e, i.dest, s1, s2, s3, done);
+      });
+  e.vucomisd(e.xmm3, e.xmm3);
+  e.jp(fixup, e.T_NEAR);
+  e.vmovapd(i.dest, e.xmm3);
+  e.L(done);
+}
+
+template <typename ARGS>
+static void EmitNegatedFma_V128(X64Emitter& e, const ARGS& i) {
+  e.vxorps(e.xmm3, e.xmm3, e.GetXmmConstPtr(XMMSignMaskPS));
+  Xbyak::Label& done = e.NewCachedLabel();
+  Xbyak::Label& fixup =
+      e.AddToTail([&done, i](X64Emitter& e, Xbyak::Label& tail) {
+        e.L(tail);
+        // Re-derive rather than capture: the hot path's NaN test clobbers
+        // xmm0, which is where a constant operand would have been placed.
+        Xmm s1 = GetInputRegOrConstant(e, i.src1, e.xmm0);
+        Xmm s2 = GetInputRegOrConstant(e, i.src2, e.xmm1);
+        Xmm s3 = GetInputRegOrConstant(e, i.src3, e.xmm2);
+        EmitFmaPpcNanFixup_V128(e, i.dest, e.xmm3, s1, s2, s3);
+        e.jmp(done, e.T_NEAR);
+      });
+  e.vcmpunordps(e.xmm0, e.xmm3, e.xmm3);
+  e.vptest(e.xmm0, e.xmm0);
+  e.jnz(fixup, e.T_NEAR);
+  e.vmovaps(i.dest, e.xmm3);
+  e.L(done);
+}
+
 struct MUL_ADD_F32
     : Sequence<MUL_ADD_F32, I<OPCODE_MUL_ADD, F32Op, F32Op, F32Op, F32Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
@@ -1929,32 +2357,56 @@ struct MUL_ADD_F64
       // todo: this is garbage
       e.vmovapd(e.xmm3, src1);
       e.vfmadd213sd(e.xmm3, src2, src3);
-      e.vmovapd(i.dest, e.xmm3);
     } else {
       // todo: might need to use x87 in this case...
       e.vmulsd(e.xmm3, src1, src2);
-      e.vaddsd(i.dest, e.xmm3, src3);
+      e.vaddsd(e.xmm3, e.xmm3, src3);
     }
+    EmitPpcFmaResult_F64(e, i,
+                         (i.instr->flags & ARITHMETIC_NEGATE_RESULT) != 0);
   }
 };
 struct MUL_ADD_V128
     : Sequence<MUL_ADD_V128,
                I<OPCODE_MUL_ADD, V128Op, V128Op, V128Op, V128Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
-    e.ChangeMxcsrMode(MXCSRMode::Vmx);
+    e.ChangeMxcsrMode(VmxDenormalFlushMode());
 
     Xmm src1 = GetInputRegOrConstant(e, i.src1, e.xmm0);
     Xmm src2 = GetInputRegOrConstant(e, i.src2, e.xmm1);
     Xmm src3 = GetInputRegOrConstant(e, i.src3, e.xmm2);
+    const bool negate = (i.instr->flags & ARITHMETIC_NEGATE_RESULT) != 0;
     if (e.IsFeatureEnabled(kX64EmitFMA)) {
       // todo: this is garbage
+      // 132 rather than 213, for free: the host ranks NaN operands
+      // multiplicand, multiplier, addend, so this form propagates A, C, B where
+      // 213 propagates C, A, B. PPC wants A, B, C.
+      if (!negate) {
+        // Which leaves B outranking C, and the host cannot express that: the
+        // addend is always ranked last. Zeroing the multiplier wherever the
+        // addend is a NaN makes the host fall through to it. Nothing else
+        // moves: a NaN addend means the result is a NaN from A or B whatever C
+        // held, and A still outranks both.
+        e.vcmpunordps(e.xmm3, src3, src3);
+        e.vandnps(e.xmm1, e.xmm3, src2);
+        src2 = e.xmm1;
+      }
       e.vmovaps(e.xmm3, src1);
-      e.vfmadd213ps(e.xmm3, src2, src3);
-      e.vmovaps(i.dest, e.xmm3);
+      e.vfmadd132ps(e.xmm3, src3, src2);
+      if (!negate) {
+        e.vmovaps(i.dest, e.xmm3);
+      }
     } else {
       // todo: might need to use x87 in this case...
       e.vmulps(e.xmm3, src1, src2);
-      e.vaddps(i.dest, e.xmm3, src3);
+      if (negate) {
+        e.vaddps(e.xmm3, e.xmm3, src3);
+      } else {
+        e.vaddps(i.dest, e.xmm3, src3);
+      }
+    }
+    if (negate) {
+      EmitNegatedFma_V128(e, i);
     }
   }
 };
@@ -1985,32 +2437,43 @@ struct MUL_SUB_F64
       // todo: this is garbage
       e.vmovapd(e.xmm3, src1);
       e.vfmsub213sd(e.xmm3, src2, src3);
-      e.vmovapd(i.dest, e.xmm3);
     } else {
       // todo: might need to use x87 in this case...
       e.vmulsd(e.xmm3, src1, src2);
-      e.vsubsd(i.dest, e.xmm3, src3);
+      e.vsubsd(e.xmm3, e.xmm3, src3);
     }
+    EmitPpcFmaResult_F64(e, i,
+                         (i.instr->flags & ARITHMETIC_NEGATE_RESULT) != 0);
   }
 };
 struct MUL_SUB_V128
     : Sequence<MUL_SUB_V128,
                I<OPCODE_MUL_SUB, V128Op, V128Op, V128Op, V128Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
-    e.ChangeMxcsrMode(MXCSRMode::Vmx);
+    e.ChangeMxcsrMode(VmxDenormalFlushMode());
 
     Xmm src1 = GetInputRegOrConstant(e, i.src1, e.xmm0);
     Xmm src2 = GetInputRegOrConstant(e, i.src2, e.xmm1);
     Xmm src3 = GetInputRegOrConstant(e, i.src3, e.xmm2);
+    const bool negate = (i.instr->flags & ARITHMETIC_NEGATE_RESULT) != 0;
     if (e.IsFeatureEnabled(kX64EmitFMA)) {
       // todo: this is garbage
       e.vmovaps(e.xmm3, src1);
       e.vfmsub213ps(e.xmm3, src2, src3);
-      e.vmovaps(i.dest, e.xmm3);
+      if (!negate) {
+        e.vmovaps(i.dest, e.xmm3);
+      }
     } else {
       // todo: might need to use x87 in this case...
       e.vmulps(e.xmm3, src1, src2);
-      e.vsubps(i.dest, e.xmm3, src3);
+      if (negate) {
+        e.vsubps(e.xmm3, e.xmm3, src3);
+      } else {
+        e.vsubps(i.dest, e.xmm3, src3);
+      }
+    }
+    if (negate) {
+      EmitNegatedFma_V128(e, i);
     }
   }
 };
@@ -2103,7 +2566,32 @@ struct SQRT_F32 : Sequence<SQRT_F32, I<OPCODE_SQRT, F32Op, F32Op>> {
 struct SQRT_F64 : Sequence<SQRT_F64, I<OPCODE_SQRT, F64Op, F64Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
     e.ChangeMxcsrMode(MXCSRMode::Fpu);
-    e.vsqrtsd(i.dest, GetInputRegOrConstant(e, i.src1, e.xmm0));
+    Xmm src = GetInputRegOrConstant(e, i.src1, e.xmm0);
+    // A negative operand is an invalid operation, and PPC answers it with the
+    // positive default QNaN where x86 answers with the negative one. Only a NaN
+    // result can need the fixup, so the test stays off the result's dependency
+    // chain. The sqrt lands in a scratch because dest may share a register with
+    // src, and the tail still needs the operand to tell the two NaNs apart.
+    Xbyak::Label& done = e.NewCachedLabel();
+    Xbyak::Label& invalid =
+        e.AddToTail([i, &done](X64Emitter& e, Xbyak::Label& tail) {
+          e.L(tail);
+          Xbyak::Label propagate;
+          Xmm src = GetInputRegOrConstant(e, i.src1, e.xmm0);
+          e.vucomisd(src, src);
+          e.jp(propagate);  // NaN operand: keep the one sqrtsd propagated
+          e.mov(e.rax, 0x7FF8000000000000ull);
+          e.vmovq(i.dest, e.rax);
+          e.jmp(done, X64Emitter::T_NEAR);
+          e.L(propagate);
+          e.vmovapd(i.dest, e.xmm1);
+          e.jmp(done, X64Emitter::T_NEAR);
+        });
+    e.vsqrtsd(e.xmm1, src);
+    e.vucomisd(e.xmm1, e.xmm1);
+    e.jp(invalid, X64Emitter::T_NEAR);
+    e.vmovapd(i.dest, e.xmm1);
+    e.L(done);
   }
 };
 struct SQRT_V128 : Sequence<SQRT_V128, I<OPCODE_SQRT, V128Op, V128Op>> {
@@ -2216,28 +2704,54 @@ struct POW2_F64 : Sequence<POW2_F64, I<OPCODE_POW2, F64Op, F64Op>> {
     assert_impossible_sequence(POW2_F64);
   }
 };
-struct POW2_V128 : Sequence<POW2_V128, I<OPCODE_POW2, V128Op, V128Op>> {
-  static __m128 EmulatePow2(void*, __m128 src) {
-    alignas(16) float values[4];
-    _mm_store_ps(values, src);
-    for (size_t i = 0; i < 4; ++i) {
-      values[i] = std::exp2(values[i]);
+// Evaluate a minimax polynomial in xmm2 by Horner's rule, with the variable in
+// xmm1 and `count` coefficients starting at `first` in descending order.
+static void EmitEstPoly(X64Emitter& e, XmmConst first, int count) {
+  e.vmovaps(e.xmm2, e.GetXmmConstPtr(XmmConst(first + count - 1)));
+  for (int k = count - 2; k >= 0; k--) {
+    auto coeff = e.GetXmmConstPtr(XmmConst(first + k));
+    if (e.IsFeatureEnabled(kX64EmitFMA)) {
+      e.vfmadd213ps(e.xmm2, e.xmm1, coeff);
+    } else {
+      e.vmulps(e.xmm2, e.xmm2, e.xmm1);
+      e.vaddps(e.xmm2, e.xmm2, coeff);
     }
-    return _mm_load_ps(values);
   }
+}
+
+// Snap xmm2 onto the guest's 2^-11 estimate grid. This is not cosmetic: it is
+// what keeps 2^0 == 1.0 and log2(2^n) == n exact once the math is a polynomial.
+static void EmitEstGridSnap(X64Emitter& e) {
+  e.vmulps(e.xmm2, e.xmm2, e.GetXmmConstPtr(XMMEstScale));
+  e.vroundps(e.xmm2, e.xmm2, 0);  // round to nearest even, ignoring MXCSR.RC
+  e.vmulps(e.xmm2, e.xmm2, e.GetXmmConstPtr(XMMEstUnscale));
+}
+
+struct POW2_V128 : Sequence<POW2_V128, I<OPCODE_POW2, V128Op, V128Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
     e.ChangeMxcsrMode(MXCSRMode::Vmx);
     Xmm src1 = GetInputRegOrConstant(e, i.src1, e.xmm3);
 
-#if XE_PLATFORM_WIN32
-    // Windows x64 ABI: __m128 is passed by implicit pointer
-    e.lea(e.GetNativeParam(0), e.StashXmm(0, src1));
-#else
-    // Linux/Mac System V ABI: __m128 passed in xmm0, return in xmm0
-    e.vmovaps(e.xmm0, src1);
-#endif
-    e.CallNativeSafe(reinterpret_cast<void*>(EmulatePow2));
-    e.vmovaps(i.dest, e.xmm0);
+    // 2^x = 2^floor(x) * 2^frac(x). Splitting on floor rather than nearest
+    // puts the second factor in [1,2), so it lands on the grid directly.
+    e.vroundps(e.xmm0, src1, 1);     // floor(x)
+    e.vsubps(e.xmm1, src1, e.xmm0);  // frac(x)
+    EmitEstPoly(e, XMMExp2Poly, 6);
+    EmitEstGridSnap(e);
+    e.vcvtps2dq(e.xmm0, e.xmm0);
+    e.vpslld(e.xmm0, e.xmm0, 23);
+    e.vpaddd(e.xmm0, e.xmm0, e.GetXmmConstPtr(XMMOne));  // (127 + n) << 23
+    e.vmulps(e.xmm2, e.xmm2, e.xmm0);
+
+    // Out-of-range and non-finite inputs never reached the guest's estimator.
+    // Denormals need no case of their own: DAZ flushes them, so frac is 0.
+    e.vcmpgeps(e.xmm1, src1, e.GetXmmConstPtr(XMMExp2Max));
+    e.vblendvps(e.xmm2, e.xmm2, e.GetXmmConstPtr(XMMFloatInf), e.xmm1);
+    e.vcmpltps(e.xmm1, src1, e.GetXmmConstPtr(XMMExp2Min));
+    e.vblendvps(e.xmm2, e.xmm2, e.GetXmmConstPtr(XMMZero), e.xmm1);
+    e.vcmpunordps(e.xmm1, src1, src1);
+    e.vorps(e.xmm0, src1, e.GetXmmConstPtr(XMMQuietBit));
+    e.vblendvps(i.dest, e.xmm2, e.xmm0, e.xmm1);
   }
 };
 EMITTER_OPCODE_TABLE(OPCODE_POW2, POW2_F32, POW2_F64, POW2_V128);
@@ -2245,9 +2759,6 @@ EMITTER_OPCODE_TABLE(OPCODE_POW2, POW2_F32, POW2_F64, POW2_V128);
 // ============================================================================
 // OPCODE_LOG2
 // ============================================================================
-// TODO(benvanik): use approx here:
-//     https://jrfonseca.blogspot.com/2008/09/fast-sse2-pow-tables-or-polynomials.html
-// TODO(benvanik): this emulated fn destroys all xmm registers! don't do it!
 struct LOG2_F32 : Sequence<LOG2_F32, I<OPCODE_LOG2, F32Op, F32Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
     assert_impossible_sequence(LOG2_F32);
@@ -2259,27 +2770,33 @@ struct LOG2_F64 : Sequence<LOG2_F64, I<OPCODE_LOG2, F64Op, F64Op>> {
   }
 };
 struct LOG2_V128 : Sequence<LOG2_V128, I<OPCODE_LOG2, V128Op, V128Op>> {
-  static __m128 EmulateLog2(void*, __m128 src) {
-    alignas(16) float values[4];
-    _mm_store_ps(values, src);
-    for (size_t i = 0; i < 4; ++i) {
-      values[i] = std::log2(values[i]);
-    }
-    return _mm_load_ps(values);
-  }
   static void Emit(X64Emitter& e, const EmitArgType& i) {
     e.ChangeMxcsrMode(MXCSRMode::Vmx);
     Xmm src1 = GetInputRegOrConstant(e, i.src1, e.xmm3);
 
-#if XE_PLATFORM_WIN32
-    // Windows x64 ABI: __m128 is passed by implicit pointer
-    e.lea(e.GetNativeParam(0), e.StashXmm(0, src1));
-#else
-    // Linux/Mac System V ABI: __m128 passed in xmm0, return in xmm0
-    e.vmovaps(e.xmm0, src1);
-#endif
-    e.CallNativeSafe(reinterpret_cast<void*>(EmulateLog2));
-    e.vmovaps(i.dest, e.xmm0);
+    // log2(x) = exponent(x) + log2(mantissa(x)). Negatives are masked off
+    // below, so the sign bit can ride along in the exponent shift.
+    e.vpsrld(e.xmm0, src1, 23);
+    e.vpsubd(e.xmm0, e.xmm0, e.GetXmmConstPtr(XMMInt127));
+    e.vcvtdq2ps(e.xmm0, e.xmm0);
+    e.vandps(e.xmm1, src1, e.GetXmmConstPtr(XMMMantissaMask));
+    e.vorps(e.xmm1, e.xmm1, e.GetXmmConstPtr(XMMOne));  // mantissa in [1,2)
+    e.vsubps(e.xmm1, e.xmm1, e.GetXmmConstPtr(XMMOne));
+    EmitEstPoly(e, XMMLog2Poly, 7);
+    e.vaddps(e.xmm2, e.xmm2, e.xmm0);
+    EmitEstGridSnap(e);
+
+    // Zero and denormal both reach the estimator as zero, so both give -inf.
+    e.vcmpeqps(e.xmm1, src1, e.GetXmmConstPtr(XMMFloatInf));
+    e.vblendvps(e.xmm2, e.xmm2, e.GetXmmConstPtr(XMMFloatInf), e.xmm1);
+    e.vpsrad(e.xmm1, src1, 31);
+    e.vblendvps(e.xmm2, e.xmm2, e.GetXmmConstPtr(XMMQNaN), e.xmm1);
+    e.vandps(e.xmm1, src1, e.GetXmmConstPtr(XMMFloatInf));
+    e.vpcmpeqd(e.xmm1, e.xmm1, e.GetXmmConstPtr(XMMZero));
+    e.vblendvps(e.xmm2, e.xmm2, e.GetXmmConstPtr(XMMFloatNegInf), e.xmm1);
+    e.vcmpunordps(e.xmm1, src1, src1);
+    e.vorps(e.xmm0, src1, e.GetXmmConstPtr(XMMQuietBit));
+    e.vblendvps(i.dest, e.xmm2, e.xmm0, e.xmm1);
   }
 };
 EMITTER_OPCODE_TABLE(OPCODE_LOG2, LOG2_F32, LOG2_F64, LOG2_V128);
@@ -2287,30 +2804,61 @@ EMITTER_OPCODE_TABLE(OPCODE_LOG2, LOG2_F32, LOG2_F64, LOG2_V128);
 // ============================================================================
 // OPCODE_DOT_PRODUCT_3
 // ============================================================================
+// Keep the float64 accumulation below: it closely matches Xbox 360 vmsum
+// results, which may differ from a host float32 dot product by one bit.
+template <typename EmitArgType>
+static void EmitDotProductResult(X64Emitter& e, const EmitArgType& i) {
+  Xbyak::Label& done = e.NewCachedLabel();
+  Xbyak::Label& exceptional_result =
+      e.AddToTail([i, &done](X64Emitter& e, Xbyak::Label& exceptional_result) {
+        e.L(exceptional_result);
+
+        if (!cvars::use_fast_dot_product) {
+          // A dot product of four float32 values can't overflow float64, so
+          // float32 overflow happened exactly when the float64 sum is finite
+          // but its float32 conversion has an all-ones exponent. Preserve
+          // infinities and NaNs originating in the inputs, as the previous
+          // MXCSR overflow-flag check did.
+          Xbyak::Label double_result_was_non_finite;
+          e.vmovq(e.rax, e.xmm2);
+          e.shr(e.rax, 52);
+          e.and_(e.eax, 0x7FF);
+          e.cmp(e.eax, 0x7FF);
+          e.je(double_result_was_non_finite);
+          e.vmovaps(i.dest, e.GetXmmConstPtr(XMMQNaN));
+          e.jmp(done, X64Emitter::T_NEAR);
+          e.L(double_result_was_non_finite);
+        } else {
+          // Preserve the existing opt-in behavior, which maps infinity to the
+          // canonical quiet NaN but leaves an existing NaN unchanged.
+          Xbyak::Label input_was_nan;
+          e.vmovd(e.eax, e.xmm1);
+          e.test(e.eax, 0x007FFFFF);
+          e.jnz(input_was_nan);
+          e.vmovaps(i.dest, e.GetXmmConstPtr(XMMQNaN));
+          e.jmp(done, X64Emitter::T_NEAR);
+          e.L(input_was_nan);
+        }
+
+        e.vshufps(i.dest, e.xmm1, e.xmm1, 0);
+        e.jmp(done, X64Emitter::T_NEAR);
+      });
+
+  // The common finite result needs no MXCSR status round trip. Check only the
+  // float32 exponent and leave all exceptional handling in cold tail code.
+  e.vmovd(e.eax, e.xmm1);
+  e.add(e.eax, e.eax);  // Discard the sign bit.
+  e.cmp(e.eax, 0xFF000000);
+  e.jae(exceptional_result, X64Emitter::T_NEAR);
+  e.vshufps(i.dest, e.xmm1, e.xmm1, 0);
+  e.L(done);
+}
+
 struct DOT_PRODUCT_3_V128
     : Sequence<DOT_PRODUCT_3_V128,
                I<OPCODE_DOT_PRODUCT_3, V128Op, V128Op, V128Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
-    e.ChangeMxcsrMode(MXCSRMode::Vmx);
-    // todo: add fast_dot_product path that just checks for infinity instead of
-    // using mxcsr
-    auto mxcsr_storage = e.dword[e.rsp + StackLayout::GUEST_SCRATCH];
-
-    // this is going to hurt a bit...
-    /*
-    this implementation is accurate, it matches the results of xb360 vmsum3
-    except that vmsum3 is often off by 1 bit, but its extremely slow. it is a
-    long, unbroken chain of dependencies, and the three uses of mxcsr all cost
-    about 15-20 cycles at the very least on amd zen processors. on older amd the
-    figures agner has are pretty horrible. it looks like its just as bad on
-    modern intel cpus also up until just recently. perhaps a better way of
-    detecting overflow would be to just compare with inf. todo: test whether cmp
-    with inf can replace
-    */
-    if (!cvars::use_fast_dot_product) {
-      e.vstmxcsr(mxcsr_storage);
-      e.mov(e.eax, 8);
-    }
+    e.ChangeMxcsrMode(VmxDenormalFlushMode());
     e.vmovaps(e.xmm2, e.GetXmmConstPtr(XMMThreeFloatMask));
     bool is_lensqr = i.instr->src1.value == i.instr->src2.value;
 
@@ -2328,9 +2876,6 @@ struct DOT_PRODUCT_3_V128
     } else {
       src2v = i.src2.reg();
     }
-    if (!cvars::use_fast_dot_product) {
-      e.not_(e.eax);
-    }
     // todo: maybe the top element should be cleared by the InstrEmit_ function
     // so that in the future this could be optimized away if the top is known to
     // be zero. Right now im not sure that happens often though and its
@@ -2340,11 +2885,6 @@ struct DOT_PRODUCT_3_V128
 
       e.vandps(e.xmm2, src2v, e.xmm2);
 
-      if (!cvars::use_fast_dot_product) {
-        e.and_(mxcsr_storage, e.eax);
-        e.vldmxcsr(mxcsr_storage);  // overflow flag is cleared, now we're good
-                                    // to go
-      }
       e.vcvtps2pd(e.ymm0, e.xmm3);
       e.vcvtps2pd(e.ymm1, e.xmm2);
 
@@ -2355,47 +2895,15 @@ struct DOT_PRODUCT_3_V128
       e.vmulpd(e.ymm3, e.ymm0, e.ymm1);
     } else {
       e.vandps(e.xmm3, src1v, e.xmm2);
-      if (!cvars::use_fast_dot_product) {
-        e.and_(mxcsr_storage, e.eax);
-        e.vldmxcsr(mxcsr_storage);  // overflow flag is cleared, now we're good
-                                    // to go
-      }
       e.vcvtps2pd(e.ymm0, e.xmm3);
       e.vmulpd(e.ymm3, e.ymm0, e.ymm0);
     }
     e.vextractf128(e.xmm2, e.ymm3, 1);
     e.vunpckhpd(e.xmm0, e.xmm3, e.xmm3);  // get element [1] in xmm3
     e.vaddsd(e.xmm3, e.xmm3, e.xmm2);
-    if (!cvars::use_fast_dot_product) {
-      e.not_(e.eax);
-    }
     e.vaddsd(e.xmm2, e.xmm3, e.xmm0);
     e.vcvtsd2ss(e.xmm1, e.xmm2);
-
-    if (!cvars::use_fast_dot_product) {
-      e.vstmxcsr(mxcsr_storage);
-
-      e.test(mxcsr_storage, e.eax);
-
-      Xbyak::Label& done = e.NewCachedLabel();
-      Xbyak::Label& ret_qnan =
-          e.AddToTail([i, &done](X64Emitter& e, Xbyak::Label& me) {
-            e.L(me);
-            e.vmovaps(i.dest, e.GetXmmConstPtr(XMMQNaN));
-            e.jmp(done, X64Emitter::T_NEAR);
-          });
-
-      e.jnz(ret_qnan, X64Emitter::T_NEAR);  // reorder these jmps later, just
-                                            // want to get this fix in
-      e.vshufps(i.dest, e.xmm1, e.xmm1, 0);
-      e.L(done);
-    } else {
-      e.vandps(e.xmm0, e.xmm1, e.GetXmmConstPtr(XMMAbsMaskPS));
-
-      e.vcmpgeps(e.xmm2, e.xmm0, e.GetXmmConstPtr(XMMFloatInf));
-      e.vblendvps(e.xmm1, e.xmm1, e.GetXmmConstPtr(XMMQNaN), e.xmm2);
-      e.vshufps(i.dest, e.xmm1, e.xmm1, 0);
-    }
+    EmitDotProductResult(e, i);
   }
 };
 EMITTER_OPCODE_TABLE(OPCODE_DOT_PRODUCT_3, DOT_PRODUCT_3_V128);
@@ -2407,11 +2915,7 @@ struct DOT_PRODUCT_4_V128
     : Sequence<DOT_PRODUCT_4_V128,
                I<OPCODE_DOT_PRODUCT_4, V128Op, V128Op, V128Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
-    e.ChangeMxcsrMode(MXCSRMode::Vmx);
-    // todo: add fast_dot_product path that just checks for infinity instead of
-    // using mxcsr
-    auto mxcsr_storage = e.dword[e.rsp + StackLayout::GUEST_SCRATCH];
-
+    e.ChangeMxcsrMode(VmxDenormalFlushMode());
     bool is_lensqr = i.instr->src1.value == i.instr->src2.value;
 
     auto src1v = e.xmm3;
@@ -2428,15 +2932,6 @@ struct DOT_PRODUCT_4_V128
     } else {
       src2v = i.src2.reg();
     }
-    if (!cvars::use_fast_dot_product) {
-      e.vstmxcsr(mxcsr_storage);
-
-      e.mov(e.eax, 8);
-      e.not_(e.eax);
-
-      e.and_(mxcsr_storage, e.eax);
-      e.vldmxcsr(mxcsr_storage);
-    }
     if (is_lensqr) {
       e.vcvtps2pd(e.ymm0, src1v);
 
@@ -2451,36 +2946,9 @@ struct DOT_PRODUCT_4_V128
     e.vaddpd(e.xmm3, e.xmm3, e.xmm2);
 
     e.vunpckhpd(e.xmm0, e.xmm3, e.xmm3);
-    if (!cvars::use_fast_dot_product) {
-      e.not_(e.eax);
-    }
     e.vaddsd(e.xmm2, e.xmm3, e.xmm0);
     e.vcvtsd2ss(e.xmm1, e.xmm2);
-
-    if (!cvars::use_fast_dot_product) {
-      e.vstmxcsr(mxcsr_storage);
-
-      e.test(mxcsr_storage, e.eax);
-
-      Xbyak::Label& done = e.NewCachedLabel();
-      Xbyak::Label& ret_qnan =
-          e.AddToTail([i, &done](X64Emitter& e, Xbyak::Label& me) {
-            e.L(me);
-            e.vmovaps(i.dest, e.GetXmmConstPtr(XMMQNaN));
-            e.jmp(done, X64Emitter::T_NEAR);
-          });
-
-      e.jnz(ret_qnan, X64Emitter::T_NEAR);  // reorder these jmps later, just
-                                            // want to get this fix in
-      e.vshufps(i.dest, e.xmm1, e.xmm1, 0);
-      e.L(done);
-    } else {
-      e.vandps(e.xmm0, e.xmm1, e.GetXmmConstPtr(XMMAbsMaskPS));
-
-      e.vcmpgeps(e.xmm2, e.xmm0, e.GetXmmConstPtr(XMMFloatInf));
-      e.vblendvps(e.xmm1, e.xmm1, e.GetXmmConstPtr(XMMQNaN), e.xmm2);
-      e.vshufps(i.dest, e.xmm1, e.xmm1, 0);
-    }
+    EmitDotProductResult(e, i);
   }
 };
 EMITTER_OPCODE_TABLE(OPCODE_DOT_PRODUCT_4, DOT_PRODUCT_4_V128);
@@ -2543,14 +3011,44 @@ struct AND_I32 : Sequence<AND_I32, I<OPCODE_AND, I32Op, I32Op, I32Op>> {
     EmitAndXX<AND_I32, Reg32>(e, i);
   }
 };
+// btr/bts is 5 bytes where movabs + and/or is 10; nothing consumes the flags.
+static bool TryEmitSingleBitMask(X64Emitter& e, const I64Op& dest,
+                                 const I64Op& src, uint64_t constant,
+                                 bool set) {
+  const uint64_t bit = set ? constant : ~constant;
+  if (!bit || (bit & (bit - 1))) {
+    return false;
+  }
+  if (static_cast<int64_t>(constant) ==
+      static_cast<int64_t>(static_cast<int32_t>(constant))) {
+    return false;
+  }
+  if (dest != src.reg()) {
+    e.mov(dest, src);
+  }
+  if (set) {
+    e.bts(dest, xe::tzcnt(bit));
+  } else {
+    e.btr(dest, xe::tzcnt(bit));
+  }
+  return true;
+}
 struct AND_I64 : Sequence<AND_I64, I<OPCODE_AND, I64Op, I64Op, I64Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
     if (i.src2.is_constant && i.src2.constant() == 0xFFFFFFFF) {
       // special case for rlwinm codegen
       e.mov(((Reg64)i.dest).cvt32(), ((Reg64)i.src1).cvt32());
-    } else {
-      EmitAndXX<AND_I64, Reg64>(e, i);
+      return;
     }
+    if (i.src2.is_constant && !i.src1.is_constant &&
+        TryEmitSingleBitMask(e, i.dest, i.src1, i.src2.constant(), false)) {
+      return;
+    }
+    if (i.src1.is_constant && !i.src2.is_constant &&
+        TryEmitSingleBitMask(e, i.dest, i.src2, i.src1.constant(), false)) {
+      return;
+    }
+    EmitAndXX<AND_I64, Reg64>(e, i);
   }
 };
 struct AND_V128 : Sequence<AND_V128, I<OPCODE_AND, V128Op, V128Op, V128Op>> {
@@ -2698,6 +3196,14 @@ struct OR_I32 : Sequence<OR_I32, I<OPCODE_OR, I32Op, I32Op, I32Op>> {
 };
 struct OR_I64 : Sequence<OR_I64, I<OPCODE_OR, I64Op, I64Op, I64Op>> {
   static void Emit(X64Emitter& e, const EmitArgType& i) {
+    if (i.src2.is_constant && !i.src1.is_constant &&
+        TryEmitSingleBitMask(e, i.dest, i.src1, i.src2.constant(), true)) {
+      return;
+    }
+    if (i.src1.is_constant && !i.src2.is_constant &&
+        TryEmitSingleBitMask(e, i.dest, i.src2, i.src1.constant(), true)) {
+      return;
+    }
     EmitOrXX<OR_I64, Reg64>(e, i);
   }
 };
@@ -3297,6 +3803,90 @@ static int anchor_memory_dest = anchor_memory;
 extern volatile int anchor_vector;
 static int anchor_vector_dest = anchor_vector;
 
+static const char* KeyTypeName(uint32_t type) {
+  switch (type) {
+    case KEY_TYPE_X:
+      return "-";
+    case KEY_TYPE_L:
+      return "label";
+    case KEY_TYPE_O:
+      return "offset";
+    case KEY_TYPE_S:
+      return "symbol";
+    case KEY_TYPE_V_I8:
+      return "i8";
+    case KEY_TYPE_V_I16:
+      return "i16";
+    case KEY_TYPE_V_I32:
+      return "i32";
+    case KEY_TYPE_V_I64:
+      return "i64";
+    case KEY_TYPE_V_F32:
+      return "f32";
+    case KEY_TYPE_V_F64:
+      return "f64";
+    case KEY_TYPE_V_V128:
+      return "v128";
+    default:
+      return "?";
+  }
+}
+
+std::string FormatSequenceKey(uint64_t key) {
+  const InstrKey decoded(hir::SequenceSampleBackendKey(key));
+  std::string result = GetOpcodeName(static_cast<Opcode>(decoded.opcode));
+  // Space separated so the rendered label stays free of commas and the CSV
+  // column can be split naively.
+  result += ' ';
+  result += KeyTypeName(decoded.dest);
+  const uint32_t srcs[3] = {decoded.src1, decoded.src2, decoded.src3};
+  for (uint32_t n = 0; n < 3; ++n) {
+    result += ' ';
+    if (hir::SequenceSampleSrcIsConstant(key, n)) {
+      result += 'c';
+    }
+    result += KeyTypeName(srcs[n]);
+  }
+  const uint16_t flags = hir::SequenceSampleFlags(key);
+  if (flags) {
+    char buffer[16];
+    std::snprintf(buffer, sizeof(buffer), " f%X",
+                  static_cast<unsigned int>(flags));
+    result += buffer;
+  }
+  return result;
+}
+
+// The emitted code reads a stale register in place of the constant.
+static void ReportConstantReadAsReg(const X64Emitter& e, const Instr* i,
+                                    const InstrKey& key) {
+  // The nearest SOURCE_OFFSET before it names the guest instruction.
+  uint32_t guest_address = 0;
+  for (const Instr* p = i; p;) {
+    if (p->GetOpcodeNum() == OPCODE_SOURCE_OFFSET) {
+      guest_address = static_cast<uint32_t>(p->src1.offset);
+      break;
+    }
+    p = p->prev ? p->prev
+                : (p->block->prev ? p->block->prev->instr_tail : nullptr);
+  }
+  static constexpr const char* kTypeNames[] = {"i8",  "i16", "i32", "i64",
+                                               "f32", "f64", "v128"};
+  auto describe = [](uint32_t key_type, const Value* value) -> std::string {
+    if (key_type < OPCODE_SIG_TYPE_V) {
+      return "-";
+    }
+    return fmt::format("{}{}", kTypeNames[key_type - OPCODE_SIG_TYPE_V],
+                       value->IsConstant() ? " const" : "");
+  };
+  XELOGE(
+      "x64: {} read a constant operand as a register in function {:08X} at "
+      "guest {:08X} (flags {:X}, src1 {}, src2 {}, src3 {})",
+      GetOpcodeName(i->opcode), e.current_guest_function(), guest_address,
+      i->flags, describe(key.src1, i->src1.value),
+      describe(key.src2, i->src2.value), describe(key.src3, i->src3.value));
+}
+
 bool SelectSequence(X64Emitter* e, const Instr* i, const Instr** new_tail) {
   if ((i->backend_flags & INSTR_X64_FLAGS_ELIMINATED) != 0) {
     // skip
@@ -3305,9 +3895,25 @@ bool SelectSequence(X64Emitter* e, const Instr* i, const Instr** new_tail) {
   } else {
     const InstrKey key(i);
 
-    auto it = sequence_table.find(key);
-    if (it != sequence_table.end()) {
-      if (it->second(*e, i, InstrKey(i))) {
+    auto& table = SequenceTable();
+    auto it = table.find(key);
+    if (it != table.end()) {
+      const size_t size_before = e->getSize();
+      constant_read_as_reg = false;
+      const bool emitted = it->second(*e, i, key);
+      if (constant_read_as_reg) {
+        ReportConstantReadAsReg(*e, i, key);
+      }
+      if (emitted) {
+        // Skip the bookkeeping opcodes: they carry no guest work, and
+        // SOURCE_OFFSET would otherwise charge the coverage counter's own
+        // code to the instruction it is counting.
+        const Opcode num = i->GetOpcodeNum();
+        if (num != OPCODE_SOURCE_OFFSET && num != OPCODE_COMMENT &&
+            num != OPCODE_NOP) {
+          e->RecordSequenceSample(
+              i, key.value, static_cast<uint32_t>(e->getSize() - size_before));
+        }
         *new_tail = i->next;
         return true;
       }

@@ -16,7 +16,7 @@
 #include "xenia/base/cvar.h"
 #include "xenia/base/platform.h"
 
-#if XE_ARCH_AMD64
+#if XE_ARCH_AMD64 || XE_ARCH_ARM64
 #define XE_CLOCK_RAW_AVAILABLE 1
 #endif
 
@@ -67,11 +67,6 @@ class Clock {
   static uint64_t guest_tick_frequency();
   // Sets the guest ticks-per-second.
   static void set_guest_tick_frequency(uint64_t frequency);
-  // Time based used for the guest system time.
-  static uint64_t guest_system_time_base();
-  // Sets the guest time base, used for computing the system time.
-  // By default this is the current system time.
-  static void set_guest_system_time_base(uint64_t time_base);
 
   // Queries the current guest tick count, accounting for frequency adjustment
   // and scaling.

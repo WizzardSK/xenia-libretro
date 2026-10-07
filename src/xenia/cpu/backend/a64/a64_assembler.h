@@ -2,7 +2,7 @@
  ******************************************************************************
  * Xenia : Xbox 360 Emulator Research Project                                 *
  ******************************************************************************
- * Copyright 2024 Ben Vanik. All rights reserved.                             *
+ * Copyright 2026 Ben Vanik. All rights reserved.                             *
  * Released under the BSD license - see LICENSE in the root for more details. *
  ******************************************************************************
  */
@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "xenia/base/string_buffer.h"
+#include "xenia/cpu/backend/a64/a64_emitter.h"
 #include "xenia/cpu/backend/assembler.h"
 #include "xenia/cpu/function.h"
 
@@ -23,7 +24,6 @@ namespace backend {
 namespace a64 {
 
 class A64Backend;
-class A64Emitter;
 
 class A64Assembler : public Assembler {
  public:
@@ -46,7 +46,8 @@ class A64Assembler : public Assembler {
  private:
   A64Backend* a64_backend_;
   std::unique_ptr<A64Emitter> emitter_;
-  uintptr_t capstone_handle_;
+  XbyakA64Allocator allocator_;
+  uintptr_t capstone_handle_ = 0;
 
   StringBuffer string_buffer_;
 };

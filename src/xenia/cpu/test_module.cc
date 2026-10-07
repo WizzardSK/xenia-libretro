@@ -26,7 +26,8 @@ namespace passes = xe::cpu::compiler::passes;
 
 TestModule::TestModule(Processor* processor, const std::string_view name,
                        std::function<bool(uint32_t)> contains_address,
-                       std::function<bool(hir::HIRBuilder&)> generate)
+                       std::function<bool(hir::HIRBuilder&)> generate,
+                       bool skip_cf_simplification)
     : Module(processor),
       name_(name),
       contains_address_(contains_address),
@@ -39,7 +40,10 @@ TestModule::TestModule(Processor* processor, const std::string_view name,
   // Merge blocks early. This will let us use more context in other passes.
   // The CFG is required for simplification and dirtied by it.
   compiler_->AddPass(std::make_unique<passes::ControlFlowAnalysisPass>());
-  compiler_->AddPass(std::make_unique<passes::ControlFlowSimplificationPass>());
+  if (!skip_cf_simplification) {
+    compiler_->AddPass(
+        std::make_unique<passes::ControlFlowSimplificationPass>());
+  }
   compiler_->AddPass(std::make_unique<passes::ControlFlowAnalysisPass>());
 
   // Passes are executed in the order they are added. Multiple of the same

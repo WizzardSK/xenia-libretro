@@ -38,19 +38,45 @@ spv::Id SpirvBuilder::createQuadOp(spv::Op op_code, spv::Id type_id,
   return result;
 }
 
+void SpirvBuilder::MarkNoContractionAll(spv::Op op_code, spv::Id result) {
+  if (!no_contraction_all_ || allow_contraction_) {
+    return;
+  }
+  switch (op_code) {
+    case spv::OpFAdd:
+    case spv::OpFSub:
+    case spv::OpFMul:
+    case spv::OpFDiv:
+    case spv::OpFRem:
+    case spv::OpFMod:
+    case spv::OpFNegate:
+    case spv::OpVectorTimesScalar:
+    case spv::OpDot:
+      break;
+    default:
+      return;
+  }
+  addDecoration(result, spv::DecorationNoContraction);
+}
+
 spv::Id SpirvBuilder::createNoContractionUnaryOp(spv::Op op_code,
                                                  spv::Id type_id,
                                                  spv::Id operand) {
-  spv::Id result = createUnaryOp(op_code, type_id, operand);
-  addDecoration(result, spv::DecorationNoContraction);
+  spv::Id result = spv::Builder::createUnaryOp(op_code, type_id, operand);
+  if (!allow_contraction_) {
+    addDecoration(result, spv::DecorationNoContraction);
+  }
   return result;
 }
 
 spv::Id SpirvBuilder::createNoContractionBinOp(spv::Op op_code, spv::Id type_id,
                                                spv::Id operand1,
                                                spv::Id operand2) {
-  spv::Id result = createBinOp(op_code, type_id, operand1, operand2);
-  addDecoration(result, spv::DecorationNoContraction);
+  spv::Id result =
+      spv::Builder::createBinOp(op_code, type_id, operand1, operand2);
+  if (!allow_contraction_) {
+    addDecoration(result, spv::DecorationNoContraction);
+  }
   return result;
 }
 
@@ -98,6 +124,16 @@ spv::Id SpirvBuilder::createTriBuiltinCall(spv::Id result_type,
   spv::Id result = instruction->getResultId();
   getBuildPoint()->addInstruction(std::move(instruction));
   return result;
+}
+
+spv::Id SpirvBuilder::smearFloatConstant(float value, spv::Id value_type) {
+  spv::Id scalar = makeFloatConstant(value);
+  if (!isVectorType(value_type)) {
+    return scalar;
+  }
+  std::vector<spv::Id> components(size_t(getNumTypeComponents(value_type)),
+                                  scalar);
+  return makeCompositeConstant(value_type, components);
 }
 
 SpirvBuilder::IfBuilder::IfBuilder(spv::Id condition,

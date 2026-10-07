@@ -189,6 +189,8 @@ class GpdInfo : public XdbfFile {
 
   void InsertEntry(Entry* entry);
 
+  Entry* GetSettingEntry(uint32_t id);
+
   std::vector<const Entry*> GetSortedEntries() const;
 
   void ResizeEntryTable();

@@ -76,26 +76,24 @@ bool RegisterAllocationPass::Run(HIRBuilder* builder) {
   // Really, it'd just be nice to have someone who knew what they
   // were doing lower SSA and do this right.
 
-  uint16_t block_ordinal = 0;
-  uint32_t instr_ordinal = 0;
+  // Uses sort by ordinal, so every block is numbered before any allocation.
+  {
+    uint16_t pre_block_ordinal = 0;
+    uint32_t pre_instr_ordinal = 0;
+    for (auto b = builder->first_block(); b; b = b->next) {
+      b->ordinal = pre_block_ordinal++;
+      for (auto i = b->instr_head; i; i = i->next) {
+        i->ordinal = pre_instr_ordinal++;
+      }
+    }
+  }
+
   auto block = builder->first_block();
   while (block) {
-    // Sequential block ordinals.
-    block->ordinal = block_ordinal++;
-
     // Reset all state.
     PrepareBlockState();
 
-    // Renumber all instructions in the block. This is required so that
-    // we can sort the usage pointers below.
     auto instr = block->instr_head;
-    while (instr) {
-      // Sequential global instruction ordinals.
-      instr->ordinal = instr_ordinal++;
-      instr = instr->next;
-    }
-
-    instr = block->instr_head;
     while (instr) {
       const auto info = instr->opcode;
       uint32_t signature = info->signature;
@@ -331,6 +329,52 @@ bool RegisterAllocationPass::TryAllocateRegister(Value* value) {
   return false;
 }
 
+namespace {
+// Finds an offset the context still holds `value` at by the reload point.
+bool FindContextResidence(const Value* value, const Value::Use* next_use,
+                          uint32_t* out_offset) {
+  const Instr* residence = nullptr;
+  for (const Value::Use* use = value->use_head; use && use != next_use;
+       use = use->next) {
+    // Uses before next_use all run while the value still holds its register.
+    if (use->instr->opcode == &OPCODE_STORE_CONTEXT_info &&
+        use->instr->src2.value == value) {
+      residence = use->instr;
+    }
+  }
+  if (!residence) {
+    if (!value->def || value->def->opcode != &OPCODE_LOAD_CONTEXT_info) {
+      return false;
+    }
+    residence = value->def;
+  }
+  const Instr* reload_before = next_use->instr;
+  const uint32_t offset = static_cast<uint32_t>(residence->src1.offset);
+  const uint32_t size = static_cast<uint32_t>(GetTypeSize(value->type));
+  const Instr* i = residence->next;
+  for (; i && i != reload_before; i = i->next) {
+    if (i->opcode->flags & OPCODE_FLAG_VOLATILE) {
+      return false;
+    }
+    if (i->opcode != &OPCODE_STORE_CONTEXT_info) {
+      continue;
+    }
+    const uint32_t store_offset = static_cast<uint32_t>(i->src1.offset);
+    const uint32_t store_size =
+        static_cast<uint32_t>(GetTypeSize(i->src2.value->type));
+    if (store_offset < offset + size && offset < store_offset + store_size) {
+      return false;
+    }
+  }
+  // A walk that ran off the end never reached the reload point.
+  if (i != reload_before) {
+    return false;
+  }
+  *out_offset = offset;
+  return true;
+}
+}  // namespace
+
 bool RegisterAllocationPass::SpillOneRegister(HIRBuilder* builder, Block* block,
                                               TypeName required_type) {
   // Get the set that we will be picking from.
@@ -346,9 +390,8 @@ bool RegisterAllocationPass::SpillOneRegister(HIRBuilder* builder, Block* block,
   DumpUsage("SpillOneRegister (pre)");
   // Pick the one with the furthest next use.
   assert_true(!usage_set->upcoming_uses.empty());
-  auto furthest_usage =
-      std::max_element(usage_set->upcoming_uses.begin(),
-                       usage_set->upcoming_uses.end(), &RegisterUsage::Compare);
+  auto furthest_usage = std::ranges::max_element(usage_set->upcoming_uses,
+                                                 &RegisterUsage::Compare);
   assert_true(furthest_usage->value->def->block == block);
   assert_true(furthest_usage->use->instr->block == block);
   auto spill_value = furthest_usage->value;
@@ -363,8 +406,15 @@ bool RegisterAllocationPass::SpillOneRegister(HIRBuilder* builder, Block* block,
   // This makes it easier down below.
   auto new_head_use = next_use;
 
+  uint32_t remat_offset = 0;
+  const bool rematerialize =
+      !spill_value->HasLocalSlot() &&
+      FindContextResidence(spill_value, next_use, &remat_offset);
+
   // Allocate local.
-  if (spill_value->HasLocalSlot()) {
+  if (rematerialize) {
+    // Context still holds the value, so there is nothing to spill.
+  } else if (spill_value->HasLocalSlot()) {
     // Value is already assigned a slot. Since we allocate in order and this is
     // all SSA we know the stored value will be exactly what we want. Yay,
     // we can prevent the redundant store!
@@ -416,7 +466,12 @@ bool RegisterAllocationPass::SpillOneRegister(HIRBuilder* builder, Block* block,
   // use is after the instruction requesting the spill we know we haven't
   // done allocation for that code yet and can let that be handled
   // automatically when we get to it.
-  auto new_value = builder->LoadLocal(spill_value->GetLocalSlot());
+  Value* new_value;
+  if (rematerialize) {
+    new_value = builder->LoadContext(remat_offset, spill_value->type);
+  } else {
+    new_value = builder->LoadLocal(spill_value->GetLocalSlot());
+  }
   auto spill_load = builder->last_instr();
   spill_load->MoveBefore(next_use->instr);
   // Note: implicit first use added.
@@ -428,7 +483,9 @@ bool RegisterAllocationPass::SpillOneRegister(HIRBuilder* builder, Block* block,
 
   // Set the local slot of the new value to our existing one. This way we will
   // reuse that same memory if needed.
-  new_value->SetLocalSlot(spill_value->GetLocalSlot());
+  if (!rematerialize) {
+    new_value->SetLocalSlot(spill_value->GetLocalSlot());
+  }
 
   // Rename all future uses of the SSA value to the new value as loaded
   // from the local.
@@ -463,6 +520,12 @@ bool RegisterAllocationPass::SpillOneRegister(HIRBuilder* builder, Block* block,
     }
   }
   new_value->last_use = new_use_tail->instr;
+
+  if (rematerialize && !spill_value->use_head &&
+      spill_value->def->opcode == &OPCODE_LOAD_CONTEXT_info) {
+    // Every use moved to the reload and no later pass would collect the load.
+    spill_value->def->UnlinkAndNOP();
+  }
 
   // Update tracking.
   MarkRegAvailable(reg);
@@ -510,7 +573,9 @@ void RegisterAllocationPass::SortUsageList(Value* value) {
       for (int i = 0; i < insize; i++) {
         psize++;
         q = q->next;
-        if (!q) break;
+        if (!q) {
+          break;
+        }
       }
       // if q hasn't fallen off end, we have two lists to merge
       int qsize = insize;

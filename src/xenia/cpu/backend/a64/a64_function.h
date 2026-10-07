@@ -2,13 +2,15 @@
  ******************************************************************************
  * Xenia : Xbox 360 Emulator Research Project                                 *
  ******************************************************************************
- * Copyright 2024 Ben Vanik. All rights reserved.                             *
+ * Copyright 2026 Ben Vanik. All rights reserved.                             *
  * Released under the BSD license - see LICENSE in the root for more details. *
  ******************************************************************************
  */
 
 #ifndef XENIA_CPU_BACKEND_A64_A64_FUNCTION_H_
 #define XENIA_CPU_BACKEND_A64_A64_FUNCTION_H_
+
+#include <atomic>
 
 #include "xenia/cpu/function.h"
 #include "xenia/cpu/thread_state.h"
@@ -23,8 +25,12 @@ class A64Function : public GuestFunction {
   A64Function(Module* module, uint32_t address);
   ~A64Function() override;
 
-  uint8_t* machine_code() const override { return machine_code_; }
-  size_t machine_code_length() const override { return machine_code_length_; }
+  uint8_t* machine_code() const override {
+    return machine_code_.load(std::memory_order_acquire);
+  }
+  size_t machine_code_length() const override {
+    return machine_code_length_.load(std::memory_order_acquire);
+  }
 
   void Setup(uint8_t* machine_code, size_t machine_code_length);
 
@@ -32,8 +38,8 @@ class A64Function : public GuestFunction {
   bool CallImpl(ThreadState* thread_state, uint32_t return_address) override;
 
  private:
-  uint8_t* machine_code_ = nullptr;
-  size_t machine_code_length_ = 0;
+  std::atomic<uint8_t*> machine_code_{nullptr};
+  std::atomic<size_t> machine_code_length_{0};
 };
 
 }  // namespace a64

@@ -15,10 +15,7 @@
 namespace xe {
 namespace debugging {
 
-bool IsDebuggerAttached() {
-  return reinterpret_cast<const bool*>(
-      __readgsqword(0x60))[2];  // get BeingDebugged field of PEB
-}
+bool IsDebuggerAttached() { return ::IsDebuggerPresent() != 0; }
 
 void Break() { __debugbreak(); }
 

@@ -9,12 +9,6 @@
 
 #include "xenia/helper/sdl/sdl_helper.h"
 
-// On linux we likely build on an "outdated" system but still want to control
-// these features when available on a newer system.
-#if !SDL_VERSION_ATLEAST(2, 0, 14)
-#define SDL_HINT_AUDIO_DEVICE_APP_NAME "SDL_AUDIO_DEVICE_APP_NAME"
-#endif
-
 #include "xenia/base/assert.h"
 #include "xenia/base/logging.h"
 
@@ -32,9 +26,9 @@ bool SDLHelper::Prepare() {
   is_prepared_ &= SetHints();
   is_prepared_ &= RedirectLog();
 
-  SDL_version ver = {};
-  SDL_GetVersion(&ver);
-  XELOGI("SDL Version {}.{}.{} initialized.", ver.major, ver.minor, ver.patch);
+  const int ver = SDL_GetVersion();
+  XELOGI("SDL Version {}.{}.{} initialized.", SDL_VERSIONNUM_MAJOR(ver),
+         SDL_VERSIONNUM_MINOR(ver), SDL_VERSIONNUM_MICRO(ver));
 
   return is_prepared_;
 }
@@ -47,8 +41,7 @@ bool SDLHelper::SetHints() {
     // Setting hints with normal priority fails when the hint is set via env
     // vars or a hint with override priority is set, which does not conclude a
     // failure.
-    if (SDL_FALSE ==
-        SDL_SetHintWithPriority(
+    if (!SDL_SetHintWithPriority(
             name, value, override_ ? SDL_HINT_OVERRIDE : SDL_HINT_NORMAL)) {
       const char* msg_fmt =
           "SDLHelper: Unable to set hint \"{}\" to value \"{}\".";
@@ -62,22 +55,33 @@ bool SDLHelper::SetHints() {
     return true;
   };
 
-  // SDL calls timeBeginPeriod(1) but xenia sets this to a lower value before
-  // using NtSetTimerResolution(). Having that value overwritten causes overall
-  // fps drops. Use override priority as timer resolution should always be
-  // managed by xenia. https://bugzilla.libsdl.org/show_bug.cgi?id=5104
-  suc &= setHint(SDL_HINT_TIMER_RESOLUTION, "0", true);
-
   suc &= setHint(SDL_HINT_AUDIO_CATEGORY, "playback");
 
-  suc &= setHint(SDL_HINT_AUDIO_DEVICE_APP_NAME, "xenia emulator");
+  // SDL3 replaced SDL_HINT_AUDIO_DEVICE_APP_NAME with app metadata. Backends
+  // (PulseAudio, PipeWire, WASAPI session names, etc.) read this for the
+  // user-facing device label.
+  SDL_SetAppMetadata("xenia emulator", nullptr, nullptr);
+
+  // On Windows, SDL's joystick subsystem creates a hidden device-notification
+  // window (WM_DEVICECHANGE + raw-input dispatch) on whichever thread inits
+  // it. Without this hint that window lives on our SDL worker thread, which
+  // doesn't pump Win32 messages — leaving the queue and STA apartment state
+  // in a broken state that destabilises the UI thread via cross-apartment
+  // marshaling. With it, SDL spawns its own thread that owns and pumps the
+  // window. No-op on non-Windows platforms.
+  suc &= setHint(SDL_HINT_JOYSTICK_THREAD, "1", true);
+
+  // Force SDL's XInput backend over RAWINPUT: it bakes the XInput SubType
+  // into the joystick name (e.g. "XInput Guitar #1"), letting us classify
+  // form factor by name.
+  suc &= setHint(SDL_HINT_JOYSTICK_RAWINPUT, "0");
 
   return suc;
 }
 
 bool SDLHelper::RedirectLog() {
   // Redirect SDL_Log* output (internal library stuff) to our log system.
-  SDL_LogSetOutputFunction(
+  SDL_SetLogOutputFunction(
       [](void* userdata, int category, SDL_LogPriority priority,
          const char* message) {
         const char* msg_fmt = "SDL: {}";
@@ -106,7 +110,7 @@ bool SDLHelper::RedirectLog() {
   // SDL itself isn't that talkative. Additionally to this settings there are
   // hints that can be switched on to output additional internal logging
   // information.
-  SDL_LogSetAllPriority(SDL_LogPriority::SDL_LOG_PRIORITY_VERBOSE);
+  SDL_SetLogPriorities(SDL_LOG_PRIORITY_VERBOSE);
   return true;
 }
 }  // namespace sdl

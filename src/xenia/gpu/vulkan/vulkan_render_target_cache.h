@@ -19,6 +19,8 @@
 
 #include "xenia/base/hash.h"
 #include "xenia/base/xxhash.h"
+#include "xenia/gpu/edram_dump_shader.h"
+#include "xenia/gpu/edram_transfer_shader.h"
 #include "xenia/gpu/render_target_cache.h"
 #include "xenia/gpu/vulkan/vulkan_shared_memory.h"
 #include "xenia/gpu/vulkan/vulkan_texture_cache.h"
@@ -116,10 +118,17 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
 
   // Performs the resolve to a shared memory area according to the current
   // register values, and also clears the render targets if needed. Must be in a
-  // frame for calling.
+  // frame for calling. copy_dest_info_out, if not null, receives the
+  // destination info with the format normalized to the xenos::TextureFormat
+  // the copy was actually performed with (only meaningful when a nonzero
+  // length was written).
+  // written_scaled_out: whether the data went to the scaled resolve address
+  // space rather than shared memory (native resolves don't).
   bool Resolve(const Memory& memory, VulkanSharedMemory& shared_memory,
                VulkanTextureCache& texture_cache, uint32_t& written_address_out,
-               uint32_t& written_length_out);
+               uint32_t& written_length_out,
+               reg::RB_COPY_DEST_INFO* copy_dest_info_out = nullptr,
+               bool* written_scaled_out = nullptr);
 
   bool Update(bool is_rasterization_done,
               reg::RB_DEPTHCONTROL normalized_depth_control,
@@ -164,6 +173,9 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
     return depth_unorm24_vulkan_format_supported_;
   }
   bool depth_float24_round() const { return depth_float24_round_; }
+  bool depth_float24_convert_in_pixel_shader() const {
+    return depth_float24_convert_in_pixel_shader_;
+  }
   bool gamma_render_target_as_unorm16() const {
     return gamma_render_target_as_unorm16_;
   }
@@ -299,6 +311,13 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
   VkDeviceMemory edram_buffer_memory_ = VK_NULL_HANDLE;
   VkBuffer edram_buffer_ = VK_NULL_HANDLE;
   EdramBufferUsage edram_buffer_usage_;
+  VkBuffer edram_snapshot_download_buffer_ = VK_NULL_HANDLE;
+  VkDeviceMemory edram_snapshot_download_buffer_memory_ = VK_NULL_HANDLE;
+  bool edram_snapshot_download_mapped_ = false;
+  // Kept until shutdown so it outlives the copy it feeds - trace restore
+  // happens once per replay.
+  VkBuffer edram_snapshot_restore_buffer_ = VK_NULL_HANDLE;
+  VkDeviceMemory edram_snapshot_restore_buffer_memory_ = VK_NULL_HANDLE;
   EdramBufferModificationStatus edram_buffer_modification_status_ =
       EdramBufferModificationStatus::kUnmodified;
   VkDescriptorPool edram_storage_buffer_descriptor_pool_ = VK_NULL_HANDLE;
@@ -309,6 +328,13 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
       kResolveCopyShaders[size_t(draw_util::ResolveCopyShaderIndex::kCount)];
   std::array<VkPipeline, size_t(draw_util::ResolveCopyShaderIndex::kCount)>
       resolve_copy_pipelines_{};
+  // Unscaled variants for fully native resolves. Only created with resolution
+  // scaling, otherwise the main set is already unscaled. A separate set
+  // because the scaled shaders can't just run at 1x1, their push constants
+  // and destination address space assume the scaled resolve buffer.
+  VkPipelineLayout resolve_copy_native_pipeline_layout_ = VK_NULL_HANDLE;
+  std::array<VkPipeline, size_t(draw_util::ResolveCopyShaderIndex::kCount)>
+      resolve_copy_native_pipelines_{};
 
   // On the fragment shader interlock path, the render pass key is used purely
   // for passing parameters to pipeline setup - there's always only one render
@@ -476,155 +502,12 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
     void Reset() { std::memset(this, 0, sizeof(*this)); }
   };
 
-  enum TransferUsedDescriptorSet : uint32_t {
-    // Ordered from the least to the most frequently changed.
-    kTransferUsedDescriptorSetHostDepthBuffer,
-    kTransferUsedDescriptorSetHostDepthStencilTextures,
-    kTransferUsedDescriptorSetDepthStencilTextures,
-    // Mutually exclusive with kTransferUsedDescriptorSetDepthStencilTextures.
-    kTransferUsedDescriptorSetColorTexture,
-
-    kTransferUsedDescriptorSetCount,
-
-    kTransferUsedDescriptorSetHostDepthBufferBit =
-        uint32_t(1) << kTransferUsedDescriptorSetHostDepthBuffer,
-    kTransferUsedDescriptorSetHostDepthStencilTexturesBit =
-        uint32_t(1) << kTransferUsedDescriptorSetHostDepthStencilTextures,
-    kTransferUsedDescriptorSetDepthStencilTexturesBit =
-        uint32_t(1) << kTransferUsedDescriptorSetDepthStencilTextures,
-    kTransferUsedDescriptorSetColorTextureBit =
-        uint32_t(1) << kTransferUsedDescriptorSetColorTexture,
-  };
-
-  // 32-bit push constants (for simplicity of size calculation and to avoid
-  // std140 packing issues).
-  enum TransferUsedPushConstantDword : uint32_t {
-    kTransferUsedPushConstantDwordHostDepthAddress,
-    kTransferUsedPushConstantDwordAddress,
-    // Changed 8 times per transfer.
-    kTransferUsedPushConstantDwordStencilMask,
-
-    kTransferUsedPushConstantDwordCount,
-
-    kTransferUsedPushConstantDwordHostDepthAddressBit =
-        uint32_t(1) << kTransferUsedPushConstantDwordHostDepthAddress,
-    kTransferUsedPushConstantDwordAddressBit =
-        uint32_t(1) << kTransferUsedPushConstantDwordAddress,
-    kTransferUsedPushConstantDwordStencilMaskBit =
-        uint32_t(1) << kTransferUsedPushConstantDwordStencilMask,
-  };
-
-  enum class TransferPipelineLayoutIndex {
-    kColor,
-    kDepth,
-    kColorToStencilBit,
-    kDepthToStencilBit,
-    kColorAndHostDepthTexture,
-    kColorAndHostDepthBuffer,
-    kDepthAndHostDepthTexture,
-    kDepthAndHostDepthBuffer,
-
-    kCount,
-  };
-
-  struct TransferPipelineLayoutInfo {
-    uint32_t used_descriptor_sets;
-    uint32_t used_push_constant_dwords;
-  };
-
-  static const TransferPipelineLayoutInfo
-      kTransferPipelineLayoutInfos[size_t(TransferPipelineLayoutIndex::kCount)];
-
-  enum class TransferMode : uint32_t {
-    kColorToDepth,
-    kColorToColor,
-
-    kDepthToDepth,
-    kDepthToColor,
-
-    kColorToStencilBit,
-    kDepthToStencilBit,
-
-    // Two-source modes, using the host depth if it, when converted to the guest
-    // format, matches what's in the owner source (not modified, keep host
-    // precision), or the guest data otherwise (significantly modified, possibly
-    // cleared). Stencil for FragStencilRef is always taken from the guest
-    // source.
-
-    kColorAndHostDepthToDepth,
-    // When using different source and destination depth formats.
-    kDepthAndHostDepthToDepth,
-
-    // If host depth is fetched, but it's the same image as the destination,
-    // it's copied to the EDRAM buffer (but since it's just a scratch buffer,
-    // with tiles laid out linearly with the same pitch as in the original
-    // render target; also no swapping of 40-sample columns as opposed to the
-    // host render target - this is done only for the color source) and fetched
-    // from there instead of the host depth texture.
-    kColorAndHostDepthCopyToDepth,
-    kDepthAndHostDepthCopyToDepth,
-
-    kCount,
-  };
-
-  enum class TransferOutput {
-    kColor,
-    kDepth,
-    kStencilBit,
-  };
-
-  struct TransferModeInfo {
-    TransferOutput output;
-    TransferPipelineLayoutIndex pipeline_layout;
-  };
-
-  static const TransferModeInfo kTransferModes[size_t(TransferMode::kCount)];
-
-  union TransferShaderKey {
-    uint32_t key;
-    struct {
-      xenos::MsaaSamples dest_msaa_samples : xenos::kMsaaSamplesBits;
-      uint32_t dest_color_rt_index : xenos::kColorRenderTargetIndexBits;
-      uint32_t dest_resource_format : xenos::kRenderTargetFormatBits;
-      xenos::MsaaSamples source_msaa_samples : xenos::kMsaaSamplesBits;
-      // Always 1x when the host depth is a copy from a buffer rather than an
-      // image, not to create the same pipeline for different MSAA sample counts
-      // as it doesn't matter in this case.
-      xenos::MsaaSamples host_depth_source_msaa_samples
-          : xenos::kMsaaSamplesBits;
-      uint32_t source_resource_format : xenos::kRenderTargetFormatBits;
-
-      // Last bits because this affects the pipeline layout - after sorting,
-      // only change it as fewer times as possible. Depth buffers have an
-      // additional stencil texture.
-      static_assert(size_t(TransferMode::kCount) <= (size_t(1) << 4));
-      TransferMode mode : 4;
-    };
-
-    TransferShaderKey() : key(0) { static_assert_size(*this, sizeof(key)); }
-
-    struct Hasher {
-      size_t operator()(const TransferShaderKey& key) const {
-        return std::hash<uint32_t>{}(key.key);
-      }
-    };
-    bool operator==(const TransferShaderKey& other_key) const {
-      return key == other_key.key;
-    }
-    bool operator!=(const TransferShaderKey& other_key) const {
-      return !(*this == other_key);
-    }
-    bool operator<(const TransferShaderKey& other_key) const {
-      return key < other_key.key;
-    }
-  };
-
   struct TransferPipelineKey {
     RenderPassKey render_pass_key;
-    TransferShaderKey shader_key;
+    EdramTransferShaderKey shader_key;
 
     TransferPipelineKey(RenderPassKey render_pass_key,
-                        TransferShaderKey shader_key)
+                        EdramTransferShaderKey shader_key)
         : render_pass_key(render_pass_key), shader_key(shader_key) {}
 
     struct Hasher {
@@ -653,36 +536,11 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
     }
   };
 
-  union TransferAddressConstant {
-    uint32_t constant;
-    struct {
-      // All in tiles.
-      uint32_t dest_pitch : xenos::kEdramPitchTilesBits;
-      uint32_t source_pitch : xenos::kEdramPitchTilesBits;
-      // Destination base in tiles minus source base in tiles (not vice versa
-      // because this is a transform of the coordinate system, not addresses
-      // themselves).
-      // + 1 bit because this is a signed difference between two EDRAM bases.
-      // 0 for host_depth_source_is_copy (ignored in this case anyway as
-      // destination == source anyway).
-      int32_t source_to_dest : xenos::kEdramBaseTilesBits + 1;
-    };
-    TransferAddressConstant() : constant(0) {
-      static_assert_size(*this, sizeof(constant));
-    }
-    bool operator==(const TransferAddressConstant& other_constant) const {
-      return constant == other_constant.constant;
-    }
-    bool operator!=(const TransferAddressConstant& other_constant) const {
-      return !(*this == other_constant);
-    }
-  };
-
   struct TransferInvocation {
     Transfer transfer;
-    TransferShaderKey shader_key;
+    EdramTransferShaderKey shader_key;
     TransferInvocation(const Transfer& transfer,
-                       const TransferShaderKey& shader_key)
+                       const EdramTransferShaderKey& shader_key)
         : transfer(transfer), shader_key(shader_key) {}
     bool operator<(const TransferInvocation& other_invocation) const {
       // TODO(Triang3l): See if it may be better to sort by the source in the
@@ -716,87 +574,6 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
     }
   };
 
-  union DumpPipelineKey {
-    uint32_t key;
-    struct {
-      xenos::MsaaSamples msaa_samples : 2;
-      uint32_t resource_format : 4;
-      // Last bit because this affects the pipeline - after sorting, only change
-      // it at most once. Depth buffers have an additional stencil SRV.
-      uint32_t is_depth : 1;
-    };
-
-    DumpPipelineKey() : key(0) { static_assert_size(*this, sizeof(key)); }
-
-    struct Hasher {
-      size_t operator()(const DumpPipelineKey& key) const {
-        return std::hash<uint32_t>{}(key.key);
-      }
-    };
-    bool operator==(const DumpPipelineKey& other_key) const {
-      return key == other_key.key;
-    }
-    bool operator!=(const DumpPipelineKey& other_key) const {
-      return !(*this == other_key);
-    }
-    bool operator<(const DumpPipelineKey& other_key) const {
-      return key < other_key.key;
-    }
-
-    xenos::ColorRenderTargetFormat GetColorFormat() const {
-      assert_false(is_depth);
-      return xenos::ColorRenderTargetFormat(resource_format);
-    }
-    xenos::DepthRenderTargetFormat GetDepthFormat() const {
-      assert_true(is_depth);
-      return xenos::DepthRenderTargetFormat(resource_format);
-    }
-  };
-
-  // There's no strict dependency on the group size in dumping, for simplicity
-  // calculations especially with resolution scaling, dividing manually (as the
-  // group size is not unlimited). The only restriction is that an integer
-  // multiple of it must be 80x16 samples (and no larger than that) for 32bpp,
-  // or 40x16 samples for 64bpp (because only a half of the pair of tiles may
-  // need to be dumped). Using 8x16 since that's 128 - the minimum required
-  // group size on Vulkan, and the maximum number of lanes in a subgroup on
-  // Vulkan.
-  static constexpr uint32_t kDumpSamplesPerGroupX = 8;
-  static constexpr uint32_t kDumpSamplesPerGroupY = 16;
-
-  union DumpPitches {
-    uint32_t pitches;
-    struct {
-      // Both in tiles.
-      uint32_t dest_pitch : xenos::kEdramPitchTilesBits;
-      uint32_t source_pitch : xenos::kEdramPitchTilesBits;
-    };
-    DumpPitches() : pitches(0) { static_assert_size(*this, sizeof(pitches)); }
-    bool operator==(const DumpPitches& other_pitches) const {
-      return pitches == other_pitches.pitches;
-    }
-    bool operator!=(const DumpPitches& other_pitches) const {
-      return !(*this == other_pitches);
-    }
-  };
-
-  union DumpOffsets {
-    uint32_t offsets;
-    struct {
-      // May be beyond the EDRAM tile count in case of EDRAM addressing
-      // wrapping, thus + 1 bit.
-      uint32_t dispatch_first_tile : xenos::kEdramBaseTilesBits + 1;
-      uint32_t source_base_tiles : xenos::kEdramBaseTilesBits;
-    };
-    DumpOffsets() : offsets(0) { static_assert_size(*this, sizeof(offsets)); }
-    bool operator==(const DumpOffsets& other_offsets) const {
-      return offsets == other_offsets.offsets;
-    }
-    bool operator!=(const DumpOffsets& other_offsets) const {
-      return !(*this == other_offsets);
-    }
-  };
-
   enum DumpDescriptorSet : uint32_t {
     // Never changes. Same in both color and depth pipeline layouts, keep the
     // first for pipeline layout compatibility, to only have to set it once.
@@ -808,20 +585,11 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
     kDumpDescriptorSetCount,
   };
 
-  enum DumpPushConstant : uint32_t {
-    // May be different for different sources.
-    kDumpPushConstantPitches,
-    // May be changed multiple times for the same source.
-    kDumpPushConstantOffsets,
-
-    kDumpPushConstantCount,
-  };
-
   struct DumpInvocation {
     ResolveCopyDumpRectangle rectangle;
-    DumpPipelineKey pipeline_key;
+    EdramDumpShaderKey pipeline_key;
     DumpInvocation(const ResolveCopyDumpRectangle& rectangle,
-                   const DumpPipelineKey& pipeline_key)
+                   const EdramDumpShaderKey& pipeline_key)
         : rectangle(rectangle), pipeline_key(pipeline_key) {}
     bool operator<(const DumpInvocation& other_invocation) const {
       // Sort by the pipeline key primarily to reduce pipeline state (context)
@@ -853,7 +621,7 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
       RenderPassKey render_pass_key, uint32_t pitch_tiles_at_32bpp,
       const RenderTarget* const* depth_and_color_render_targets);
 
-  VkShaderModule GetTransferShader(TransferShaderKey key);
+  VkShaderModule GetTransferShader(EdramTransferShaderKey key);
   // With sample-rate shading, returns a pointer to one pipeline. Without
   // sample-rate shading, returns a pointer to as many pipelines as there are
   // samples. If there was a failure to create a pipeline, returns nullptr.
@@ -870,17 +638,41 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
       const uint64_t* render_target_resolve_clear_values = nullptr,
       const Transfer::Rectangle* resolve_clear_rectangle = nullptr);
 
-  VkPipeline GetDumpPipeline(DumpPipelineKey key);
+  VkPipeline GetDumpPipeline(EdramDumpShaderKey key);
+
+  // Writes contents of the host render targets within those same rectangles
+  // straight into shared memory in the destination's guest texture layout,
+  // skipping edram_buffer_ and the resolve copy that would read it back again.
+  // Returns false without encoding anything if it can't, leaving the caller to
+  // fall back to the round trip.
+  bool DirectResolveRenderTargets(
+      const draw_util::ResolveInfo& resolve_info,
+      const draw_util::ResolveCopyShaderConstants& copy_shader_constants,
+      uint32_t dump_base, uint32_t dump_row_length_used, uint32_t dump_rows,
+      uint32_t dump_pitch, bool copy_dest_scaled,
+      VulkanSharedMemory& shared_memory, VulkanTextureCache& texture_cache);
 
   // Writes contents of host render targets within rectangles from
-  // ResolveInfo::GetCopyEdramTileSpan to edram_buffer_.
+  // ResolveInfo::GetCopyEdramTileSpan to edram_buffer_ - with the plain 1x1
+  // tile layout if native_layout is set.
   void DumpRenderTargets(uint32_t dump_base, uint32_t dump_row_length_used,
-                         uint32_t dump_rows, uint32_t dump_pitch);
+                         uint32_t dump_rows, uint32_t dump_pitch,
+                         bool native_layout);
 
+  void DumpAllRenderTargetsToEdram() override;
+  bool BeginEdramSnapshotReadback() override;
+  const void* MapEdramSnapshotReadback() override;
+  void EndEdramSnapshotReadback() override;
+
+ public:
+  void RestoreEdramSnapshot(const void* snapshot);
+
+ private:
   bool gamma_render_target_as_unorm16_ = false;
 
   bool depth_unorm24_vulkan_format_supported_ = false;
   bool depth_float24_round_ = false;
+  bool depth_float24_convert_in_pixel_shader_ = false;
 
   bool msaa_2x_attachments_supported_ = false;
   bool msaa_2x_no_attachments_supported_ = false;
@@ -903,10 +695,10 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
       transfer_vertex_buffer_pool_;
   VkShaderModule transfer_passthrough_vertex_shader_ = VK_NULL_HANDLE;
   VkPipelineLayout transfer_pipeline_layouts_[size_t(
-      TransferPipelineLayoutIndex::kCount)] = {};
+      EdramTransferPipelineLayoutIndex::kCount)] = {};
   // VK_NULL_HANDLE if failed to create.
-  std::unordered_map<TransferShaderKey, VkShaderModule,
-                     TransferShaderKey::Hasher>
+  std::unordered_map<EdramTransferShaderKey, VkShaderModule,
+                     EdramTransferShaderKey::Hasher>
       transfer_shaders_;
   // With sample-rate shading, one pipeline per entry. Without sample-rate
   // shading, one pipeline per sample per entry. VK_NULL_HANDLE if failed to
@@ -919,7 +711,7 @@ class VulkanRenderTargetCache final : public RenderTargetCache {
   VkPipelineLayout dump_pipeline_layout_depth_ = VK_NULL_HANDLE;
   // Compute pipelines for copying host render target contents to the EDRAM
   // buffer. VK_NULL_HANDLE if failed to create.
-  std::unordered_map<DumpPipelineKey, VkPipeline, DumpPipelineKey::Hasher>
+  std::unordered_map<EdramDumpShaderKey, VkPipeline, EdramDumpShaderKey::Hasher>
       dump_pipelines_;
 
   // Temporary storage for Resolve.

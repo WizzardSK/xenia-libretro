@@ -28,15 +28,19 @@ enum class DiscSwapResult {
   kCancelled,  // User cancelled the dialog
 };
 
-class DiscSwapUI final : public XamDialog {
+class DiscSwapUI final : public XamGamepadDialog {
  public:
   struct DiscInfo {
     std::string label;
     std::filesystem::path path;
   };
 
-  DiscSwapUI(xe::ui::ImGuiDrawer* imgui_drawer, const std::string& message,
-             const std::vector<DiscInfo>& discs, bool show_error);
+  // An empty list_prompt keeps the disc count line.
+  DiscSwapUI(xe::ui::ImGuiDrawer* imgui_drawer,
+             xe::hid::InputSystem* input_system, const std::string& message,
+             const std::vector<DiscInfo>& discs, bool show_error,
+             std::string title = "Select Disc", std::string list_prompt = {},
+             bool allow_browse = true);
 
   DiscSwapResult result() const { return result_; }
   const std::filesystem::path& selected_path() const { return selected_path_; }
@@ -48,7 +52,9 @@ class DiscSwapUI final : public XamDialog {
   std::string title_;
   std::string message_;
   std::string error_message_;
+  std::string list_prompt_;
   bool show_error_ = false;
+  bool allow_browse_ = true;
   std::vector<DiscInfo> discs_;
   int selected_index_ = 0;
   DiscSwapResult result_ = DiscSwapResult::kCancelled;

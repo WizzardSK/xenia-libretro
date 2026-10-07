@@ -209,7 +209,9 @@ bool ConstantPropagationPass::Run(HIRBuilder* builder, bool& result) {
           }
           break;
         case OPCODE_ROUND:
-          if (i->src1.value->IsConstant()) {
+          // The dynamic mode is whatever the host carries at run time, which
+          // is not knowable here.
+          if (i->src1.value->IsConstant() && i->flags != ROUND_DYNAMIC) {
             v->set_from(i->src1.value);
             v->Round(RoundMode(i->flags));
             i->UnlinkAndNOP();
@@ -381,6 +383,20 @@ bool ConstantPropagationPass::Run(HIRBuilder* builder, bool& result) {
             } else {
               v->set_constant(uint8_t(0));
             }
+            i->UnlinkAndNOP();
+            result = true;
+          }
+          break;
+        case OPCODE_VECTOR_ALL_SET:
+        case OPCODE_VECTOR_NONE_SET:
+          if (i->src1.value->IsConstant()) {
+            const vec128_t& c = i->src1.value->constant.v128;
+            uint32_t all = c.u32[0] & c.u32[1] & c.u32[2] & c.u32[3];
+            uint32_t any = c.u32[0] | c.u32[1] | c.u32[2] | c.u32[3];
+            bool value = i->opcode->num == OPCODE_VECTOR_ALL_SET
+                             ? all == ~uint32_t(0)
+                             : any == 0;
+            v->set_constant(uint8_t(value ? 1 : 0));
             i->UnlinkAndNOP();
             result = true;
           }

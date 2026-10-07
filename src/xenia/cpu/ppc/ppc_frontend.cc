@@ -12,6 +12,7 @@
 #include "xenia/base/atomic.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/mutex.h"
+#include "xenia/cpu/cpu_flags.h"
 #include "xenia/cpu/ppc/ppc_context.h"
 #include "xenia/cpu/ppc/ppc_emit.h"
 #include "xenia/cpu/ppc/ppc_opcode_info.h"
@@ -52,8 +53,6 @@ PPCFrontend::~PPCFrontend() {
   translator_pool_.Reset();
 }
 
-Memory* PPCFrontend::memory() const { return processor_->memory(); }
-
 // Checks the state of the global lock and sets scratch to the current MSR
 // value.
 void CheckGlobalLock(PPCContext* ppc_context, void* arg0, void* arg1) {
@@ -80,7 +79,58 @@ void LeaveGlobalLock(PPCContext* ppc_context, void* arg0, void* arg1) {
   global_mutex->unlock();
 }
 
+// Each frame stores the caller's sp at [sp] and its return address 8 bytes
+// below that.
+static std::string GuestBacktrace(PPCContext* ppc_context) {
+  auto readable = [&](uint32_t address) {
+    if (address < 0x1000 || address >= 0xFFFFF000 || (address & 3)) {
+      return false;
+    }
+    auto* heap = ppc_context->processor->memory()->LookupHeap(address);
+    uint32_t protect = 0;
+    return heap && heap->QueryProtect(address, &protect) &&
+           (protect & kMemoryProtectRead);
+  };
+  auto load = [&](uint32_t address) {
+    return xe::load_and_swap<uint32_t>(
+        ppc_context->TranslateVirtual<uint8_t*>(address));
+  };
+
+  std::string out;
+  uint32_t sp = uint32_t(ppc_context->r[1]);
+  for (int depth = 0; depth < 16; ++depth) {
+    if (!readable(sp)) {
+      break;
+    }
+    const uint32_t next_sp = load(sp);
+    if (next_sp <= sp || !readable(next_sp - 8)) {
+      break;
+    }
+    out += fmt::format(" {:08X}", load(next_sp - 8));
+    sp = next_sp;
+  }
+  return out;
+}
+
+void LogLrHandler(PPCContext* ppc_context, void* arg0, void* arg1) {
+  const int32_t gpr = cvars::log_lr_condition_gpr;
+  if (gpr >= 0 &&
+      (gpr > 31 || ppc_context->r[gpr] != cvars::log_lr_condition_value)) {
+    return;
+  }
+  XELOGI(
+      "log_lr_at_instruction: lr={:08X} r3={:X} r4={:X} r5={:X} r6={:X} "
+      "r7={:X} r8={:X} backtrace:{}",
+      uint32_t(ppc_context->lr), ppc_context->r[3], ppc_context->r[4],
+      ppc_context->r[5], ppc_context->r[6], ppc_context->r[7],
+      ppc_context->r[8], GuestBacktrace(ppc_context));
+}
+
 void SyscallHandler(PPCContext* ppc_context, void* arg0, void* arg1) {
+  if (auto hook = ppc_context->processor->syscall_hook();
+      hook && hook(ppc_context)) {
+    return;
+  }
   uint64_t syscall_number = ppc_context->r[0];
   switch (syscall_number) {
     default:
@@ -102,6 +152,8 @@ bool PPCFrontend::Initialize() {
       processor_->DefineBuiltin("LeaveGlobalLock", LeaveGlobalLock, arg0, arg1);
   builtins_.syscall_handler = processor_->DefineBuiltin(
       "SyscallHandler", SyscallHandler, nullptr, nullptr);
+  builtins_.log_lr_handler =
+      processor_->DefineBuiltin("LogLr", LogLrHandler, nullptr, nullptr);
   return true;
 }
 

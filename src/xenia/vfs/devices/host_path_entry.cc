@@ -144,7 +144,13 @@ void HostPathEntry::update() {
   if (!file_info) {
     return;
   }
-  if (file_info->type == xe::filesystem::FileInfo::Type::kFile) {
+  // Creation time never changes, and posix reports st_ctime here, which
+  // moves on every write.
+  access_timestamp_ = file_info->access_timestamp;
+  write_timestamp_ = file_info->write_timestamp;
+  // A synthesized size, such as a collapsed package container, must stand.
+  if (file_info->type == xe::filesystem::FileInfo::Type::kFile &&
+      !reported_size_fixed_) {
     size_ = file_info->total_size;
     allocation_size_ =
         xe::round_up(file_info->total_size, device()->bytes_per_sector());

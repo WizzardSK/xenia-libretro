@@ -52,9 +52,13 @@ void ImGuiDialog::Draw() {
 
   // Check to see if the UI closed itself and needs to be deleted.
   if (has_close_pending_) {
-    OnClose();
-    delete this;
+    Destroy();
   }
+}
+
+void ImGuiDialog::Destroy() {
+  OnClose();
+  delete this;
 }
 
 class MessageBoxDialog final : public ImGuiDialog {

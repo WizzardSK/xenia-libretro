@@ -221,9 +221,20 @@ TEST_CASE("UTF-8 Count", "[utf8]") {
 }
 
 // TODO(gibbed): lower_ascii
-// TODO(gibbed): upper_ascii
 // TODO(gibbed): hash_fnv1a
 // TODO(gibbed): hash_fnv1a_case
+
+TEST_CASE("UTF-8 Upper ASCII", "[utf8]") {
+  REQUIRE(utf8::upper_ascii("abcxyz") == "ABCXYZ");
+  REQUIRE(utf8::upper_ascii("ABCXYZ") == "ABCXYZ");
+  REQUIRE(utf8::upper_ascii("MiXeD 123") == "MIXED 123");
+  // Bytes either side of the letters must survive untouched, the sort
+  // order of names starting with _ or ` depends on it.
+  REQUIRE(utf8::upper_ascii("_`[]^{}") == "_`[]^{}");
+  // Non-ascii is left alone.
+  REQUIRE(utf8::upper_ascii(examples::kGreekValues[0]) ==
+          examples::kGreekValues[0]);
+}
 
 TEST_CASE("UTF-8 Split", "[utf8]") {
   std::vector<std::string_view> parts;

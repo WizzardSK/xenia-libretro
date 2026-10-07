@@ -26,7 +26,7 @@ namespace xam {
 void AddODDContentTest(object_ref<XStaticEnumerator<XCONTENT_AGGREGATE_DATA>> e,
                        XContentType content_type) {
   auto root_entry = kernel_state()->file_system()->ResolvePath(
-      "game:\\Content\\0000000000000000");
+      kernel_state()->title_mount_path_ + "\\Content\\0000000000000000");
   if (!root_entry) {
     return;
   }
@@ -111,8 +111,7 @@ dword_result_t XamContentAggregateCreateEnumerator_entry(qword_t xuid,
     auto exe_module = kernel_state()->GetExecutableModule();
     if (exe_module && exe_module->xex_module()) {
       const auto& alt_ids = exe_module->xex_module()->opt_alternate_title_ids();
-      std::copy(alt_ids.cbegin(), alt_ids.cend(),
-                std::back_inserter(title_ids));
+      std::ranges::copy(alt_ids, std::back_inserter(title_ids));
     }
 
     for (const auto& title_id : title_ids) {

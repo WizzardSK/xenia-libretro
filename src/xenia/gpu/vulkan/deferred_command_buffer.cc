@@ -138,6 +138,22 @@ void DeferredCommandBuffer::Execute(VkCommandBuffer command_buffer) {
         dfn.vkCmdResetQueryPool(command_buffer, args.query_pool,
                                 args.first_query, args.query_count);
       } break;
+      case Command::kVkBeginConditionalRenderingEXT: {
+        auto& args =
+            *reinterpret_cast<const ArgsVkBeginConditionalRenderingEXT*>(
+                stream);
+        VkConditionalRenderingBeginInfoEXT begin_info;
+        begin_info.sType =
+            VK_STRUCTURE_TYPE_CONDITIONAL_RENDERING_BEGIN_INFO_EXT;
+        begin_info.pNext = nullptr;
+        begin_info.buffer = args.buffer;
+        begin_info.offset = args.offset;
+        begin_info.flags = args.flags;
+        dfn.vkCmdBeginConditionalRenderingEXT(command_buffer, &begin_info);
+      } break;
+      case Command::kVkEndConditionalRenderingEXT: {
+        dfn.vkCmdEndConditionalRenderingEXT(command_buffer);
+      } break;
 
       case Command::kVkClearAttachments: {
         auto& args = *reinterpret_cast<const ArgsVkClearAttachments*>(stream);
@@ -175,6 +191,12 @@ void DeferredCommandBuffer::Execute(VkCommandBuffer command_buffer) {
                 xe::align(sizeof(ArgsVkCopyBuffer), alignof(VkBufferCopy))));
       } break;
 
+      case Command::kVkFillBuffer: {
+        auto& args = *reinterpret_cast<const ArgsVkFillBuffer*>(stream);
+        dfn.vkCmdFillBuffer(command_buffer, args.dst_buffer, args.dst_offset,
+                            args.size, args.data);
+      } break;
+
       case Command::kVkCopyBufferToImage: {
         auto& args = *reinterpret_cast<const ArgsVkCopyBufferToImage*>(stream);
         dfn.vkCmdCopyBufferToImage(
@@ -195,6 +217,16 @@ void DeferredCommandBuffer::Execute(VkCommandBuffer command_buffer) {
                 reinterpret_cast<const uint8_t*>(stream) +
                 xe::align(sizeof(ArgsVkBlitImage), alignof(VkImageBlit))),
             args.filter);
+      } break;
+
+      case Command::kVkCopyImage: {
+        auto& args = *reinterpret_cast<const ArgsVkCopyImage*>(stream);
+        dfn.vkCmdCopyImage(
+            command_buffer, args.src_image, args.src_image_layout,
+            args.dst_image, args.dst_image_layout, args.region_count,
+            reinterpret_cast<const VkImageCopy*>(
+                reinterpret_cast<const uint8_t*>(stream) +
+                xe::align(sizeof(ArgsVkCopyImage), alignof(VkImageCopy))));
       } break;
 
       case Command::kVkDispatch: {

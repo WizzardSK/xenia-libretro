@@ -18,7 +18,10 @@
 #define MINIAUDIO_IMPLEMENTATION
 #include "third_party/miniaudio/miniaudio.h"
 
-DECLARE_path(achievement_sound_path);
+DEFINE_path(achievement_sound_path, "",
+            "Path (including filename) to achievement unlock sound. "
+            "Supports WAV, MP3, OGG, FLAC, and other common formats.",
+            "UI");
 
 namespace xe {
 namespace ui {

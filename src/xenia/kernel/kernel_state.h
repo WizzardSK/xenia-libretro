@@ -10,26 +10,32 @@
 #ifndef XENIA_KERNEL_KERNEL_STATE_H_
 #define XENIA_KERNEL_KERNEL_STATE_H_
 
+#include <atomic>
 #include <bitset>
 #include <condition_variable>
+#include <deque>
 #include <functional>
 #include <list>
+#include <mutex>
 #include <vector>
 
 #include "xenia/base/bit_map.h"
 #include "xenia/cpu/backend/backend.h"
 #include "xenia/cpu/export_resolver.h"
+#include "xenia/kernel/guest_scheduler.h"
 #include "xenia/kernel/kernel.h"
 #include "xenia/kernel/smc.h"
 #include "xenia/kernel/util/kernel_fwd.h"
 #include "xenia/kernel/util/native_list.h"
 #include "xenia/kernel/util/object_table.h"
+#include "xenia/kernel/util/xmp_volume_patch.h"
 #include "xenia/kernel/xam/achievement_manager.h"
 #include "xenia/kernel/xam/app_manager.h"
 #include "xenia/kernel/xam/content_manager.h"
 #include "xenia/kernel/xam/user_profile.h"
 #include "xenia/kernel/xam/xam_state.h"
 #include "xenia/kernel/xam/xdbf/spa_info.h"
+#include "xenia/kernel/xconfig.h"
 #include "xenia/kernel/xevent.h"
 #include "xenia/vfs/virtual_file_system.h"
 
@@ -65,10 +71,10 @@ struct X_KPROCESS {
   // so it sets this ptr to 0x1C0000
   xe::be<uint32_t> clrdataa_masked_ptr;
   xe::be<uint32_t> thread_count;
-  uint8_t unk_18;
-  uint8_t unk_19;
-  uint8_t unk_1A;
-  uint8_t unk_1B;
+  uint8_t process_priority_class;
+  uint8_t default_thread_priority;
+  uint8_t max_dynamic_priority;
+  uint8_t disable_quantum_decay;
   xe::be<uint32_t> kernel_stack_size;
   xe::be<uint32_t> tls_static_data_address;
   xe::be<uint32_t> tls_data_size;
@@ -95,21 +101,13 @@ struct TerminateNotification {
 // a bit like the timers on KUSER_SHARED on normal win32
 // https://www.geoffchappell.com/studies/windows/km/ntoskrnl/inc/api/ntexapi_x/kuser_shared_data/index.htm
 struct X_TIME_STAMP_BUNDLE {
+  // according to Nukernl these are BE
   uint64_t interrupt_time;
   // i assume system_time is in 100 ns intervals like on win32
   uint64_t system_time;
   uint32_t tick_count;
   uint32_t padding;
 };
-struct X_UNKNOWN_TYPE_REFED {
-  xe::be<uint32_t> field0;
-  xe::be<uint32_t> field4;
-  // this is definitely a LIST_ENTRY?
-  xe::be<uint32_t> points_to_self;  // this field points to itself
-  xe::be<uint32_t>
-      points_to_prior;  // points to the previous field, which points to itself
-};
-static_assert_size(X_UNKNOWN_TYPE_REFED, 16);
 
 struct KernelGuestGlobals {
   X_OBJECT_TYPE ExThreadObjectType;
@@ -124,7 +122,7 @@ struct KernelGuestGlobals {
   X_OBJECT_TYPE ObSymbolicLinkObjectType;
   // a constant buffer that some object types' "unknown_size_or_object" field
   // points to
-  X_UNKNOWN_TYPE_REFED OddObj;
+  X_DISPATCH_HEADER XboxKernelDefaultObject;
   X_KPROCESS idle_process;    // X_PROCTYPE_IDLE. runs in interrupt contexts. is
                               // also the context the kernel starts in?
   X_KPROCESS title_process;   // X_PROCTYPE_TITLE
@@ -143,6 +141,10 @@ struct KernelGuestGlobals {
 
   // if LLE emulating Xam, this is needed or you get an immediate freeze
   X_KEVENT UsbdBootEnumerationDoneEvent;
+  // CPUs that take a background-scheduling window, read by
+  // KeQueryBackgroundProcessors and written by KeSetBackgroundProcessors.
+  // 0x3C (CPUs 2-5) is the console's boot value.
+  xe::be<uint32_t> background_processors;
 };
 struct DPCImpersonationScope {
   uint8_t previous_irql_;
@@ -181,11 +183,24 @@ class KernelState {
   vfs::VirtualFileSystem* file_system() const { return file_system_; }
 
   uint32_t title_id() const;
+  bool is_title_open() const;
   const std::unique_ptr<xam::SpaInfo> title_xdbf() const;
   const std::unique_ptr<xam::SpaInfo> module_xdbf(
       object_ref<UserModule> exec_module) const;
 
   xam::XamState* xam_state() const { return xam_state_.get(); }
+
+  GuestScheduler* guest_scheduler() const { return guest_scheduler_.get(); }
+
+  // Wake boost for a completed file request, NT's IO_DISK_INCREMENT.
+  static constexpr uint32_t kIoDiskIncrement = 1;
+  // Runs |fn|, a blocking host call such as a file read or open, on an I/O
+  // worker while the calling fiber waits on an event its completion signals.
+  // Off a fiber or under the global lock it runs inline. With |alertable| a
+  // user APC ends one poll of the wait, which still lasts until |fn| is done.
+  void RunBlockingIo(const std::function<void()>& fn,
+                     GuestScheduler::BlockingCallClass call_class,
+                     bool alertable = false);
 
   SystemManagementController* smc() const { return smc_.get(); }
 
@@ -196,6 +211,11 @@ class KernelState {
   xam::ContentManager* content_manager() const {
     return xam_state()->content_manager();
   }
+
+  XmpVolumePatch* xmp_volume_patch() const { return xmp_volume_patch_.get(); }
+  void InitXmpVolumePatch();
+
+  XConfig* xconfig() const { return xconfig_.get(); }
 
   std::bitset<4> GetConnectedUsers() const;
 
@@ -262,6 +282,11 @@ class KernelState {
   // This DOES NOT RETURN if called from a guest thread!
   void TerminateTitle();
 
+  // Handles a game-requested exit to the dashboard: hands off to the host UI
+  // when it registered a handler, otherwise terminates the title.
+  // This DOES NOT RETURN.
+  void ExitToDashboard();
+
   // Gracefully stops the dispatch thread. Call before force-terminating
   // threads to avoid corrupting the CV it's blocked on.
   void ShutdownDispatchThread();
@@ -311,6 +336,13 @@ class KernelState {
 
   uint32_t notification_position_ = 2;
   XDeploymentType deployment_type_ = XDeploymentType::kOther;
+  // Launch media mount path, titles can repoint GAME: and D: but not this.
+  std::string title_mount_path_;
+
+  // CPUs that take a background-scheduling window. Boots to 0x3C like the
+  // console, and KeSetBackgroundProcessors moves it.
+  uint32_t GetBackgroundProcessors();
+  void SetBackgroundProcessors(uint32_t processors);
 
   uint32_t GetKeTimestampBundle();
 
@@ -324,6 +356,29 @@ class KernelState {
   void EndDPCImpersonation(cpu::ppc::PPCContext* context,
                            DPCImpersonationScope& end_scope);
 
+  // Queues a KDPC with |arg1| and |arg2| as its system arguments, for an expiry
+  // that fires on a host thread: on its target processor's DPC thread if that
+  // has started, else on the dispatch thread. A KDPC already queued there is
+  // left as it is.
+  void QueueDpc(uint32_t dpc_ptr, uint32_t arg1, uint32_t arg2);
+  // Dequeues a KDPC QueueDpc queued if it hasn't started.
+  bool RemoveDpc(uint32_t dpc_ptr);
+
+  // Starts the scheduler thread that runs DPCs on guest processor |cpu|, if
+  // the guest scheduler runs and it hasn't started. Called from guest code,
+  // never from a host timer thread.
+  void StartProcessorDpcThread(uint8_t cpu);
+  // Queues a KDPC to run at DISPATCH_LEVEL on guest processor |cpu|, whose DPC
+  // thread has started. The scheduler runs that thread on the processor ahead
+  // of lower priority threads, standing in for the console's DPC interrupt.
+  // Returns false, leaving its arguments, if the DPC is already queued.
+  bool QueueProcessorDpc(uint8_t cpu, uint32_t dpc_ptr, uint32_t arg1,
+                         uint32_t arg2);
+  // Whether a KDPC waits in guest processor |cpu|'s DPC queue.
+  bool IsProcessorDpcQueued(uint8_t cpu, uint32_t dpc_ptr);
+  // Dequeues a KDPC QueueProcessorDpc queued if it hasn't run yet.
+  bool RemoveProcessorDpc(uint32_t dpc_ptr);
+
   void EmulateCPInterruptDPC(uint32_t interrupt_callback,
                              uint32_t interrupt_callback_data, uint32_t source,
                              uint32_t cpu);
@@ -333,8 +388,11 @@ class KernelState {
 
  private:
   void LoadKernelModule(object_ref<KernelModule> kernel_module);
-  void InitializeProcess(X_KPROCESS* process, uint32_t type, char unk_18,
-                         char unk_19, char unk_1A);
+  object_ref<XEvent> AcquireIoEvent();
+  void ReleaseIoEvent(object_ref<XEvent> event);
+  void InitializeProcess(X_KPROCESS* process, uint32_t type,
+                         char priority_class, char default_priority,
+                         char max_dynamic_priority);
   void SetProcessTLSVars(X_KPROCESS* process, int num_slots, int tls_data_size,
                          int tls_static_data_address);
   void InitializeKernelGuestGlobals();
@@ -355,7 +413,14 @@ class KernelState {
   cpu::Processor* processor_;
   vfs::VirtualFileSystem* file_system_;
   std::unique_ptr<xam::XamState> xam_state_;
+  std::unique_ptr<GuestScheduler> guest_scheduler_;
+  // Pooled completion events for RunBlockingIo so a request creates no kernel
+  // object.
+  std::mutex io_event_lock_;
+  std::vector<object_ref<XEvent>> idle_io_events_;
   std::unique_ptr<SystemManagementController> smc_;
+  std::unique_ptr<XmpVolumePatch> xmp_volume_patch_;
+  std::unique_ptr<XConfig> xconfig_;
 
   KernelVersion kernel_version_;
 
@@ -367,6 +432,7 @@ class KernelState {
   std::vector<object_ref<XNotifyListener>> notify_listeners_;
   bool has_notified_startup_ = false;
   bool has_notified_live_startup_ = false;
+  bool has_notified_xmp_startup_ = false;
 
   object_ref<UserModule> executable_module_;
   std::vector<object_ref<KernelModule>> kernel_modules_;
@@ -378,11 +444,28 @@ class KernelState {
   object_ref<XHostThread> dispatch_thread_;
   // Must be guarded by the global critical region.
   util::NativeList dpc_list_;
-  std::condition_variable_any dispatch_cond_;
+  // Guards the dispatch queue, which a timer expiry pushes to while a timer
+  // cancel holding the global lock can be waiting for it.
+  std::mutex dispatch_mutex_;
+  std::condition_variable dispatch_cond_;
   std::list<std::function<void()>> dispatch_queue_;
+  // KDPCs queued on the dispatch thread that haven't started.
+  std::vector<uint32_t> dispatch_dpcs_;
+
+  // DPCs queued to each guest processor and the thread that runs them there.
+  struct ProcessorDpcs {
+    std::mutex lock;
+    std::deque<uint32_t> queue;
+    object_ref<XEvent> event;
+    object_ref<XHostThread> thread;
+    std::atomic<bool> started{false};
+  };
+  ProcessorDpcs processor_dpcs_[6];
+  void RunProcessorDpcs(uint8_t cpu);
 
   uint32_t ke_timestamp_bundle_ptr_ = 0;
   std::unique_ptr<xe::threading::HighResolutionTimer> timestamp_timer_;
+  uint32_t quantum_timer_counter_ = 0;
   cpu::backend::GuestTrampolineGroup kernel_trampoline_group_;
   // fixed address referenced by dashboards. Data is currently unknown
   uint32_t strange_hardcoded_page_ = 0x8E038634 & (~0xFFFF);

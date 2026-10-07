@@ -13,12 +13,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include "xenia/gpu/dxbc_shader.h"
 #include "xenia/gpu/register_file.h"
+#include "xenia/gpu/spirv_shader.h"
 #include "xenia/gpu/texture_cache.h"
 #include "xenia/gpu/texture_info.h"
 #include "xenia/gpu/xenos.h"
@@ -45,15 +46,11 @@ class MetalTextureCache : public TextureCache {
 
   bool Initialize();
   void Shutdown();
-  void ClearCache();
+  void ClearCache() override;
+  void CompletedSubmissionUpdated(uint64_t completed_submission_index) override;
 
-  // Texture management
   bool UploadTexture2D(const TextureInfo& texture_info);
   bool UploadTextureCube(const TextureInfo& texture_info);
-
-  // Get Metal textures for rendering
-  MTL::Texture* GetTexture2D(const TextureInfo& texture_info);
-  MTL::Texture* GetTextureCube(const TextureInfo& texture_info);
 
   // Pixel format conversion
   MTL::PixelFormat ConvertXenosFormat(
@@ -99,7 +96,7 @@ class MetalTextureCache : public TextureCache {
   };
 
   SamplerParameters GetSamplerParameters(
-      const DxbcShader::SamplerBinding& binding) const;
+      const SpirvShader::SamplerBinding& binding) const;
   MTL::SamplerState* GetOrCreateSampler(SamplerParameters parameters);
 
   // TextureCache virtual method overrides
@@ -136,6 +133,12 @@ class MetalTextureCache : public TextureCache {
   bool TryGpuLoadTexture(Texture& texture, bool load_base, bool load_mips);
   MTL::StorageMode GetCacheTextureStorageMode() const;
   bool ShouldUploadViaBlit() const;
+  void BeginUploadCommandBufferBatch();
+  // Creates the batch command buffer on the first upload that wants it, so a
+  // request that uploads nothing costs none.
+  MTL::CommandBuffer* EnsureUploadCommandBufferBatch();
+  void EndUploadCommandBufferBatch();
+  void AbortUploadCommandBufferBatch(bool commit_if_has_work = true);
 
   // Format / load shader mapping for Metal texture loading.
   bool IsDecompressionNeededForKey(TextureKey key) const;
@@ -172,6 +175,7 @@ class MetalTextureCache : public TextureCache {
     MTL::Texture* GetOrCreate3DAs2DView(uint32_t host_swizzle,
                                         xenos::FetchOpDimension dimension,
                                         bool is_signed);
+    void Invalidate3DAs2DView() { texture_3d_as_2d_.reset(); }
 
    private:
     MetalTextureCache& texture_cache_;
@@ -194,9 +198,6 @@ class MetalTextureCache : public TextureCache {
                                   MTL::TextureSwizzleChannels swizzle,
                                   uint32_t mip_levels = 1,
                                   uint32_t cube_count = 1);
-  bool UpdateTexture2D(MTL::Texture* texture, const TextureInfo& texture_info);
-  bool UpdateTextureCube(MTL::Texture* texture,
-                         const TextureInfo& texture_info);
   void DumpTextureToFile(MTL::Texture* texture, const std::string& filename,
                          uint32_t width, uint32_t height);
 
@@ -205,11 +206,19 @@ class MetalTextureCache : public TextureCache {
     uint64_t base_scaled = 0;
     uint64_t length_scaled = 0;
   };
+  struct RetiredScaledResolveBuffer {
+    MTL::Buffer* buffer = nullptr;
+    uint64_t submission_id = 0;
+    uint64_t length_scaled = 0;
+  };
 
   bool GetScaledResolveRange(uint32_t start_unscaled, uint32_t length_unscaled,
                              uint32_t length_scaled_alignment_log2,
                              uint64_t& start_scaled_out,
                              uint64_t& length_scaled_out) const;
+  bool IsScaledResolveRangeResident(
+      uint32_t start_unscaled, uint32_t length_unscaled,
+      uint32_t length_scaled_alignment_log2) const;
   bool EnsureScaledResolveBufferRange(uint64_t start_scaled,
                                       uint64_t length_scaled);
   void ClearScaledResolveBuffers();
@@ -236,11 +245,19 @@ class MetalTextureCache : public TextureCache {
   std::unordered_map<uint32_t, MTL::SamplerState*> sampler_cache_;
 
   class UploadBufferPool;
+  mutable std::mutex upload_buffer_pool_mutex_;
   std::shared_ptr<UploadBufferPool> upload_buffer_pool_;
+  MTL::CommandBuffer* upload_batch_command_buffer_ = nullptr;
+  bool upload_batch_command_buffer_has_work_ = false;
+  uint32_t upload_batch_depth_ = 0;
+  MetalTexture* bindless_used_first_ = nullptr;
+  MetalTexture* bindless_used_last_ = nullptr;
   std::unique_ptr<MetalHeapPool> texture_heap_pool_;
+  bool supports_bc_texture_compression_ = false;
 
   std::vector<ScaledResolveBuffer> scaled_resolve_buffers_;
-  std::vector<ScaledResolveBuffer> scaled_resolve_retired_buffers_;
+  std::vector<RetiredScaledResolveBuffer> scaled_resolve_retired_buffers_;
+  uint64_t scaled_resolve_retired_bytes_ = 0;
   size_t scaled_resolve_current_buffer_index_ = size_t(-1);
   uint64_t scaled_resolve_current_range_start_scaled_ = 0;
   uint64_t scaled_resolve_current_range_length_scaled_ = 0;

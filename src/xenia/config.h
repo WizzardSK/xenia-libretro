@@ -12,6 +12,7 @@
 
 #include <filesystem>
 #include <functional>
+#include <string_view>
 #include "third_party/tomlplusplus/toml.hpp"
 
 namespace xe {
@@ -33,10 +34,14 @@ std::filesystem::path GetBundledDataPath(const std::string& subdirectory);
 uint32_t LoadGameConfigForFile(const std::filesystem::path& game_path);
 void SaveConfig();
 void SaveGameConfig(uint32_t title_id, const toml::table& config_table);
+// Resolves a possibly dotted category ("GPU.Debug") to a nested table.
+toml::table* ResolveSectionTable(toml::table& root, std::string_view section);
 void SaveGameConfigSetting(xe::Emulator* emulator, const char* section,
                            const char* cvar_name, const std::string& value);
 void SaveGameConfigSetting(xe::Emulator* emulator, const char* section,
                            const char* cvar_name, bool value);
+void SaveGameConfigSetting(xe::Emulator* emulator, const char* section,
+                           const char* cvar_name, int32_t value);
 void SaveGameConfigSetting(xe::Emulator* emulator, const char* section,
                            const char* cvar_name, uint32_t value);
 void SaveGameConfigSetting(xe::Emulator* emulator, const char* section,

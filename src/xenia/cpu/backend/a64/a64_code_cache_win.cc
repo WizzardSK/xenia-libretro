@@ -2,7 +2,7 @@
  ******************************************************************************
  * Xenia : Xbox 360 Emulator Research Project                                 *
  ******************************************************************************
- * Copyright 2024 Ben Vanik. All rights reserved.                             *
+ * Copyright 2026 Ben Vanik. All rights reserved.                             *
  * Released under the BSD license - see LICENSE in the root for more details. *
  ******************************************************************************
  */
@@ -13,14 +13,13 @@
 #include <cstring>
 
 #include "xenia/base/assert.h"
-#include "xenia/base/clock.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/math.h"
-#include "xenia/base/memory.h"
 #include "xenia/base/platform_win.h"
+#include "xenia/cpu/backend/a64/a64_stack_layout.h"
 #include "xenia/cpu/function.h"
 
-// Function pointer definitions
+// Function pointer definitions for growable function tables.
 using FnRtlAddGrowableFunctionTable = decltype(&RtlAddGrowableFunctionTable);
 using FnRtlGrowFunctionTable = decltype(&RtlGrowFunctionTable);
 using FnRtlDeleteGrowableFunctionTable =
@@ -31,39 +30,195 @@ namespace cpu {
 namespace backend {
 namespace a64 {
 
-// ARM64 unwind-op codes
-// https://docs.microsoft.com/en-us/cpp/build/arm64-exception-handling#unwind-codes
-// https://www.corsix.org/content/windows-arm64-unwind-codes
-typedef enum _UNWIND_OP_CODES {
-  UWOP_NOP = 0xE3,
-  UWOP_ALLOC_S = 0x00,           // sub sp, sp, i*16
-  UWOP_ALLOC_L = 0xE0'00'00'00,  // sub sp, sp, i*16
-  UWOP_SAVE_FPLR = 0x40,         // stp fp, lr, [sp+i*8]
-  UWOP_SAVE_FPLRX = 0x80,        // stp fp, lr, [sp-(i+1)*8]!
-  UWOP_SET_FP = 0xE1,            // mov fp, sp
-  UWOP_END = 0xE4,
-} UNWIND_CODE_OPS;
+// ARM64 .xdata unwind codes.
+// See: https://learn.microsoft.com/en-us/cpp/build/arm64-exception-handling
+//
+// Codes are stored as a byte array (big-endian for multi-byte codes), listed
+// in reverse prolog order (last prolog instruction's code first).
+//
+// For the thunk prolog (240 bytes):
+//   sub sp, sp, #0xF0         (alloc_s)
+//   stp x19,x20, [sp, #0x00]  (save_regp)
+//   stp x21,x22, [sp, #0x10]  (save_regp)
+//   stp x23,x24, [sp, #0x20]  (save_regp)
+//   stp x25,x26, [sp, #0x30]  (save_regp)
+//   stp x27,x28, [sp, #0x40]  (save_regp)
+//   stp x29,x30, [sp, #0x50]  (save_fplr)
+//   stp q8, q9,  [sp, #0x60]  (save_freg x2, 16 bytes apart)
+//   stp q10,q11, [sp, #0x80]  (save_freg x2)
+//   stp q12,q13, [sp, #0xA0]  (save_freg x2)
+//   stp q14,q15, [sp, #0xC0]  (save_freg x2)
 
-using UNWIND_CODE = uint32_t;
+// ARM64 unwind code builders.
+// alloc_s: 000XXXXX, allocate X*16 bytes (0..496).
+static void EmitAllocS(uint8_t* buf, size_t& off, uint32_t size_bytes) {
+  assert_true(size_bytes <= 496 && (size_bytes % 16) == 0);
+  buf[off++] = static_cast<uint8_t>(size_bytes / 16);
+}
 
-static_assert(sizeof(UNWIND_CODE) == sizeof(uint32_t));
+// alloc_m: 11000XXX XXXXXXXX, allocate X*16 bytes (0..32752).
+static void EmitAllocM(uint8_t* buf, size_t& off, uint32_t size_bytes) {
+  assert_true(size_bytes <= 32752 && (size_bytes % 16) == 0);
+  uint16_t val = static_cast<uint16_t>(size_bytes / 16);
+  buf[off++] = static_cast<uint8_t>(0xC0 | ((val >> 8) & 0x07));
+  buf[off++] = static_cast<uint8_t>(val & 0xFF);
+}
 
-// UNWIND_INFO defines the static part (first 32-bit) of the .xdata record
-typedef struct _UNWIND_INFO {
-  uint32_t FunctionLength : 18;
-  uint32_t Version : 2;
-  uint32_t X : 1;
-  uint32_t E : 1;
-  uint32_t EpilogCount : 5;
-  uint32_t CodeWords : 5;
-  UNWIND_CODE UnwindCodes[2];
-} UNWIND_INFO, *PUNWIND_INFO;
+// save_regp: 110010XX XXzzzzzz
+// Save x(19+X), x(20+X) pair at [sp + Z*8].
+// X is the register offset from x19 (not a pair ordinal).
+// e.g., x21,x22 -> X=2, x27,x28 -> X=8.
+static void EmitSaveRegp(uint8_t* buf, size_t& off, uint32_t reg_offset,
+                         uint32_t sp_offset) {
+  assert_true(reg_offset <= 10);
+  assert_true((sp_offset % 8) == 0 && sp_offset / 8 <= 63);
+  uint32_t z = sp_offset / 8;
+  buf[off++] = static_cast<uint8_t>(0xC8 | ((reg_offset >> 2) & 0x03));
+  buf[off++] = static_cast<uint8_t>(((reg_offset & 0x03) << 6) | (z & 0x3F));
+}
 
-static_assert(offsetof(UNWIND_INFO, UnwindCodes[0]) == 4);
-static_assert(offsetof(UNWIND_INFO, UnwindCodes[1]) == 8);
+// save_fplr: 01zzzzzz
+// Save <x29, lr> at [sp + Z*8].
+static void EmitSaveFplr(uint8_t* buf, size_t& off, uint32_t sp_offset) {
+  assert_true((sp_offset % 8) == 0 && sp_offset / 8 <= 63);
+  buf[off++] = static_cast<uint8_t>(0x40 | (sp_offset / 8));
+}
 
-// Size of unwind info per function.
-static const uint32_t kUnwindInfoSize = sizeof(UNWIND_INFO);
+// save_fregp: 1101100X XXzzzzzz
+// Save d(8+X), d(9+X) pair at [sp + Z*8].
+// X is the register offset from d8 (not a pair ordinal).
+// e.g., d10,d11 -> X=2, d14,d15 -> X=6.
+static void EmitSaveFregp(uint8_t* buf, size_t& off, uint32_t reg_offset,
+                          uint32_t sp_offset) {
+  assert_true(reg_offset <= 7);
+  assert_true((sp_offset % 8) == 0 && sp_offset / 8 <= 63);
+  uint32_t z = sp_offset / 8;
+  buf[off++] = static_cast<uint8_t>(0xD8 | ((reg_offset >> 2) & 0x01));
+  buf[off++] = static_cast<uint8_t>(((reg_offset & 0x03) << 6) | (z & 0x3F));
+}
+
+// save_freg: 1101110X XXzzzzzz
+// Save individual d(8+X) at [sp + Z*8].
+static void EmitSaveFreg(uint8_t* buf, size_t& off, uint32_t reg_offset,
+                         uint32_t sp_offset) {
+  assert_true(reg_offset <= 7);
+  assert_true((sp_offset % 8) == 0 && sp_offset / 8 <= 63);
+  uint32_t z = sp_offset / 8;
+  buf[off++] = static_cast<uint8_t>(0xDC | ((reg_offset >> 2) & 0x01));
+  buf[off++] = static_cast<uint8_t>(((reg_offset & 0x03) << 6) | (z & 0x3F));
+}
+
+// end: 0xE4
+static void EmitEnd(uint8_t* buf, size_t& off) { buf[off++] = 0xE4; }
+
+// Build the .xdata unwind codes for a thunk prolog that saves callee-saved
+// registers at known offsets (see StackLayout in a64_stack_layout.h).
+// Returns the number of bytes written.
+static size_t BuildThunkUnwindCodes(uint8_t* buf) {
+  size_t off = 0;
+  // Codes listed in reverse prolog order (last prolog instruction first).
+  // Q8-Q15 saved via stp Qn, Qn+1 — each Q is 16 bytes, so d registers
+  // are 16 bytes apart (not 8 as save_fregp assumes).  Use individual
+  // save_freg codes pointing to the low 64 bits of each Q register.
+  // stp q14, q15, [sp, #0xC0]: d15 at sp+0xD0, d14 at sp+0xC0
+  EmitSaveFreg(buf, off, 7, 0xD0);  // d15
+  EmitSaveFreg(buf, off, 6, 0xC0);  // d14
+  // stp q12, q13, [sp, #0xA0]: d13 at sp+0xB0, d12 at sp+0xA0
+  EmitSaveFreg(buf, off, 5, 0xB0);  // d13
+  EmitSaveFreg(buf, off, 4, 0xA0);  // d12
+  // stp q10, q11, [sp, #0x80]: d11 at sp+0x90, d10 at sp+0x80
+  EmitSaveFreg(buf, off, 3, 0x90);  // d11
+  EmitSaveFreg(buf, off, 2, 0x80);  // d10
+  // stp q8, q9, [sp, #0x60]: d9 at sp+0x70, d8 at sp+0x60
+  EmitSaveFreg(buf, off, 1, 0x70);  // d9
+  EmitSaveFreg(buf, off, 0, 0x60);  // d8
+  // stp x29, x30, [sp, #0x50]
+  EmitSaveFplr(buf, off, 0x50);
+  // stp x27, x28, [sp, #0x40]  — x27 = x(19+8)
+  EmitSaveRegp(buf, off, 8, 0x40);
+  // stp x25, x26, [sp, #0x30]  — x25 = x(19+6)
+  EmitSaveRegp(buf, off, 6, 0x30);
+  // stp x23, x24, [sp, #0x20]  — x23 = x(19+4)
+  EmitSaveRegp(buf, off, 4, 0x20);
+  // stp x21, x22, [sp, #0x10]  — x21 = x(19+2)
+  EmitSaveRegp(buf, off, 2, 0x10);
+  // stp x19, x20, [sp, #0x00]  — x19 = x(19+0)
+  EmitSaveRegp(buf, off, 0, 0x00);
+  // sub sp, sp, #THUNK_STACK_SIZE
+  EmitAllocS(buf, off, StackLayout::THUNK_STACK_SIZE);
+  EmitEnd(buf, off);
+  return off;
+}
+
+// Build minimal unwind codes for a guest function prolog.
+// Guest functions only do: sub sp, sp, #N; str x30, [sp, #64]
+// The callee-saved registers were already saved by the thunk.
+static size_t BuildGuestUnwindCodes(uint8_t* buf, uint32_t stack_size) {
+  size_t off = 0;
+  // The guest function stores x30 at [sp + HOST_RET_ADDR] via STR, not STP.
+  // Windows unwinder needs to know where LR is to unwind. We encode this as
+  // save_lrpair — but there's no single-register LR save opcode on ARM64.
+  // Instead we describe the stack allocation only. The host return address
+  // is stored by the JIT but is not a callee-save operation (it's the thunk's
+  // LR, not the guest function's). The unwinder will walk up to the thunk
+  // frame which has the full unwind info.
+  if (stack_size <= 496) {
+    EmitAllocS(buf, off, stack_size);
+  } else {
+    EmitAllocM(buf, off, stack_size);
+  }
+  EmitEnd(buf, off);
+  return off;
+}
+
+// Size of .xdata record for a thunk (header + codes + padding).
+// Thunk codes: 5x save_regp(2B) + 1x save_fplr(1B) + 8x save_freg(2B) +
+//              1x alloc_s(1B) + end(1B) = 29 bytes -> 32 bytes padded -> 8
+//              code words. Header is 1 word. Total: 9 words = 36 bytes.
+static constexpr uint32_t kThunkXdataSize = 36;
+
+// Size of .xdata record for a guest function (header + codes + padding).
+// Guest codes: alloc_s(1B) or alloc_m(2B) + end(1B) = 2-3 bytes -> 4 bytes
+//              padded -> 1 code word. Header is 1 word. Total: 2 words = 8
+//              bytes. We reserve the larger case.
+static constexpr uint32_t kGuestXdataSize = 12;
+
+// Compute the maximum unwind data size for any function.
+static constexpr uint32_t kMaxUnwindSize = kThunkXdataSize;
+
+// Build a complete .xdata record. Returns the total size written.
+static size_t BuildXdataRecord(uint8_t* xdata, uint32_t func_length_bytes,
+                               const uint8_t* codes, size_t codes_length) {
+  // Pad codes to 4-byte boundary.
+  size_t codes_padded = xe::round_up(codes_length, size_t{4});
+  uint32_t code_words = static_cast<uint32_t>(codes_padded / 4);
+  assert_true(code_words <= 31);
+  assert_true(func_length_bytes % 4 == 0);
+
+  uint32_t func_len_div4 = func_length_bytes / 4;
+  assert_true(func_len_div4 <= 0x3FFFF);
+
+  // Header word:
+  //   bits 0-17:  Function Length / 4
+  //   bits 18-19: Version = 0
+  //   bit  20:    X = 0 (no exception handler)
+  //   bit  21:    E = 1 (single epilog, packed in header)
+  //   bits 22-26: Epilog start index (0 = epilog uses same codes from start)
+  //   bits 27-31: Code Words
+  uint32_t header = (func_len_div4 & 0x3FFFF) | (0u << 18)  // Vers = 0
+                    | (0u << 20)                            // X = 0
+                    | (1u << 21)                            // E = 1
+                    | (0u << 22)  // Epilog start index = 0
+                    | (code_words << 27);
+
+  std::memcpy(xdata, &header, 4);
+
+  // Write codes, zero-padded to code_words * 4 bytes.
+  std::memset(xdata + 4, 0, codes_padded);
+  std::memcpy(xdata + 4, codes, codes_length);
+
+  return 4 + codes_padded;
+}
 
 class Win32A64CodeCache : public A64CodeCache {
  public:
@@ -89,9 +244,11 @@ class Win32A64CodeCache : public A64CodeCache {
   void* unwind_table_handle_ = nullptr;
   // Actual unwind table entries.
   std::vector<RUNTIME_FUNCTION> unwind_table_;
+  // End addresses for each entry (ARM64 RUNTIME_FUNCTION lacks EndAddress).
+  std::vector<DWORD> unwind_table_end_address_;
   // Current number of entries in the table.
   std::atomic<uint32_t> unwind_table_count_ = {0};
-  // Does this version of Windows support growable funciton tables?
+  // Does this version of Windows support growable function tables?
   bool supports_growable_table_ = false;
 
   FnRtlAddGrowableFunctionTable add_growable_table_ = nullptr;
@@ -123,9 +280,9 @@ bool Win32A64CodeCache::Initialize() {
     return false;
   }
 
-  // Compute total number of unwind entries we should allocate.
-  // We don't support reallocing right now, so this should be high.
+  // Allocate unwind table with maximum entry count.
   unwind_table_.resize(kMaximumFunctionCount);
+  unwind_table_end_address_.resize(kMaximumFunctionCount);
 
   // Check if this version of Windows supports growable function tables.
   auto ntdll_handle = GetModuleHandleW(L"ntdll.dll");
@@ -144,8 +301,6 @@ bool Win32A64CodeCache::Initialize() {
   supports_growable_table_ =
       add_growable_table_ && delete_growable_table_ && grow_table_;
 
-  // Create table and register with the system. It's empty now, but we'll grow
-  // it as functions are added.
   if (supports_growable_table_) {
     if (add_growable_table_(
             &unwind_table_handle_, unwind_table_.data(), unwind_table_count_,
@@ -157,8 +312,6 @@ bool Win32A64CodeCache::Initialize() {
       return false;
     }
   } else {
-    // Install a callback that the debugger will use to lookup unwind info on
-    // demand.
     if (!RtlInstallFunctionTableCallback(
             reinterpret_cast<DWORD64>(generated_code_execute_base_) | 0x3,
             reinterpret_cast<DWORD64>(generated_code_execute_base_),
@@ -179,9 +332,17 @@ bool Win32A64CodeCache::Initialize() {
 
 Win32A64CodeCache::UnwindReservation
 Win32A64CodeCache::RequestUnwindReservation(uint8_t* entry_address) {
+#if defined(NDEBUG)
+  if (unwind_table_count_ >= kMaximumFunctionCount) {
+    xe::FatalError(
+        "Unwind table count exceeded maximum! Please report this to "
+        "Xenia/Canary developers");
+  }
+#else
   assert_false(unwind_table_count_ >= kMaximumFunctionCount);
+#endif
   UnwindReservation unwind_reservation;
-  unwind_reservation.data_size = xe::round_up(kUnwindInfoSize, 16);
+  unwind_reservation.data_size = xe::round_up(kMaxUnwindSize, size_t{16});
   unwind_reservation.table_slot = unwind_table_count_++;
   unwind_reservation.entry_address = entry_address;
   return unwind_reservation;
@@ -197,120 +358,67 @@ void Win32A64CodeCache::PlaceCode(uint32_t guest_address, void* machine_code,
                         func_info);
 
   if (supports_growable_table_) {
-    // Notify that the unwind table has grown.
-    // We do this outside of the lock, but with the latest total count.
     grow_table_(unwind_table_handle_, unwind_table_count_);
   }
 
-  // https://docs.microsoft.com/en-us/uwp/win32-and-com/win32-apis
   FlushInstructionCache(GetCurrentProcess(), code_execute_address,
                         func_info.code_size.total);
-}
-
-constexpr UNWIND_CODE UnwindOpWord(uint8_t code0 = UWOP_NOP,
-                                   uint8_t code1 = UWOP_NOP,
-                                   uint8_t code2 = UWOP_NOP,
-                                   uint8_t code3 = UWOP_NOP) {
-  return static_cast<uint32_t>(code0) | (static_cast<uint32_t>(code1) << 8) |
-         (static_cast<uint32_t>(code2) << 16) |
-         (static_cast<uint32_t>(code3) << 24);
-}
-
-// 8-byte unwind code for "stp fp, lr, [sp, #-16]!
-// https://docs.microsoft.com/en-us/cpp/build/arm64-exception-handling#unwind-codes
-static uint8_t OpSaveFpLrX(int16_t pre_index_offset) {
-  assert_true(pre_index_offset <= -8);
-  assert_true(pre_index_offset >= -512);
-  // 16-byte aligned
-  constexpr int IndexShift = 3;
-  constexpr int IndexMask = (1 << IndexShift) - 1;
-  assert_true((pre_index_offset & IndexMask) == 0);
-  const uint32_t encoded_value = (-pre_index_offset >> IndexShift) - 1;
-  return UWOP_SAVE_FPLRX | encoded_value;
-}
-
-// Ensure a 16-byte aligned stack
-static constexpr size_t StackAlignShift = 4;                          // n / 16
-static constexpr size_t StackAlignMask = (1 << StackAlignShift) - 1;  // n % 16
-
-// 8-byte unwind code for up to +512-byte "sub sp, sp, #stack_space"
-// https://docs.microsoft.com/en-us/cpp/build/arm64-exception-handling#unwind-codes
-static uint8_t OpAllocS(int16_t stack_space) {
-  assert_true(stack_space >= 0);
-  assert_true(stack_space < 512);
-  assert_true((stack_space & StackAlignMask) == 0);
-  return UWOP_ALLOC_S | (stack_space >> StackAlignShift);
-}
-
-// 4-byte unwind code for +256MiB "sub sp, sp, #stack_space"
-// https://docs.microsoft.com/en-us/cpp/build/arm64-exception-handling#unwind-codes
-uint32_t OpAllocL(int32_t stack_space) {
-  assert_true(stack_space >= 0);
-  assert_true(stack_space < (0xFFFFFF * 16));
-  assert_true((stack_space & StackAlignMask) == 0);
-  return xe::byte_swap(UWOP_ALLOC_L |
-                       ((stack_space >> StackAlignShift) & 0xFF'FF'FF));
 }
 
 void Win32A64CodeCache::InitializeUnwindEntry(
     uint8_t* unwind_entry_address, size_t unwind_table_slot,
     void* code_execute_address, const EmitFunctionInfo& func_info) {
-  auto unwind_info = reinterpret_cast<UNWIND_INFO*>(unwind_entry_address);
+  uint8_t codes[32];
+  size_t codes_length;
 
-  *unwind_info = {};
-  // ARM64 instructions are always multiples of 4 bytes
-  // Windows ignores the bottom 2 bits
-  unwind_info->FunctionLength = func_info.code_size.total / 4;
-  unwind_info->CodeWords = 2;
+  // Marked by the emitter: frame and prolog size cannot tell the thunk apart.
+  if (func_info.is_host_to_guest_thunk) {
+    codes_length = BuildThunkUnwindCodes(codes);
+  } else if (func_info.stack_size > 0) {
+    codes_length = BuildGuestUnwindCodes(
+        codes, static_cast<uint32_t>(func_info.stack_size));
+  } else {
+    // Thunks with no stack allocation (e.g. GuestToHost, ResolveFunction)
+    // still need minimal unwind info — emit empty unwind codes.
+    codes_length = 0;
+  }
 
-  // https://learn.microsoft.com/en-us/cpp/build/arm64-exception-handling?view=msvc-170#unwind-codes
-  // The array of unwind codes is a pool of sequences that describe exactly how
-  // to undo the effects of the prolog. They're stored in the same order the
-  // operations need to be undone. The unwind codes can be thought of as a small
-  // instruction set, encoded as a string of bytes. When execution is complete,
-  // the return address to the calling function is in the lr register. And, all
-  // non-volatile registers are restored to their values at the time the
-  // function was called.
+  size_t xdata_size = BuildXdataRecord(
+      unwind_entry_address, static_cast<uint32_t>(func_info.code_size.total),
+      codes, codes_length);
 
-  // Function frames are generally:
-  // STP(X29, X30, SP, PRE_INDEXED, -16);
-  // MOV(X29, XSP);
-  // SUB(XSP, XSP, stack_size);
-  // ... function body ...
-  // ADD(XSP, XSP, stack_size);
-  // MOV(XSP, X29);
-  // LDP(X29, X30, SP, POST_INDEXED, 16);
-
-  // These opcodes must undo the epilog and put the return address within lr
-  unwind_info->UnwindCodes[0] = OpAllocL(func_info.stack_size);
-  unwind_info->UnwindCodes[1] =
-      UnwindOpWord(UWOP_SET_FP, OpSaveFpLrX(-16), UWOP_END);
-
-  // Add entry.
-  RUNTIME_FUNCTION& fn_entry = unwind_table_[unwind_table_slot];
+  // Add RUNTIME_FUNCTION entry.
+  // ARM64 RUNTIME_FUNCTION has BeginAddress and UnwindData but no EndAddress
+  // (the function length is encoded in the .xdata header).
+  auto& fn_entry = unwind_table_[unwind_table_slot];
   fn_entry.BeginAddress =
       DWORD(reinterpret_cast<uint8_t*>(code_execute_address) -
             generated_code_execute_base_);
   fn_entry.UnwindData =
       DWORD(unwind_entry_address - generated_code_execute_base_);
+  // Store end address in parallel array for LookupUnwindInfo.
+  unwind_table_end_address_[unwind_table_slot] =
+      DWORD(fn_entry.BeginAddress + func_info.code_size.total);
 }
 
 void* Win32A64CodeCache::LookupUnwindInfo(uint64_t host_pc) {
-  return std::bsearch(
-      &host_pc, unwind_table_.data(), unwind_table_count_,
-      sizeof(RUNTIME_FUNCTION),
-      [](const void* key_ptr, const void* element_ptr) {
-        auto key = *reinterpret_cast<const uintptr_t*>(key_ptr) -
-                   kGeneratedCodeExecuteBase;
-        auto element = reinterpret_cast<const RUNTIME_FUNCTION*>(element_ptr);
-        if (key < element->BeginAddress) {
-          return -1;
-        } else if (key > (element->BeginAddress + element->FunctionLength)) {
-          return 1;
-        } else {
-          return 0;
-        }
-      });
+  // ARM64 RUNTIME_FUNCTION lacks EndAddress, so we do a manual binary search
+  // using our parallel end address array.
+  uint32_t key = static_cast<uint32_t>(
+      host_pc - reinterpret_cast<uintptr_t>(generated_code_execute_base_));
+  uint32_t count = unwind_table_count_;
+  uint32_t lo = 0, hi = count;
+  while (lo < hi) {
+    uint32_t mid = lo + (hi - lo) / 2;
+    if (key < unwind_table_[mid].BeginAddress) {
+      hi = mid;
+    } else if (key >= unwind_table_end_address_[mid]) {
+      lo = mid + 1;
+    } else {
+      return &unwind_table_[mid];
+    }
+  }
+  return nullptr;
 }
 
 }  // namespace a64

@@ -144,73 +144,74 @@ typedef struct alignas(16) vec128_s {
   };
 } vec128_t;
 
-static inline vec128_t vec128i(uint32_t src) {
-  vec128_t v;
+static constexpr vec128_t vec128i(uint32_t src) {
+  vec128_t v{};
   for (auto i = 0; i < 4; ++i) {
     v.u32[i] = src;
   }
   return v;
 }
-static inline vec128_t vec128i(uint32_t x, uint32_t y, uint32_t z, uint32_t w) {
-  vec128_t v;
+static constexpr vec128_t vec128i(uint32_t x, uint32_t y, uint32_t z,
+                                  uint32_t w) {
+  vec128_t v{};
   v.u32[0] = x;
   v.u32[1] = y;
   v.u32[2] = z;
   v.u32[3] = w;
   return v;
 }
-static inline vec128_t vec128q(uint64_t src) {
-  vec128_t v;
+static constexpr vec128_t vec128q(uint64_t src) {
+  vec128_t v{};
   for (auto i = 0; i < 2; ++i) {
     v.i64[i] = src;
   }
   return v;
 }
-static inline vec128_t vec128q(uint64_t x, uint64_t y) {
-  vec128_t v;
+static constexpr vec128_t vec128q(uint64_t x, uint64_t y) {
+  vec128_t v{};
   v.i64[0] = x;
   v.i64[1] = y;
   return v;
 }
-static inline vec128_t vec128d(double src) {
-  vec128_t v;
+static constexpr vec128_t vec128d(double src) {
+  vec128_t v{};
   for (auto i = 0; i < 2; ++i) {
     v.f64[i] = src;
   }
   return v;
 }
-static inline vec128_t vec128d(double x, double y) {
-  vec128_t v;
+static constexpr vec128_t vec128d(double x, double y) {
+  vec128_t v{};
   v.f64[0] = x;
   v.f64[1] = y;
   return v;
 }
-static inline vec128_t vec128f(float src) {
-  vec128_t v;
+static constexpr vec128_t vec128f(float src) {
+  vec128_t v{};
   for (auto i = 0; i < 4; ++i) {
     v.f32[i] = src;
   }
   return v;
 }
-static inline vec128_t vec128f(float x, float y, float z, float w) {
-  vec128_t v;
+static constexpr vec128_t vec128f(float x, float y, float z, float w) {
+  vec128_t v{};
   v.f32[0] = x;
   v.f32[1] = y;
   v.f32[2] = z;
   v.f32[3] = w;
   return v;
 }
-static inline vec128_t vec128s(uint16_t src) {
-  vec128_t v;
+static constexpr vec128_t vec128s(uint16_t src) {
+  vec128_t v{};
   for (auto i = 0; i < 8; ++i) {
     v.u16[i] = src;
   }
   return v;
 }
-static inline vec128_t vec128s(uint16_t x0, uint16_t x1, uint16_t y0,
-                               uint16_t y1, uint16_t z0, uint16_t z1,
-                               uint16_t w0, uint16_t w1) {
-  vec128_t v;
+static constexpr vec128_t vec128s(uint16_t x0, uint16_t x1, uint16_t y0,
+                                  uint16_t y1, uint16_t z0, uint16_t z1,
+                                  uint16_t w0, uint16_t w1) {
+  vec128_t v{};
   v.u16[0] = x1;
   v.u16[1] = x0;
   v.u16[2] = y1;
@@ -221,18 +222,20 @@ static inline vec128_t vec128s(uint16_t x0, uint16_t x1, uint16_t y0,
   v.u16[7] = w0;
   return v;
 }
-static inline vec128_t vec128b(uint8_t src) {
-  vec128_t v;
+static constexpr vec128_t vec128b(uint8_t src) {
+  vec128_t v{};
   for (auto i = 0; i < 16; ++i) {
     v.u8[i] = src;
   }
   return v;
 }
-static inline vec128_t vec128b(uint8_t x0, uint8_t x1, uint8_t x2, uint8_t x3,
-                               uint8_t y0, uint8_t y1, uint8_t y2, uint8_t y3,
-                               uint8_t z0, uint8_t z1, uint8_t z2, uint8_t z3,
-                               uint8_t w0, uint8_t w1, uint8_t w2, uint8_t w3) {
-  vec128_t v;
+static constexpr vec128_t vec128b(uint8_t x0, uint8_t x1, uint8_t x2,
+                                  uint8_t x3, uint8_t y0, uint8_t y1,
+                                  uint8_t y2, uint8_t y3, uint8_t z0,
+                                  uint8_t z1, uint8_t z2, uint8_t z3,
+                                  uint8_t w0, uint8_t w1, uint8_t w2,
+                                  uint8_t w3) {
+  vec128_t v{};
   v.u8[0] = x3;
   v.u8[1] = x2;
   v.u8[2] = x1;

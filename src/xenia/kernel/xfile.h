@@ -10,8 +10,13 @@
 #ifndef XENIA_KERNEL_XFILE_H_
 #define XENIA_KERNEL_XFILE_H_
 
+#include <atomic>
+#include <functional>
+#include <mutex>
 #include <string>
+#include <vector>
 
+#include "xenia/kernel/guest_scheduler.h"
 #include "xenia/kernel/xiocompletion.h"
 #include "xenia/vfs/device.h"
 #include "xenia/vfs/entry.h"
@@ -131,7 +136,10 @@ class XFile : public XObject {
  public:
   static const XObject::Type kObjectType = XObject::Type::File;
 
-  XFile(KernelState* kernel_state, vfs::File* file, bool synchronous);
+  // |alertable| is FILE_SYNCHRONOUS_IO_ALERT: a user APC can interrupt the
+  // wait.
+  XFile(KernelState* kernel_state, vfs::File* file, bool synchronous,
+        bool alertable);
   ~XFile() override;
 
   vfs::Device* device() const { return file_->entry()->device(); }
@@ -142,8 +150,8 @@ class XFile : public XObject {
   const std::string& path() const { return file_->entry()->path(); }
   const std::string& name() const { return file_->entry()->name(); }
 
-  uint64_t position() const { return position_; }
-  void set_position(uint64_t value) { position_ = value; }
+  uint64_t position() const;
+  void set_position(uint64_t value);
 
   X_STATUS QueryDirectory(X_FILE_DIRECTORY_INFORMATION* out_info, size_t length,
                           const std::string_view file_name, bool restart);
@@ -157,7 +165,14 @@ class XFile : public XObject {
 
   X_STATUS ReadScatter(uint32_t segments_guest_address, uint32_t length,
                        uint64_t byte_offset, uint32_t* out_bytes_read,
-                       uint32_t apc_context);
+                       uint32_t apc_context, bool notify_completion = true);
+
+  // Clears the handle's wait state and runs |fn| on an I/O worker without
+  // waiting.
+  void PostIo(std::function<void()> fn);
+  // Signals the completion ports and this file's wait handle.
+  void NotifyCompletion(X_STATUS status, uint32_t num_bytes,
+                        uint32_t apc_context);
 
   X_STATUS Write(uint32_t buffer_guess_address, uint32_t buffer_length,
                  uint64_t byte_offset, uint32_t* out_bytes_written,
@@ -185,20 +200,56 @@ class XFile : public XObject {
  private:
   XFile();
 
+  // Concurrency class this file's device allows for its offloaded calls.
+  GuestScheduler::BlockingCallClass io_call_class() const;
+
+  // Runs |fn| as a synchronous request on this file's device. See
+  // KernelState::RunBlockingIo.
+  void RunSynchronousIo(const std::function<void()>& fn);
+
+  // Books this read on the medium and returns when it would be delivered, or
+  // 0 for a read this does not model.
+  uint64_t ReserveDriveTime(uint64_t byte_offset, uint32_t length);
+
+  // Holds the request open until |deadline_ms| by parking the calling fiber.
+  void AwaitDriveTime(uint64_t deadline_ms);
+
+  // Bodies run on an I/O worker via RunSynchronousIo. All take file_lock_
+  // themselves except ReadInternal, which runs under one its caller holds.
+  X_STATUS ReadInternal(uint32_t buffer_guest_address, uint32_t buffer_length,
+                        uint64_t byte_offset, uint32_t* out_bytes_read,
+                        uint32_t apc_context, bool notify_completion);
+  X_STATUS QueryDirectoryInternal(X_FILE_DIRECTORY_INFORMATION* out_info,
+                                  size_t length,
+                                  const std::string_view file_name,
+                                  bool restart);
+  X_STATUS ReadScatterInternal(uint32_t segments_guest_address, uint32_t length,
+                               uint64_t byte_offset, uint32_t* out_bytes_read,
+                               uint32_t apc_context, bool notify_completion);
+  X_STATUS WriteInternal(uint32_t buffer_guest_address, uint32_t buffer_length,
+                         uint64_t byte_offset, uint32_t* out_bytes_written,
+                         uint32_t apc_context);
+
   vfs::File* file_ = nullptr;
+  // The handle's wait state. Manual reset like NT's file object event, so every
+  // wait after a completion returns until the next request clears it.
   std::unique_ptr<threading::Event> async_event_ = nullptr;
 
+  mutable std::mutex file_lock_;
   std::mutex completion_port_lock_;
   std::vector<std::pair<uint32_t, object_ref<XIOCompletion>>> completion_ports_;
 
   // TODO(benvanik): create flags, open state, etc.
 
-  uint64_t position_ = 0;
+  // Atomic rather than under file_lock_, so querying the position while a read
+  // is offloaded does not stall the calling fiber's dispatch thread.
+  std::atomic<uint64_t> position_ = 0;
 
   xe::filesystem::WildcardEngine find_engine_;
   size_t find_index_ = 0;
 
   bool is_synchronous_ = false;
+  bool is_alertable_ = false;
 };
 
 }  // namespace kernel

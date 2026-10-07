@@ -10,9 +10,13 @@
 #ifndef XENIA_BASE_ASSERT_H_
 #define XENIA_BASE_ASSERT_H_
 
-#include <assert.h>
+#include <cassert>
 
 #include "xenia/base/platform.h"
+
+#if !XE_PLATFORM_WIN32
+#include <csignal>
+#endif
 
 namespace xe {
 
@@ -47,7 +51,16 @@ namespace xe {
 #endif
 
 #else
+#if XE_PLATFORM_WIN32
 #define xenia_assert assert
+#else
+#define xenia_assert(expr) \
+  do {                     \
+    if (!(expr)) {         \
+      raise(SIGTRAP);      \
+    }                      \
+  } while (0)
+#endif
 #endif
 #define __XENIA_EXPAND(x) x
 #define __XENIA_ARGC(...)                                                     \

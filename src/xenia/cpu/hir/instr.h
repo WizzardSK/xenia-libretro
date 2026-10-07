@@ -94,15 +94,20 @@ class Instr {
       TPredicate&& pred) {
     auto src1_value = src1.value;
     auto src2_value = src2.value;
-    if (!src1_value || !src2_value) return {nullptr, nullptr};
+    if (!src1_value || !src2_value) {
+      return {nullptr, nullptr};
+    }
 
-    if (!GetOpcodeInfo()) return {nullptr, nullptr};  // impossible!
+    if (!GetOpcodeInfo()) {
+      return {nullptr, nullptr};  // impossible!
+    }
 
     // check if binary opcode taking two values. we dont care if the dest is a
     // value
 
-    if (!IsOpcodeBinaryValue(GetOpcodeInfo()->signature))
+    if (!IsOpcodeBinaryValue(GetOpcodeInfo()->signature)) {
       return {nullptr, nullptr};
+    }
 
     if (pred(src1_value)) {
       if (pred(src2_value)) {
@@ -142,7 +147,9 @@ if both are constant, return nullptr, nullptr
       const OpcodeInfo* op_ptr) {
     auto result = BinaryValueArrangeByDefiningOpcode(op_ptr);
 
-    if (!result.first) return result;
+    if (!result.first) {
+      return result;
+    }
     if (!result.second->IsConstant()) {
       return {nullptr, nullptr};
     }
@@ -172,6 +179,10 @@ if both are constant, return nullptr, nullptr
   }
   bool IsFake() const;
 
+  // The label a BRANCH, BRANCH_TRUE or BRANCH_FALSE jumps to; null for any
+  // other instruction.
+  Label* BranchLabel() const;
+
   // gets previous instr, skipping instrs like COMMENT, OPCODE_CONTEXT_BARRIER,
   // OPCODE_SOURCE_OFFSET
   const hir::Instr* GetNonFakePrev() const;
@@ -180,6 +191,37 @@ if both are constant, return nullptr, nullptr
 
   bool AllScalarIntegral();  // dest and all srcs are scalar integral
 };
+
+// Profiling key layout, kept here so the two backends cannot disagree on it.
+inline uint64_t MakeSequenceSampleKey(const Instr* i, uint32_t backend_key) {
+  const uint32_t sig = i->opcode->signature;
+  uint64_t key = backend_key;
+  if (GET_OPCODE_SIG_TYPE_SRC1(sig) == OPCODE_SIG_TYPE_V &&
+      i->src1.value->IsConstant()) {
+    key |= 1ull << 32;
+  }
+  if (GET_OPCODE_SIG_TYPE_SRC2(sig) == OPCODE_SIG_TYPE_V &&
+      i->src2.value->IsConstant()) {
+    key |= 1ull << 33;
+  }
+  if (GET_OPCODE_SIG_TYPE_SRC3(sig) == OPCODE_SIG_TYPE_V &&
+      i->src3.value->IsConstant()) {
+    key |= 1ull << 34;
+  }
+  return key | (static_cast<uint64_t>(i->flags) << 40);
+}
+
+inline uint32_t SequenceSampleBackendKey(uint64_t key) {
+  return static_cast<uint32_t>(key);
+}
+
+inline bool SequenceSampleSrcIsConstant(uint64_t key, uint32_t src_index) {
+  return ((key >> (32 + src_index)) & 1) != 0;
+}
+
+inline uint16_t SequenceSampleFlags(uint64_t key) {
+  return static_cast<uint16_t>(key >> 40);
+}
 
 }  // namespace hir
 }  // namespace cpu

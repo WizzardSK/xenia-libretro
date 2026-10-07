@@ -29,16 +29,15 @@
 #include "xenia/emulator.h"
 #include "xenia/kernel/xam/xam_module.h"
 #include "xenia/ui/file_picker.h"
+#include "xenia/ui/redist_installer_wx.h"
 #include "xenia/ui/window.h"
 #include "xenia/ui/window_listener.h"
 #include "xenia/ui/windowed_app.h"
 #include "xenia/ui/windowed_app_context.h"
+#include "xenia/ui/wx_locale.h"
 
 // Available audio systems:
 #include "xenia/apu/nop/nop_audio_system.h"
-#if XE_PLATFORM_LINUX
-#include "xenia/apu/alsa/alsa_audio_system.h"
-#endif  // XE_PLATFORM_LINUX
 #if !XE_PLATFORM_ANDROID
 #include "xenia/apu/sdl/sdl_audio_system.h"
 #endif  // !XE_PLATFORM_ANDROID
@@ -52,39 +51,23 @@
 #if XE_PLATFORM_WIN32
 #include "xenia/gpu/d3d12/d3d12_graphics_system.h"
 #endif  // XE_PLATFORM_WIN32
+#if XE_PLATFORM_MAC
+#include "xenia/gpu/metal/metal_graphics_system.h"
+#endif  // XE_PLATFORM_MAC
 
 // Available input drivers:
 #include "xenia/hid/nop/nop_hid.h"
 #if !XE_PLATFORM_ANDROID
 #include "xenia/hid/sdl/sdl_hid.h"
 #endif  // !XE_PLATFORM_ANDROID
-#if XE_PLATFORM_WIN32
-#include "xenia/hid/winkey/winkey_hid.h"
-#include "xenia/hid/xinput/xinput_hid.h"
-#endif  // XE_PLATFORM_WIN32
+#include "xenia/hid/keyboard/keyboard_hid.h"
 
-#if XE_PLATFORM_WIN32
-#define APU_OPTIONS "[xaudio2, sdl, nop]"
-#define GPU_OPTIONS "[d3d12, vulkan, null]"
-#define HID_OPTIONS "[sdl, winkey, xinput, nop]"
-DEFINE_string(apu, "xaudio2", "Audio system. Use: " APU_OPTIONS, "APU");
-DEFINE_string(gpu, "d3d12", "Graphics system. Use: " GPU_OPTIONS, "GPU");
-DEFINE_string(hid, "sdl", "Input system. Use: " HID_OPTIONS, "HID");
-#elif XE_PLATFORM_LINUX
-#define APU_OPTIONS "[alsa, sdl, nop]"
-#define GPU_OPTIONS "[vulkan, null]"
+// apu and gpu are defined in emulator.cc, alongside the code that reads them.
+DECLARE_string(apu);
+DECLARE_string(gpu);
+
 #define HID_OPTIONS "[sdl, nop]"
-DEFINE_string(apu, "alsa", "Audio system. Use: " APU_OPTIONS, "APU");
-DEFINE_string(gpu, "vulkan", "Graphics system. Use: " GPU_OPTIONS, "GPU");
 DEFINE_string(hid, "sdl", "Input system. Use: " HID_OPTIONS, "HID");
-#else
-#define APU_OPTIONS "[sdl, nop]"
-#define GPU_OPTIONS "[vulkan, null]"
-#define HID_OPTIONS "[sdl, nop]"
-DEFINE_string(apu, "sdl", "Audio system. Use: " APU_OPTIONS, "APU");
-DEFINE_string(gpu, "vulkan", "Graphics system. Use: " GPU_OPTIONS, "GPU");
-DEFINE_string(hid, "sdl", "Input system. Use: " HID_OPTIONS, "HID");
-#endif
 
 DEFINE_path(
     storage_root, "",
@@ -106,29 +89,18 @@ DEFINE_path(
     "for the OS, will be used.",
     "Storage");
 
-DEFINE_bool(mount_scratch, false, "Enable scratch mount", "Storage");
-
-DEFINE_bool(mount_cache, true, "Enable cache mount", "Storage");
-UPDATE_from_bool(mount_cache, 2024, 8, 31, 20, false);
-
+DECLARE_bool(mount_scratch);
+DECLARE_bool(mount_cache);
+DECLARE_bool(mount_memory_unit);
 DECLARE_bool(force_mount_devkit);
 
-DECLARE_path(target);  // Defined in windowed_app_main_qt.cc
+// Positional cvar bound to the first non-flag argv entry (see
+// EmulatorApp::EmulatorApp -> AddPositionalOption("target")).
+DEFINE_transient_path(target, "", "Specifies the target file to run.",
+                      "General");
 DEFINE_transient_bool(portable, false,
                       "Specifies if Xenia should run in portable mode.",
                       "General");
-
-DECLARE_uint32(window_size_ui_x);
-DECLARE_uint32(window_size_ui_y);
-
-DEFINE_CVar(window_size_game_x, 0,
-            "Game window width in pixels (0 = use internal resolution). "
-            "Command-line only.",
-            "Display", true, uint32_t);
-DEFINE_CVar(window_size_game_y, 0,
-            "Game window height in pixels (0 = use internal resolution). "
-            "Command-line only.",
-            "Display", true, uint32_t);
 
 DECLARE_bool(debug);
 DEFINE_int32(
@@ -142,6 +114,7 @@ DECLARE_bool(widescreen);
 
 DECLARE_uint32(launch_flags);
 DECLARE_string(launch_data);
+DECLARE_string(launch_xbox_disc);
 
 #if XE_PLATFORM_WIN32 && XE_ARCH_AMD64 == 1
 DEFINE_bool(enable_rdrand_ntdll_patch, false,
@@ -217,6 +190,14 @@ static void do_ntdll_rdrand_patch() {
 namespace xe {
 namespace app {
 
+// The file a launch's per-game config comes from: for a XeFu build, the
+// original Xbox game the launching process left in the drive.
+static std::filesystem::path GameConfigFile(
+    const std::filesystem::path& target) {
+  return cvars::launch_xbox_disc.empty() ? target
+                                         : xe::to_path(cvars::launch_xbox_disc);
+}
+
 class EmulatorApp final : public xe::ui::WindowedApp {
  public:
   static std::unique_ptr<xe::ui::WindowedApp> Create(
@@ -225,6 +206,8 @@ class EmulatorApp final : public xe::ui::WindowedApp {
   }
 
   ~EmulatorApp();
+
+  std::string_view GetTitle() const override { return "xenia_edge"; }
 
   bool OnInitialize() override;
 
@@ -270,23 +253,44 @@ class EmulatorApp final : public xe::ui::WindowedApp {
         if (it != creators_.cend() && (*it).is_available()) {
           return (*it).instantiate(std::forward<Args>(args)...);
         }
-        return nullptr;
-      } else {
-        for (const auto& creator : creators_) {
-          if (!creator.is_available()) continue;
-          auto instance = creator.instantiate(std::forward<Args>(args)...);
-          if (!instance) continue;
-          return instance;
-        }
-        return nullptr;
+        XELOGW(
+            "No available backend named \"{}\", falling back to "
+            "auto-selection",
+            name);
       }
+      // Auto-select the first available backend.
+      for (const auto& creator : creators_) {
+        if (!creator.is_available()) {
+          continue;
+        }
+        auto instance = creator.instantiate(std::forward<Args>(args)...);
+        if (!instance) {
+          continue;
+        }
+        return instance;
+      }
+      return nullptr;
     }
 
     std::vector<std::unique_ptr<T>> CreateAll(const std::string_view name,
                                               Args... args) {
       std::vector<std::unique_ptr<T>> instances;
 
-      if (name != "winkey") {
+      // Drivers always loaded alongside whatever the user selected via
+      // `name`, so keyboard input is available even when the user picks a
+      // specific gamepad backend.
+      static constexpr std::string_view kAlwaysOn[] = {"keyboard"};
+
+      auto is_always_on = [&](std::string_view n) {
+        for (auto a : kAlwaysOn) {
+          if (n == a) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      if (!is_always_on(name)) {
         auto it = std::find_if(
             creators_.cbegin(), creators_.cend(),
             [&name](const auto& f) { return name.compare(f.name) == 0; });
@@ -299,13 +303,15 @@ class EmulatorApp final : public xe::ui::WindowedApp {
         }
       }
 
-      auto it = std::find_if(
-          creators_.cbegin(), creators_.cend(),
-          [&name](const auto& f) { return f.name.compare("winkey") == 0; });
-      if (it != creators_.cend() && (*it).is_available()) {
-        auto instance = (*it).instantiate(std::forward<Args>(args)...);
-        if (instance) {
-          instances.emplace_back(std::move(instance));
+      for (auto always : kAlwaysOn) {
+        auto it = std::find_if(
+            creators_.cbegin(), creators_.cend(),
+            [&always](const auto& f) { return f.name.compare(always) == 0; });
+        if (it != creators_.cend() && (*it).is_available()) {
+          auto instance = (*it).instantiate(std::forward<Args>(args)...);
+          if (instance) {
+            instances.emplace_back(std::move(instance));
+          }
         }
       }
       return instances;
@@ -331,7 +337,7 @@ class EmulatorApp final : public xe::ui::WindowedApp {
   static std::vector<std::unique_ptr<hid::InputDriver>> CreateInputDrivers(
       ui::Window* window);
 
-  void EmulatorThread(bool is_game_process);
+  void EmulatorThread();
   void ShutdownEmulatorThreadFromUIThread();
 
   DebugWindowClosedListener debug_window_closed_listener_;
@@ -376,9 +382,6 @@ std::unique_ptr<apu::AudioSystem> EmulatorApp::CreateAudioSystem(
 #if XE_PLATFORM_WIN32
   factory.Add<apu::xaudio2::XAudio2AudioSystem>("xaudio2");
 #endif  // XE_PLATFORM_WIN32
-#if XE_PLATFORM_LINUX
-  factory.Add<apu::alsa::ALSAAudioSystem>("alsa");
-#endif  // XE_PLATFORM_LINUX
 #if !XE_PLATFORM_ANDROID
   factory.Add<apu::sdl::SDLAudioSystem>("sdl");
 #endif  // !XE_PLATFORM_ANDROID
@@ -413,10 +416,6 @@ std::unique_ptr<gpu::GraphicsSystem> EmulatorApp::CreateGraphicsSystem() {
   //   runtime, and only version 12 can be granted expanded resource access.
   //   Qualcomm, as of June 2022, also doesn't provide a Vulkan implementation
   //   for their Arm-based Windows devices, while Direct3D 12 is available.
-  //   - Both older Intel GPUs and the Xbox One apparently, as well as earlier
-  //     Windows 10 versions, also require Shader Model 5.1 DXBC shaders rather
-  //     than Shader Model 6 DXIL ones, so a DXBC shader translator should be
-  //     available in Xenia too, a DXIL one doesn't fully replace it.
   // - As of June 2022, AMD also refuses to implement the
   //   VK_EXT_fragment_shader_interlock Vulkan extension in their drivers, as
   //   well as its OpenGL counterpart, which is heavily utilized for accurate
@@ -467,6 +466,9 @@ std::unique_ptr<gpu::GraphicsSystem> EmulatorApp::CreateGraphicsSystem() {
   factory.Add<gpu::d3d12::D3D12GraphicsSystem>("d3d12");
 #endif  // XE_PLATFORM_WIN32
   factory.Add<gpu::vulkan::VulkanGraphicsSystem>("vulkan");
+#if XE_PLATFORM_MAC
+  factory.Add<gpu::metal::MetalGraphicsSystem>("metal");
+#endif  // XE_PLATFORM_MAC
   std::unique_ptr<gpu::GraphicsSystem> gpu_implementation =
       factory.Create(gpu_implementation_name);
   if (!gpu_implementation) {
@@ -504,16 +506,11 @@ std::vector<std::unique_ptr<hid::InputDriver>> EmulatorApp::CreateInputDrivers(
         xe::hid::nop::Create(window, EmulatorWindow::kZOrderHidInput));
   } else {
     Factory<hid::InputDriver, ui::Window*, size_t> factory;
-#if XE_PLATFORM_WIN32
-    factory.Add("xinput", xe::hid::xinput::Create);
-#endif  // XE_PLATFORM_WIN32
 #if !XE_PLATFORM_ANDROID
     factory.Add("sdl", xe::hid::sdl::Create);
 #endif  // !XE_PLATFORM_ANDROID
-#if XE_PLATFORM_WIN32
-    // WinKey input driver should always be the last input driver added!
-    factory.Add("winkey", xe::hid::winkey::Create);
-#endif  // XE_PLATFORM_WIN32
+    // Keyboard is in kAlwaysOn so it loads regardless of `hid=` selection.
+    factory.Add("keyboard", xe::hid::keyboard::Create);
     for (auto& driver : factory.CreateAll(cvars::hid, window,
                                           EmulatorWindow::kZOrderHidInput)) {
       if (XSUCCEEDED(driver->Setup())) {
@@ -540,12 +537,9 @@ bool EmulatorApp::OnInitialize() {
     if (!cvars::portable &&
         !std::filesystem::exists(storage_root / "portable.txt")) {
       storage_root = xe::filesystem::GetUserFolder();
-#if defined(XE_PLATFORM_WIN32) || defined(XE_PLATFORM_LINUX)
-      storage_root = storage_root / "Xenia";
+#if XE_PLATFORM_ANDROID
+      // TODO(Triang3l): Point to the app's external storage "files" directory.
 #else
-      // TODO(Triang3l): Point to the app's external storage "files" directory
-      // on Android.
-#warning Unhandled platform for the data root.
       storage_root = storage_root / "Xenia";
 #endif
     }
@@ -555,13 +549,24 @@ bool EmulatorApp::OnInitialize() {
 
   config::SetupConfig(storage_root);
 
+  // Must follow SetupConfig so cvars::ui_locale from the TOML is visible.
+  xe::ui::InitializeWxLocale();
+
+  // A missing/outdated Visual C++ runtime faults deep in the CRT during
+  // startup. Check after config (so the decline cvar is honored) and locale
+  // (for a localized prompt), but before the emulator/network init that trips
+  // it. On a successful install this relaunches and doesn't return.
+  xe::ui::EnsureVCRuntime();
+
   // Load game-specific config if a target is specified.
   if (!cvars::target.empty()) {
-    config::LoadGameConfigForFile(cvars::target);
+    config::LoadGameConfigForFile(GameConfigFile(cvars::target));
   }
 
 #if XE_ARCH_AMD64 == 1
   amd64::InitFeatureFlags();
+#elif XE_ARCH_ARM64 == 1
+  arm64::InitFeatureFlags();
 #endif
 
   std::filesystem::path content_root = cvars::content_root;
@@ -596,58 +601,24 @@ bool EmulatorApp::OnInitialize() {
   emulator_ =
       std::make_unique<Emulator>("", storage_root, content_root, cache_root);
 
-  // Check if this is a game process (has target) or UI process
-  bool is_game_process = !cvars::target.empty();
-
 #if XE_PLATFORM_WIN32 && XE_ARCH_AMD64 == 1
-  // Apply ntdll rdrand patch for game process only
-  if (is_game_process && cvars::enable_rdrand_ntdll_patch) {
+  if (cvars::enable_rdrand_ntdll_patch) {
     do_ntdll_rdrand_patch();
   }
 #endif
 
-  // Initialize Discord rich presence only for game process
-  if (is_game_process && cvars::discord) {
-    discord::DiscordPresence::Initialize();
-    discord::DiscordPresence::NotPlaying();
-  }
-
-  // Determine window size based on process type
-  uint32_t window_width, window_height;
-  if (is_game_process) {
-    // Game process - use internal resolution or command-line override
-    auto res = xe::gpu::GraphicsSystem::GetInternalDisplayResolution();
-    window_width = res.first;
-    window_height = res.second;
-
-    // Override with command-line args if set (transient cvars)
-    if (cvars::window_size_game_x != 0) {
-      window_width = cvars::window_size_game_x;
-    }
-    if (cvars::window_size_game_y != 0) {
-      window_height = cvars::window_size_game_y;
-    }
-  } else {
-    // UI process - use persistent cvars (defaults to 950x750)
-    window_width = cvars::window_size_ui_x;
-    window_height = cvars::window_size_ui_y;
-  }
-
-  // Main emulator display window.
-  emulator_window_ =
-      EmulatorWindow::Create(emulator_.get(), app_context(), window_width,
-                             window_height, is_game_process);
+  auto res = xe::gpu::GraphicsSystem::GetInternalDisplayResolution();
+  emulator_window_ = EmulatorWindow::Create(emulator_.get(), app_context(),
+                                            res.first, res.second);
   if (!emulator_window_) {
     XELOGE("Failed to create the main emulator window");
     return false;
   }
 
-  // Setup the emulator and run its loop in a separate thread.
   emulator_thread_quit_requested_.store(false, std::memory_order_relaxed);
   emulator_thread_event_ = xe::threading::Event::CreateAutoResetEvent(false);
   assert_not_null(emulator_thread_event_);
-  emulator_thread_ =
-      std::thread(&EmulatorApp::EmulatorThread, this, is_game_process);
+  emulator_thread_ = std::thread(&EmulatorApp::EmulatorThread, this);
 
   return true;
 }
@@ -659,7 +630,6 @@ void EmulatorApp::OnDestroy() {
     discord::DiscordPresence::Shutdown();
   }
 
-  Profiler::Dump();
   // The profiler needs to shut down before the graphics context.
   Profiler::Shutdown();
 
@@ -669,35 +639,15 @@ void EmulatorApp::OnDestroy() {
   std::quick_exit(EXIT_SUCCESS);
 }
 
-void EmulatorApp::EmulatorThread(bool is_game_process) {
+void EmulatorApp::EmulatorThread() {
   assert_not_null(emulator_thread_event_);
 
   xe::threading::set_name("Emulator");
   Profiler::ThreadEnter("Emulator");
 
-  // UI process: Minimal setup for profiles/GPD only
-  if (!is_game_process) {
-    // Initialize just enough for profiles: kernel state with XAM module
-    X_STATUS result = emulator_->Setup(emulator_window_->window(), nullptr,
-                                       false, nullptr, nullptr, nullptr);
-    if (XFAILED(result)) {
-      XELOGE("Failed to setup minimal emulator for UI: {:08X}", result);
-      app_context().RequestDeferredQuit();
-      return;
-    }
-
-    // Notify that the UI is ready to be shown
-    app_context().CallInUIThread(
-        [this]() { emulator_window_->OnEmulatorInitialized(); });
-
-    // Keep the thread alive for UI process
-    while (!emulator_thread_quit_requested_.load(std::memory_order_relaxed)) {
-      xe::threading::Wait(emulator_thread_event_.get(), false);
-    }
-    return;
-  }
-
-  // Game process: Full emulator setup with graphics, audio, and input
+  // Setup is bare-essentials only (memory/cpu/kernel/vfs/input shell). The
+  // factories are stored for SetupSubsystems, which runs at first title
+  // launch — after per-game cvar overrides have been applied.
   X_STATUS result = emulator_->Setup(
       emulator_window_->window(), emulator_window_->imgui_drawer(), true,
       CreateAudioSystem, CreateGraphicsSystem, CreateInputDrivers);
@@ -706,10 +656,6 @@ void EmulatorApp::EmulatorThread(bool is_game_process) {
     app_context().RequestDeferredQuit();
     return;
   }
-
-  // Setup graphics presenter painting for game process
-  app_context().CallInUIThread(
-      [this]() { emulator_window_->SetupGraphicsSystemPresenterPainting(); });
 
   emulator_->MountStandardDrives();
 
@@ -749,6 +695,7 @@ void EmulatorApp::EmulatorThread(bool is_game_process) {
 
   emulator_->on_launch.AddListener([&](auto title_id, const auto& game_title) {
     if (cvars::discord) {
+      discord::DiscordPresence::Initialize();
       discord::DiscordPresence::PlayingTitle(
           game_title.empty() ? "Unknown Title" : std::string(game_title));
     }
@@ -777,10 +724,8 @@ void EmulatorApp::EmulatorThread(bool is_game_process) {
     app_context().CallInUIThread([this]() { emulator_window_->UpdateTitle(); });
   });
 
-  emulator_->on_terminate.AddListener([]() {
-    if (cvars::discord) {
-      discord::DiscordPresence::NotPlaying();
-    }
+  emulator_->on_title_name_change.AddListener([this]() {
+    app_context().CallInUIThread([this]() { emulator_window_->UpdateTitle(); });
   });
 
   emulator_->on_before_shutdown.AddListener([this]() {
@@ -792,8 +737,12 @@ void EmulatorApp::EmulatorThread(bool is_game_process) {
   });
 
   // Enable emulator input now that the emulator is properly loaded.
-  app_context().CallInUIThread(
-      [this]() { emulator_window_->OnEmulatorInitialized(); });
+  app_context().CallInUIThread([this]() {
+    emulator_window_->OnEmulatorInitialized();
+    // Re-paint the title now that processor is up, so the game list shows
+    // the active backend tag instead of the bare app name.
+    emulator_window_->UpdateTitle();
+  });
 
   // Grab path from the flag or unnamed argument.
   std::filesystem::path path;
@@ -808,7 +757,8 @@ void EmulatorApp::EmulatorThread(bool is_game_process) {
 
   if (xam && (cvars::launch_flags != 0 || !cvars::launch_data.empty())) {
     auto& loader_data = xam->loader_data();
-    loader_data.launch_data_present = true;
+    // Flags alone carry no data, as with an in-process relaunch.
+    loader_data.launch_data_present = !cvars::launch_data.empty();
     loader_data.launch_flags = cvars::launch_flags;
 
     // Decode hex-encoded launch_data
@@ -823,6 +773,11 @@ void EmulatorApp::EmulatorThread(bool is_game_process) {
     }
   }
 
+  // The original Xbox game the launching process left in the drive.
+  if (!cvars::launch_xbox_disc.empty()) {
+    emulator_->InsertXboxGame(xe::to_path(cvars::launch_xbox_disc));
+  }
+
   if (!path.empty()) {
     // Normalize the path and make absolute.
     auto abs_path = std::filesystem::absolute(path);
@@ -833,8 +788,27 @@ void EmulatorApp::EmulatorThread(bool is_game_process) {
       xam->loader_data().host_path = xe::path_to_utf8(abs_path);
     }
 
+    // Apply per-game cvar overrides before bringing up subsystems so the
+    // graphics/audio backends pick up the right values.
+    config::LoadGameConfigForFile(GameConfigFile(abs_path));
+    if (XFAILED(result = emulator_->SetupSubsystems())) {
+      xe::FatalError(fmt::format("Failed to setup subsystems: {:08X}", result));
+      app_context().RequestDeferredQuit();
+      return;
+    }
+    // Surface/swap chain must exist before the game thread starts presenting.
+    app_context().CallInUIThreadSynchronous(
+        [this]() { emulator_window_->SetupGraphicsSystemPresenterPainting(); });
+
     // TODO(has207): Add archive format check like in RunTitle?
     result = emulator_->LaunchPath(abs_path);
+    if (const std::string file = emulator_->TakeMissingXeFuFile();
+        !file.empty()) {
+      app_context().CallInUIThreadSynchronous(
+          [this, &file]() { emulator_window_->ShowMissingXeFuFile(file); });
+      app_context().RequestDeferredQuit();
+      return;
+    }
     if (XFAILED(result)) {
       xe::FatalError(fmt::format("Failed to launch target: {:08X}", result));
       app_context().RequestDeferredQuit();

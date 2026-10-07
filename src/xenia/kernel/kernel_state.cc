@@ -7,6 +7,8 @@
  ******************************************************************************
  */
 
+#include <algorithm>
+#include <atomic>
 #include <ranges>
 
 #include "xenia/kernel/kernel_state.h"
@@ -15,6 +17,7 @@
 #include "xenia/base/logging.h"
 #include "xenia/emulator.h"
 #include "xenia/hid/input_system.h"
+#include "xenia/kernel/guest_scheduler.h"
 #include "xenia/kernel/user_module.h"
 #include "xenia/kernel/util/shim_utils.h"
 #include "xenia/kernel/xboxkrnl/xboxkrnl_memory.h"
@@ -26,12 +29,13 @@
 #include "xenia/kernel/xnotifylistener.h"
 #include "xenia/kernel/xobject.h"
 #include "xenia/kernel/xthread.h"
+#include "xenia/kernel/xtimer.h"
 #include "xenia/ui/imgui_host_notification.h"
 
 #include "third_party/crypto/TinySHA1.hpp"
 
 DEFINE_bool(apply_title_update, true, "Apply title updates.", "Kernel");
-DEFINE_bool(allow_incompatible_title_update, true,
+DEFINE_bool(allow_incompatible_title_update, false,
             "Allow title updates with mismatched signatures to be applied.",
             "Kernel");
 
@@ -63,7 +67,9 @@ KernelState::KernelState(Emulator* emulator)
   processor_ = emulator->processor();
   file_system_ = emulator->file_system();
   xam_state_ = std::make_unique<xam::XamState>(emulator, this);
+  guest_scheduler_ = std::make_unique<GuestScheduler>(this);
   smc_ = std::make_unique<SystemManagementController>();
+  xconfig_ = std::make_unique<XConfig>();
 
   InitializeKernelGuestGlobals();
   kernel_version_ = KernelVersion(cvars::kernel_build_version);
@@ -78,13 +84,34 @@ KernelState::KernelState(Emulator* emulator)
 }
 
 KernelState::~KernelState() {
+  // Before anything a timer callback touches goes away.
+  XTimer::CancelAll();
+
   SetExecutableModule(nullptr);
 
   ShutdownDispatchThread();
 
+  // Reclaiming leftover fibers releases handles, so run this while the object
+  // table is still alive.
+  guest_scheduler_->Shutdown();
+  // Guest code may have re-armed one since.
+  XTimer::CancelAll();
+  for (auto& dpcs : processor_dpcs_) {
+    dpcs.thread.reset();
+    dpcs.event.reset();
+  }
+
   executable_module_.reset();
   user_modules_.clear();
   kernel_modules_.clear();
+
+  // The table reset would take the pooled I/O events' handles otherwise.
+  for (auto& event : idle_io_events_) {
+    if (!event->handles().empty()) {
+      event->ReleaseHandle();
+    }
+  }
+  idle_io_events_.clear();
 
   // Delete all objects.
   object_table_.Reset();
@@ -95,9 +122,76 @@ KernelState::~KernelState() {
   shared_kernel_state_ = nullptr;
 }
 
+namespace {
+// What the I/O manager waits with for a title's synchronous request.
+constexpr uint32_t kWaitReasonExecutive = 0;
+constexpr uint32_t kUserMode = 1;
+}  // namespace
+
+void KernelState::RunBlockingIo(const std::function<void()>& fn,
+                                GuestScheduler::BlockingCallClass call_class,
+                                bool alertable) {
+  if (!GuestScheduler::CurrentThreadOffloadsBlockingCalls()) {
+    fn();
+    return;
+  }
+  auto event = AcquireIoEvent();
+  // The worker writes into this frame so only |done| ends the wait, even on a
+  // terminate.
+  std::atomic<bool> done{false};
+  guest_scheduler_->PostHostCall(
+      [&fn, &done, signal = retain_object(event.get())]() {
+        fn();
+        done.store(true, std::memory_order_release);
+        signal->Set(kIoDiskIncrement, false);
+      },
+      call_class);
+  uint32_t wait_alertable = alertable ? 1 : 0;
+  while (!done.load(std::memory_order_acquire)) {
+    X_STATUS status = event->Wait(kWaitReasonExecutive, kUserMode,
+                                  wait_alertable, nullptr, false);
+    if (status == X_STATUS_USER_APC) {
+      // An alert cannot cancel the host request. The APCs run at the next
+      // alertable wait, after the caller writes its status block.
+      wait_alertable = 0;
+    } else if (status != X_STATUS_SUCCESS) {
+      // A failed poll does not wait so give up the CPU instead of spinning.
+      XELOGW("KernelState: blocking I/O wait returned {:08X}", status);
+      guest_scheduler_->YieldCurrentThread(false);
+    }
+  }
+  ReleaseIoEvent(std::move(event));
+}
+
+object_ref<XEvent> KernelState::AcquireIoEvent() {
+  {
+    std::lock_guard<std::mutex> lock(io_event_lock_);
+    if (!idle_io_events_.empty()) {
+      auto event = std::move(idle_io_events_.back());
+      idle_io_events_.pop_back();
+      return event;
+    }
+  }
+  auto event = object_ref<XEvent>(new XEvent(this, true));
+  event->Initialize(false, false);
+  // One signal per request would crowd the guest signals out of the ring.
+  event->set_signal_ring_quiet(true);
+  return event;
+}
+
+void KernelState::ReleaseIoEvent(object_ref<XEvent> event) {
+  // The completion can land after |done|, leaving it armed for the next user.
+  event->Reset();
+  std::lock_guard<std::mutex> lock(io_event_lock_);
+  idle_io_events_.push_back(std::move(event));
+}
+
 void KernelState::ShutdownDispatchThread() {
   if (dispatch_thread_running_) {
-    dispatch_thread_running_ = false;
+    {
+      std::lock_guard lock(dispatch_mutex_);
+      dispatch_thread_running_ = false;
+    }
     dispatch_cond_.notify_all();
     dispatch_thread_->Wait(0, 0, 0, nullptr);
   }
@@ -121,6 +215,8 @@ uint32_t KernelState::title_id() const {
 
   return 0;
 }
+
+bool KernelState::is_title_open() const { return emulator_->is_title_open(); }
 
 const std::unique_ptr<xam::SpaInfo> KernelState::title_xdbf() const {
   return module_xdbf(executable_module_);
@@ -430,11 +526,6 @@ object_ref<XThread> KernelState::LaunchModule(object_ref<UserModule> module) {
   // Waits for a debugger client, if desired.
   emulator()->processor()->PreLaunch();
 
-  // Resume the thread now.
-  // If the debugger has requested a suspend this will just decrement the
-  // suspend count without resuming it until the debugger wants.
-  thread->Resume();
-
   return thread;
 }
 
@@ -522,6 +613,9 @@ void KernelState::SetExecutableModule(object_ref<UserModule> module) {
         xboxkrnl::XboxkrnlModule::kExLoadedCommandLineSize);
   }
 
+  // Initialize file I/O hooks for XMP volume title-specific patches.
+  InitXmpVolumePatch();
+
   // Spin up deferred dispatch worker.
   // TODO(benvanik): move someplace more appropriate (out of ctor, but around
   // here).
@@ -533,20 +627,19 @@ void KernelState::SetExecutableModule(object_ref<UserModule> module) {
           // As we run guest callbacks the debugger must be able to suspend us.
           dispatch_thread_->set_can_debugger_suspend(true);
 
-          auto global_lock = global_critical_region_.AcquireDeferred();
-          while (dispatch_thread_running_) {
-            global_lock.lock();
-            if (dispatch_queue_.empty()) {
-              dispatch_cond_.wait(global_lock);
+          while (true) {
+            std::function<void()> fn;
+            {
+              std::unique_lock lock(dispatch_mutex_);
+              dispatch_cond_.wait(lock, [this]() {
+                return !dispatch_queue_.empty() || !dispatch_thread_running_;
+              });
               if (!dispatch_thread_running_) {
-                global_lock.unlock();
                 break;
               }
+              fn = std::move(dispatch_queue_.front());
+              dispatch_queue_.pop_front();
             }
-            auto fn = std::move(dispatch_queue_.front());
-            dispatch_queue_.pop_front();
-            global_lock.unlock();
-
             fn();
           }
           return 0;
@@ -592,6 +685,9 @@ object_ref<UserModule> KernelState::LoadUserModule(
     global_lock.unlock();
 
     // Module wasn't loaded, so load it.
+    // TODO: this read, decrypt and decompress stalls the calling fiber's
+    // dispatch thread. Offloading it needs care, it touches kernel state and
+    // guest-thread identity.
     module = object_ref<UserModule>(new UserModule(this));
     X_STATUS status = module->LoadFromFile(path);
     if (XFAILED(status)) {
@@ -694,8 +790,21 @@ X_RESULT KernelState::ApplyTitleUpdate(
       XELOGW(
           "Skipping incompatible title update for {} due to signature mismatch",
           title_module->name());
+      if (!GetExecutableModule()) {
+        emulator_->display_window()->app_context().CallInUIThread([&]() {
+          new xe::ui::HostNotificationWindow(
+              emulator_->imgui_drawer(), "Warning!",
+              "Title Update signature doesn't match. Skipping its application!",
+              0);
+        });
+      }
       return X_STATUS_SUCCESS;
     }
+
+    XELOGW(
+        "Applying incompatible title update for {} due to enabled "
+        "allow_incompatible_title_update config option!",
+        title_module->name());
 
     // First module that is loaded is always main executable. That way we can
     // prevent random message spam in case of loading/unloading.
@@ -735,8 +844,8 @@ const object_ref<UserModule> KernelState::LoadTitleUpdate(
   X_RESULT open_status = content_manager()->OpenContent(
       "UPDATE", 0, *title_update, content_license, disc_number);
 
-  std::string mount_path = "";
-  if (!file_system()->FindSymbolicLink("game:", mount_path)) {
+  const std::string& mount_path = title_mount_path_;
+  if (mount_path.empty()) {
     return nullptr;
   }
 
@@ -745,17 +854,24 @@ const object_ref<UserModule> KernelState::LoadTitleUpdate(
   }
 
   std::string resolved_path = "";
-  if (!file_system()->FindSymbolicLink("UPDATE:", resolved_path)) {
+  if (!file_system()->FindSymbolicLink(kDefaultUpdateSymbolicLink,
+                                       resolved_path)) {
     return nullptr;
   }
 
   const std::string relative_path =
       module->path().substr(mount_path.size() + 1) + 'p';
 
+  // A multi-disc update mounts at discNNN inside the package, so the target
+  // no longer always ends in a separator.
+  const std::string patch_guest_path =
+      xe::utf8::join_guest_paths(resolved_path, relative_path);
+
   xe::vfs::Entry* patch_entry =
-      kernel_state()->file_system()->ResolvePath(resolved_path + relative_path);
+      kernel_state()->file_system()->ResolvePath(patch_guest_path);
 
   if (!patch_entry) {
+    XELOGI("Loading XEX patch failed. Path doesn't exist {}", patch_guest_path);
     return nullptr;
   }
 
@@ -836,9 +952,9 @@ void KernelState::UnloadUserModule(const object_ref<UserModule>& module,
                          xe::countof(args));
   }
 
-  auto iter = std::find_if(
-      user_modules_.begin(), user_modules_.end(),
-      [&module](const auto& e) { return e->path() == module->path(); });
+  auto iter = std::ranges::find_if(user_modules_, [&module](const auto& e) {
+    return e->path() == module->path();
+  });
   assert_true(iter != user_modules_.end());  // Unloading an unregistered module
                                              // is probably really bad
   user_modules_.erase(iter);
@@ -852,10 +968,31 @@ void KernelState::UnloadUserModule(const object_ref<UserModule>& module,
   object_table()->ReleaseHandleInLock(module->handle());
 }
 
+void KernelState::InitXmpVolumePatch() {
+  xmp_volume_patch_ = XmpVolumePatch::CreateForTitle(title_id(), this);
+}
+
 void KernelState::TerminateTitle() {
   XELOGI("KernelState::TerminateTitle");
   xe::FlushLog();
   std::quick_exit(EXIT_SUCCESS);
+}
+
+void KernelState::ExitToDashboard() {
+  XELOGI("KernelState::ExitToDashboard");
+  if (auto on_exit_to_dashboard = emulator_->on_exit_to_dashboard()) {
+    if (on_exit_to_dashboard()) {
+      // Park off guest code until the in-process reset terminates us; Suspend
+      // can return on POSIX, so loop rather than fall through to
+      // TerminateTitle.
+      auto* current_thread = XThread::GetCurrentThread();
+      current_thread->Suspend(nullptr);
+      while (true) {
+        xe::threading::NanoSleep(int64_t(1'000'000'000));
+      }
+    }
+  }
+  TerminateTitle();
 }
 
 void KernelState::RegisterThread(XThread* thread) {
@@ -967,6 +1104,15 @@ void KernelState::RegisterNotifyListener(XNotifyListener* listener) {
                                   0x001510F1L);
     listener->EnqueueNotification(kXNotificationLiveLinkStateChanged, 0);
   }
+
+  if (!has_notified_xmp_startup_ && listener->mask() & kXNotifyXmp) {
+    has_notified_xmp_startup_ = true;
+    // Playback state is idle until the media player broadcasts a transition
+    // of its own, so only the controller is worth priming.
+    listener->EnqueueNotification(
+        kXNotificationXmpPlaybackControllerChanged,
+        emulator()->audio_media_player()->IsTitleInPlaybackControl());
+  }
 }
 
 void KernelState::UnregisterNotifyListener(XNotifyListener* listener) {
@@ -995,9 +1141,11 @@ void KernelState::CompleteOverlappedEx(uint32_t overlapped_ptr, X_RESULT result,
                                        uint32_t extended_error,
                                        uint32_t length) {
   auto ptr = memory()->TranslateVirtual(overlapped_ptr);
-  XOverlappedSetResult(ptr, result);
+  // Result last, so a caller polling it for completion reads a valid length.
   XOverlappedSetExtendedError(ptr, extended_error);
   XOverlappedSetLength(ptr, length);
+  std::atomic_thread_fence(std::memory_order_release);
+  XOverlappedSetResult(ptr, result);
   X_HANDLE event_handle = XOverlappedGetEvent(ptr);
   if (event_handle) {
     auto ev = object_table()->LookupObject<XEvent>(event_handle);
@@ -1088,7 +1236,7 @@ void KernelState::CompleteOverlappedDeferredEx(
       ev.get<XEvent>()->Reset();
     }
   }
-  auto global_lock = global_critical_region_.Acquire();
+  std::lock_guard lock(dispatch_mutex_);
   dispatch_queue_.push_back([this, completion_callback, overlapped_ptr,
                              pre_callback, post_callback]() {
     if (pre_callback) {
@@ -1149,7 +1297,13 @@ bool KernelState::Save(ByteStream* stream) {
   for (auto object : objects) {
     auto prev_offset = stream->offset();
 
-    if (object->is_host_object() || object->type() == XObject::Type::Thread) {
+    // A user module is a host object only to stay out of the title's handle
+    // numbering, so it still saves.
+    bool user_module = object->type() == XObject::Type::Module &&
+                       static_cast<XModule*>(object.get())->module_type() ==
+                           XModule::ModuleType::kUserModule;
+    if ((object->is_host_object() && !user_module) ||
+        object->type() == XObject::Type::Thread) {
       // Don't save host objects or save XThreads again
       num_objects--;
       continue;
@@ -1274,14 +1428,167 @@ void KernelState::BeginDPCImpersonation(cpu::ppc::PPCContext* context,
 }
 void KernelState::EndDPCImpersonation(cpu::ppc::PPCContext* context,
                                       DPCImpersonationScope& end_scope) {
+  // DPCs the routine queued run before the CPU leaves DISPATCH_LEVEL.
+  xboxkrnl::xeRunDeferredDpcs(context);
   auto kpcr = context->TranslateVirtualGPR<X_KPCR*>(context->r[13]);
   xenia_assert(kpcr->prcb_data.dpc_active == 1);
   kpcr->current_irql = end_scope.previous_irql_;
   kpcr->prcb_data.dpc_active = 0;
 }
+void KernelState::QueueDpc(uint32_t dpc_ptr, uint32_t arg1, uint32_t arg2) {
+  auto target = memory()->TranslateVirtual<XDPC*>(dpc_ptr);
+  const uint8_t desired_cpu = target->desired_cpu_number;
+  if (target->routine && desired_cpu && desired_cpu <= 6 &&
+      processor_dpcs_[desired_cpu - 1].started.load(
+          std::memory_order_acquire)) {
+    QueueProcessorDpc(desired_cpu - 1, dpc_ptr, arg1, arg2);
+    return;
+  }
+  {
+    std::lock_guard lock(dispatch_mutex_);
+    if (std::find(dispatch_dpcs_.begin(), dispatch_dpcs_.end(), dpc_ptr) !=
+        dispatch_dpcs_.end()) {
+      return;
+    }
+    dispatch_dpcs_.push_back(dpc_ptr);
+    dispatch_queue_.push_back([this, dpc_ptr, arg1, arg2]() {
+      {
+        std::lock_guard lock(dispatch_mutex_);
+        auto it =
+            std::find(dispatch_dpcs_.begin(), dispatch_dpcs_.end(), dpc_ptr);
+        // KeRemoveQueueDpc took it back.
+        if (it == dispatch_dpcs_.end()) {
+          return;
+        }
+        dispatch_dpcs_.erase(it);
+      }
+      auto context = XThread::GetCurrentThread()->thread_state()->context();
+      DPCImpersonationScope dpc_scope{};
+      BeginDPCImpersonation(context, dpc_scope);
+      xboxkrnl::xeRunDpc(context, dpc_ptr, arg1, arg2);
+      EndDPCImpersonation(context, dpc_scope);
+    });
+  }
+  dispatch_cond_.notify_all();
+}
+
+void KernelState::StartProcessorDpcThread(uint8_t cpu) {
+  auto& dpcs = processor_dpcs_[cpu];
+  if (dpcs.started.load(std::memory_order_acquire) ||
+      !GuestScheduler::enabled()) {
+    return;
+  }
+  auto global_lock = global_critical_region_.Acquire();
+  if (dpcs.thread) {
+    return;
+  }
+  dpcs.event = object_ref<XEvent>(new XEvent(this, true));
+  dpcs.event->Initialize(false, false);
+  dpcs.thread = object_ref<XHostThread>(new XHostThread(
+      this, 128 * 1024, (1u << cpu) << 24,
+      [this, cpu]() {
+        RunProcessorDpcs(cpu);
+        return 0;
+      },
+      GetSystemProcess(), true));
+  dpcs.thread->set_can_debugger_suspend(true);
+  dpcs.thread->set_name(fmt::format("DPC Processor {}", cpu));
+  if (XFAILED(dpcs.thread->Create())) {
+    dpcs.thread.reset();
+    dpcs.event.reset();
+    return;
+  }
+  // At the top priority, as a DPC interrupts what runs below DISPATCH_LEVEL.
+  dpcs.thread->SetPriority(31);
+  dpcs.started.store(true, std::memory_order_release);
+}
+
+bool KernelState::QueueProcessorDpc(uint8_t cpu, uint32_t dpc_ptr,
+                                    uint32_t arg1, uint32_t arg2) {
+  auto& dpcs = processor_dpcs_[cpu];
+  {
+    std::lock_guard lock(dpcs.lock);
+    if (std::find(dpcs.queue.begin(), dpcs.queue.end(), dpc_ptr) !=
+        dpcs.queue.end()) {
+      return false;
+    }
+    auto dpc = memory()->TranslateVirtual<XDPC*>(dpc_ptr);
+    dpc->arg1 = arg1;
+    dpc->arg2 = arg2;
+    dpcs.queue.push_back(dpc_ptr);
+  }
+  dpcs.event->Set(0, false);
+  return true;
+}
+
+bool KernelState::IsProcessorDpcQueued(uint8_t cpu, uint32_t dpc_ptr) {
+  auto& dpcs = processor_dpcs_[cpu];
+  if (!dpcs.started.load(std::memory_order_acquire)) {
+    return false;
+  }
+  std::lock_guard lock(dpcs.lock);
+  return std::find(dpcs.queue.begin(), dpcs.queue.end(), dpc_ptr) !=
+         dpcs.queue.end();
+}
+
+bool KernelState::RemoveProcessorDpc(uint32_t dpc_ptr) {
+  for (auto& dpcs : processor_dpcs_) {
+    std::lock_guard lock(dpcs.lock);
+    auto it = std::find(dpcs.queue.begin(), dpcs.queue.end(), dpc_ptr);
+    if (it != dpcs.queue.end()) {
+      dpcs.queue.erase(it);
+      return true;
+    }
+  }
+  return false;
+}
+
+void KernelState::RunProcessorDpcs(uint8_t cpu) {
+  auto& dpcs = processor_dpcs_[cpu];
+  auto context = XThread::GetCurrentThread()->thread_state()->context();
+  while (true) {
+    dpcs.event->Wait(0, 0, 0, nullptr);
+    DPCImpersonationScope dpc_scope{};
+    BeginDPCImpersonation(context, dpc_scope);
+    while (true) {
+      // Its arguments are taken as it leaves the queue, so KeInsertQueueDpc
+      // may queue it again before it runs.
+      uint32_t dpc_ptr, arg1, arg2;
+      {
+        std::lock_guard lock(dpcs.lock);
+        if (dpcs.queue.empty()) {
+          break;
+        }
+        dpc_ptr = dpcs.queue.front();
+        dpcs.queue.pop_front();
+        auto dpc = memory()->TranslateVirtual<XDPC*>(dpc_ptr);
+        arg1 = dpc->arg1;
+        arg2 = dpc->arg2;
+      }
+      xboxkrnl::xeRunDpc(context, dpc_ptr, arg1, arg2);
+    }
+    EndDPCImpersonation(context, dpc_scope);
+  }
+}
+
+bool KernelState::RemoveDpc(uint32_t dpc_ptr) {
+  std::lock_guard lock(dispatch_mutex_);
+  auto it = std::find(dispatch_dpcs_.begin(), dispatch_dpcs_.end(), dpc_ptr);
+  if (it == dispatch_dpcs_.end()) {
+    return false;
+  }
+  dispatch_dpcs_.erase(it);
+  return true;
+}
+
 void KernelState::EmulateCPInterruptDPC(uint32_t interrupt_callback,
                                         uint32_t interrupt_callback_data,
                                         uint32_t source, uint32_t cpu) {
+  // Source 0 is vblank, where the console's graphics DPC enters background
+  // mode. Before the callback check, which the console also does without one.
+  if (source == 0 && GuestScheduler::enabled()) {
+    guest_scheduler()->EnterBackgroundMode();
+  }
   if (!interrupt_callback) {
     return;
   }
@@ -1321,16 +1628,29 @@ void KernelState::EmulateCPInterruptDPC(uint32_t interrupt_callback,
   EndDPCImpersonation(current_context, dpc_scope);
 }
 
+uint32_t KernelState::GetBackgroundProcessors() {
+  return memory()
+      ->TranslateVirtual<KernelGuestGlobals*>(GetKernelGuestGlobals())
+      ->background_processors;
+}
+
+void KernelState::SetBackgroundProcessors(uint32_t processors) {
+  memory()
+      ->TranslateVirtual<KernelGuestGlobals*>(GetKernelGuestGlobals())
+      ->background_processors = processors;
+}
+
 void KernelState::InitializeProcess(X_KPROCESS* process, uint32_t type,
-                                    char unk_18, char unk_19, char unk_1A) {
+                                    char priority_class, char default_priority,
+                                    char max_dynamic_priority) {
   uint32_t guest_kprocess = memory()->HostToGuestVirtual(process);
 
   uint32_t thread_list_guest_ptr =
       guest_kprocess + offsetof(X_KPROCESS, thread_list);
 
-  process->unk_18 = unk_18;
-  process->unk_19 = unk_19;
-  process->unk_1A = unk_1A;
+  process->process_priority_class = priority_class;
+  process->default_thread_priority = default_priority;
+  process->max_dynamic_priority = max_dynamic_priority;
   util::XeInitializeListHead(&process->thread_list, thread_list_guest_ptr);
   process->quantum = 60;
   // doubt any guest code uses this ptr, which i think probably has something to
@@ -1338,7 +1658,7 @@ void KernelState::InitializeProcess(X_KPROCESS* process, uint32_t type,
   process->clrdataa_masked_ptr = 0;
   // clrdataa_ & ~(1U << 31);
   process->thread_count = 0;
-  process->unk_1B = 0x06;
+  process->disable_quantum_decay = 0x06;
   process->kernel_stack_size = 16 * 1024;
   process->tls_slot_size = 0x80;
 
@@ -1362,15 +1682,18 @@ void KernelState::SetProcessTLSVars(X_KPROCESS* process, int num_slots,
   }
 
   // set remainder of bitset
-  if (((num_slots + 3) & 0x1C) != 0)
+  if (((num_slots + 3) & 0x1C) != 0) {
     process->tls_slot_bitmap[count_div32] = -1
                                             << (32 - ((num_slots + 3) & 0x1C));
+  }
 }
 void AllocateThread(PPCContext* context) {
   uint32_t thread_mem_size = static_cast<uint32_t>(context->r[3]);
   uint32_t a2 = static_cast<uint32_t>(context->r[4]);
   uint32_t a3 = static_cast<uint32_t>(context->r[5]);
-  if (thread_mem_size <= 0xFD8) thread_mem_size += 8;
+  if (thread_mem_size <= 0xFD8) {
+    thread_mem_size += 8;
+  }
   uint32_t result =
       xboxkrnl::xeAllocatePoolTypeWithTag(context, thread_mem_size, a2, a3);
   if (((unsigned short)result & 0xFFF) != 0) {
@@ -1440,15 +1763,17 @@ void KernelState::InitializeKernelGuestGlobals() {
   SetProcessTLSVars(system_process, 32, 0, 0);
 
   uint32_t oddobject_offset =
-      kernel_guest_globals_ + offsetof(KernelGuestGlobals, OddObj);
+      kernel_guest_globals_ +
+      offsetof(KernelGuestGlobals, XboxKernelDefaultObject);
 
   // init unknown object
 
-  block->OddObj.field0 = 0x1000000;
-  block->OddObj.field4 = 1;
-  block->OddObj.points_to_self =
-      oddobject_offset + offsetof(X_UNKNOWN_TYPE_REFED, points_to_self);
-  block->OddObj.points_to_prior = block->OddObj.points_to_self;
+  block->XboxKernelDefaultObject.type = EventSynchronizationObject;
+  block->XboxKernelDefaultObject.signal_state = 1;
+  block->XboxKernelDefaultObject.wait_list.flink_ptr =
+      oddobject_offset + offsetof(X_DISPATCH_HEADER, wait_list.flink_ptr);
+  block->XboxKernelDefaultObject.wait_list.blink_ptr =
+      block->XboxKernelDefaultObject.wait_list.flink_ptr;
 
   // init thread object
   block->ExThreadObjectType.pool_tag = 0x65726854;
@@ -1552,6 +1877,11 @@ void KernelState::InitializeKernelGuestGlobals() {
        kernel_guest_globals_ +
            offsetof32(KernelGuestGlobals, IoDeviceObjectType)}};
   xboxkrnl::xeKeSetEvent(&block->UsbdBootEnumerationDoneEvent, 1, 0);
+
+  // Matches the console's boot value: CPUs 2-5 take background-scheduling
+  // windows, and a title can move that with KeSetBackgroundProcessors.
+  memory_->TranslateVirtual<KernelGuestGlobals*>(kernel_guest_globals_)
+      ->background_processors = 0x3C;
 
   // Initialize timestamp bundle early to avoid race conditions with update
   // timer and ensure deterministic initial values at kernel boot time

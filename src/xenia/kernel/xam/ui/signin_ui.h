@@ -45,6 +45,7 @@ class SigninUI final : public XamDialog {
 
   bool creating_profile_ = false;
   char gamertag_[16] = "";
+  bool valid_gamertag_ = false;
 };
 
 }  // namespace ui

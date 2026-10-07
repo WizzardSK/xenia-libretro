@@ -22,72 +22,6 @@
 namespace xe {
 namespace app {
 
-void NoProfileDialog::OnDraw(ImGuiIO& io) {
-  auto profile_manager = emulator_window_->emulator()
-                             ->kernel_state()
-                             ->xam_state()
-                             ->profile_manager();
-
-  if (profile_manager->GetAccountCount()) {
-    Close();
-    return;
-  }
-
-  const auto window_position =
-      ImVec2(GetIO().DisplaySize.x * 0.35f, GetIO().DisplaySize.y * 0.4f);
-
-  ImGui::SetNextWindowPos(window_position, ImGuiCond_FirstUseEver);
-  ImGui::SetNextWindowBgAlpha(1.0f);
-
-  bool dialog_open = true;
-  if (!ImGui::Begin("No Profiles Found", &dialog_open,
-                    ImGuiWindowFlags_NoCollapse |
-                        ImGuiWindowFlags_AlwaysAutoResize |
-                        ImGuiWindowFlags_HorizontalScrollbar)) {
-    ImGui::End();
-    delete this;
-    return;
-  }
-
-  const std::string message =
-      "There is no profile available! You will not be able to save without "
-      "one.\n\nWould you like to create one?";
-
-  ImGui::TextUnformatted(message.c_str());
-
-  ImGui::Separator();
-  ImGui::NewLine();
-
-  const auto content_files = xe::filesystem::ListDirectories(
-      emulator_window_->emulator()->content_root());
-
-  if (content_files.empty()) {
-    if (ImGui::Button("Create Profile")) {
-      new kernel::xam::ui::CreateProfileUI(emulator_window_->imgui_drawer(),
-                                           emulator_window_->emulator());
-    }
-  } else {
-    if (ImGui::Button("Create profile & migrate data")) {
-      new kernel::xam::ui::CreateProfileUI(emulator_window_->imgui_drawer(),
-                                           emulator_window_->emulator(), true);
-    }
-  }
-
-  ImGui::SameLine();
-  if (ImGui::Button("Open profile menu")) {
-    emulator_window_->ToggleProfilesConfigDialog();
-  }
-
-  ImGui::SameLine();
-  if (ImGui::Button("Close") || !dialog_open) {
-    emulator_window_->SetHotkeysState(true);
-    ImGui::End();
-    delete this;
-    return;
-  }
-  ImGui::End();
-}
-
 void ProfileConfigDialog::LoadProfileIcon() {
   if (!emulator_window_) {
     return;
@@ -219,14 +153,13 @@ void ProfileConfigDialog::OnDraw(ImGuiIO& io) {
              ImGui::GetWindowPos().y);
 
   for (auto& [xuid, account] : *profiles) {
-    ImGui::PushID(static_cast<int>(xuid));
+    ImGui::PushID(fmt::format("{:016X}", xuid).c_str());
 
     const uint8_t user_index =
         profile_manager->GetUserIndexAssignedToProfile(xuid);
 
-    const auto profile_icon = profile_icon_.find(xuid) != profile_icon_.cend()
-                                  ? profile_icon_[xuid].get()
-                                  : nullptr;
+    const auto profile_icon =
+        profile_icon_.contains(xuid) ? profile_icon_[xuid].get() : nullptr;
 
     auto context_menu_fun = [=, this]() -> bool {
       // Style the context menu like Xbox
@@ -262,7 +195,21 @@ void ProfileConfigDialog::OnDraw(ImGuiIO& io) {
           if (ImGui::BeginMenu("Login to slot:")) {
             for (uint8_t i = 1; i <= XUserMaxUserCount; i++) {
               if (ImGui::MenuItem(fmt::format("slot {}", i).c_str())) {
+                uint64_t current_slot_xuid = 0;
+
+                if (const auto current_profile = profile_manager->GetProfile(
+                        static_cast<uint8_t>(i - 1));
+                    current_profile) {
+                  current_slot_xuid = current_profile->xuid();
+                }
+
                 profile_manager->Login(xuid, i - 1);
+                LoadProfileIcon(xuid);
+
+                // Release resources
+                if (current_slot_xuid) {
+                  LoadProfileIcon(current_slot_xuid);
+                }
               }
             }
             ImGui::EndMenu();

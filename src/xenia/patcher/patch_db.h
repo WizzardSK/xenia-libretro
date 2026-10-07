@@ -14,9 +14,15 @@
 #include <filesystem>
 #include <map>
 #include <optional>
-#include <regex>
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wabsolute-value"
+#endif
 #include "third_party/tomlplusplus/toml.hpp"
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 namespace xe {
 namespace patcher {
@@ -93,12 +99,13 @@ struct PatchData {
 
 class PatchDB {
  public:
-  PatchDB(const std::filesystem::path patches_root);
+  explicit PatchDB(std::filesystem::path patches_dir);
   ~PatchDB();
 
   void LoadPatches();
 
-  PatchFileEntry ReadPatchFile(const std::filesystem::path& file_path) const;
+  PatchFileEntry ReadPatchFromString(const std::string& filename,
+                                     std::string_view toml_content) const;
 
   std::vector<PatchFileEntry> GetTitlePatches(
       const uint32_t title_id, const std::optional<uint64_t> hash);
@@ -113,9 +120,6 @@ class PatchDB {
                      const std::pair<std::string, PatchData> data_type,
                      const toml::table* patch_fields) const;
 
-  inline static const std::regex patch_filename_regex_ =
-      std::regex("^[A-Fa-f0-9]{8}.*\\.patch\\.toml$");
-
   const std::map<std::string, PatchData> patch_data_types_size_ = {
       {"string", PatchData(0, PatchDataType::kString)},
       {"u16string", PatchData(0, PatchDataType::kU16String)},
@@ -127,9 +131,26 @@ class PatchDB {
       {"be16", PatchData(sizeof(uint16_t), PatchDataType::kBE16)},
       {"be8", PatchData(sizeof(uint8_t), PatchDataType::kBE8)}};
 
+  std::filesystem::path patches_dir_;
   std::vector<PatchFileEntry> loaded_patches_;
-  std::filesystem::path patches_root_;
 };
+
+// One .patch.toml, from the embedded bundle or from the patches directory.
+struct PatchSourceFile {
+  std::string filename;
+  std::string toml_content;
+  PatchFileEntry entry;
+};
+
+std::vector<PatchSourceFile> EnumerateBundledPatchesForTitle(uint32_t title_id);
+
+// Patch files in patches_dir, applied at launch whether bundled or not.
+std::vector<PatchSourceFile> EnumerateLocalPatchesForTitle(
+    const std::filesystem::path& patches_dir, uint32_t title_id);
+
+// Filename with the "<title id> - " prefix and ".patch.toml" suffix trimmed.
+std::string PatchDisplayName(const PatchSourceFile& file);
+
 }  // namespace patcher
 }  // namespace xe
 

@@ -124,6 +124,7 @@ class UserModule : public XModule {
 
  private:
   void CalculateHash();
+  void DumpImage();
 
   std::string name_;
   std::string path_;

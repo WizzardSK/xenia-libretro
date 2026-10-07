@@ -44,8 +44,11 @@ class VulkanTextureCache final : public TextureCache {
       xenos::AnisoFilter aniso_filter : 3;  // 17
       uint32_t mip_min_level : 4;           // 21
       uint32_t mip_base_map : 1;            // 22
+      // Force the border color alpha to 1.0 (only meaningful with a border
+      // clamp mode).
+      uint32_t force_bc_w_to_max : 1;  // 23
       // Maximum mip level is in the texture resource itself, but mip_base_map
-      // can be used to limit fetching to mip_min_level.
+      // limits fetching to mip_min_level (level 0 when the base is available).
     };
 
     SamplerParameters() : value(0) { static_assert_size(*this, sizeof(value)); }
@@ -93,6 +96,25 @@ class VulkanTextureCache final : public TextureCache {
   VkImageView GetActiveBindingOrNullImageView(uint32_t fetch_constant_index,
                                               xenos::FetchOpDimension dimension,
                                               bool is_signed);
+
+  // Descriptor set (kStorageBuffer layout) binding the whole shared
+  // memory buffer for compute load/store, or VK_NULL_HANDLE if the buffer
+  // doesn't fit in maxStorageBufferRange. When valid, the byte offset into the
+  // buffer must be supplied via push constants. Shared with resolve.
+  VkDescriptorSet shared_memory_persistent_descriptor_set() const {
+    return shared_memory_persistent_descriptor_set_;
+  }
+
+  // Fetch constants whose host image views have changed since the bits were
+  // last reset, for reusing texture descriptor sets across draws when bindings
+  // are unchanged. Accumulated whenever UpdateTextureBindingsImpl rewrites
+  // bindings.
+  uint32_t texture_bindings_changed() const {
+    return texture_bindings_changed_;
+  }
+  void ResetTextureBindingsChanged(uint32_t mask) {
+    texture_bindings_changed_ &= ~mask;
+  }
 
   SamplerParameters GetSamplerParameters(
       const VulkanShader::SamplerBinding& binding) const;
@@ -227,10 +249,10 @@ class VulkanTextureCache final : public TextureCache {
   struct HostFormat {
     LoadShaderIndex load_shader;
     // Do NOT add integer formats to this - they are not filterable, can only be
-    // read with ImageFetch, not ImageSample! If any game is seen using
-    // num_format 1 for fixed-point formats (for floating-point, it's normally
-    // set to 1 though), add a constant buffer containing multipliers for the
-    // textures and multiplication to the tfetch implementation.
+    // read with ImageFetch, not ImageSample! Games that fetch fixed-point
+    // formats are handled after sampling by scaling the normalized host value
+    // back to the guest integer range (see GetIntegerScaleBits). Keep these as
+    // sampled float/normalized views.
     VkFormat format;
     // Whether the format is block-compressed on the host (the host block size
     // matches the guest format block size in this case), and isn't decompressed
@@ -433,9 +455,78 @@ class VulkanTextureCache final : public TextureCache {
   static const HostFormatPair kHostFormatBGRGUnaligned;
   HostFormatPair host_formats_[64];
 
+  // Compute blit moving loaded levels out of the scratch buffer into the
+  // image, in place of vkCmdCopyBufferToImage - NVIDIA runs that copy at about
+  // an eighth of the rate a shader writing the same bytes reaches. Covers host
+  // blocks of 4, 8 or 16 bytes, colour or block-compressed. 3D and depth keep
+  // the copy. See texture_blit_scratch_*.cs.glsl.
+  enum ScratchBlitShaderIndex {
+    kScratchBlitShaderIndex32bpb,
+    kScratchBlitShaderIndex64bpb,
+    kScratchBlitShaderIndex128bpb,
+    kScratchBlitShaderIndexCount,
+  };
+  struct ScratchBlitConstants {
+    // Offset of the level within the scratch buffer, in host blocks.
+    uint32_t offset_blocks;
+    // Host blocks per row in the scratch buffer.
+    uint32_t pitch_blocks;
+    // Host blocks per array slice in the scratch buffer.
+    uint32_t slice_blocks;
+    // Row of the staging image this level starts at - levels are stacked so a
+    // whole chain dispatches without barriers between them.
+    uint32_t dest_offset_y;
+    // Extent of this level in host blocks.
+    uint32_t size_blocks[2];
+  };
+  // The shader writes an unsigned-integer staging image which is then copied
+  // into the destination, so the destination stays a plain sampled image and
+  // keeps its compression. Returns the staging format, or VK_FORMAT_UNDEFINED
+  // if this texture has to use vkCmdCopyBufferToImage.
+  VkFormat GetScratchBlitStagingFormat(const TextureKey& key) const;
+  static uint32_t GetScratchBlitShaderIndex(uint32_t bytes_per_host_block);
+  void InitializeScratchBlit();
+  // Grown as needed and reused, like the command processor's scratch buffer.
+  bool AcquireScratchBlitStagingImage(uint32_t shader_index, VkFormat format,
+                                      uint32_t width, uint32_t height,
+                                      uint32_t layers, VkImage& image_out,
+                                      VkImageView& view_out);
+  struct ScratchBlitStagingImage {
+    VkImage image = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint32_t layers = 0;
+    // UNDEFINED until the first upload, GENERAL for the rest of its life.
+    VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    // Size of an allocation that already failed, so it is not retried on every
+    // upload. Zero if none has.
+    VkDeviceSize failed_bytes = 0;
+  };
+  std::array<ScratchBlitStagingImage, kScratchBlitShaderIndexCount>
+      scratch_blit_staging_;
+  VkPipelineLayout scratch_blit_pipeline_layout_ = VK_NULL_HANDLE;
+  std::array<VkPipeline, kScratchBlitShaderIndexCount>
+      scratch_blit_pipelines_{};
+
   VkPipelineLayout load_pipeline_layout_ = VK_NULL_HANDLE;
   std::array<VkPipeline, kLoadShaderCount> load_pipelines_{};
   std::array<VkPipeline, kLoadShaderCount> load_pipelines_scaled_{};
+
+  // Persistent descriptor binding the whole shared memory buffer
+  // (kStorageBuffer layout) for compute load/store, so per-operation
+  // transient descriptors don't need to be allocated and written. Only created
+  // when the buffer fits in maxStorageBufferRange; the byte offset into the
+  // buffer is passed via push constants instead. Used as the source of texture
+  // loads here, and shared as the destination of resolves in the render target
+  // cache.
+  VkDescriptorPool shared_memory_persistent_descriptor_pool_ = VK_NULL_HANDLE;
+  VkDescriptorSet shared_memory_persistent_descriptor_set_ = VK_NULL_HANDLE;
+
+  // Accumulated mask of fetch constants whose host image views were rewritten,
+  // consumed by the command processor to decide texture descriptor set reuse.
+  uint32_t texture_bindings_changed_ = 0;
 
   // If both images can be placed in the same allocation, it's one allocation,
   // otherwise it's two separate.

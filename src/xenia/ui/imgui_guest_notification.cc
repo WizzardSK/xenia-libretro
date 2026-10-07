@@ -91,9 +91,9 @@ void AchievementNotificationWindow::OnDraw(ImGuiIO& io) {
     return;
   }
 
-  const std::string longest_notification_text_line =
-      GetTitle().size() > GetDescription().size() ? GetTitle().c_str()
-                                                  : GetDescription().c_str();
+  const std::string longest_notification_text_line{
+      GetTitle().size() > GetDescription().size() ? GetTitle()
+                                                  : GetDescription()};
 
   const ImVec2 screen_size = io.DisplaySize;
   const float window_scale =
@@ -152,7 +152,9 @@ void AchievementNotificationWindow::OnDraw(ImGuiIO& io) {
 
     ImGui::SameLine();
     if (notification_draw_progress_ > 0.5f) {
-      ImGui::TextColored(white_color, "%s", GetNotificationText().c_str());
+      const auto text = GetNotificationText();
+      ImGui::TextColored(white_color, "%.*s", static_cast<int>(text.size()),
+                         text.data());
     }
   }
   // Restore previous style
@@ -170,9 +172,9 @@ void XNotifyWindow::OnDraw(ImGuiIO& io) {
     return;
   }
 
-  const std::string longest_notification_text_line =
-      GetTitle().size() > GetDescription().size() ? GetTitle().c_str()
-                                                  : GetDescription().c_str();
+  const std::string longest_notification_text_line{
+      GetTitle().size() > GetDescription().size() ? GetTitle()
+                                                  : GetDescription()};
 
   const ImVec2 screen_size = io.DisplaySize;
   const float window_scale =
@@ -231,7 +233,10 @@ void XNotifyWindow::OnDraw(ImGuiIO& io) {
 
     ImGui::SameLine();
     if (notification_draw_progress_ > 0.5f) {
-      ImGui::TextColored(white_color, "%s", GetDescription().c_str());
+      const auto description = GetDescription();
+      ImGui::TextColored(white_color, "%.*s",
+                         static_cast<int>(description.size()),
+                         description.data());
     }
   }
   // Restore previous style

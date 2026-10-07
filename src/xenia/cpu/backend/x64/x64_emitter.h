@@ -13,8 +13,9 @@
 #include <vector>
 
 #include "xenia/base/arena.h"
+#include "xenia/cpu/backend/backend.h"
+#include "xenia/cpu/backend/code_cache_base.h"
 #include "xenia/cpu/function.h"
-#include "xenia/cpu/function_trace_data.h"
 #include "xenia/cpu/hir/hir_builder.h"
 #include "xenia/cpu/hir/instr.h"
 #include "xenia/cpu/hir/value.h"
@@ -37,8 +38,6 @@ namespace x64 {
 using namespace amd64;
 class X64Backend;
 class X64CodeCache;
-
-struct EmitFunctionInfo;
 
 enum RegisterFlags {
   REG_DEST = (1 << 0),
@@ -65,7 +64,9 @@ enum class SimdDomain : uint32_t {
                // CONFLICTING means its used in multiple domains)
 };
 
-enum class MXCSRMode : uint32_t { Unknown, Fpu, Vmx };
+// VmxDaz is Vmx with denormal handling pinned on, for the VMX ops that flush
+// regardless of NJM.
+enum class MXCSRMode : uint32_t { Unknown, Fpu, Vmx, VmxDaz };
 XE_MAYBE_UNUSED
 static SimdDomain PickDomain2(SimdDomain dom1, SimdDomain dom2) {
   if (dom1 == dom2) {
@@ -169,17 +170,27 @@ enum XmmConst {
   XMMXOPByteShiftMask,
   XMMXOPWordShiftMask,
   XMMXOPDwordShiftMask,
-  XMMLVLShuffle,
-  XMMLVRCmp16,
-  XMMSTVLShuffle,
-  XMMSTVRSwapMask,  // swapwordmask with bit 7 set
   XMMVSRShlByteshuf,
   XMMVSRMask,
+  // vexptefp/vlogefp. The guest ops are 11-bit estimates, so the results get
+  // snapped to a 2^-11 grid; these polynomials only have to beat that.
+  XMMExp2Poly,                    // 6 entries, 2^f minimax on [0,1)
+  XMMLog2Poly = XMMExp2Poly + 6,  // 7 entries, log2(1+u) minimax on [0,1]
+  XMMEstScale = XMMLog2Poly + 7,  // 2048.0f
+  XMMEstUnscale,                  // 1.0f / 2048.0f
+  XMMExp2Max,                     // 128.0f, at or above this 2^x is inf
+  XMMExp2Min,                     // -126.0f, below this 2^x is flushed to 0
+  XMMQuietBit,                    // 0x00400000
+  XMMFloatNegInf,                 // 0xFF800000
+  XMMMantissaMask,                // 0x007FFFFF
   XMMVRsqrteTableStart,
   XMMVRsqrteTableBase =
       XMMVRsqrteTableStart +
       (32 /
        4),  // 32 4-byte elements in table, 4 4-byte elements fit in each xmm
+  // lvlx/lvrx pshufb controls, 16 each, picked by the address low nibble
+  XMMLVLTable,
+  XMMLVRTable = XMMLVLTable + 16,
 
 };
 using amdfx::xopcompare_e;
@@ -212,6 +223,7 @@ class X64Emitter : public Xbyak::CodeGenerator {
 
   Processor* processor() const { return processor_; }
   X64Backend* backend() const { return backend_; }
+  uint32_t current_guest_function() const { return current_guest_function_; }
 
   static uintptr_t PlaceConstData();
   static void FreeConstData(uintptr_t data);
@@ -223,8 +235,10 @@ class X64Emitter : public Xbyak::CodeGenerator {
 
  public:
   // Reserved:  rsp, rsi, rdi
-  // Scratch:   rax/rcx/rdx
-  //            xmm0-2
+  // Scratch:   rax/rcx/rdx, r8/r9
+  //            rdx doubles as the call-site carrier for the resolve-thunk
+  //            guest address (see Call/CallIndirect emission).
+  //            xmm0-3 - the allocator hands out none of these
   // Available: rbx, r10-r15
   //            xmm4-xmm15 (save to get xmm3)
   static constexpr int GPR_COUNT = 7;
@@ -255,11 +269,20 @@ class X64Emitter : public Xbyak::CodeGenerator {
 
   void MarkSourceOffset(const hir::Instr* i);
 
+  // Called from SelectSequence once a sequence has emitted. Cheap no-op unless
+  // this function is being counted.
+  void RecordSequenceSample(const hir::Instr* i, uint32_t backend_key,
+                            uint32_t host_bytes);
+
   void DebugBreak();
   void Trap(uint16_t trap_type = 0);
   void UnimplementedInstr(const hir::Instr* i);
 
   void Call(const hir::Instr* instr, GuestFunction* function);
+  // Emits a PPC __savegprlr_N/__restgprlr_N helper body inline instead of
+  // calling it. Returns false when the callee is not a GPR saverest helper.
+  bool TryInlinePPCGprLrSaveRestore(const hir::Instr* instr,
+                                    const GuestFunction* function);
   void CallIndirect(const hir::Instr* instr, const Xbyak::Reg64& reg);
   void CallExtern(const hir::Instr* instr, const Function* function);
   void CallNative(void* fn);
@@ -305,14 +328,22 @@ class X64Emitter : public Xbyak::CodeGenerator {
   Xbyak::Label& AddToTail(TailEmitCallback callback, uint32_t alignment = 0);
   Xbyak::Label& NewCachedLabel();
 
+  // Emits a cooperative-scheduler preemption safepoint: yields the fiber once
+  // the context's preempt_requested flag is raised. Only valid at a block head.
+  // guest_address is stamped into the context for wedge diagnosis when
+  // log_safepoint_pc is on. 0 means unknown.
+  void EmitPreemptCheck(uint32_t guest_address = 0);
+
   void PushStackpoint();
   void PopStackpoint();
+  // Jumps to the dynamic blr target in rax on the caller's frame, or falls
+  // through when the records don't allow that.
+  void EmitDropCallingFrame();
 
   void EnsureSynchronizedGuestAndHostStack();
   FunctionDebugInfo* debug_info() const { return debug_info_; }
 
   size_t stack_size() const { return stack_size_; }
-  Xbyak::RegExp GetLocalsBase() const;
   SimdDomain DeduceSimdDomain(const hir::Value* for_value);
 
   void ForgetMxcsrMode() { mxcsr_mode_ = MXCSRMode::Unknown; }
@@ -325,8 +356,9 @@ class X64Emitter : public Xbyak::CodeGenerator {
       bool already_set = false);  // already_set means that the caller already
                                   // did vldmxcsr, used for SET_ROUNDING_MODE
 
-  void LoadFpuMxcsrDirect();  // unsafe, does not change mxcsr_mode_
-  void LoadVmxMxcsrDirect();  // unsafe, does not change mxcsr_mode_
+  void LoadFpuMxcsrDirect();     // unsafe, does not change mxcsr_mode_
+  void LoadVmxMxcsrDirect();     // unsafe, does not change mxcsr_mode_
+  void LoadVmxDazMxcsrDirect();  // unsafe, does not change mxcsr_mode_
 
   XexModule* GuestModule() { return guest_module_; }
 
@@ -390,7 +422,6 @@ class X64Emitter : public Xbyak::CodeGenerator {
   void* Emplace(const EmitFunctionInfo& func_info,
                 GuestFunction* function = nullptr);
   bool Emit(hir::HIRBuilder* builder, EmitFunctionInfo& func_info);
-  void EmitGetCurrentThreadId();
   void EmitTraceUserCallReturn();
   static void HandleStackpointOverflowError(ppc::PPCContext* context);
 
@@ -401,8 +432,6 @@ class X64Emitter : public Xbyak::CodeGenerator {
   XbyakAllocator* allocator_ = nullptr;
   XexModule* guest_module_ = nullptr;
   bool synchronize_stack_on_next_instruction_ = false;
-  int locals_page_delta_ = 0;
-  Xbyak::util::Cpu cpu_;
   uint64_t feature_flags_ = 0;
   uint32_t current_guest_function_ = 0;
   Xbyak::Label* epilog_label_ = nullptr;
@@ -411,7 +440,12 @@ class X64Emitter : public Xbyak::CodeGenerator {
 
   FunctionDebugInfo* debug_info_ = nullptr;
   uint32_t debug_info_flags_ = 0;
-  FunctionTraceData* trace_data_ = nullptr;
+  size_t coverage_offset_ = 0;
+  uint32_t coverage_start_address_ = 0;
+  uint32_t coverage_instruction_count_ = 0;
+  uint32_t coverage_current_index_ = UINT32_MAX;
+  bool coverage_out_of_range_ = false;
+  std::vector<SequenceSample> sequence_samples_;
   Arena source_map_arena_;
 
   size_t stack_size_ = 0;

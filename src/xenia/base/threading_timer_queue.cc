@@ -16,8 +16,13 @@
 #include "third_party/disruptorplus/include/disruptorplus/spin_wait.hpp"
 #include "third_party/disruptorplus/include/disruptorplus/spin_wait_strategy.hpp"
 #include "xenia/base/assert.h"
+#include "xenia/base/platform.h"
 #include "xenia/base/threading.h"
 #include "xenia/base/threading_timer_queue.h"
+
+#if XE_PLATFORM_WIN32
+#include "xenia/base/platform_win.h"
+#endif
 
 namespace dp = disruptorplus;
 
@@ -42,7 +47,15 @@ using WaitItem = TimerQueueWaitItem;
     edit2: (30.12.2024) After uplifting version of MSVC compiler Xenia cannot be
    correctly initialized if you're using proton.
 */
+// Windows producers keep spinning: blocking waits deadlocked initialisation
+// under Proton (c3301d928).
+// The dispatch thread waits on Win32 handles instead, since spin waits sleep
+// 1 ms at a time and fire timers 1-3 ms late.
+#if XE_PLATFORM_WIN32
 using WaitStrat = dp::spin_wait_strategy;
+#else
+using WaitStrat = dp::blocking_wait_strategy;
+#endif
 
 class TimerQueue {
  public:
@@ -57,6 +70,17 @@ class TimerQueue {
         consumed_(wait_strategy_),
         shutdown_(false) {
     claim_strategy_.add_claim_barrier(consumed_);
+#if XE_PLATFORM_WIN32
+    wake_event_ = CreateEventW(nullptr, false, false, nullptr);
+    wait_timer_ = CreateWaitableTimerExW(nullptr, nullptr,
+                                         CREATE_WAITABLE_TIMER_HIGH_RESOLUTION,
+                                         TIMER_ALL_ACCESS);
+    if (!wait_timer_) {
+      // Before Windows 10 1803.
+      wait_timer_ =
+          CreateWaitableTimerExW(nullptr, nullptr, 0, TIMER_ALL_ACCESS);
+    }
+#endif
     dispatch_thread_ = std::thread(&TimerQueue::TimerThreadMain, this);
   }
 
@@ -71,6 +95,10 @@ class TimerQueue {
     QueueTimer(std::move(wait_item));
 
     dispatch_thread_.join();
+#if XE_PLATFORM_WIN32
+    CloseHandle(wait_timer_);
+    CloseHandle(wake_event_);
+#endif
   }
 
   void TimerThreadMain() {
@@ -85,10 +113,9 @@ class TimerQueue {
     while (!shutdown_.load(std::memory_order_relaxed)) {
       {
         // Consume new wait items and add them to sorted wait queue
-        dp::sequence_t available = claim_strategy_.wait_until_published(
-            next_sequence, next_sequence - 1,
-            wait_queue_.empty() ? clock::time_point::max()
-                                : wait_queue_.front()->due_);
+        dp::sequence_t available = WaitUntilPublished(
+            next_sequence, wait_queue_.empty() ? clock::now() + kIdleWait
+                                               : wait_queue_.front()->due_);
 
         // Check for timeout
         if (available != next_sequence - 1) {
@@ -154,6 +181,13 @@ class TimerQueue {
     auto sequence = claim_strategy_.claim_one();
     buffer_[sequence] = std::move(wait_item);
     claim_strategy_.publish(sequence);
+#if XE_PLATFORM_WIN32
+    // The dispatch thread looks for new items before it waits, so a callback
+    // re-arming its own timer needs no wake.
+    if (std::this_thread::get_id() != dispatch_thread_.get_id()) {
+      SetEvent(wake_event_);
+    }
+#endif
 
     return wait_item_weak;
   }
@@ -161,6 +195,49 @@ class TimerQueue {
   const std::thread& dispatch_thread() const { return dispatch_thread_; }
 
  private:
+  // Returns the last published sequence, or next_sequence - 1 if nothing new
+  // was published.
+  dp::sequence_t WaitUntilPublished(dp::sequence_t next_sequence,
+                                    clock::time_point timeout) {
+#if XE_PLATFORM_WIN32
+    dp::sequence_t available =
+        claim_strategy_.last_published_after(next_sequence - 1);
+    if (available != next_sequence - 1) {
+      return available;
+    }
+    auto wait = timeout - clock::now();
+    if (wait <= clock::duration::zero()) {
+      return available;
+    }
+    // A negative due time is relative, in 100 ns units.
+    LARGE_INTEGER due_time;
+    due_time.QuadPart =
+        -std::chrono::ceil<
+             std::chrono::duration<int64_t, std::ratio<1, 10000000>>>(wait)
+             .count();
+    HANDLE handles[] = {wake_event_, wait_timer_};
+    DWORD handle_count = 1;
+    if (wait_timer_ &&
+        SetWaitableTimer(wait_timer_, &due_time, 0, nullptr, nullptr, false)) {
+      handle_count = 2;
+    }
+    WaitForMultipleObjects(
+        handle_count, handles, false,
+        handle_count == 2
+            ? INFINITE
+            : DWORD(
+                  std::chrono::ceil<std::chrono::milliseconds>(wait).count()));
+    // A publish from another thread sets the event once it is visible. This
+    // thread's own publishes came before the check above.
+    return claim_strategy_.last_published_after(next_sequence - 1);
+#else
+    return claim_strategy_.wait_until_published(next_sequence,
+                                                next_sequence - 1, timeout);
+#endif
+  }
+
+  static constexpr clock::duration kIdleWait = std::chrono::seconds(60);
+
   // This ring buffer will be used to introduce timers queued by the public API
   static constexpr size_t kWaitCount = 512;
   dp::ring_buffer<std::shared_ptr<WaitItem>> buffer_;
@@ -174,6 +251,11 @@ class TimerQueue {
   std::forward_list<std::shared_ptr<WaitItem>> wait_queue_;
   std::atomic_bool shutdown_;
   std::thread dispatch_thread_;
+#if XE_PLATFORM_WIN32
+  // Set after a publish from another thread.
+  HANDLE wake_event_ = nullptr;
+  HANDLE wait_timer_ = nullptr;
+#endif
 };
 
 xe::threading::TimerQueue timer_queue_;

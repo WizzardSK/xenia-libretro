@@ -18,7 +18,7 @@ namespace patcher {
 
 class Patcher {
  public:
-  Patcher(const std::filesystem::path patches_root);
+  explicit Patcher(std::filesystem::path patches_dir);
 
   void ApplyPatch(Memory* memory, const PatchInfoEntry* patch);
   void ApplyPatchesForTitle(Memory* memory, const uint32_t title_id,

@@ -10,8 +10,6 @@
 #ifndef XENIA_GPU_SHARED_MEMORY_H_
 #define XENIA_GPU_SHARED_MEMORY_H_
 
-#include <atomic>
-
 #include "xenia/memory.h"
 
 namespace xe {
@@ -76,6 +74,10 @@ class SharedMemory {
   // ensures the host GPU memory backing the range are resident. Returns true if
   // the range has been fully updated and is usable.
   bool RequestRange(uint32_t start, uint32_t length);
+  // Returns whether every page in the range is currently valid in the host GPU
+  // memory copy. Hold the global critical region if relying on this for state
+  // transitions such as watch installation.
+  bool IsRangeValid(uint32_t start, uint32_t length) const;
 
   void TryFindUploadRange(const uint32_t& block_first,
                           const uint32_t& block_last,
@@ -103,7 +105,11 @@ class SharedMemory {
   // be called, to make sure, if the GPU writes don't overwrite *everything* in
   // the pages they touch, the CPU data is properly loaded to the unmodified
   // regions in those pages.
-  void RangeWrittenByGpu(uint32_t start, uint32_t length);
+  // written_to_buffer false means the GPU wrote guest RAM directly (memexport
+  // routed to the host-imported buffer), leaving the shared memory buffer stale
+  // for this range rather than up to date.
+  void RangeWrittenByGpu(uint32_t start, uint32_t length,
+                         bool written_to_buffer = true);
 
  protected:
   SharedMemory(Memory& memory);
@@ -213,26 +219,18 @@ class SharedMemory {
   //  used to quickly extract ranges.
   // std::vector<SystemPageFlagsBlock> system_page_flags_;
 
-  // Double-buffered valid flags for lock-free reads during frame-end clears.
-  // Writers still use the lock for read-modify-write operations, but readers
-  // can access the active buffer without blocking.
-  uint64_t* valid_buffer_a_ = nullptr;
-  uint64_t* valid_buffer_b_ = nullptr;
-  std::atomic<uint64_t*> active_valid_flags_{nullptr};
-  std::atomic<uint64_t*> staging_valid_flags_{nullptr};
-
-  // Dirty flag to track if GPU-written data has changed since last copy.
-  // Avoids unnecessary 16KB copies when no GPU writes occurred.
-  std::atomic<bool> gpu_written_data_dirty_{false};
-
-  // Dirty blocks bitmap for partial copying optimization.
-  // Each bit tracks a 64-entry chunk (512 bytes) of the 2048-entry array.
-  // Total: 32 chunks requiring 32 bits. When GPU writes are localized,
-  // this reduces copy overhead by 80-95%.
-  std::atomic<uint32_t> dirty_blocks_{0};
-
+  uint64_t* system_page_flags_valid_ = nullptr;
   uint64_t* system_page_flags_valid_and_gpu_written_ = nullptr;
+
+  // Set when GPU-written flags change, so an unchanged frame skips the copy.
+  bool gpu_written_data_dirty_ = false;
+
+  // Bitmap of dirty 64-entry chunks of valid_and_gpu_written, so localized GPU
+  // writes only copy the chunks that changed.
+  uint32_t dirty_blocks_ = 0;
+
   unsigned num_system_page_flags_ = 0;
+
   static std::pair<uint32_t, uint32_t> MemoryInvalidationCallbackThunk(
       void* context_ptr, uint32_t physical_address_start, uint32_t length,
       bool exact_range);

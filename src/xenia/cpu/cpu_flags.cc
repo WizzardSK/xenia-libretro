@@ -17,18 +17,31 @@ DEFINE_string(
     "database.",
     "CPU");
 
+DEFINE_bool(accurate_vmx_denormal_flush, false,
+            "Flush denormals in the VMX multiply-add and dot product opcodes "
+            "even while the guest has NJM cleared, which is what hardware "
+            "does. Costs performance in vector heavy code and only matters to "
+            "a title that clears VSCR.NJ through mtvscr.",
+            "CPU");
+
 DEFINE_bool(disassemble_functions, false,
             "Disassemble functions during generation.", "CPU");
 
-DEFINE_bool(trace_functions, false, "Generate tracing for function statistics.",
+DEFINE_bool(no_round_to_single, false,
+            "Not for users, breaks games. Skip rounding double values to "
+            "single precision and back",
             "CPU");
+
 DEFINE_bool(trace_function_coverage, false,
-            "Generate tracing for function instruction coverage statistics.",
+            "Count how many times each guest instruction executes and report "
+            "the totals in the guestcoverage section of the profiler dump.",
             "CPU");
-DEFINE_bool(trace_function_references, false,
-            "Generate tracing for function address references.", "CPU");
-DEFINE_bool(trace_function_data, false,
-            "Generate tracing for function result data.", "CPU");
+
+DEFINE_uint32(
+    cpu_trace_mask, 0,
+    "JIT execution trace modes to log (bitmask): 1=instructions, 2=data, "
+    "4=function calls (7=all). Each mode must be compiled in to be usable.",
+    "CPU");
 
 DEFINE_bool(validate_hir, false,
             "Perform validation checks on the HIR during compilation.", "CPU");
@@ -50,6 +63,16 @@ DEFINE_uint64(
 // Breakpoints:
 DEFINE_uint64(break_on_instruction, 0,
               "int3 before the given guest address is executed.", "CPU");
+DEFINE_string(log_lr_at_instruction, "",
+              "Comma-separated guest addresses. Logs the link register and "
+              "argument registers each time one of them is executed.",
+              "CPU");
+DEFINE_int32(log_lr_condition_gpr, -1,
+             "Only log a log_lr_at_instruction hit when this GPR holds "
+             "log_lr_condition_value. Negative logs every hit.",
+             "CPU");
+DEFINE_uint64(log_lr_condition_value, 0,
+              "Value log_lr_condition_gpr must hold.", "CPU");
 DEFINE_int32(break_condition_gpr, -1, "GPR compared to", "CPU");
 DEFINE_uint64(break_condition_value, 0, "value compared against", "CPU");
 DEFINE_string(break_condition_op, "eq", "comparison operator", "CPU");

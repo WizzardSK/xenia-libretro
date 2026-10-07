@@ -7,10 +7,13 @@
  ******************************************************************************
  */
 
+#include <regex>
+
 #include "xenia/kernel/xam/profile_manager.h"
 
 #include <map>
 
+#include "xenia/base/filesystem.h"
 #include "xenia/base/logging.h"
 #include "xenia/config.h"
 #include "xenia/emulator.h"
@@ -209,6 +212,16 @@ void ProfileManager::SyncProfilesWithConfig() {
                                        GetUsedUserSlots().to_ulong());
 }
 
+UserProfile* ProfileManager::GetProfileLive(const uint64_t xuid) const {
+  uint8_t user_index = GetUserIndexAssignedToLiveProfile(xuid);
+
+  if (user_index >= XUserMaxUserCount) {
+    return nullptr;
+  }
+
+  return GetProfile(user_index);
+}
+
 UserProfile* ProfileManager::GetProfile(const uint64_t xuid) const {
   const uint8_t user_index = GetUserIndexAssignedToProfile(xuid);
   if (user_index >= XUserMaxUserCount) {
@@ -324,14 +337,6 @@ bool ProfileManager::DismountProfile(const uint64_t xuid) {
 
 void ProfileManager::Login(const uint64_t xuid, const uint8_t user_index,
                            bool notify) {
-  if (logged_profiles_.size() >= XUserMaxUserCount) {
-    XELOGE(
-        "Cannot login account with XUID: {:016X} due to lack of free slots "
-        "(Max 4 accounts at once)",
-        xuid);
-    return;
-  }
-
   if (user_index < XUserMaxUserCount) {
     const auto& profile = logged_profiles_.find(user_index);
     if (profile != logged_profiles_.cend()) {
@@ -342,14 +347,28 @@ void ProfileManager::Login(const uint64_t xuid, const uint8_t user_index,
     }
   }
 
-  // Find if xuid is already logged in. We might want to logout.
-  for (auto& logged_profile : logged_profiles_) {
-    if (logged_profile.second->xuid() == xuid) {
-      Logout(logged_profile.first);
-    }
+  if (!accounts_.count(xuid)) {
+    return;
   }
 
-  if (!accounts_.count(xuid)) {
+  // Find if xuid is already logged in. We might want to logout.
+  auto it = std::ranges::find_if(logged_profiles_, [xuid](const auto& entry) {
+    return entry.second->xuid() == xuid;
+  });
+  if (it != logged_profiles_.end()) {
+    Logout(it->first);
+  }
+
+  // Whoever holds the slot asked for leaves it.
+  if (user_index < XUserMaxUserCount) {
+    Logout(user_index, notify);
+  }
+
+  if (logged_profiles_.size() >= XUserMaxUserCount) {
+    XELOGE(
+        "Cannot login account with XUID: {:016X} due to lack of free slots "
+        "(Max 4 accounts at once)",
+        xuid);
     return;
   }
 
@@ -483,6 +502,27 @@ uint8_t ProfileManager::GetUserIndexAssignedToProfile(
   return XUserIndexAny;
 }
 
+uint8_t ProfileManager::GetUserIndexAssignedToLiveProfile(
+    const uint64_t xuid_online) const {
+  // GetOnlineXUID() is 0 for a profile without Live, so INVALID_XUID must not
+  // match it.
+  if (!xuid_online) {
+    return XUserIndexAny;
+  }
+  for (const auto& [index, entry] : logged_profiles_) {
+    if (!entry) {
+      continue;
+    }
+
+    if (entry->GetOnlineXUID() != xuid_online) {
+      continue;
+    }
+
+    return index;
+  }
+  return XUserIndexAny;
+}
+
 std::filesystem::path ProfileManager::GetProfileContentPath(
     const uint64_t xuid, const uint32_t title_id,
     const XContentType content_type) const {
@@ -563,7 +603,7 @@ bool ProfileManager::CreateAccount(const uint64_t xuid,
   const std::u16string gamertag_u16 = xe::to_utf16(gamertag);
 
   string_util::copy_and_swap_truncating(account.gamertag, gamertag_u16,
-                                        sizeof(account.gamertag));
+                                        xe::countof(account.gamertag));
 
   const bool result = UpdateAccount(xuid, &account);
   DismountProfile(xuid);
@@ -623,16 +663,16 @@ void ProfileManager::UpdateConfig(const uint64_t xuid, const uint8_t slot) {
   const std::string hex_xuid = xe::string_util::to_hex_string(xuid);
   switch (slot) {
     case 0:
-      OVERRIDE_string(logged_profile_slot_0_xuid, hex_xuid);
+      OVERRIDE_PERSIST_string(logged_profile_slot_0_xuid, hex_xuid);
       break;
     case 1:
-      OVERRIDE_string(logged_profile_slot_1_xuid, hex_xuid);
+      OVERRIDE_PERSIST_string(logged_profile_slot_1_xuid, hex_xuid);
       break;
     case 2:
-      OVERRIDE_string(logged_profile_slot_2_xuid, hex_xuid);
+      OVERRIDE_PERSIST_string(logged_profile_slot_2_xuid, hex_xuid);
       break;
     case 3:
-      OVERRIDE_string(logged_profile_slot_3_xuid, hex_xuid);
+      OVERRIDE_PERSIST_string(logged_profile_slot_3_xuid, hex_xuid);
       break;
     default:
       break;
@@ -665,133 +705,6 @@ bool ProfileManager::DeleteProfile(const uint64_t xuid) {
   return true;
 }
 
-bool ProfileManager::ClearTitlePath(uint32_t title_id) {
-  if (title_id == 0) {
-    return false;
-  }
-
-  auto content_root = kernel_state_->emulator()->content_root();
-  auto profiles_directory = xe::filesystem::FilterByName(
-      xe::filesystem::ListDirectories(content_root),
-      std::regex("[0-9A-F]{16}"));
-
-  bool modified_any = false;
-
-  for (const auto& profile_dir : profiles_directory) {
-    const std::string profile_xuid = xe::path_to_utf8(profile_dir.name);
-    if (profile_xuid == fmt::format("{:016X}", 0)) {
-      continue;  // Skip shared content directory
-    }
-
-    // Construct path to dashboard GPD
-    std::filesystem::path dashboard_gpd_path =
-        profile_dir.path / profile_dir.name / kDashboardStringID /
-        fmt::format("{:08X}", static_cast<uint32_t>(XContentType::kProfile)) /
-        profile_dir.name / fmt::format("{:08X}.gpd", kDashboardID);
-
-    if (!std::filesystem::exists(dashboard_gpd_path)) {
-      continue;
-    }
-
-    // Read dashboard GPD file
-    std::ifstream file(dashboard_gpd_path, std::ios::binary);
-    if (!file.is_open()) {
-      continue;
-    }
-
-    file.seekg(0, std::ios::end);
-    size_t file_size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    std::vector<uint8_t> gpd_data(file_size);
-    file.read(reinterpret_cast<char*>(gpd_data.data()), file_size);
-    file.close();
-
-    // Parse dashboard GPD
-    GpdInfoProfile dashboard_gpd(gpd_data);
-    if (!dashboard_gpd.IsValid()) {
-      continue;
-    }
-
-    // Clear the path for this title
-    dashboard_gpd.SetTitlePath(title_id, std::filesystem::path());
-
-    // Write back the modified GPD
-    std::vector<uint8_t> serialized_gpd = dashboard_gpd.Serialize();
-
-    std::ofstream out_file(dashboard_gpd_path, std::ios::binary);
-    if (out_file.is_open()) {
-      out_file.write(reinterpret_cast<const char*>(serialized_gpd.data()),
-                     serialized_gpd.size());
-      out_file.close();
-      modified_any = true;
-    }
-  }
-
-  return modified_any;
-}
-
-bool ProfileManager::RemoveTitleFromAllProfiles(uint32_t title_id) {
-  if (title_id == 0) {
-    return false;
-  }
-
-  auto content_root = kernel_state_->emulator()->content_root();
-  auto profiles_directory = xe::filesystem::FilterByName(
-      xe::filesystem::ListDirectories(content_root),
-      std::regex("[0-9A-F]{16}"));
-
-  bool removed_from_any = false;
-
-  for (const auto& profile_dir : profiles_directory) {
-    const std::string profile_xuid = xe::path_to_utf8(profile_dir.name);
-    if (profile_xuid == fmt::format("{:016X}", 0)) {
-      continue;  // Skip shared content directory
-    }
-
-    std::filesystem::path dashboard_gpd_path =
-        profile_dir.path / profile_dir.name / kDashboardStringID /
-        fmt::format("{:08X}", static_cast<uint32_t>(XContentType::kProfile)) /
-        profile_dir.name / fmt::format("{:08X}.gpd", kDashboardID);
-
-    if (!std::filesystem::exists(dashboard_gpd_path)) {
-      continue;
-    }
-
-    std::ifstream file(dashboard_gpd_path, std::ios::binary);
-    if (!file.is_open()) {
-      continue;
-    }
-
-    file.seekg(0, std::ios::end);
-    size_t file_size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    std::vector<uint8_t> gpd_data(file_size);
-    file.read(reinterpret_cast<char*>(gpd_data.data()), file_size);
-    file.close();
-
-    GpdInfoProfile dashboard_gpd(gpd_data);
-    if (!dashboard_gpd.IsValid()) {
-      continue;
-    }
-
-    if (dashboard_gpd.RemoveTitle(title_id)) {
-      std::vector<uint8_t> serialized_gpd = dashboard_gpd.Serialize();
-
-      std::ofstream out_file(dashboard_gpd_path, std::ios::binary);
-      if (out_file.is_open()) {
-        out_file.write(reinterpret_cast<const char*>(serialized_gpd.data()),
-                       serialized_gpd.size());
-        out_file.close();
-        removed_from_any = true;
-      }
-    }
-  }
-
-  return removed_from_any;
-}
-
 std::vector<ScannedTitleInfo> ProfileManager::ScanAllProfilesForTitles() const {
   std::map<uint32_t, ScannedTitleInfo> titles_by_id;
 
@@ -811,22 +724,10 @@ std::vector<ScannedTitleInfo> ProfileManager::ScanAllProfilesForTitles() const {
         fmt::format("{:08X}", static_cast<uint32_t>(XContentType::kProfile)) /
         profile_dir.name / fmt::format("{:08X}.gpd", kDashboardID);
 
-    if (!std::filesystem::exists(dashboard_gpd_path)) {
+    auto gpd_data = xe::filesystem::ReadAllBytes(dashboard_gpd_path);
+    if (gpd_data.empty()) {
       continue;
     }
-
-    std::ifstream file(dashboard_gpd_path, std::ios::binary);
-    if (!file.is_open()) {
-      continue;
-    }
-
-    file.seekg(0, std::ios::end);
-    size_t file_size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    std::vector<uint8_t> gpd_data(file_size);
-    file.read(reinterpret_cast<char*>(gpd_data.data()), file_size);
-    file.close();
 
     GpdInfoProfile dashboard_gpd(gpd_data);
     if (!dashboard_gpd.IsValid()) {
@@ -866,11 +767,10 @@ std::vector<ScannedTitleInfo> ProfileManager::ScanAllProfilesForTitles() const {
 
       auto all_discs = dashboard_gpd.GetTitleDiscs(title_id);
       if (all_discs.size() > 1) {
-        std::sort(all_discs.begin(), all_discs.end(),
-                  [](const GpdInfoProfile::DiscInfo& a,
-                     const GpdInfoProfile::DiscInfo& b) {
-                    return a.label < b.label;
-                  });
+        std::sort(
+            all_discs.begin(), all_discs.end(),
+            [](const GpdInfoProfile::DiscInfo& a,
+               const GpdInfoProfile::DiscInfo& b) { return a.path < b.path; });
       }
 
       titles_by_id[title_id] = {title_id, title_name, path_to_file, all_discs,
@@ -891,31 +791,14 @@ std::vector<ScannedTitleInfo> ProfileManager::ScanAllProfilesForTitles() const {
   return result;
 }
 
-std::filesystem::path ProfileManager::GetMostRecentlyPlayedTitlePath() const {
-  auto titles = ScanAllProfilesForTitles();
-  if (!titles.empty() && !titles[0].path_to_file.empty()) {
-    return titles[0].path_to_file;
-  }
-  return {};
-}
-
 bool ProfileManager::IsGamertagValid(const std::string gamertag) {
-  if (gamertag.empty()) {
+  std::regex pattern(R"(^[A-Za-z][A-Za-z0-9]*( [A-Za-z0-9]+)*$)");
+
+  if (gamertag.length() < 1 || gamertag.length() > 15) {
     return false;
   }
 
-  if (gamertag.length() > 15) {
-    return false;
-  }
-
-  // Gamertag cannot start with a number.
-  if (std::isdigit(gamertag.at(0))) {
-    return false;
-  }
-
-  return std::find_if(gamertag.cbegin(), gamertag.cend(), [](char c) {
-           return !(std::isalnum(c) || (c == ' '));
-         }) == gamertag.cend();
+  return std::regex_match(gamertag, pattern);
 }
 
 }  // namespace xam

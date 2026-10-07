@@ -24,3 +24,25 @@ test_vmrghh_3:
   #_ REGISTER_OUT v3 [FFF8FFF9, FFFAFFFB, FFFCFFFD, FFFEFFFF]
   #_ REGISTER_OUT v4 [00000001, 00020003, 00040005, 00060007]
   #_ REGISTER_OUT v5 [FFF80000, FFF90001, FFFA0002, FFFB0003]
+
+# Inputs built from immediates rather than REGISTER_IN, so both permute
+# tables are compile time constants and Value::Permute folds the result
+# instead of the backend emitting it. Needs context_promote_vec128.
+
+test_vmrghh_const_1:
+  vspltisw v3, 1
+  vspltish v4, -3
+  vmrghh v5, v3, v4
+  blr
+  #_ REGISTER_OUT v3 [00000001, 00000001, 00000001, 00000001]
+  #_ REGISTER_OUT v4 [FFFDFFFD, FFFDFFFD, FFFDFFFD, FFFDFFFD]
+  #_ REGISTER_OUT v5 [0000FFFD, 0001FFFD, 0000FFFD, 0001FFFD]
+
+test_vmrghh_const_2:
+  vspltish v3, 5
+  vspltisw v4, -1
+  vmrghh v5, v3, v4
+  blr
+  #_ REGISTER_OUT v3 [00050005, 00050005, 00050005, 00050005]
+  #_ REGISTER_OUT v4 [FFFFFFFF, FFFFFFFF, FFFFFFFF, FFFFFFFF]
+  #_ REGISTER_OUT v5 [0005FFFF, 0005FFFF, 0005FFFF, 0005FFFF]

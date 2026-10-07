@@ -11,8 +11,8 @@
 #include "xenia/base/filesystem.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/string.h"
+#include "xenia/xbox.h"
 
-#include <assert.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <ftw.h>
@@ -22,6 +22,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <cstring>
+#if XE_PLATFORM_MAC
+#include <limits.h>
+#include <mach-o/dyld.h>
+#endif
 
 namespace xe {
 
@@ -42,10 +47,26 @@ std::filesystem::path to_path(const std::u16string_view source) {
 namespace filesystem {
 
 std::filesystem::path GetExecutablePath() {
+#if XE_PLATFORM_MAC
+  char path[PATH_MAX];
+  uint32_t size = sizeof(path);
+  if (_NSGetExecutablePath(path, &size) == 0) {
+    char real_path[PATH_MAX];
+    if (realpath(path, real_path)) {
+      return std::string(real_path);
+    }
+    return std::string(path);
+  }
+  return std::string();
+#else
   char buff[FILENAME_MAX] = "";
-  readlink("/proc/self/exe", buff, FILENAME_MAX);
-  std::string s(buff);
-  return s;
+  ssize_t len = readlink("/proc/self/exe", buff, sizeof(buff) - 1);
+  if (len != -1) {
+    buff[len] = '\0';
+    return std::string(buff);
+  }
+  return std::string();
+#endif
 }
 
 std::filesystem::path GetExecutableFolder() {
@@ -70,10 +91,15 @@ std::filesystem::path GetUserFolder() {
   // if HOME not set, fall back to this
   if (home == NULL) {
     struct passwd pw1;
-    struct passwd* pw;
+    struct passwd* pw = nullptr;
     char buf[4096];  // could potentionally lower this
-    getpwuid_r(getuid(), &pw1, buf, sizeof(buf), &pw);
-    assert(&pw1 == pw);  // sanity check
+    // getpwuid_r returns 0 with a null result for "no entry".
+    if (getpwuid_r(getuid(), &pw1, buf, sizeof(buf), &pw) != 0 || !pw) {
+      XELOGW(
+          "GetUserFolder: no HOME and no passwd entry; using the current "
+          "directory");
+      return std::filesystem::current_path() / ".local" / "share";
+    }
     home = pw->pw_dir;
   }
 
@@ -85,10 +111,10 @@ FILE* OpenFile(const std::filesystem::path& path, const std::string_view mode) {
 }
 
 bool Seek(FILE* file, int64_t offset, int origin) {
-  return fseeko64(file, off64_t(offset), origin) == 0;
+  return fseeko(file, offset, origin) == 0;
 }
 
-int64_t Tell(FILE* file) { return int64_t(ftello64(file)); }
+int64_t Tell(FILE* file) { return int64_t(ftello(file)); }
 
 bool TruncateStdioFile(FILE* file, uint64_t length) {
   if (fflush(file)) {
@@ -98,7 +124,7 @@ bool TruncateStdioFile(FILE* file, uint64_t length) {
   if (position < 0) {
     return false;
   }
-  if (ftruncate64(fileno(file), off64_t(length))) {
+  if (ftruncate(fileno(file), length)) {
     return false;
   }
   if (uint64_t(position) > length) {
@@ -109,19 +135,11 @@ bool TruncateStdioFile(FILE* file, uint64_t length) {
   return true;
 }
 
-static int removeCallback(const char* fpath, const struct stat* sb,
-                          int typeflag, struct FTW* ftwbuf) {
-  int rv = remove(fpath);
-  return rv;
-}
-
 static uint64_t convertUnixtimeToWinFiletime(time_t unixtime) {
-  // Linux uses number of seconds since 1/1/1970, and Windows uses
-  // number of nanoseconds since 1/1/1601
-  // so we convert linux time to nanoseconds and then add the number of
-  // nanoseconds from 1601 to 1970
-  // see https://msdn.microsoft.com/en-us/library/ms724228
-  uint64_t filetime = (unixtime * 10000000) + 116444736000000000;
+  // Unix uses seconds since 1/1/1970, Windows uses 100ns intervals since
+  // 1/1/1601. Convert and add the epoch difference.
+  // See https://msdn.microsoft.com/en-us/library/ms724228
+  uint64_t filetime = (uint64_t(unixtime) * 10000000) + 116444736000000000ULL;
   return filetime;
 }
 
@@ -136,8 +154,10 @@ bool CreateEmptyFile(const std::filesystem::path& path) {
 
 class PosixFileHandle : public FileHandle {
  public:
-  PosixFileHandle(std::filesystem::path path, int handle)
-      : FileHandle(std::move(path)), handle_(handle) {}
+  PosixFileHandle(std::filesystem::path path, int handle, bool append_only)
+      : FileHandle(std::move(path)),
+        handle_(handle),
+        append_only_(append_only) {}
   ~PosixFileHandle() override {
     close(handle_);
     handle_ = -1;
@@ -145,14 +165,26 @@ class PosixFileHandle : public FileHandle {
   bool Read(size_t file_offset, void* buffer, size_t buffer_length,
             size_t* out_bytes_read) override {
     ssize_t out = pread(handle_, buffer, buffer_length, file_offset);
-    *out_bytes_read = out;
-    return out >= 0 ? true : false;
+    if (out >= 0) {
+      *out_bytes_read = out;
+      return true;
+    } else {
+      *out_bytes_read = 0;
+      return false;
+    }
   }
   bool Write(size_t file_offset, const void* buffer, size_t buffer_length,
              size_t* out_bytes_written) override {
-    ssize_t out = pwrite(handle_, buffer, buffer_length, file_offset);
-    *out_bytes_written = out;
-    return out >= 0 ? true : false;
+    ssize_t out = append_only_
+                      ? write(handle_, buffer, buffer_length)
+                      : pwrite(handle_, buffer, buffer_length, file_offset);
+    if (out >= 0) {
+      *out_bytes_written = out;
+      return true;
+    } else {
+      *out_bytes_written = 0;
+      return false;
+    }
   }
   bool SetLength(size_t length) override {
     return ftruncate(handle_, length) >= 0 ? true : false;
@@ -161,30 +193,34 @@ class PosixFileHandle : public FileHandle {
 
  private:
   int handle_ = -1;
+  bool append_only_ = false;
 };
 
 std::unique_ptr<FileHandle> FileHandle::OpenExisting(
     const std::filesystem::path& path, uint32_t desired_access) {
-  int open_access = 0;
-  if (desired_access & FileAccess::kGenericRead) {
-    open_access |= O_RDONLY;
+  // O_RDONLY/O_WRONLY/O_RDWR are a 2-bit access mode, not OR-able flags.
+  // Reduce to read/write intent, then pick the mode. kGenericExecute has no
+  // POSIX open equivalent and falls back to read.
+  const bool wants_read =
+      desired_access & (FileAccess::kGenericRead | FileAccess::kFileReadData |
+                        FileAccess::kGenericExecute | FileAccess::kGenericAll);
+  const bool wants_write =
+      desired_access & (FileAccess::kGenericWrite | FileAccess::kFileWriteData |
+                        FileAccess::kFileAppendData | FileAccess::kGenericAll);
+  int open_access;
+  if (wants_read && wants_write) {
+    open_access = O_RDWR;
+  } else if (wants_write) {
+    open_access = O_WRONLY;
+  } else {
+    open_access = O_RDONLY;
   }
-  if (desired_access & FileAccess::kGenericWrite) {
-    open_access |= O_WRONLY;
-  }
-  if (desired_access & FileAccess::kGenericExecute) {
-    open_access |= O_RDONLY;
-  }
-  if (desired_access & FileAccess::kGenericAll) {
-    open_access |= O_RDWR;
-  }
-  if (desired_access & FileAccess::kFileReadData) {
-    open_access |= O_RDONLY;
-  }
-  if (desired_access & FileAccess::kFileWriteData) {
-    open_access |= O_WRONLY;
-  }
-  if (desired_access & FileAccess::kFileAppendData) {
+  // pwrite(2) ignores the offset on an O_APPEND descriptor.
+  const bool append_only = (desired_access & FileAccess::kFileAppendData) &&
+                           !(desired_access & (FileAccess::kGenericWrite |
+                                               FileAccess::kFileWriteData |
+                                               FileAccess::kGenericAll));
+  if (append_only) {
     open_access |= O_APPEND;
   }
   int handle = open(path.c_str(), open_access);
@@ -192,7 +228,7 @@ std::unique_ptr<FileHandle> FileHandle::OpenExisting(
     // TODO(benvanik): pick correct response.
     return nullptr;
   }
-  return std::make_unique<PosixFileHandle>(path, handle);
+  return std::make_unique<PosixFileHandle>(path, handle, append_only);
 }
 
 std::optional<FileInfo> GetInfo(const std::filesystem::path& path) {
@@ -217,7 +253,9 @@ std::optional<FileInfo> GetInfo(const std::filesystem::path& path) {
   return {};
 }
 
-std::vector<FileInfo> ListFiles(const std::filesystem::path& path) {
+namespace internal {
+
+std::vector<FileInfo> ListFilesUnsorted(const std::filesystem::path& path) {
   std::vector<FileInfo> result;
 
   DIR* dir = opendir(path.c_str());
@@ -233,13 +271,19 @@ std::vector<FileInfo> ListFiles(const std::filesystem::path& path) {
     FileInfo info;
 
     info.name = ent->d_name;
+    const auto child_path = path / info.name;
     struct stat st;
-    stat((path / info.name).c_str(), &st);
+    if (stat(child_path.c_str(), &st) != 0 &&
+        lstat(child_path.c_str(), &st) != 0) {
+      std::memset(&st, 0, sizeof(st));
+    }
     info.create_timestamp = convertUnixtimeToWinFiletime(st.st_ctime);
     info.access_timestamp = convertUnixtimeToWinFiletime(st.st_atime);
     info.write_timestamp = convertUnixtimeToWinFiletime(st.st_mtime);
     info.path = path;
-    if (ent->d_type == DT_DIR) {
+    // d_type is unreliable: DT_LNK for a symlinked directory, and DT_UNKNOWN
+    // on filesystems that do not populate it. Classify from the stat.
+    if (S_ISDIR(st.st_mode)) {
       info.type = FileInfo::Type::kDirectory;
       info.total_size = 0;
     } else {
@@ -252,8 +296,20 @@ std::vector<FileInfo> ListFiles(const std::filesystem::path& path) {
   return std::move(result);
 }
 
+}  // namespace internal
+
 bool SetAttributes(const std::filesystem::path& path, uint64_t attributes) {
-  return false;
+  struct stat st;
+  if (stat(path.c_str(), &st) != 0) {
+    return false;
+  }
+  mode_t mode = st.st_mode;
+  if (attributes & X_FILE_ATTRIBUTE_READONLY) {
+    mode &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
+  } else {
+    mode |= S_IWUSR;
+  }
+  return chmod(path.c_str(), mode) == 0;
 }
 
 }  // namespace filesystem

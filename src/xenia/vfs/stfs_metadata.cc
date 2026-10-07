@@ -12,6 +12,7 @@
 #include "third_party/fmt/include/fmt/format.h"
 #include "xenia/base/string.h"
 #include "xenia/vfs/devices/xcontent_container_device.h"
+#include "xenia/vfs/xex_metadata.h"
 
 namespace xe {
 namespace vfs {
@@ -35,6 +36,7 @@ toml::table StfsMetadata::ToToml() const {
   content_table.insert("media_id", fmt::format("{:08X}", media_id));
   content_table.insert("savegame_id", fmt::format("{:08X}", savegame_id));
   content_table.insert("content_type", fmt::format("{:08X}", content_type));
+  content_table.insert("version", XexVersion::FromValue(version).ToString());
   content_table.insert("content_size", static_cast<int64_t>(content_size));
   content_table.insert("disc_number", static_cast<int64_t>(disc_number));
   content_table.insert("disc_count", static_cast<int64_t>(disc_count));
@@ -61,7 +63,7 @@ toml::table StfsMetadata::ToToml() const {
 }
 
 std::optional<StfsMetadata> ExtractStfsMetadata(
-    const std::filesystem::path& path) {
+    const std::filesystem::path& path, XLanguage language) {
   auto header = XContentContainerDevice::ReadContainerHeader(path);
   if (!header) {
     return std::nullopt;
@@ -78,6 +80,7 @@ std::optional<StfsMetadata> ExtractStfsMetadata(
   metadata.title_id = exec_info.title_id;
   metadata.media_id = exec_info.media_id;
   metadata.savegame_id = exec_info.savegame_id;
+  metadata.version = exec_info.version_value;
   metadata.disc_number = exec_info.disc_number;
   metadata.disc_count = exec_info.disc_count;
 
@@ -85,12 +88,42 @@ std::optional<StfsMetadata> ExtractStfsMetadata(
       static_cast<XContentType>(content_meta.content_type));
   metadata.content_size = content_meta.content_size;
 
-  metadata.display_name =
-      U16ToUtf8(content_meta.display_name(XLanguage::kEnglish));
-  metadata.description =
-      U16ToUtf8(content_meta.description(XLanguage::kEnglish));
+  // Tiered: requested language → English → first populated slot. Publishers
+  // routinely misuse slots (e.g. Japanese text in the English slot for
+  // region-locked games), so this is best-effort.
+  auto pick_localized = [&content_meta, language](auto getter) {
+    auto str = getter(content_meta, language);
+    if (str.empty() && language != XLanguage::kEnglish) {
+      str = getter(content_meta, XLanguage::kEnglish);
+    }
+    if (str.empty()) {
+      for (uint32_t i = uint32_t(XLanguage::kEnglish);
+           i <= content_meta.kNumLanguagesV2; ++i) {
+        auto candidate = static_cast<XLanguage>(i);
+        if (candidate == language || candidate == XLanguage::kEnglish) {
+          continue;
+        }
+        auto alt = getter(content_meta, candidate);
+        if (!alt.empty()) {
+          str = std::move(alt);
+          break;
+        }
+      }
+    }
+    return U16ToUtf8(str);
+  };
+  metadata.display_name = pick_localized(
+      [](const auto& m, XLanguage l) { return m.display_name(l); });
+  metadata.description = pick_localized(
+      [](const auto& m, XLanguage l) { return m.description(l); });
   metadata.publisher = U16ToUtf8(content_meta.publisher());
   metadata.title_name = U16ToUtf8(content_meta.title_name());
+
+  const uint32_t thumb_size = content_meta.title_thumbnail_size;
+  if (thumb_size > 0 && thumb_size <= XContentMetadata::kThumbLengthV1) {
+    metadata.icon_data.assign(content_meta.title_thumbnail,
+                              content_meta.title_thumbnail + thumb_size);
+  }
 
   return metadata;
 }

@@ -20,25 +20,26 @@ Property::Property(const Property& property)
 
 Property::Property(uint32_t property_id, UserDataTypes property_data)
     : UserData(get_type(property_id), property_data) {
-  property_id_ = static_cast<AttributeKey>(property_id);
+  property_id_ = get_attribute_key(property_id);
 }
 
 Property::Property(uint32_t property_id, uint32_t value_size,
                    uint8_t* value_ptr)
     : UserData(get_type(property_id),
                std::span<const uint8_t>(value_ptr, value_size)) {
-  property_id_.value = property_id;
+  property_id_ = get_attribute_key(property_id);
 }
 
 Property::Property(const uint8_t* serialized_data, size_t data_size)
     : UserData(std::span<const uint8_t>(serialized_data, data_size)) {
-  property_id_.value = *reinterpret_cast<const uint32_t*>(serialized_data);
+  property_id_ =
+      get_attribute_key(*reinterpret_cast<const uint32_t*>(serialized_data));
 }
 
 Property::Property(std::span<const uint8_t> serialized_data)
     : UserData(serialized_data) {
-  property_id_.value =
-      *reinterpret_cast<const uint32_t*>(serialized_data.data());
+  property_id_ = get_attribute_key(
+      *reinterpret_cast<const uint32_t*>(serialized_data.data()));
 }
 
 std::vector<uint8_t> Property::Serialize() const {

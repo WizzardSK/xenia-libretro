@@ -757,8 +757,9 @@ int InstrEmit_sync(PPCHIRBuilder& f, const InstrData& i) {
 }
 
 int InstrEmit_isync(PPCHIRBuilder& f, const InstrData& i) {
-  // XEINSTRNOTIMPLEMENTED();
-  f.Nop();
+  // Only the memory ordering half is modelled. Guests pair isync with a
+  // conditional branch to acquire a lock.
+  f.LoadBarrier();
   return 0;
 }
 
@@ -773,19 +774,12 @@ int InstrEmit_ldarx(PPCHIRBuilder& f, const InstrData& i) {
   // RESERVE_ADDR <- real_addr(EA)
   // RT <- MEM(EA, 8)
 
-  // NOTE: we assume we are within a global lock.
-  // We could assert here that the block (or its parent) has taken a global lock
-  // already, but I haven't see anything but interrupt callbacks (which are
-  // always under a global lock) do that yet.
-  // We issue a memory barrier here to make sure that we get good values.
   Value* ea = CalculateEA_0(f, i.X.RA, i.X.RB);
 
   if (cvars::no_reserved_ops) {
     f.StoreGPR(i.X.RT, f.ByteSwap(f.Load(ea, INT64_TYPE)));
 
   } else {
-    f.MemoryBarrier();
-
     Value* rt = f.ByteSwap(f.LoadWithReserve(ea, INT64_TYPE));
     f.StoreGPR(i.X.RT, rt);
   }
@@ -803,20 +797,12 @@ int InstrEmit_lwarx(PPCHIRBuilder& f, const InstrData& i) {
   // RESERVE_ADDR <- real_addr(EA)
   // RT <- i32.0 || MEM(EA, 4)
 
-  // NOTE: we assume we are within a global lock.
-  // We could assert here that the block (or its parent) has taken a global lock
-  // already, but I haven't see anything but interrupt callbacks (which are
-  // always under a global lock) do that yet.
-  // We issue a memory barrier here to make sure that we get good values.
-
   Value* ea = CalculateEA_0(f, i.X.RA, i.X.RB);
   if (cvars::no_reserved_ops) {
     f.StoreGPR(i.X.RT,
                f.ZeroExtend(f.ByteSwap(f.Load(ea, INT32_TYPE)), INT64_TYPE));
 
   } else {
-    f.MemoryBarrier();
-
     Value* rt =
         f.ZeroExtend(f.ByteSwap(f.LoadWithReserve(ea, INT32_TYPE)), INT64_TYPE);
     f.StoreGPR(i.X.RT, rt);
@@ -835,12 +821,7 @@ int InstrEmit_stdcx(PPCHIRBuilder& f, const InstrData& i) {
   // n <- 1 if store performed
   // CR0[LT GT EQ SO] = 0b00 || n || XER[SO]
 
-  // NOTE: we assume we are within a global lock.
-  // As we have been exclusively executing this entire time, we assume that no
-  // one else could have possibly touched the memory and must always succeed.
-  // We use atomic compare exchange here to support reserved load/store without
-  // being under the global lock (flag disable_global_lock - see mtmsr/mtmsrd).
-  // This will always succeed if under the global lock, however.
+  // Fails if the reservation was lost, see the backend reserve helpers.
 
   Value* ea = CalculateEA_0(f, i.X.RA, i.X.RB);
   Value* rt = f.ByteSwap(f.LoadGPR(i.X.RT));
@@ -856,12 +837,8 @@ int InstrEmit_stdcx(PPCHIRBuilder& f, const InstrData& i) {
   }
   f.StoreContext(offsetof(PPCContext, cr0.cr0_lt), f.LoadZeroInt8());
   f.StoreContext(offsetof(PPCContext, cr0.cr0_gt), f.LoadZeroInt8());
-
-  // Issue memory barrier for when we go out of lock and want others to see our
-  // updates.
-  if (!cvars::no_reserved_ops) {
-    f.MemoryBarrier();
-  }
+  f.StoreContext(offsetof(PPCContext, cr0.cr0_so),
+                 f.LoadContext(offsetof(PPCContext, xer_so), INT8_TYPE));
   return 0;
 }
 
@@ -876,12 +853,7 @@ int InstrEmit_stwcx(PPCHIRBuilder& f, const InstrData& i) {
   // n <- 1 if store performed
   // CR0[LT GT EQ SO] = 0b00 || n || XER[SO]
 
-  // NOTE: we assume we are within a global lock.
-  // As we have been exclusively executing this entire time, we assume that no
-  // one else could have possibly touched the memory and must always succeed.
-  // We use atomic compare exchange here to support reserved load/store without
-  // being under the global lock (flag disable_global_lock - see mtmsr/mtmsrd).
-  // This will always succeed if under the global lock, however.
+  // Fails if the reservation was lost, see the backend reserve helpers.
 
   Value* ea = CalculateEA_0(f, i.X.RA, i.X.RB);
 
@@ -892,18 +864,14 @@ int InstrEmit_stwcx(PPCHIRBuilder& f, const InstrData& i) {
 
     f.StoreContext(offsetof(PPCContext, cr0.cr0_eq), f.LoadConstantInt8(1));
   } else {
-    Value* v = f.StoreWithReserve(ea, rt, INT64_TYPE);
+    Value* v = f.StoreWithReserve(ea, rt, INT32_TYPE);
     f.StoreContext(offsetof(PPCContext, cr0.cr0_eq), v);
   }
 
   f.StoreContext(offsetof(PPCContext, cr0.cr0_lt), f.LoadZeroInt8());
   f.StoreContext(offsetof(PPCContext, cr0.cr0_gt), f.LoadZeroInt8());
-
-  // Issue memory barrier for when we go out of lock and want others to see our
-  // updates.
-  if (!cvars::no_reserved_ops) {
-    f.MemoryBarrier();
-  }
+  f.StoreContext(offsetof(PPCContext, cr0.cr0_so),
+                 f.LoadContext(offsetof(PPCContext, xer_so), INT8_TYPE));
 
   return 0;
 }
@@ -957,6 +925,10 @@ int InstrEmit_lfdx(PPCHIRBuilder& f, const InstrData& i) {
   return 0;
 }
 
+// lfs/stfs are data-movement conversions: unlike the host FPU float<->double
+// convert (which quiets signaling NaNs), PowerPC leaves the NaN signaling bit
+// untouched. UNPACK_SINGLE and PACK_SINGLE keep it.
+
 int InstrEmit_lfs(PPCHIRBuilder& f, const InstrData& i) {
   // if RA = 0 then
   //   b <- 0
@@ -965,8 +937,7 @@ int InstrEmit_lfs(PPCHIRBuilder& f, const InstrData& i) {
   // EA <- b + EXTS(D)
   // FRT <- DOUBLE(MEM(EA, 4))
   Value* ea = CalculateEA_0_i(f, i.D.RA, XEEXTS16(i.D.DS));
-  Value* rt = f.Convert(
-      f.Cast(f.ByteSwap(f.Load(ea, INT32_TYPE)), FLOAT32_TYPE), FLOAT64_TYPE);
+  Value* rt = f.UnpackSingle(f.ByteSwap(f.Load(ea, INT32_TYPE)));
   f.StoreFPR(i.D.RT, rt);
   return 0;
 }
@@ -976,8 +947,7 @@ int InstrEmit_lfsu(PPCHIRBuilder& f, const InstrData& i) {
   // FRT <- DOUBLE(MEM(EA, 4))
   // RA <- EA
   Value* ea = CalculateEA_i(f, i.D.RA, XEEXTS16(i.D.DS));
-  Value* rt = f.Convert(
-      f.Cast(f.ByteSwap(f.Load(ea, INT32_TYPE)), FLOAT32_TYPE), FLOAT64_TYPE);
+  Value* rt = f.UnpackSingle(f.ByteSwap(f.Load(ea, INT32_TYPE)));
   f.StoreFPR(i.D.RT, rt);
   StoreEA(f, i.D.RA, ea);
   return 0;
@@ -988,8 +958,7 @@ int InstrEmit_lfsux(PPCHIRBuilder& f, const InstrData& i) {
   // FRT <- DOUBLE(MEM(EA, 4))
   // RA <- EA
   Value* ea = CalculateEA(f, i.X.RA, i.X.RB);
-  Value* rt = f.Convert(
-      f.Cast(f.ByteSwap(f.Load(ea, INT32_TYPE)), FLOAT32_TYPE), FLOAT64_TYPE);
+  Value* rt = f.UnpackSingle(f.ByteSwap(f.Load(ea, INT32_TYPE)));
   f.StoreFPR(i.X.RT, rt);
   StoreEA(f, i.X.RA, ea);
   return 0;
@@ -1003,8 +972,7 @@ int InstrEmit_lfsx(PPCHIRBuilder& f, const InstrData& i) {
   // EA <- b + (RB)
   // FRT <- DOUBLE(MEM(EA, 4))
   Value* ea = CalculateEA_0(f, i.X.RA, i.X.RB);
-  Value* rt = f.Convert(
-      f.Cast(f.ByteSwap(f.Load(ea, INT32_TYPE)), FLOAT32_TYPE), FLOAT64_TYPE);
+  Value* rt = f.UnpackSingle(f.ByteSwap(f.Load(ea, INT32_TYPE)));
   f.StoreFPR(i.X.RT, rt);
   return 0;
 }
@@ -1076,8 +1044,7 @@ int InstrEmit_stfs(PPCHIRBuilder& f, const InstrData& i) {
   // EA <- b + EXTS(D)
   // MEM(EA, 4) <- SINGLE(FRS)
   Value* ea = CalculateEA_0_i(f, i.D.RA, XEEXTS16(i.D.DS));
-  f.Store(ea, f.ByteSwap(f.Cast(f.Convert(f.LoadFPR(i.D.RT), FLOAT32_TYPE),
-                                INT32_TYPE)));
+  f.Store(ea, f.ByteSwap(f.PackSingle(f.LoadFPR(i.D.RT))));
   return 0;
 }
 
@@ -1086,8 +1053,7 @@ int InstrEmit_stfsu(PPCHIRBuilder& f, const InstrData& i) {
   // MEM(EA, 4) <- SINGLE(FRS)
   // RA <- EA
   Value* ea = CalculateEA_i(f, i.D.RA, XEEXTS16(i.D.DS));
-  f.Store(ea, f.ByteSwap(f.Cast(f.Convert(f.LoadFPR(i.D.RT), FLOAT32_TYPE),
-                                INT32_TYPE)));
+  f.Store(ea, f.ByteSwap(f.PackSingle(f.LoadFPR(i.D.RT))));
   StoreEA(f, i.D.RA, ea);
   return 0;
 }
@@ -1097,8 +1063,7 @@ int InstrEmit_stfsux(PPCHIRBuilder& f, const InstrData& i) {
   // MEM(EA, 4) <- SINGLE(FRS)
   // RA <- EA
   Value* ea = CalculateEA(f, i.X.RA, i.X.RB);
-  f.Store(ea, f.ByteSwap(f.Cast(f.Convert(f.LoadFPR(i.X.RT), FLOAT32_TYPE),
-                                INT32_TYPE)));
+  f.Store(ea, f.ByteSwap(f.PackSingle(f.LoadFPR(i.X.RT))));
   StoreEA(f, i.X.RA, ea);
   return 0;
 }
@@ -1111,8 +1076,7 @@ int InstrEmit_stfsx(PPCHIRBuilder& f, const InstrData& i) {
   // EA <- b + (RB)
   // MEM(EA, 4) <- SINGLE(FRS)
   Value* ea = CalculateEA_0(f, i.X.RA, i.X.RB);
-  f.Store(ea, f.ByteSwap(f.Cast(f.Convert(f.LoadFPR(i.X.RT), FLOAT32_TYPE),
-                                INT32_TYPE)));
+  f.Store(ea, f.ByteSwap(f.PackSingle(f.LoadFPR(i.X.RT))));
   return 0;
 }
 
@@ -1156,18 +1120,6 @@ int InstrEmit_dcbtst(PPCHIRBuilder& f, const InstrData& i) {
   return 0;
 }
 
-int InstrEmit_dcbz(PPCHIRBuilder& f, const InstrData& i) {
-  // EA <- (RA) + (RB)
-  // memset(EA & ~31, 0, 32)
-  Value* ea = CalculateEA_0(f, i.X.RA, i.X.RB);
-  // dcbz - 32 byte set
-  int block_size = 32;
-  int address_mask = ~31;
-  f.Memset(f.And(ea, f.LoadConstantInt64(address_mask)), f.LoadZeroInt8(),
-           f.LoadConstantInt64(block_size));
-  return 0;
-}
-
 int InstrEmit_dcbz128(PPCHIRBuilder& f, const InstrData& i) {
   // EA <- (RA) + (RB)
   // memset(EA & ~31, 0, 32)
@@ -1178,6 +1130,14 @@ int InstrEmit_dcbz128(PPCHIRBuilder& f, const InstrData& i) {
   f.Memset(f.And(ea, f.LoadConstantInt64(address_mask)), f.LoadZeroInt8(),
            f.LoadConstantInt64(block_size));
   return 0;
+}
+
+int InstrEmit_dcbz(PPCHIRBuilder& f, const InstrData& i) {
+  // EA <- (RA) + (RB)
+  // memset(EA & ~31, 0, 32)
+  // On Xbox360 there is no short cache line. Normal dcbz always clears 128
+  // bytes.
+  return InstrEmit_dcbz128(f, i);
 }
 
 int InstrEmit_icbi(PPCHIRBuilder& f, const InstrData& i) {

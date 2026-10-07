@@ -10,6 +10,8 @@
 #ifndef XENIA_CPU_XEX_MODULE_H_
 #define XENIA_CPU_XEX_MODULE_H_
 
+#include <atomic>
+#include <cstring>
 #include <string>
 #include <vector>
 #include "xenia/base/mapped_memory.h"
@@ -25,9 +27,14 @@ class KernelState;
 namespace xe {
 namespace cpu {
 
+constexpr fourcc_t kXEX0Signature = make_fourcc("XEX0");
+constexpr fourcc_t kXEXQSignature = make_fourcc("XEX?");
+constexpr fourcc_t kXEXHSignature = make_fourcc("XEX-");
+constexpr fourcc_t kXEX25Signature = make_fourcc("XEX%");
 constexpr fourcc_t kXEX1Signature = make_fourcc("XEX1");
 constexpr fourcc_t kXEX2Signature = make_fourcc("XEX2");
 constexpr fourcc_t kElfSignature = make_fourcc(0x7F, 'E', 'L', 'F');
+constexpr fourcc_t kXBESignature = make_fourcc("XBEH");
 
 class Runtime;
 struct InfoCacheFlags {
@@ -41,6 +48,15 @@ struct InfoCacheFlags {
 };
 static_assert(sizeof(InfoCacheFlags) == 4,
               "InfoCacheFlags size should be equal to sizeof ppc instruction.");
+
+// The flags share one 32-bit word in a shared mmap and are written by several
+// threads. Set bits atomically so concurrent writes don't lose updates.
+inline void AtomicSetInfoCacheFlags(InfoCacheFlags* slot, InfoCacheFlags bits) {
+  uint32_t mask;
+  std::memcpy(&mask, &bits, sizeof(mask));
+  std::atomic_ref<uint32_t>(*reinterpret_cast<uint32_t*>(slot))
+      .fetch_or(mask, std::memory_order_relaxed);
+}
 
 struct XexInfoCache {
   // increment this to invalidate all user infocaches
@@ -115,6 +131,10 @@ class XexModule : public xe::cpu::Module {
   };
   enum XexFormat {
     kFormatUnknown,
+    kFormatXex0,
+    kFormatXexQ,   // ?
+    kFormatXexH,   // -
+    kFormatXex25,  // %
     kFormatXex1,
     kFormatXex2,
   };
@@ -150,6 +170,11 @@ class XexModule : public xe::cpu::Module {
   const std::vector<ImportLibrary>* import_libraries() const {
     return &import_libs_;
   }
+  // The modules it imports from that failed to load, whose imports are left
+  // unresolved.
+  const std::vector<std::string>& missing_import_libraries() const {
+    return missing_import_libs_;
+  }
 
   const xex2_opt_execution_info* opt_execution_info() const {
     xex2_opt_execution_info* retval = nullptr;
@@ -169,6 +194,9 @@ class XexModule : public xe::cpu::Module {
 
   const uint32_t base_address() const { return base_address_; }
   const bool is_dev_kit() const { return is_dev_kit_; }
+
+  // Section type of the image page containing `address`.
+  bool GetPageSectionType(uint32_t address, xex2_section_type* out_type) const;
 
   // Gets an optional header. Returns NULL if not found.
   // Special case: if key & 0xFF == 0x00, this function will return the value,
@@ -233,13 +261,21 @@ class XexModule : public xe::cpu::Module {
   InfoCacheFlags* GetInstructionAddressFlags(uint32_t guest_addr);
 
   virtual void Precompile() override;
+  // Compiles everything early precompilation discovers, if enabled.
+  void PrecompileDiscoveredFunctions();
+  // Compiles the CRT static initializers and their callees. Call after all
+  // code patching and before the entry point runs.
+  void PrecompileStaticInitializers();
 
  protected:
   std::unique_ptr<Function> CreateFunction(uint32_t address) override;
 
  private:
   void PrecompileKnownFunctions();
-  void PrecompileDiscoveredFunctions();
+  std::vector<uint32_t> FindStaticInitializers() const;
+  bool IsCodeAddress(uint32_t address) const {
+    return !(address & 3) && address >= low_address_ && address < high_address_;
+  }
   std::vector<uint32_t> PreanalyzeCode();
   friend struct XexInfoCache;
   void ReadSecurityInfo();
@@ -255,7 +291,6 @@ class XexModule : public xe::cpu::Module {
                            const xex2_import_library* library);
   bool FindSaveRest();
 
-  Processor* processor_ = nullptr;
   kernel::KernelState* kernel_state_ = nullptr;
   std::string name_;
   std::string path_;
@@ -264,6 +299,7 @@ class XexModule : public xe::cpu::Module {
 
   std::vector<ImportLibrary>
       import_libs_;  // pre-loaded import libraries for ease of use
+  std::vector<std::string> missing_import_libs_;
   std::vector<PESection> pe_sections_;
 
   // XEX_HEADER_ALTERNATE_TITLE_IDS loaded into a safe std::vector

@@ -12,12 +12,15 @@
 
 #include <array>
 #include <atomic>
+#include <future>
 #include <mutex>
 #include <optional>
+#include <string_view>
+#include <thread>
 
-#include "SDL.h"
-#include "third_party/rapidcsv/src/rapidcsv.h"
+#include <SDL3/SDL.h>
 #include "xenia/hid/input_driver.h"
+#include "xenia/xbox.h"
 
 #define HID_SDL_USER_COUNT 4
 #define HID_SDL_THUMB_THRES 0x4E00
@@ -37,6 +40,7 @@ class SDLInputDriver final : public InputDriver {
   X_STATUS Setup() override;
 
   void LoadGameControllerDB();
+  void LoadMappingsFromMemory(std::string_view data);
 
   X_RESULT GetCapabilities(uint32_t user_index, uint32_t flags,
                            X_INPUT_CAPABILITIES* out_caps) override;
@@ -45,13 +49,24 @@ class SDLInputDriver final : public InputDriver {
   X_RESULT GetKeystroke(uint32_t user_index, uint32_t flags,
                         X_INPUT_KEYSTROKE* out_keystroke) override;
   virtual InputType GetInputType() const override;
+  std::vector<InputDeviceInfo> EnumerateDevices() override;
+  void SetNativeMode(uint8_t driver_slot, bool enabled) override;
 
  private:
   struct ControllerState {
-    SDL_GameController* sdl;
+    SDL_Gamepad* sdl;
     X_INPUT_CAPABILITIES caps;
     X_INPUT_STATE state;
     bool state_changed;
+    // XInput user index for devices that can be read straight from XInput,
+    // else -1.
+    int xinput_slot = -1;
+    X_INPUT_CAPABILITIES native_caps = {};
+    bool native_mode = true;
+
+    bool native() const {
+      return xinput_slot >= 0 && native_mode && native_caps.type;
+    }
   };
 
   enum class RepeatState {
@@ -78,14 +93,17 @@ class SDLInputDriver final : public InputDriver {
   std::optional<size_t> GetControllerIndexFromInstanceID(
       SDL_JoystickID instance_id);
   ControllerState* GetControllerState(uint32_t user_index);
-  bool TestSDLVersion() const;
   void UpdateXCapabilities(ControllerState& state);
-  void QueueControllerUpdate();
+
+  // Owns SDL init, the event pump, and teardown so the UI thread's modal
+  // loops (wx menus/dialogs) can't stall controller hotplug.
+  void SDLEventThread(std::promise<X_STATUS> init_result);
 
   bool sdl_events_initialized_;
-  bool sdl_gamecontroller_initialized_;
+  bool sdl_gamepad_initialized_;
   int sdl_events_unflushed_;
-  std::atomic<bool> sdl_pumpevents_queued_;
+  std::thread sdl_thread_;
+  std::atomic<bool> sdl_thread_should_exit_;
   std::array<ControllerState, HID_SDL_USER_COUNT> controllers_;
   std::array<KeystrokeState, HID_SDL_USER_COUNT> keystroke_states_;
 };

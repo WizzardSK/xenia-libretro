@@ -14,7 +14,6 @@
 #include <vector>
 
 #include "xenia/cpu/function_debug_info.h"
-#include "xenia/cpu/function_trace_data.h"
 #include "xenia/cpu/ppc/ppc_context.h"
 #include "xenia/cpu/symbol.h"
 #include "xenia/cpu/thread_state.h"
@@ -134,7 +133,13 @@ class GuestFunction : public Function {
   void set_debug_info(std::unique_ptr<FunctionDebugInfo> debug_info) {
     debug_info_ = std::move(debug_info);
   }
-  FunctionTraceData& trace_data() { return trace_data_; }
+  // Byte offset of this function's instruction execution counters inside each
+  // per-thread coverage arena, or kInvalidCoverageOffset when the function is
+  // not being counted.
+  static constexpr size_t kInvalidCoverageOffset = ~size_t(0);
+  size_t coverage_offset() const { return coverage_offset_; }
+  void set_coverage_offset(size_t offset) { coverage_offset_ = offset; }
+
   std::vector<SourceMapEntry>& source_map() { return source_map_; }
 
   ExternHandler extern_handler() const { return extern_handler_; }
@@ -156,7 +161,7 @@ class GuestFunction : public Function {
 
  protected:
   std::unique_ptr<FunctionDebugInfo> debug_info_;
-  FunctionTraceData trace_data_;
+  size_t coverage_offset_ = kInvalidCoverageOffset;
   std::vector<SourceMapEntry> source_map_;
   ExternHandler extern_handler_ = nullptr;
   Export* export_data_ = nullptr;

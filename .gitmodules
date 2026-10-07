@@ -7,16 +7,10 @@
 [submodule "third_party/catch"]
 	path = third_party/catch
 	url = https://github.com/catchorg/Catch2.git
-[submodule "third_party/premake-core"]
-	path = third_party/premake-core
-	url = https://github.com/premake/premake-core.git
 [submodule "third_party/snappy"]
 	path = third_party/snappy
 	url = https://github.com/google/snappy.git
 	ignore = dirty
-[submodule "third_party/premake-export-compile-commands"]
-	path = third_party/premake-export-compile-commands
-	url = https://github.com/xenia-project/premake-export-compile-commands.git
 [submodule "third_party/discord-rpc"]
 	path = third_party/discord-rpc
 	url = https://github.com/discordapp/discord-rpc.git
@@ -35,9 +29,6 @@
 [submodule "third_party/cxxopts"]
 	path = third_party/cxxopts
 	url = https://github.com/jarro2783/cxxopts.git
-[submodule "third_party/SDL2"]
-	path = third_party/SDL2
-	url = https://github.com/libsdl-org/SDL.git
 [submodule "third_party/utfcpp"]
 	path = third_party/utfcpp
 	url = https://github.com/nemtrif/utfcpp.git
@@ -50,9 +41,6 @@
 [submodule "third_party/DirectXShaderCompiler"]
 	path = third_party/DirectXShaderCompiler
 	url = https://github.com/microsoft/DirectXShaderCompiler.git
-[submodule "third_party/premake-cmake"]
-	path = third_party/premake-cmake
-	url = https://github.com/JoelLinn/premake-cmake.git
 [submodule "third_party/date"]
 	path = third_party/date
 	url = https://github.com/HowardHinnant/date.git
@@ -63,9 +51,6 @@
 	path = third_party/FFmpeg
 	url = https://github.com/has207/FFmpeg.git
 	branch = xmaframes
-[submodule "third_party/premake-androidndk"]
-	path = third_party/premake-androidndk
-	url = https://github.com/Triang3l/premake-androidndk.git
 [submodule "third_party/FidelityFX-CAS"]
 	path = third_party/FidelityFX-CAS
 	url = https://github.com/GPUOpen-Effects/FidelityFX-CAS.git
@@ -87,12 +72,6 @@
 [submodule "third_party/zarchive"]
 	path = third_party/zarchive
 	url = https://github.com/exzap/ZArchive.git
-[submodule "third_party/tabulate"]
-	path = third_party/tabulate
-	url = https://github.com/p-ranav/tabulate.git
-[submodule "third_party/rapidcsv"]
-	path = third_party/rapidcsv
-	url = https://github.com/d99kris/rapidcsv.git
 [submodule "third_party/zlib-ng"]
 	path = third_party/zlib-ng
 	url = https://github.com/zlib-ng/zlib-ng.git
@@ -114,13 +93,44 @@
 	url = https://github.com/microsoft/DirectX-Headers.git
 [submodule "third_party/metal-cpp"]
 	path = third_party/metal-cpp
-	url = https://github.com/wmarti/metal-cpp.git
-[submodule "third_party/metal-shader-converter"]
-	path = third_party/metal-shader-converter
-	url = https://github.com/wmarti/metal-shader-converter.git
-[submodule "third_party/oaknut"]
-	path = third_party/oaknut
-	url = https://github.com/merryhime/oaknut.git
+	url = https://github.com/bkaradzic/metal-cpp.git
+	branch = metal-cpp_26
 [submodule "third_party/asio"]
 	path = third_party/asio
 	url = https://github.com/chriskohlhoff/asio.git
+[submodule "third_party/xbyak_aarch64"]
+	path = third_party/xbyak_aarch64
+	url = https://github.com/fujitsu/xbyak_aarch64.git
+[submodule "third_party/SPIRV-Headers"]
+	path = third_party/SPIRV-Headers
+	url = https://github.com/KhronosGroup/SPIRV-Headers.git
+	branch = vulkan-sdk-1.4.341
+[submodule "third_party/SPIRV-Tools"]
+	path = third_party/SPIRV-Tools
+	url = https://github.com/KhronosGroup/SPIRV-Tools.git
+	branch = vulkan-sdk-1.4.341
+[submodule "third_party/SPIRV-Cross"]
+	path = third_party/SPIRV-Cross
+	url = https://github.com/KhronosGroup/SPIRV-Cross.git
+	branch = vulkan-sdk-1.4.341
+[submodule "third_party/wxWidgets"]
+	path = third_party/wxWidgets
+	url = https://github.com/wxWidgets/wxWidgets.git
+	branch = v3.3.3
+[submodule "third_party/MoltenVK"]
+	path = third_party/MoltenVK
+	url = https://github.com/KhronosGroup/MoltenVK.git
+[submodule "third_party/cereal"]
+	path = third_party/cereal
+	url = https://github.com/USCiLab/cereal.git
+[submodule "third_party/SDL3"]
+	path = third_party/SDL3
+	url = https://github.com/libsdl-org/SDL.git
+	ignore = dirty
+[submodule "third_party/boost_context/context"]
+	path = third_party/boost_context/context
+	url = https://github.com/boostorg/context.git
+[submodule "third_party/mesa"]
+	path = third_party/mesa
+	url = https://gitlab.freedesktop.org/has207/mesa.git
+	ignore = dirty

@@ -24,14 +24,11 @@ enum DebugInfoFlags : uint32_t {
   kDebugInfoDisasmMachineCode = (1 << 4),
   kDebugInfoAllDisasm = kDebugInfoDisasmSource | kDebugInfoDisasmRawHir |
                         kDebugInfoDisasmHir | kDebugInfoDisasmMachineCode,
-  kDebugInfoTraceFunctions = (1 << 6),
-  kDebugInfoTraceFunctionCoverage = (1 << 7) | kDebugInfoTraceFunctions,
-  kDebugInfoTraceFunctionReferences = (1 << 8) | kDebugInfoTraceFunctions,
-  kDebugInfoTraceFunctionData = (1 << 9) | kDebugInfoTraceFunctions,
+  // Per guest instruction execution counters, emitted inline into the
+  // generated code and reported through the profiler dump.
+  kDebugInfoTraceFunctionCoverage = (1 << 7),
 
-  kDebugInfoAllTracing =
-      kDebugInfoTraceFunctions | kDebugInfoTraceFunctionCoverage |
-      kDebugInfoTraceFunctionReferences | kDebugInfoTraceFunctionData,
+  kDebugInfoAllTracing = kDebugInfoTraceFunctionCoverage,
   kDebugInfoAll = 0xFFFFFFFF,
 };
 

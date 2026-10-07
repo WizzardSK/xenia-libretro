@@ -39,7 +39,34 @@ uint64_t PPCContext::cr() const {
 }
 
 void PPCContext::set_cr(uint64_t value) {
-  assert_always("not yet implemented");
+  for (int i = 0; i < 8; ++i) {
+    union {
+      uint32_t value;
+      struct {
+        uint8_t lt;
+        uint8_t gt;
+        uint8_t eq;
+        uint8_t so;
+      };
+    } crf;
+    const uint32_t bits = uint32_t(value >> ((7 - i) * 4));
+    crf.lt = (bits >> 3) & 0x1;
+    crf.gt = (bits >> 2) & 0x1;
+    crf.eq = (bits >> 1) & 0x1;
+    crf.so = bits & 0x1;
+    *(&cr0.value + i) = crf.value;
+  }
+}
+
+uint32_t PPCContext::xer() const {
+  return (uint32_t(xer_so) & 0x1) << 31 | (uint32_t(xer_ov) & 0x1) << 30 |
+         (uint32_t(xer_ca) & 0x1) << 29;
+}
+
+void PPCContext::set_xer(uint32_t value) {
+  xer_so = (value >> 31) & 0x1;
+  xer_ov = (value >> 30) & 0x1;
+  xer_ca = (value >> 29) & 0x1;
 }
 
 std::string PPCContext::GetRegisterName(PPCRegister reg) {
@@ -136,6 +163,8 @@ void PPCContext::SetRegFromString(const char* name, const char* value) {
     this->v[n] = string_util::from_string<vec128_t>(value);
   } else if (std::strcmp(name, "cr") == 0) {
     this->set_cr(string_util::from_string<uint64_t>(value));
+  } else if (std::strcmp(name, "xer") == 0) {
+    this->set_xer(string_util::from_string<uint32_t>(value));
   } else {
     printf("Unrecognized register name: %s\n", name);
   }
@@ -174,8 +203,8 @@ bool PPCContext::CompareRegWithString(const char* name, const char* value,
     vec128_t expected = string_util::from_string<vec128_t>(value);
     if (this->v[n] != expected) {
       result =
-          fmt::format("[{:08X}, {:08X}, {:08X}, {:08X}]", this->v[n].i32[0],
-                      this->v[n].i32[1], this->v[n].i32[2], this->v[n].i32[3]);
+          fmt::format("[{:08X}, {:08X}, {:08X}, {:08X}]", this->v[n].u32[0],
+                      this->v[n].u32[1], this->v[n].u32[2], this->v[n].u32[3]);
       return false;
     }
     return true;
@@ -184,6 +213,14 @@ bool PPCContext::CompareRegWithString(const char* name, const char* value,
     uint64_t expected = string_util::from_string<uint64_t>(value);
     if (actual != expected) {
       result = fmt::format("{:016X}", actual);
+      return false;
+    }
+    return true;
+  } else if (std::strcmp(name, "xer") == 0) {
+    uint32_t actual = this->xer();
+    uint32_t expected = string_util::from_string<uint32_t>(value);
+    if (actual != expected) {
+      result = fmt::format("{:08X}", actual);
       return false;
     }
     return true;

@@ -116,7 +116,8 @@ bool ObjectTable::Resize(uint32_t new_capacity, bool host) {
   return true;
 }
 
-X_STATUS ObjectTable::AddHandle(XObject* object, X_HANDLE* out_handle) {
+X_STATUS ObjectTable::AddHandle(XObject* object, X_HANDLE* out_handle,
+                                bool force_guest_handle) {
   X_STATUS result = X_STATUS_SUCCESS;
 
   uint32_t handle = 0;
@@ -125,7 +126,7 @@ X_STATUS ObjectTable::AddHandle(XObject* object, X_HANDLE* out_handle) {
 
     // Find a free slot.
     uint32_t slot = 0;
-    bool host_object = object->is_host_object();
+    bool host_object = object->is_host_object() && !force_guest_handle;
     result = FindFreeSlot(&slot, host_object);
 
     // Stash.
@@ -165,7 +166,8 @@ X_STATUS ObjectTable::DuplicateHandle(X_HANDLE handle, X_HANDLE* out_handle) {
 
   XObject* object = LookupObject(handle, false);
   if (object) {
-    result = AddHandle(object, out_handle);
+    // The duplicate goes to the guest even when the object is a host one.
+    result = AddHandle(object, out_handle, true);
     object->Release();  // Release the ref that LookupObject took
   } else {
     result = X_STATUS_INVALID_HANDLE;
@@ -227,8 +229,7 @@ X_STATUS ObjectTable::RemoveHandle(X_HANDLE handle) {
     entry->handle_ref_count = 0;
 
     // Walk the object's handles and remove this one.
-    auto handle_entry =
-        std::find(object->handles().begin(), object->handles().end(), handle);
+    auto handle_entry = std::ranges::find(object->handles(), handle);
     if (handle_entry != object->handles().end()) {
       object->handles().erase(handle_entry);
     }
@@ -276,7 +277,7 @@ void ObjectTable::PurgeAllObjects() {
     auto& entry = table_[slot];
     if (entry.object) {
       entry.handle_ref_count = 0;
-      entry.object->Release();
+      entry.object->ReleaseHandle();
 
       entry.object = nullptr;
     }

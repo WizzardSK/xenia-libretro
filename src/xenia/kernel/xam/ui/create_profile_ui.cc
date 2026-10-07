@@ -72,7 +72,7 @@ void CreateProfileUI::OnDraw(ImGuiIO& io) {
     ImGui::BeginDisabled(!valid);
     if (ImGui::Button("Create") || (enter_pressed && valid)) {
       bool autologin = (profile_manager->GetAccountCount() == 0);
-      profile_manager->CreateProfile(gt, autologin, migration_);
+      profile_manager->CreateProfile(gt, autologin);
       ImGui::CloseCurrentPopup();
       Close();
     }

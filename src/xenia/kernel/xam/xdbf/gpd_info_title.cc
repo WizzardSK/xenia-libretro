@@ -24,66 +24,45 @@ X_XDBF_GPD_ACHIEVEMENT* GpdInfoTitle::GetAchievementEntry(const uint32_t id) {
   return reinterpret_cast<X_XDBF_GPD_ACHIEVEMENT*>(entry->data.data());
 }
 
-const char16_t* GpdInfoTitle::GetAchievementTitlePtr(const uint32_t id) {
-  X_XDBF_GPD_ACHIEVEMENT* achievement_ptr = GetAchievementEntry(id);
-  if (!achievement_ptr) {
-    return nullptr;
+// The strings sit one after another past the header, each one terminated
+std::u16string GpdInfoTitle::GetAchievementString(const uint32_t id,
+                                                  uint32_t index) {
+  const Entry* entry =
+      GetEntry(static_cast<uint16_t>(GpdSection::kAchievement), id);
+
+  if (!entry || entry->data.size() < sizeof(X_XDBF_GPD_ACHIEVEMENT)) {
+    return std::u16string();
   }
 
-  return reinterpret_cast<const char16_t*>(++achievement_ptr);
-}
+  std::u16string_view strings(
+      reinterpret_cast<const char16_t*>(entry->data.data() +
+                                        sizeof(X_XDBF_GPD_ACHIEVEMENT)),
+      (entry->data.size() - sizeof(X_XDBF_GPD_ACHIEVEMENT)) / sizeof(char16_t));
 
-const char16_t* GpdInfoTitle::GetAchievementDescriptionPtr(const uint32_t id) {
-  // We need to get ptr to first string. These are one after another in memory.
-  const char16_t* title_ptr = GetAchievementTitlePtr(id);
-  if (!title_ptr) {
-    return nullptr;
+  for (uint32_t i = 0; i < index; ++i) {
+    const size_t terminator = strings.find(u'\0');
+
+    if (terminator == std::u16string_view::npos) {
+      return std::u16string();
+    }
+
+    strings.remove_prefix(terminator + 1);
   }
 
-  return reinterpret_cast<const char16_t*>(
-      title_ptr + GetAchievementTitle(id).length() + 1);
-}
-
-const char16_t* GpdInfoTitle::GetAchievementUnachievedDescriptionPtr(
-    const uint32_t id) {
-  const char16_t* title_ptr = GetAchievementDescriptionPtr(id);
-  if (!title_ptr) {
-    return nullptr;
-  }
-
-  return reinterpret_cast<const char16_t*>(
-      title_ptr + GetAchievementDescription(id).length() + 1);
+  return string_util::read_u16string_and_swap(strings.data(), strings.size());
 }
 
 std::u16string GpdInfoTitle::GetAchievementTitle(const uint32_t id) {
-  auto title_ptr = GetAchievementTitlePtr(id);
-
-  if (!title_ptr) {
-    return std::u16string();
-  }
-
-  return string_util::read_u16string_and_swap(title_ptr);
+  return GetAchievementString(id, 0);
 }
 
 std::u16string GpdInfoTitle::GetAchievementDescription(const uint32_t id) {
-  auto description_ptr = GetAchievementDescriptionPtr(id);
-
-  if (!description_ptr) {
-    return std::u16string();
-  }
-
-  return string_util::read_u16string_and_swap(description_ptr);
+  return GetAchievementString(id, 1);
 }
 
 std::u16string GpdInfoTitle::GetAchievementUnachievedDescription(
     const uint32_t id) {
-  auto description_ptr = GetAchievementUnachievedDescriptionPtr(id);
-
-  if (!description_ptr) {
-    return std::u16string();
-  }
-
-  return string_util::read_u16string_and_swap(description_ptr);
+  return GetAchievementString(id, 2);
 }
 
 std::vector<uint32_t> GpdInfoTitle::GetAchievementsIds() const {

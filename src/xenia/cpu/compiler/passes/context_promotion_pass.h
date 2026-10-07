@@ -11,6 +11,7 @@
 #define XENIA_CPU_COMPILER_PASSES_CONTEXT_PROMOTION_PASS_H_
 
 #include <cmath>
+#include <cstdint>
 #include <vector>
 
 #include "xenia/base/platform.h"
@@ -44,8 +45,22 @@ class ContextPromotionPass : public CompilerPass {
   void PromoteBlock(hir::Block* block);
   void RemoveDeadStoresBlock(hir::Block* block);
 
+  // Range-keyed value tracking: a tracked value recorded at `offset` covers
+  // every byte of [offset, offset + size).
+  hir::Value* LookupTrackedValue(uint32_t offset, uint32_t size,
+                                 hir::TypeName type);
+  void TrackValue(uint32_t offset, uint32_t size, hir::Value* value);
+  void InvalidateTrackedRange(uint32_t offset, uint32_t size);
+
  private:
+  // Indexed by base byte offset into the context: the tracked SSA value
+  // whose range starts there, and that range's size in bytes.
   std::vector<hir::Value*> context_values_;
+  std::vector<uint8_t> context_value_size_;
+  // Indexed by byte offset: the base offset of the tracked value covering
+  // this byte. Only meaningful while the corresponding validity bit is set.
+  std::vector<uint32_t> context_value_base_;
+  // Byte-granular: bit b is set iff some tracked value's range covers b.
   llvm::BitVector context_validity_;
 };
 

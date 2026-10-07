@@ -49,6 +49,9 @@ class WindowedApp {
 
   // Same as the executable (project), xenia-library-app.
   const std::string& GetName() const { return name_; }
+  // Human-readable title; defaults to GetName(). Used by the wx app for the
+  // wxApp name (drives wxConfig storage path) and as the initial frame title.
+  virtual std::string_view GetTitle() const { return name_; }
   const std::string& GetPositionalOptionsUsage() const {
     return positional_options_usage_;
   }

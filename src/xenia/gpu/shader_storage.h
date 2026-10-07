@@ -239,6 +239,9 @@ class ShaderStorageWriter {
           xe::path_to_utf8(pipeline_storage_file_path));
       return false;
     }
+    // "a+" leaves the read position at end of file on the BSDs, macOS included.
+    // Without this the header read finds nothing and the file looks corrupt.
+    xe::filesystem::Seek(pipeline_storage_file_, 0, SEEK_SET);
 
     // Read pipeline descriptions.
     const uint32_t pipeline_storage_version_swapped =
@@ -314,6 +317,7 @@ class ShaderStorageWriter {
       pipeline_storage_file_ = nullptr;
       return false;
     }
+    xe::filesystem::Seek(shader_storage_file_, 0, SEEK_SET);
 
     // Load shaders from storage.
     size_t shaders_loaded = 0;

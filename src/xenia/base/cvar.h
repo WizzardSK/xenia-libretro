@@ -53,9 +53,11 @@ class IConfigVar : virtual public ICommandVar {
   virtual bool is_advanced() const = 0;
   virtual bool is_transient() const = 0;
   virtual std::string config_value() const = 0;
+  virtual std::string default_value() const = 0;
   virtual std::string commandline_value() const = 0;
   virtual void LoadConfigValue(const toml::node* result) = 0;
   virtual void LoadGameConfigValue(const toml::node* result) = 0;
+  virtual void ClearGameConfigValue() = 0;
   virtual void ResetConfigValueToDefault() = 0;
   // Save/restore mechanism for temporarily loading values without contaminating
   // config
@@ -94,6 +96,7 @@ class ConfigVar : public CommandVar<T>, virtual public IConfigVar {
                const char* display_name, const char* category, bool is_advanced,
                bool is_transient);
   std::string config_value() const override;
+  std::string default_value() const override;
   std::string commandline_value() const override;
   const T& GetTypedConfigValue() const;
   const std::string& category() const override;
@@ -103,6 +106,7 @@ class ConfigVar : public CommandVar<T>, virtual public IConfigVar {
   void AddToLaunchOptions(cxxopts::Options* options) override;
   void LoadConfigValue(const toml::node* result) override;
   void LoadGameConfigValue(const toml::node* result) override;
+  void ClearGameConfigValue() override;
   void SetConfigValue(T val);
   void SetGameConfigValue(T val);
   // Changes the actual value used to the one specified, and also makes it the
@@ -161,7 +165,7 @@ template <>
 inline void CommandVar<std::filesystem::path>::LoadFromLaunchOptions(
     cxxopts::ParseResult* result) {
   std::string value = (*result)[name_].template as<std::string>();
-  SetCommandLineValue(value);
+  SetCommandLineValue(xe::to_path(value));
 }
 template <class T>
 void ConfigVar<T>::LoadConfigValue(const toml::node* result) {
@@ -223,7 +227,9 @@ ConfigVar<T>::ConfigVar(const char* name, T* default_value,
 
 template <class T>
 void CommandVar<T>::UpdateValue() {
-  if (commandline_value_) return SetValue(*commandline_value_);
+  if (commandline_value_) {
+    return SetValue(*commandline_value_);
+  }
   return SetValue(default_value_);
 }
 template <class T>
@@ -231,8 +237,12 @@ void ConfigVar<T>::UpdateValue() {
   if (this->commandline_value_) {
     return this->SetValue(*this->commandline_value_);
   }
-  if (game_config_value_) return this->SetValue(*game_config_value_);
-  if (config_value_) return this->SetValue(*config_value_);
+  if (game_config_value_) {
+    return this->SetValue(*game_config_value_);
+  }
+  if (config_value_) {
+    return this->SetValue(*config_value_);
+  }
   return this->SetValue(this->default_value_);
 }
 template <class T>
@@ -294,13 +304,20 @@ bool ConfigVar<T>::is_transient() const {
 }
 template <class T>
 std::string ConfigVar<T>::config_value() const {
-  if (config_value_) return this->ToString(*config_value_);
+  if (config_value_) {
+    return this->ToString(*config_value_);
+  }
+  return this->ToString(this->default_value_);
+}
+template <class T>
+std::string ConfigVar<T>::default_value() const {
   return this->ToString(this->default_value_);
 }
 template <class T>
 std::string ConfigVar<T>::commandline_value() const {
-  if (this->commandline_value_)
+  if (this->commandline_value_) {
     return this->ToString(*this->commandline_value_);
+  }
   return config_value();
 }
 template <class T>
@@ -320,6 +337,14 @@ void ConfigVar<T>::SetConfigValue(T val) {
 template <class T>
 void ConfigVar<T>::SetGameConfigValue(T val) {
   game_config_value_ = std::make_unique<T>(val);
+  UpdateValue();
+}
+template <class T>
+void ConfigVar<T>::ClearGameConfigValue() {
+  if (!game_config_value_) {
+    return;
+  }
+  game_config_value_.reset();
   UpdateValue();
 }
 template <class T>
@@ -513,10 +538,13 @@ ICommandVar* define_cmdvar(const char* name, T* default_value,
 
 #define ACCESS_CVar(name) (*cv::cv_##name)
 
+// Applies the value at the per-title (game config) priority: takes effect
+// immediately, is never written to the global config, and is dropped on the
+// next title load. The default for runtime/per-game-driven changes.
 // dynamic_cast is needed because of virtual inheritance.
 #define OVERRIDE_CVar(name, type, value)                   \
   dynamic_cast<cvar::ConfigVar<type>*>(&ACCESS_CVar(name)) \
-      ->OverrideConfigValue(value);
+      ->SetGameConfigValue(value);
 
 #define OVERRIDE_bool(name, value) OVERRIDE_CVar(name, bool, value)
 
@@ -532,6 +560,33 @@ ICommandVar* define_cmdvar(const char* name, T* default_value,
 
 #define OVERRIDE_path(name, value) \
   OVERRIDE_CVar(name, std::filesystem::path, value)
+
+// Like OVERRIDE_, but writes the value into the persisted global config. Use
+// only for deliberate global preference changes, never for per-game state.
+#define OVERRIDE_PERSIST_CVar(name, type, value)           \
+  dynamic_cast<cvar::ConfigVar<type>*>(&ACCESS_CVar(name)) \
+      ->OverrideConfigValue(value);
+
+#define OVERRIDE_PERSIST_bool(name, value) \
+  OVERRIDE_PERSIST_CVar(name, bool, value)
+
+#define OVERRIDE_PERSIST_int32(name, value) \
+  OVERRIDE_PERSIST_CVar(name, int32_t, value)
+
+#define OVERRIDE_PERSIST_uint32(name, value) \
+  OVERRIDE_PERSIST_CVar(name, uint32_t, value)
+
+#define OVERRIDE_PERSIST_uint64(name, value) \
+  OVERRIDE_PERSIST_CVar(name, uint64_t, value)
+
+#define OVERRIDE_PERSIST_double(name, value) \
+  OVERRIDE_PERSIST_CVar(name, double, value)
+
+#define OVERRIDE_PERSIST_string(name, value) \
+  OVERRIDE_PERSIST_CVar(name, std::string, value)
+
+#define OVERRIDE_PERSIST_path(name, value) \
+  OVERRIDE_PERSIST_CVar(name, std::filesystem::path, value)
 
 // Interface for changing the default value of a variable with auto-upgrading of
 // users' configs (to distinguish between a leftover old default and an explicit
@@ -604,7 +659,7 @@ class IConfigVarUpdate {
   // If you're reviewing a pull request with a change here, check if 1) has been
   // done by the submitter before merging.
   static constexpr uint32_t kLastCommittedUpdateDate =
-      MakeConfigVarUpdateDate(2024, 9, 23, 9);
+      MakeConfigVarUpdateDate(2026, 9, 14, 13);
 
   virtual ~IConfigVarUpdate() = default;
 
@@ -694,8 +749,9 @@ class ConfigVarUpdate : public IConfigVarUpdate {
       "updating config variable defaults.");                                  \
   namespace cv {                                                              \
   static const cvar::ConfigVarUpdateFromAny                                   \
-      update_##name_##year_##month_##day_##utc_hour(cv_##name, year, month,   \
-                                                    day, utc_hour);           \
+      update_##name##_##year##_##month##_##day##_##utc_hour(cv_##name, year,  \
+                                                            month, day,       \
+                                                            utc_hour);        \
   }
 
 #define UPDATE_CVar(name, year, month, day, utc_hour, old_default_value, type) \
@@ -708,9 +764,8 @@ class ConfigVarUpdate : public IConfigVarUpdate {
       "updating config variable defaults.");                                   \
   namespace cv {                                                               \
   static const cvar::ConfigVarUpdate<type>                                     \
-      update_##name_##year_##month_##day_##utc_hour(cv_##name, year, month,    \
-                                                    day, utc_hour,             \
-                                                    old_default_value);        \
+      update_##name##_##year##_##month##_##day##_##utc_hour(                   \
+          cv_##name, year, month, day, utc_hour, old_default_value);           \
   }
 
 #define UPDATE_from_bool(name, year, month, day, utc_hour, old_default_value) \

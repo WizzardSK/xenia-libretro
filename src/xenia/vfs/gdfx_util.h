@@ -23,6 +23,21 @@ constexpr size_t kGdfxSectorSize = 2048;
 constexpr char kGdfxMagic[] = "MICROSOFT*XBOX*MEDIA";
 constexpr size_t kGdfxMagicSize = 20;
 constexpr uint8_t kGdfxFileAttributeDirectory = 0x10;
+// The left offset read from directory padding. An entry never spans sectors,
+// so the rest of a sector the next entry doesn't fit in is filled with 0xFF, as
+// is the one sector of an empty directory.
+constexpr uint16_t kGdfxPaddingOffset = 0xFFFF;
+
+// The ordinal of the entry that padding at |ordinal| stands in for, which
+// starts the next sector, or 0 when the padding starts a sector and there is
+// no entry.
+inline uint32_t GdfxPaddedEntryOrdinal(uint32_t ordinal) {
+  const size_t offset = size_t(ordinal) * 4;
+  if (offset % kGdfxSectorSize == 0) {
+    return 0;
+  }
+  return uint32_t((offset / kGdfxSectorSize + 1) * kGdfxSectorSize / 4);
+}
 
 // Known offsets where the game partition might start.
 constexpr size_t kGdfxLikelyOffsets[] = {
@@ -73,13 +88,21 @@ struct GdfxFileLocation {
 
 inline bool GdfxEqualsIgnoreCase(const char* a, size_t a_len, const char* b,
                                  size_t b_len) {
-  if (a_len != b_len) return false;
+  if (a_len != b_len) {
+    return false;
+  }
   for (size_t i = 0; i < a_len; i++) {
     char ca = a[i];
     char cb = b[i];
-    if (ca >= 'A' && ca <= 'Z') ca += 32;
-    if (cb >= 'A' && cb <= 'Z') cb += 32;
-    if (ca != cb) return false;
+    if (ca >= 'A' && ca <= 'Z') {
+      ca += 32;
+    }
+    if (cb >= 'A' && cb <= 'Z') {
+      cb += 32;
+    }
+    if (ca != cb) {
+      return false;
+    }
   }
   return true;
 }
@@ -88,7 +111,7 @@ namespace detail {
 
 inline std::optional<GdfxFileLocation> GdfxFindFileInDirectory(
     const uint8_t* image_data, size_t image_size, size_t game_offset,
-    const uint8_t* dir_buffer, size_t dir_size, uint16_t entry_ordinal,
+    const uint8_t* dir_buffer, size_t dir_size, uint32_t entry_ordinal,
     const char* target_name, size_t target_len, int depth) {
   if (depth > 100) {
     return std::nullopt;
@@ -106,6 +129,16 @@ inline std::optional<GdfxFileLocation> GdfxFindFileInDirectory(
   uint32_t length = xe::load<uint32_t>(p + 8);
   uint8_t attributes = p[12];
   uint8_t name_length = p[13];
+
+  if (node_l == kGdfxPaddingOffset) {
+    const uint32_t padded_ordinal = GdfxPaddedEntryOrdinal(entry_ordinal);
+    if (!padded_ordinal) {
+      return std::nullopt;
+    }
+    return GdfxFindFileInDirectory(image_data, image_size, game_offset,
+                                   dir_buffer, dir_size, padded_ordinal,
+                                   target_name, target_len, depth + 1);
+  }
 
   if (entry_offset + 14 + name_length > dir_size) {
     return std::nullopt;

@@ -10,6 +10,8 @@
 #ifndef XENIA_CPU_PPC_PPC_HIR_BUILDER_H_
 #define XENIA_CPU_PPC_PPC_HIR_BUILDER_H_
 
+#include <initializer_list>
+
 #include "xenia/base/string_buffer.h"
 #include "xenia/cpu/function.h"
 #include "xenia/cpu/hir/hir_builder.h"
@@ -59,13 +61,44 @@ class PPCHIRBuilder : public hir::HIRBuilder {
   void UpdateCR6(Value* src_value);
   Value* LoadFPSCR();
   void StoreFPSCR(Value* value);
-  void UpdateFPSCR(Value* result, bool update_cr1);
+  // For instructions that cannot raise an exception.
+  void ClearFPSCRExceptions(bool update_cr1);
+  // Call before the arithmetic so the status the host reports afterwards
+  // belongs to that operation alone. Only the recording forms pay for it.
+  void BeginFPSCRUpdate(bool update_cr1);
+  // Derives the summary from what the host raised, plus the invalid a
+  // signalling NaN operand always means. Rc=0 clears the exception bits as
+  // ClearFPSCRExceptions does.
+  // `suppress`, when given, is a condition that clears everything raised.
+  void UpdateFPSCR(std::initializer_list<Value*> operands, bool update_cr1,
+                   Value* suppress = nullptr);
+  // As UpdateFPSCR, plus the 0 x inf the host is allowed to leave unsignalled.
+  void UpdateFPSCRForMultiplyAdd(Value* a, Value* c, Value* b, bool update_cr1,
+                                 Value* suppress = nullptr);
+  // The single-precision quirk: a denormalized operand answers with the
+  // default QNaN and raises nothing. Feed the condition to both of the above.
+  Value* SingleDenormalOperand(std::initializer_list<Value*> operands);
+  Value* ApplySingleDenormalOperand(Value* quirk, Value* result);
+  // Divide and square root take the other half of the quirk: a denormalized
+  // operand skips the rounding to single instead. Snapshot the status between
+  // the arithmetic and the rounding, then hand both to the update.
+  Value* SnapshotFpExceptions(bool update_cr1);
+  void UpdateFPSCRForUnroundedSingle(std::initializer_list<Value*> operands,
+                                     bool update_cr1, Value* quirk,
+                                     Value* before_rounding);
+  // For the estimates, whose host stand-ins raise nothing of their own.
+  void UpdateFPSCRForEstimate(Value* b, bool is_sqrt_estimate, bool update_cr1);
+  // For the conversions to integer, whose out of range invalid the host does
+  // not report: x64 clamps the operand before converting.
+  void UpdateFPSCRForConvertToInteger(Value* b, hir::RoundMode round_mode,
+                                      bool to_int64, bool update_cr1);
+  // For the paths whose answer is invalid and nothing else.
+  void SetFPSCRInvalid(bool update_cr1);
   void CopyFPSCRToCR1();
   Value* LoadXER();
   void StoreXER(Value* value);
-  // void UpdateXERWithOverflow();
-  // void UpdateXERWithOverflowAndCarry();
-  // void StoreOV(Value* value);
+  // Call before UpdateCR, which copies XER[SO] into the CR field.
+  void StoreOV(Value* value);
   Value* LoadCA();
   void StoreCA(Value* value);
   Value* LoadSAT();
@@ -78,8 +111,6 @@ class PPCHIRBuilder : public hir::HIRBuilder {
   Value* LoadVR(uint32_t reg);
   void StoreVR(uint32_t reg, Value* value);
 
-  void StoreReserved(Value* val);
-  Value* LoadReserved();
   // calls original impl in hirbuilder, but also records the is_return_site bit
   // into flags in the guestmodule
   void SetReturnAddress(Value* value);
@@ -87,6 +118,8 @@ class PPCHIRBuilder : public hir::HIRBuilder {
  private:
   void MaybeBreakOnInstruction(uint32_t address);
   void AnnotateLabel(uint32_t address, Label* label);
+  void StoreFPSCRSummary(Value* raised, bool update_cr1);
+  Value* FpInvalidFromOperands(std::initializer_list<Value*> operands);
 
   PPCFrontend* frontend_;
 
@@ -100,15 +133,6 @@ class PPCHIRBuilder : public hir::HIRBuilder {
   uint64_t instr_count_;
   Instr** instr_offset_list_;
   Label** label_list_;
-
-  // Reset each instruction.
-  struct {
-    uint32_t dest_count;
-    struct {
-      uint8_t reg;
-      Value* value;
-    } dests[4];
-  } trace_info_;
 };
 
 }  // namespace ppc

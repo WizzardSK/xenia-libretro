@@ -9,13 +9,9 @@
 
 #include "xenia/gpu/metal/metal_graphics_system.h"
 
-#include <algorithm>
-
 #include "xenia/base/logging.h"
-#include "xenia/base/math.h"
-#include "xenia/gpu/draw_util.h"
 #include "xenia/gpu/metal/metal_command_processor.h"
-#include "xenia/ui/metal/metal_util.h"
+#include "xenia/ui/metal/metal_provider.h"
 #include "xenia/xbox.h"
 
 namespace xe {
@@ -30,7 +26,7 @@ bool MetalGraphicsSystem::IsAvailable() {
   return xe::ui::metal::MetalProvider::IsMetalAPIAvailable();
 }
 
-std::string MetalGraphicsSystem::name() const { return "MetalGraphicsSystem"; }
+std::string MetalGraphicsSystem::name() const { return "Metal"; }
 
 X_STATUS MetalGraphicsSystem::Setup(cpu::Processor* processor,
                                     kernel::KernelState* kernel_state,

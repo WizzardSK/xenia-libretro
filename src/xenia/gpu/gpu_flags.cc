@@ -10,18 +10,48 @@
 #include "xenia/gpu/gpu_flags.h"
 
 #include "xenia/base/logging.h"
+#include "xenia/base/platform.h"
 #include "xenia/ui/renderdoc_api.h"
 
-DEFINE_bool(use_50Hz_mode, false, "Enables usage of PAL-50 mode.", "Video");
+// Unified-memory hosts (Apple Silicon, Windows on ARM) benefit from aliasing
+// guest RAM directly. x86-64 hosts are overwhelmingly discrete, where it is
+// slow, so default off there.
+#if XE_ARCH_ARM64
+#define XE_GPU_ZERO_COPY_DEFAULT true
+#else
+#define XE_GPU_ZERO_COPY_DEFAULT false
+#endif
+DEFINE_bool(
+    shared_memory_zero_copy, XE_GPU_ZERO_COPY_DEFAULT,
+    "Alias guest RAM directly as the GPU shared-memory buffer instead "
+    "of uploading dirty pages each frame. Removes upload copies and "
+    "keeps memexport and resolve output coherent with the CPU for free. "
+    "Default on for ARM64 (unified-memory) builds, off for x86-64. "
+    "Turn off on discrete GPUs, where shared-memory fetches cross PCIe "
+    "and are slow.",
+    "GPU");
+#undef XE_GPU_ZERO_COPY_DEFAULT
+
+DEFINE_bool(
+    enable_host_buffer, true,
+    "Import guest RAM as a second GPU buffer, so memexport output and resolve "
+    "readback reach the CPU in place rather than through a staging copy. With "
+    "it off, or where the driver can't import guest RAM, both fall back to "
+    "copying through a staging buffer. Ignored under shared_memory_zero_copy, "
+    "where the only buffer already aliases guest RAM. Applies at title "
+    "launch.",
+    "GPU");
+
+DEFINE_bool(use_50Hz_mode, false, "Enables usage of PAL-50 mode.", "Console");
 
 DEFINE_path(trace_gpu_prefix, "scratch/gpu/",
-            "Prefix path for GPU trace files.", "GPU");
-DEFINE_bool(trace_gpu_stream, false, "Trace all GPU packets.", "GPU");
+            "Prefix path for GPU trace files.", "GPU.Debug");
+DEFINE_bool(trace_gpu_stream, false, "Trace all GPU packets.", "GPU.Debug");
 
 DEFINE_path(
     dump_shaders, "",
     "For shader debugging, path to dump GPU shaders to as they are compiled.",
-    "GPU");
+    "GPU.Debug");
 
 DEFINE_bool(guest_display_refresh_cap, true,
             "Control guest vblank timing.\n"
@@ -31,20 +61,19 @@ DEFINE_bool(guest_display_refresh_cap, true,
             "possible.",
             "GPU");
 
-DEFINE_uint64(
+DEFINE_uint32(
     framerate_limit, 0,
     "Host frame rate limit in FPS. 0 = unlimited.\n"
     "Throttles presentation without affecting guest vblank timing.\n"
     "Guest vblanks are controlled by use_50Hz_mode (50Hz PAL, 60Hz NTSC).",
     "GPU");
-UPDATE_from_uint64(framerate_limit, 2024, 8, 31, 20, 60);
 
 void SetGuestDisplayRefreshCap(bool value) {
   OVERRIDE_bool(guest_display_refresh_cap, value);
 }
 
-void SetFramerateLimit(uint64_t value) {
-  OVERRIDE_uint64(framerate_limit, value);
+void SetFramerateLimit(uint32_t value) {
+  OVERRIDE_uint32(framerate_limit, value);
 }
 
 DEFINE_bool(
@@ -54,17 +83,19 @@ DEFINE_bool(
     "may be used to bypass fetch constant type errors in certain games until "
     "the real reason why they're invalid is found.",
     "GPU");
+// TODO(has207): allocs invalidate stale pages, drop this if nothing regresses.
 DEFINE_bool(
-    gpu_allow_invalid_upload_range, false,
+    gpu_allow_invalid_upload_range, true,
     "Allows games to read data from pages that are marked as no access.",
     "GPU");
+UPDATE_from_bool(gpu_allow_invalid_upload_range, 2026, 9, 12, 12, false);
 
 DEFINE_bool(
     non_seamless_cube_map, true,
     "Disable filtering between cube map faces near edges where possible "
     "(Vulkan with VK_EXT_non_seamless_cube_map) to reproduce the Direct3D 9 "
     "behavior.",
-    "GPU");
+    "GPU.Debug");
 
 // Extremely bright screen borders in 4D5307E6.
 // Reading between texels with half-pixel offset in 58410954.
@@ -78,28 +109,22 @@ DEFINE_bool(
     "textures, for instance, when they are read between texels rather than "
     "at texel centers, or the leftmost/topmost pixels may not be fully covered "
     "when MSAA is used with fullscreen passes.",
-    "GPU");
+    "GPU.Debug");
 
-DEFINE_int32(query_occlusion_sample_lower_threshold, 80,
-             "If set to -1 no sample counts are written, games may hang. Else, "
-             "the sample count of every tile will be incremented on every "
-             "EVENT_WRITE_ZPD by this number. Setting this to 0 means "
-             "everything is reported as occluded.",
+DEFINE_int32(occlusion_query_fake_lower_threshold, 80,
+             "Lower end of the fake sample count value written on "
+             "EVENT_WRITE_ZPD when real occlusion queries are disabled.\n"
+             "-1 writes nothing, resulting in some games that sit and hang.\n"
+             "0 means the fake result stays fully occluded.",
              "GPU");
-DEFINE_int32(
-    query_occlusion_sample_upper_threshold, 100,
-    "Set to higher number than query_occlusion_sample_lower_threshold. This "
-    "value is ignored if query_occlusion_sample_lower_threshold is set to -1.",
-    "GPU");
-
-DEFINE_bool(occlusion_query_enable, false,
-            "Use hardware occlusion queries instead of fake results. More "
-            "accurate but causes GPU stalls and performance issues.",
-            "GPU");
-
-void SetOcclusionQueryEnable(bool value) {
-  OVERRIDE_bool(occlusion_query_enable, value);
-}
+DEFINE_int32(occlusion_query_fake_upper_threshold, 100,
+             "Upper end of the fake sample count value written on "
+             "EVENT_WRITE_ZPD when real occlusion queries are disabled.\n"
+             "Keep this higher than occlusion_query_fake_lower_threshold.\n"
+             "Ignored if occlusion_query_fake_lower_threshold is -1.",
+             "GPU");
+DEFINE_bool(occlusion_query_log, false,
+            "Log occlusion query lifetime and summary stats.", "GPU");
 
 uint32_t GetGuestVblankRateHz() { return cvars::use_50Hz_mode ? 50 : 60; }
 
@@ -163,7 +188,7 @@ DEFINE_bool(submit_on_primary_buffer_end, true,
 DEFINE_bool(no_discard_stencil_in_transfer_pipelines, false,
             "Skip stencil bit discard in render target transfer pipelines. "
             "May improve performance on some GPUs.",
-            "GPU");
+            "GPU.Debug");
 
 DEFINE_bool(
     async_shader_compilation, true,
@@ -172,6 +197,33 @@ DEFINE_bool(
     "Eliminates shader compilation stutter but may cause brief rendering "
     "artifacts while pipelines are being created. When disabled, pipelines are "
     "created synchronously which causes stutter but no visual artifacts.",
+    "GPU");
+
+DEFINE_bool(async_shader_vs_interpreter, true,
+            "Render new vertex shaders with the ucode interpreter while they "
+            "translate and compile in the background, instead of stalling on "
+            "translation. Requires async_shader_compilation.",
+            "GPU");
+DEFINE_bool(
+    async_shader_vs_interpreter_debug_color, false,
+    "Draw ucode interpreter VS placeholders with a flat grey pixel "
+    "shader so the interim geometry is visible (host render target path "
+    "only). Requires async_shader_vs_interpreter.",
+    "GPU");
+DEFINE_bool(
+    async_shader_skip_draws, true,
+    "Skip draws whose shaders can't render immediately via a placeholder "
+    "(no interpreter stand-in, e.g. tessellation or textured/memexport/loop "
+    "vertex shaders) until their real pipeline compiles in the background, "
+    "instead of translating them on the draw thread. Avoids stutter but the "
+    "geometry pops in a few frames later.",
+    "GPU");
+
+DEFINE_bool(
+    shader_profiling, false,
+    "Log shader translation and host pipeline (PSO) creation timings, tagged "
+    "with 'shader_profiling:'. Off by default because it logs per shader and "
+    "per pipeline.",
     "GPU");
 
 DEFINE_bool(
@@ -200,3 +252,23 @@ DEFINE_int32(anisotropic_override, -1,
              "  4 = Force 8x anisotropic filtering\n"
              "  5 = Force 16x anisotropic filtering",
              "GPU");
+
+DEFINE_bool(use_fuzzy_alpha_epsilon, false,
+            "Use approximate compare for alpha values to prevent flickering on "
+            "NVIDIA graphics cards",
+            "GPU");
+
+DEFINE_bool(
+    force_depth_clamp, false,
+    "Use host depth clamping instead of near and far plane clipping when "
+    "guest clipping is enabled. X/Y/W clipping is unaffected. On Vulkan, "
+    "this requires depthClamp support.",
+    "GPU");
+
+DEFINE_bool(
+    mulsc_round_toward_zero, false,
+    "Round mulsc products toward zero instead of to nearest even. This fixes "
+    "bad geometry in several Volition Engine titles and possibly others. "
+    "This rounding behavior hasn't been confirmed on real hardware, so it's "
+    "disabled by default.",
+    "GPU");

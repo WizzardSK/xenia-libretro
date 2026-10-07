@@ -10,6 +10,9 @@
 #ifndef XENIA_KERNEL_XBOXKRNL_XBOXKRNL_OB_H_
 #define XENIA_KERNEL_XBOXKRNL_XBOXKRNL_OB_H_
 
+#include <string>
+#include <string_view>
+
 #include "xenia/cpu/ppc/ppc_context.h"
 #include "xenia/kernel/kernel.h"
 
@@ -29,6 +32,11 @@ uint32_t xeObCreateObject(X_OBJECT_TYPE* object_factory,
                           X_OBJECT_ATTRIBUTES* optional_attributes,
                           uint32_t object_size_sans_headers,
                           uint32_t* out_object, cpu::ppc::PPCContext* context);
+// Drops a leading \??\, the DOS devices directory the ObDosDevices root also
+// names, so \??\game:\file is game:\file.
+void xeObStripDosDevicesPrefix(std::string& path);
+// Canonical link name without the \??\ or \System??\ object directory.
+std::string xeObSymbolicLinkName(std::string_view name);
 }  // namespace xboxkrnl
 }  // namespace kernel
 }  // namespace xe

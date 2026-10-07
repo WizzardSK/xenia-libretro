@@ -100,7 +100,9 @@ class ProfileManager {
 
   UserProfile* GetProfile(const uint64_t xuid) const;
   UserProfile* GetProfile(const uint8_t user_index) const;
+  UserProfile* GetProfileLive(const uint64_t xuid) const;
   uint8_t GetUserIndexAssignedToProfile(const uint64_t xuid) const;
+  uint8_t GetUserIndexAssignedToLiveProfile(const uint64_t xuid_online) const;
 
   const std::map<uint64_t, X_XAMACCOUNTINFO>* GetAccounts() {
     return &accounts_;
@@ -118,12 +120,7 @@ class ProfileManager {
 
   bool UpdateAccount(const uint64_t xuid, const X_XAMACCOUNTINFO* account);
 
-  // Clears the title path from all profiles' dashboard GPDs
-  bool ClearTitlePath(uint32_t title_id);
-
-  bool RemoveTitleFromAllProfiles(uint32_t title_id);
   std::vector<ScannedTitleInfo> ScanAllProfilesForTitles() const;
-  std::filesystem::path GetMostRecentlyPlayedTitlePath() const;
 
   static bool IsGamertagValid(const std::string gamertag);
 

@@ -162,6 +162,20 @@ class DeferredCommandBuffer {
     args.flags = flags;
   }
 
+  void CmdVkBeginConditionalRenderingEXT(VkBuffer buffer, VkDeviceSize offset,
+                                         VkConditionalRenderingFlagsEXT flags) {
+    auto& args = *reinterpret_cast<ArgsVkBeginConditionalRenderingEXT*>(
+        WriteCommand(Command::kVkBeginConditionalRenderingEXT,
+                     sizeof(ArgsVkBeginConditionalRenderingEXT)));
+    args.buffer = buffer;
+    args.offset = offset;
+    args.flags = flags;
+  }
+
+  void CmdVkEndConditionalRenderingEXT() {
+    WriteCommand(Command::kVkEndConditionalRenderingEXT, 0);
+  }
+
   void CmdVkResetQueryPool(VkQueryPool query_pool, uint32_t first_query,
                            uint32_t query_count) {
     auto& args = *reinterpret_cast<ArgsVkResetQueryPool*>(
@@ -272,6 +286,16 @@ class DeferredCommandBuffer {
                 regions, sizeof(VkBufferImageCopy) * region_count);
   }
 
+  void CmdVkFillBuffer(VkBuffer dst_buffer, VkDeviceSize dst_offset,
+                       VkDeviceSize size, uint32_t data) {
+    auto& args = *reinterpret_cast<ArgsVkFillBuffer*>(
+        WriteCommand(Command::kVkFillBuffer, sizeof(ArgsVkFillBuffer)));
+    args.dst_buffer = dst_buffer;
+    args.dst_offset = dst_offset;
+    args.size = size;
+    args.data = data;
+  }
+
   VkImageBlit* CmdBlitImageEmplace(VkImage src_image,
                                    VkImageLayout src_image_layout,
                                    VkImage dst_image,
@@ -291,6 +315,32 @@ class DeferredCommandBuffer {
     args.filter = filter;
     return reinterpret_cast<VkImageBlit*>(args_ptr + header_size);
   }
+  VkImageCopy* CmdCopyImageEmplace(VkImage src_image,
+                                   VkImageLayout src_image_layout,
+                                   VkImage dst_image,
+                                   VkImageLayout dst_image_layout,
+                                   uint32_t region_count) {
+    const size_t header_size =
+        xe::align(sizeof(ArgsVkCopyImage), alignof(VkImageCopy));
+    uint8_t* args_ptr = reinterpret_cast<uint8_t*>(
+        WriteCommand(Command::kVkCopyImage,
+                     header_size + sizeof(VkImageCopy) * region_count));
+    auto& args = *reinterpret_cast<ArgsVkCopyImage*>(args_ptr);
+    args.src_image = src_image;
+    args.src_image_layout = src_image_layout;
+    args.dst_image = dst_image;
+    args.dst_image_layout = dst_image_layout;
+    args.region_count = region_count;
+    return reinterpret_cast<VkImageCopy*>(args_ptr + header_size);
+  }
+  void CmdVkCopyImage(VkImage src_image, VkImageLayout src_image_layout,
+                      VkImage dst_image, VkImageLayout dst_image_layout,
+                      uint32_t region_count, const VkImageCopy* regions) {
+    std::memcpy(CmdCopyImageEmplace(src_image, src_image_layout, dst_image,
+                                    dst_image_layout, region_count),
+                regions, sizeof(VkImageCopy) * region_count);
+  }
+
   void CmdVkBlitImage(VkImage src_image, VkImageLayout src_image_layout,
                       VkImage dst_image, VkImageLayout dst_image_layout,
                       uint32_t region_count, const VkImageBlit* regions,
@@ -470,11 +520,15 @@ class DeferredCommandBuffer {
     kVkEndQuery,
     kVkCopyQueryPoolResults,
     kVkResetQueryPool,
+    kVkBeginConditionalRenderingEXT,
+    kVkEndConditionalRenderingEXT,
     kVkClearAttachments,
     kVkClearColorImage,
     kVkCopyBuffer,
     kVkCopyBufferToImage,
+    kVkFillBuffer,
     kVkBlitImage,
+    kVkCopyImage,
     kVkDispatch,
     kVkDraw,
     kVkDrawIndexed,
@@ -578,6 +632,12 @@ class DeferredCommandBuffer {
     VkQueryResultFlags flags;
   };
 
+  struct ArgsVkBeginConditionalRenderingEXT {
+    VkBuffer buffer;
+    VkDeviceSize offset;
+    VkConditionalRenderingFlagsEXT flags;
+  };
+
   struct ArgsVkResetQueryPool {
     VkQueryPool query_pool;
     uint32_t first_query;
@@ -618,6 +678,13 @@ class DeferredCommandBuffer {
     static_assert(alignof(VkBufferImageCopy) <= alignof(uintmax_t));
   };
 
+  struct ArgsVkFillBuffer {
+    VkBuffer dst_buffer;
+    VkDeviceSize dst_offset;
+    VkDeviceSize size;
+    uint32_t data;
+  };
+
   struct ArgsVkBlitImage {
     VkImage src_image;
     VkImageLayout src_image_layout;
@@ -627,6 +694,16 @@ class DeferredCommandBuffer {
     VkFilter filter;
     // Followed by aligned VkImageBlit[].
     static_assert(alignof(VkImageBlit) <= alignof(uintmax_t));
+  };
+
+  struct ArgsVkCopyImage {
+    VkImage src_image;
+    VkImageLayout src_image_layout;
+    VkImage dst_image;
+    VkImageLayout dst_image_layout;
+    uint32_t region_count;
+    // Followed by aligned VkImageCopy[].
+    static_assert(alignof(VkImageCopy) <= alignof(uintmax_t));
   };
 
   struct ArgsVkDispatch {

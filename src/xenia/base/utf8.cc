@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <tuple>
 
 // https://github.com/nemtrif/utfcpp/issues/85
 #if defined(_MSVC_LANG) && _MSVC_LANG > __cplusplus
@@ -36,7 +37,7 @@ uint32_t lower_ascii(const uint32_t c) {
 }
 
 uint32_t upper_ascii(const uint32_t c) {
-  return c >= 'A' && c <= 'Z' ? c + 32 : c;
+  return c >= 'a' && c <= 'z' ? c - 32 : c;
 }
 
 bool equal_ascii_case(const uint32_t l, const uint32_t r) {

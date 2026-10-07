@@ -73,13 +73,16 @@ class DebugPrintLogSink final : public LogSink {
 
 // Initializes the logging system and any outputs requested.
 // Must be called on startup.
-void InitializeLogging(const std::string_view app_name,
-                       bool is_game_process = false);
+void InitializeLogging(const std::string_view app_name);
 void ShutdownLogging();
+void FlushLog();
 
 // Flushes all log sinks immediately.
 // Useful before quick_exit() to ensure logs are written.
 void FlushLog();
+// Whether the calling thread is the one writing the log out, which would wait
+// on itself to log.
+bool IsLogWriterThread();
 
 namespace logging {
 
@@ -88,9 +91,15 @@ constexpr char kPrefixCharWarning = 'w';
 constexpr char kPrefixCharInfo = 'i';
 constexpr char kPrefixCharDebug = 'd';
 
-void ToggleLogLevel();
 bool ShouldLog(LogLevel log_level,
                uint32_t log_mask = xe::LogSrc::Uncategorized);
+
+// Advances the present-frame counter shown in the log prefix.
+// Called once per guest present (VdSwap).
+void IncrementFrameNumber();
+// The same counter, for anything needing a cheap "is the guest still
+// presenting frames" signal (the guest scheduler's no-progress detector).
+uint32_t GetFrameNumber();
 namespace internal {
 
 uint32_t GetLogLevel();

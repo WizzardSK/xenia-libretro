@@ -14,6 +14,7 @@
 // devices and falls back to staged uploads when unsupported.
 
 #include "xenia/gpu/shared_memory.h"
+#include "xenia/gpu/trace_writer.h"
 #include "xenia/ui/metal/metal_api.h"
 
 namespace xe {
@@ -23,7 +24,8 @@ namespace metal {
 class MetalCommandProcessor;
 class MetalSharedMemory : public SharedMemory {
  public:
-  MetalSharedMemory(MetalCommandProcessor& command_processor, Memory& memory);
+  MetalSharedMemory(MetalCommandProcessor& command_processor, Memory& memory,
+                    TraceWriter& trace_writer);
   ~MetalSharedMemory() override;
   bool Initialize();
   void Shutdown();
@@ -42,8 +44,14 @@ class MetalSharedMemory : public SharedMemory {
   bool UploadRanges(const std::pair<uint32_t, uint32_t>* upload_page_ranges,
                     uint32_t num_upload_ranges) override;
 
+  // Returns true if there is GPU-written data for the trace. The buffer is
+  // CPU-visible, so nothing is submitted - the caller must await the GPU.
+  bool InitializeTraceSubmitDownloads();
+  void InitializeTraceCompleteDownloads();
+
  private:
   MetalCommandProcessor& command_processor_;
+  TraceWriter& trace_writer_;
   MTL::Buffer* buffer_ = nullptr;
   bool use_zero_copy_ = false;
 };

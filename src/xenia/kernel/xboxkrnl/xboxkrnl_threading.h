@@ -16,6 +16,7 @@
 namespace xe {
 namespace kernel {
 struct X_KEVENT;
+class XThread;
 
 namespace xboxkrnl {
 
@@ -57,9 +58,13 @@ void xeKeInitializeApc(XAPC* apc, uint32_t thread_ptr, uint32_t kernel_routine,
 uint32_t xeKeInsertQueueApc(XAPC* apc, uint32_t arg1, uint32_t arg2,
                             uint32_t priority_increment,
                             cpu::ppc::PPCContext* context);
+uint32_t xeInsertQueueApcAndWake(XThread* thread, XAPC* apc, uint32_t arg1,
+                                 uint32_t arg2, cpu::ppc::PPCContext* context);
+uint32_t xeKeRemoveQueueApc(XAPC* apc, cpu::ppc::PPCContext* context);
 uint32_t xeNtQueueApcThread(uint32_t thread_handle, uint32_t apc_routine,
                             uint32_t apc_routine_context, uint32_t arg1,
-                            uint32_t arg2, cpu::ppc::PPCContext* context);
+                            uint32_t arg2, uint32_t apc_mode,
+                            cpu::ppc::PPCContext* context);
 void xeKfLowerIrql(PPCContext* ctx, unsigned char new_irql);
 unsigned char xeKfRaiseIrql(PPCContext* ctx, unsigned char new_irql);
 
@@ -70,9 +75,41 @@ uint32_t xeKeKfAcquireSpinLock(PPCContext* ctx, X_KSPINLOCK* lock,
 
 X_STATUS xeProcessUserApcs(PPCContext* ctx);
 
+// Runs queued kernel-mode APCs at the wait/yield/delay shims, alertable or
+// not, like the real kernel's next-boundary delivery. Wait-transparent, the
+// wait proceeds normally after. No-op above PASSIVE_LEVEL or when nested.
+// Returns true if any ran.
+bool xeProcessKernelApcs(PPCContext* ctx);
+
+// Runs the DPCs this guest thread queued while a DPC ran, before it leaves
+// DISPATCH_LEVEL. Called with the DPC still active.
+void xeRunDeferredDpcs(PPCContext* ctx);
+
+// Calls a DPC's routine with |arg1| and |arg2| as its system arguments.
+// Called with the DPC active.
+void xeRunDpc(PPCContext* ctx, uint32_t dpc_ptr, uint32_t arg1, uint32_t arg2);
+
 void xeRundownApcs(PPCContext* ctx);
 uint32_t xeKeGetCurrentProcessType(PPCContext* context);
 void xeKeSetCurrentProcessType(uint32_t type, PPCContext* context);
+
+enum CreateThreadFlags : uint32_t {
+  ThreadInitiallySuspended = 0x00000001,
+  SystemThread = 0x00000002,
+  TLSStatic = 0x00000008,
+  PriorityClass1 = 0x00000020,
+  PriorityClass2 = 0x00000040,
+  ReturnKThreadPtr = 0x00000080,
+  TitleExecutionThread = 0x00000100,
+  Hidden = 0x00000400,
+  AffinityCpu0 = 0x01000000,
+  AffinityCpu1 = 0x02000000,
+  AffinityCpu2 = 0x04000000,
+  AffinityCpu3 = 0x08000000,
+  AffinityCpu4 = 0x10000000,
+  AffinityCpu5 = 0x20000000,
+};
+
 }  // namespace xboxkrnl
 }  // namespace kernel
 }  // namespace xe

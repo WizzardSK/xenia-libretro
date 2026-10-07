@@ -116,6 +116,15 @@ void FlushMappedMemoryRange(const VulkanDevice* vulkan_device,
                             VkDeviceSize memory_size = VK_WHOLE_SIZE,
                             VkDeviceSize size = VK_WHOLE_SIZE);
 
+// Invalidates the CPU cache for a mapped range so GPU writes are visible to the
+// host. A no-op if the memory is host-coherent. Same range semantics as
+// FlushMappedMemoryRange.
+void InvalidateMappedMemoryRange(const VulkanDevice* vulkan_device,
+                                 VkDeviceMemory memory, uint32_t memory_type,
+                                 VkDeviceSize offset = 0,
+                                 VkDeviceSize memory_size = VK_WHOLE_SIZE,
+                                 VkDeviceSize size = VK_WHOLE_SIZE);
+
 inline VkExtent2D GetMax2DFramebufferExtent(
     const VulkanDevice::Properties& device_properties) {
   VkExtent2D max_extent;

@@ -723,6 +723,7 @@ struct MicroProfileThreadLog
 	MicroProfileLogEntry*	Log;
 	std::atomic<uint32_t>	nPut;
 	std::atomic<uint32_t>	nGet;
+	std::atomic<bool>		nDropped;
 
 	MicroProfileLogEntry*	LogGpu;
 	std::atomic<uint32_t>	nPutGpu;
@@ -735,9 +736,12 @@ struct MicroProfileThreadLog
 	MicroProfileThreadIdType nThreadId;
 	uint32_t 				nLogIndex;
 
-	uint32_t				nStack[MICROPROFILE_STACK_MAX];
+	// Enter entries themselves, since the ring can recycle an open scope's slot
+	MicroProfileLogEntry	nStack[MICROPROFILE_STACK_MAX];
 	int64_t					nChildTickStack[MICROPROFILE_STACK_MAX];
 	uint32_t				nStackPos;
+	// Enters skipped at max depth, each skipping the next leave
+	uint32_t				nStackOverflow;
 
 
 	uint8_t					nGroupStackPos[MICROPROFILE_MAX_GROUPS];
@@ -1001,7 +1005,6 @@ inline uint16_t MicroProfileGetGroupIndex(MicroProfileToken t)
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#define snprintf _snprintf
 
 #pragma warning(push)
 #pragma warning(disable: 4244)
@@ -1617,6 +1620,7 @@ inline void MicroProfileLogPut(MicroProfileToken nToken_, uint64_t nTick, uint64
 	if(nNextPos == pLog->nGet.load(std::memory_order_relaxed))
 	{
 		S.nOverflow = 100;
+		pLog->nDropped.store(true, std::memory_order_relaxed);
 	}
 	else
 	{
@@ -1904,6 +1908,7 @@ void MicroProfileFlipCpu()
 			if(pLog)
 			{
 				pLog->nStackPos = 0;
+				pLog->nStackOverflow = 0;
 			}
 		}
 	}
@@ -2061,9 +2066,10 @@ void MicroProfileFlipCpu()
 					}
 					
 					
-					uint32_t* pStack = &pLog->nStack[0];
+					MicroProfileLogEntry* pStack = &pLog->nStack[0];
 					int64_t* pChildTickStack = &pLog->nChildTickStack[0];
 					uint32_t nStackPos = pLog->nStackPos;
+					uint32_t nStackOverflow = pLog->nStackOverflow;
 
 					for(uint32_t j = 0; j < 2; ++j)
 					{
@@ -2076,12 +2082,17 @@ void MicroProfileFlipCpu()
 
 							if(MP_LOG_ENTER == nType)
 							{
+								// Keep one slot free, a leave reads the child ticks above the top
+								if(nStackPos >= MICROPROFILE_STACK_MAX - 1)
+								{
+									nStackOverflow++;
+									continue;
+								}
 								int nTimer = MicroProfileLogTimerIndex(LE);
 								uint8_t nGroup = pTimerToGroup[nTimer];
-								MP_ASSERT(nStackPos < MICROPROFILE_STACK_MAX);
 								MP_ASSERT(nGroup < MICROPROFILE_MAX_GROUPS);
 								pGroupStackPos[nGroup]++;
-								pStack[nStackPos++] = k;
+								pStack[nStackPos++] = LE;
 								pChildTickStack[nStackPos] = 0;
 
 							}
@@ -2092,18 +2103,23 @@ void MicroProfileFlipCpu()
 									int64_t nMetaIndex = MicroProfileLogTimerIndex(LE);
 									int64_t nMetaCount = MicroProfileLogGetTick(LE);
 									MP_ASSERT(nMetaIndex < MICROPROFILE_META_MAX);
-									int64_t nCounter = MicroProfileLogTimerIndex(pLog->Log[pStack[nStackPos-1]]);
+									int64_t nCounter = MicroProfileLogTimerIndex(pStack[nStackPos-1]);
 									S.MetaCounters[nMetaIndex].nCounters[nCounter] += nMetaCount;
 								}
 							}
 							else if(MP_LOG_LEAVE == nType)
 							{
+								if(nStackOverflow)
+								{
+									nStackOverflow--;
+									continue;
+								}
 								int nTimer = MicroProfileLogTimerIndex(LE);
 								uint8_t nGroup = pTimerToGroup[nTimer];
 								MP_ASSERT(nGroup < MICROPROFILE_MAX_GROUPS);
 								if(nStackPos)
 								{									
-									int64_t nTickStart = pLog->Log[pStack[nStackPos-1]];
+									int64_t nTickStart = pStack[nStackPos-1];
 									int64_t nTicks = MicroProfileLogTickDifference(nTickStart, LE);
 									int64_t nChildTicks = pChildTickStack[nStackPos];
 									nStackPos--;
@@ -2134,7 +2150,15 @@ void MicroProfileFlipCpu()
 						pLog->nGroupTicks[i] += nGroupTicks[i];
 						pFrameGroup[i] += nGroupTicks[i];
 					}
+					// Scopes cut by a drop never pair up, so start the next flip empty
+					if(pLog->nDropped.exchange(false, std::memory_order_relaxed))
+					{
+						nStackPos = 0;
+						nStackOverflow = 0;
+						memset(pGroupStackPos, 0, sizeof(pLog->nGroupStackPos));
+					}
 					pLog->nStackPos = nStackPos;
+					pLog->nStackOverflow = nStackOverflow;
 				}
 			}
 			{
@@ -2727,7 +2751,7 @@ void MicroProfileDumpCsv(MicroProfileWriteCallback CB, void* Handle, int nMaxFra
 	float fToMsGPU = MicroProfileTickToMsMultiplier(MicroProfileTicksPerSecondGpu());
 
 	MicroProfilePrintf(CB, Handle, "frames,%d\n", nAggregateFrames);
-	MicroProfilePrintf(CB, Handle, "group,name,average,max,callaverage\n");
+	MicroProfilePrintf(CB, Handle, "group,name,average,max,callaverage,exclusiveaverage,exclusivemax,min,total,count\n");
 
 	uint32_t nNumTimers = S.nTotalTimers;
 	uint32_t nBlockSize = 2 * nNumTimers;
@@ -2746,7 +2770,7 @@ void MicroProfileDumpCsv(MicroProfileWriteCallback CB, void* Handle, int nMaxFra
 	for(uint32_t i = 0; i < S.nTotalTimers; ++i)
 	{
 		uint32_t nIdx = i * 2;
-		MicroProfilePrintf(CB, Handle, "\"%s\",\"%s\",%f,%f,%f\n", S.TimerInfo[i].pName, S.GroupInfo[S.TimerInfo[i].nGroupIndex].pName, pAverage[nIdx], pMax[nIdx], pCallAverage[nIdx]);
+		MicroProfilePrintf(CB, Handle, "\"%s\",\"%s\",%f,%f,%f,%f,%f,%f,%f,%u\n", S.TimerInfo[i].pName, S.GroupInfo[S.TimerInfo[i].nGroupIndex].pName, pAverage[nIdx], pMax[nIdx], pCallAverage[nIdx], pAverageExclusive[nIdx], pMaxExclusive[nIdx], pMin[nIdx], pTotal[nIdx], S.Aggregate[i].nCount);
 	}
 
 	MicroProfilePrintf(CB, Handle, "\n\n");
@@ -2820,6 +2844,38 @@ void MicroProfileDumpCsv(MicroProfileWriteCallback CB, void* Handle, int nMaxFra
 		{
 			MicroProfilePrintf(CB, Handle, "\"%s\",%f,%lld,%lld\n",S.MetaCounters[j].pName, S.MetaCounters[j].nSumAggregate / (float)nAggregateFrames, (long long)S.MetaCounters[j].nSumAggregateMax, (long long)S.MetaCounters[j].nSumAggregate);
 		}
+	}
+
+	MicroProfilePrintf(CB, Handle, "\n\n");
+	MicroProfilePrintf(CB, Handle, "Counters\n");//only single frame snapshot
+	MicroProfilePrintf(CB, Handle, "name,value,formatted\n");
+	for(uint32_t i = 0; i < S.nNumCounters; ++i)
+	{
+		//names are stored per level, so walk to the root to spell the full path
+		int nStack[16];
+		int nDepth = 0;
+		for(int nNode = (int)i; nNode >= 0 && nDepth < 16; nNode = S.CounterInfo[nNode].nParent)
+		{
+			nStack[nDepth++] = nNode;
+		}
+		char Path[512];
+		uint32_t nPathLen = 0;
+		while(nDepth-- > 0)
+		{
+			const char* pName = S.CounterInfo[nStack[nDepth]].pName;
+			uint32_t nLen = (uint32_t)strlen(pName);
+			if(nPathLen + nLen + 2 >= sizeof(Path))
+				break;
+			if(nPathLen)
+				Path[nPathLen++] = '/';
+			memcpy(Path + nPathLen, pName, nLen);
+			nPathLen += nLen;
+		}
+		Path[nPathLen] = '\0';
+		int64_t nCounter = S.Counters[i].load();
+		char Formatted[64];
+		MicroProfileFormatCounter(S.CounterInfo[i].eFormat, nCounter, Formatted, sizeof(Formatted)-1);
+		MicroProfilePrintf(CB, Handle, "\"%s\",%lld,\"%s\"\n", Path, (long long)nCounter, Formatted);
 	}
 }
 

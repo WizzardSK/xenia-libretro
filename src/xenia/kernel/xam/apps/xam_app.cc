@@ -111,21 +111,39 @@ X_HRESULT XamApp::DispatchMessageSync(uint32_t message, uint32_t buffer_ptr,
       }* data = reinterpret_cast<XContentQueryVolumeDeviceType*>(buffer);
       assert_true(buffer_length == sizeof(XContentQueryVolumeDeviceType));
 
+      std::string target;
+      if (!kernel_state_->file_system()->FindSymbolicLink(
+              std::string(data->root_name) + ':', target)) {
+        return X_E_INVALIDARG;
+      }
+
+      // Content packages are mounted from the HDD content store.
+      const bool is_content_package = target.starts_with("\\Device\\Content\\");
+
+      // Only apply this check to XContent packages
+      if (!is_content_package && !target.starts_with("\\Device\\Package_")) {
+        return X_E_INVALIDARG;
+      }
+
       xe::be<DeviceType>* device_type_ptr =
           memory_->TranslateVirtual<xe::be<DeviceType>*>(
               static_cast<uint32_t>(data->device_type_ptr.get()));
 
-      switch (kernel_state_->deployment_type_) {
-        case XDeploymentType::kDownload:
-        case XDeploymentType::kInstalledToHDD: {
-          *device_type_ptr = DeviceType::HDD;
-        } break;
-        case XDeploymentType::kOpticalDisc: {
-          *device_type_ptr = DeviceType::ODD;
-        } break;
-        default: {
-          *device_type_ptr = DeviceType::Invalid;
-        } break;
+      if (is_content_package) {
+        *device_type_ptr = DeviceType::HDD;
+      } else {
+        switch (kernel_state_->deployment_type_) {
+          case XDeploymentType::kDownload:
+          case XDeploymentType::kInstalledToHDD: {
+            *device_type_ptr = DeviceType::HDD;
+          } break;
+          case XDeploymentType::kOpticalDisc: {
+            *device_type_ptr = DeviceType::ODD;
+          } break;
+          default: {
+            *device_type_ptr = DeviceType::Invalid;
+          } break;
+        }
       }
 
       XELOGD("XContentQueryVolumeDeviceType('{}', {:08X}, {:08X}, {:08X})",
@@ -174,6 +192,16 @@ X_HRESULT XamApp::DispatchMessageSync(uint32_t message, uint32_t buffer_ptr,
       // Seen in Forza Horizon 2.
       XELOGD("XamUnk2B004, unimplemented");
       return X_E_SUCCESS;
+    }
+    // Causes dashboard to correctly process language/region change. It does not
+    // contain any buffer.
+    case 0x8000000D: {
+      const bool is_pc_enabled =
+          (kernel_state_->xconfig()->ReadSetting<uint8_t>(
+               XCONFIG_USER_CATEGORY, XCONFIG_USER_PC_FLAGS) &
+           X_PC_FLAGS::PCEnabled) != 0;
+
+      return is_pc_enabled ? X_E_ACCESS_DENIED : X_E_SUCCESS;
     }
   }
   XELOGE(

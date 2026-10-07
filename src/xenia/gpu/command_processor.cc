@@ -9,7 +9,11 @@
 
 #include "xenia/gpu/command_processor.h"
 
+#include <algorithm>
+#include <fstream>
+
 #include "third_party/fmt/include/fmt/format.h"
+#include "third_party/stb/stb_image_write.h"
 #include "xenia/base/byte_stream.h"
 #include "xenia/base/clock.h"
 #include "xenia/base/cvar.h"
@@ -22,8 +26,11 @@
 #include "xenia/gpu/packet_disassembler.h"
 #include "xenia/gpu/sampler_info.h"
 #include "xenia/gpu/texture_info.h"
+#include "xenia/gpu/xenos_zpd_report.h"
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/kernel/user_module.h"
+#include "xenia/ui/presenter.h"
+
 #if !defined(NDEBUG)
 
 #define XE_ENABLE_GPU_REG_WRITE_LOGGING 1
@@ -33,49 +40,109 @@ DEFINE_bool(
     "Only does anything in debug builds, if set will log every write to a gpu "
     "register done by a guest. Does not log writes that are done by the CP on "
     "its own, just ones the guest makes or instructs it to make.",
-    "GPU");
+    "Logging");
 
 DEFINE_bool(disassemble_pm4, false,
             "Only does anything in debug builds, if set will disassemble and "
             "log all PM4 packets sent to the CP.",
-            "GPU");
+            "Logging");
 
 DEFINE_bool(
     log_ringbuffer_kickoff_initiator_bts, false,
     "Only does anything in debug builds, if set will log the pseudo-stacktrace "
     "of the guest thread that wrote the new read position.",
-    "GPU");
+    "Logging");
 
-DEFINE_bool(clear_memory_page_state, true,
+DEFINE_bool(clear_memory_page_state, false,
             "Refresh state of memory pages to enable gpu written data. "
             "Uses mostly lock-free double-buffering for minimal overhead. "
-            "(Disable for minor performance boost, but may break rendering)",
+            "(Enable if rendering breaks, at a minor performance cost)",
             "GPU");
+UPDATE_from_bool(clear_memory_page_state, 2026, 8, 1, 12, true);
 
 DEFINE_string(
-    readback_resolve, "fast",
-    "Controls CPU readback of render-to-texture resolve results.\n"
-    " fast: Read from previous frame, copy every frame (default)\n"
-    " some: Read from previous frame, skip copy on cache hit\n"
-    " full: Wait for GPU to finish (accurate but slow, GPU-CPU sync stall)\n"
-    " none: Disable readback completely (some games render better without it)",
+    occlusion_query, "fast",
+    "Controls hardware occlusion query behavior for EVENT_WRITE_ZPD.\n"
+    "Used for effects like lens flares, object culling, and auto-exposure.\n"
+    "Titles that use QueryBatch are not currently supported and fall back to\n"
+    "fake mode, regardless of this setting.\n"
+    " fake: Write a fake result without asking the GPU. Safe for most games,\n"
+    "       though some effects may look slightly wrong.\n"
+    " fast: Ask the GPU but don't wait for the answer. Writes a cached\n"
+    "       result immediately and updates it when the GPU catches up.\n"
+    "       Cached results bias toward visible when guessing. (default)\n"
+    " fast-alt: Variant of fast mode that keeps cached zero results for\n"
+    "           unresolved reports. May improve effects relying on precise\n"
+    "           visibility, but may be less stable for occlusion culling.\n"
+    " strict: Ask the GPU and wait for the real result before continuing.\n"
+    "         Most accurate, but may be somewhat less performant.",
     "GPU");
 
 DEFINE_bool(
-    readback_memexport, true,
-    "Read data written by memory export in shaders on the CPU. "
-    "This is needed in some games but many only access exported data on "
-    "the GPU, so can be disabled for minor optimization. When "
-    "combined with readback_memexport_fast, performance impact is minimal.",
+    occlusion_query_full_counters, false,
+    "Controls in-shader emulation of the ZFail, StencilFail and Total ZPD "
+    "counters to supplement both native and counter-based ZPass testing.\n"
+    "Most titles only use the ZPass counter, so this is off by default since "
+    "it's typically slow and rife with readback sync.\n"
+    "RTV/FBO approximates Total and ZFail, whereas ROV/FSI uses depth/stencil "
+    "tests in-shader to count everything like Xenos does.",
     "GPU");
 
-DEFINE_bool(readback_memexport_fast, true,
-            "Use fast (double-buffered, 1 frame delayed) readback for "
-            "memexport instead\n"
-            "of immediate GPU sync. Removes main performance penalty when "
-            "readback_memexport\n"
-            "is enabled at the expense of accuracy.",
-            "GPU");
+DEFINE_bool(
+    occlusion_query_viz, false,
+    "Enables VIZ_QUERY (VIZ) visibility tests for draws with a VIZ token. "
+    "VIZ is the 360's version of conditional rendering / predication queries.\n"
+    "Titles mostly use it to combat overdraw, but it can also be used for "
+    "post-process effects like lens flares. When enabled, coarse occlusion "
+    "queries feed predicates which, when available, can skip draws that "
+    "aren't visible.\n"
+    "Since VIZ is primarily a GPU mechanism, most readback sync is avoided. "
+    "With that said, VIZ and standard occlusion queries can both cause a "
+    "noticeable penalty with ROV and FSI, especially when combined.",
+    "GPU");
+
+DEFINE_bool(
+    readback_resolve, true,
+    "Copy render-to-texture output back into guest RAM when the CPU accesses "
+    "it. The output stays on the GPU, where GPU-side consumers read it, and "
+    "the CPU access that needs it waits for it to be copied. Off leaves guest "
+    "RAM without it, which breaks games that read it back.",
+    "GPU");
+
+DEFINE_bool(
+    memexport_enable, true,
+    "Make memory export output visible to the CPU. Needed by games that read "
+    "exported data on the CPU. Disabling it keeps the output in device-local "
+    "memory, which is faster for the draws that consume it on the GPU. The "
+    "output reaches guest RAM in place where the host buffer is available "
+    "(see enable_host_buffer), and through a staging copy otherwise.",
+    "GPU");
+
+DEFINE_bool(
+    memexport_await_pixel_exports, true,
+    "Wait for memory export from pixel shaders to reach guest RAM before a "
+    "fence or coherency request the guest observes. Games read this output on "
+    "the CPU and see stale data without the wait. Needs memexport_enable.",
+    "GPU");
+
+DEFINE_bool(
+    memexport_await_vertex_exports, false,
+    "Same as memexport_await_pixel_exports, for vertex shaders. Their output "
+    "usually only feeds later draws, and waiting after each export can stall "
+    "heavily. Needs memexport_enable.",
+    "GPU");
+
+DEFINE_bool(
+    precise_interpolation, true,
+    "Manually interpolate pixel shader inputs with barycentric coordinates to "
+    "exactly match the guest and avoid hardware interpolation precision "
+    "differences. Fixes noise artifacts in games like Perfect Dark and Tenchu "
+    "Z "
+    "that do exact equality comparisons on interpolated values. Requires "
+    "fragment shader barycentric support (VK_KHR_fragment_shader_barycentric "
+    "on "
+    "Vulkan, SV_Barycentrics on Direct3D 12).",
+    "GPU");
 
 namespace xe {
 namespace gpu {
@@ -87,11 +154,17 @@ void SaveGPUSetting(GPUSetting setting, uint64_t value) {
     case GPUSetting::ClearMemoryPageState:
       OVERRIDE_bool(clear_memory_page_state, static_cast<bool>(value));
       break;
-    case GPUSetting::ReadbackMemexport:
-      OVERRIDE_bool(readback_memexport, static_cast<bool>(value));
+    case GPUSetting::MemexportEnable:
+      OVERRIDE_bool(memexport_enable, static_cast<bool>(value));
       break;
-    case GPUSetting::ReadbackMemexportFast:
-      OVERRIDE_bool(readback_memexport_fast, static_cast<bool>(value));
+    case GPUSetting::MemexportAwaitPixelExports:
+      OVERRIDE_bool(memexport_await_pixel_exports, static_cast<bool>(value));
+      break;
+    case GPUSetting::MemexportAwaitVertexExports:
+      OVERRIDE_bool(memexport_await_vertex_exports, static_cast<bool>(value));
+      break;
+    case GPUSetting::OcclusionQueryVIZ:
+      OVERRIDE_bool(occlusion_query_viz, static_cast<bool>(value));
       break;
   }
 }
@@ -100,31 +173,40 @@ bool GetGPUSetting(GPUSetting setting) {
   switch (setting) {
     case GPUSetting::ClearMemoryPageState:
       return cvars::clear_memory_page_state;
-    case GPUSetting::ReadbackMemexport:
-      return cvars::readback_memexport;
-    case GPUSetting::ReadbackMemexportFast:
-      return cvars::readback_memexport_fast;
+    case GPUSetting::MemexportEnable:
+      return cvars::memexport_enable;
+    case GPUSetting::MemexportAwaitPixelExports:
+      return cvars::memexport_await_pixel_exports;
+    case GPUSetting::MemexportAwaitVertexExports:
+      return cvars::memexport_await_vertex_exports;
+    case GPUSetting::OcclusionQueryVIZ:
+      return cvars::occlusion_query_viz;
     default:
       return false;
   }
 }
 
-static ReadbackResolveMode ParseReadbackResolveMode() {
-  const std::string& mode = cvars::readback_resolve;
-  if (mode == "full") {
-    return ReadbackResolveMode::kFull;
-  } else if (mode == "some") {
-    return ReadbackResolveMode::kSome;
-  } else if (mode == "none") {
-    return ReadbackResolveMode::kDisabled;
+bool IsMemexportAwaited(bool used_vertex, bool used_pixel) {
+  return (used_pixel && cvars::memexport_await_pixel_exports) ||
+         (used_vertex && cvars::memexport_await_vertex_exports);
+}
+
+static ZPDMode ParseZPDMode() {
+  const std::string& mode = cvars::occlusion_query;
+  if (mode == "strict") {
+    return ZPDMode::kStrict;
+  } else if (mode == "fast") {
+    return ZPDMode::kFast;
+  } else if (mode == "fast-alt") {
+    return ZPDMode::kFastAlt;
   } else {
-    // Default to "fast" for any unrecognized value
-    return ReadbackResolveMode::kFast;
+    // Default to "fake" for any unrecognized value.
+    return ZPDMode::kFake;
   }
 }
 
-static void SetReadbackResolveCvar(const std::string& mode) {
-  OVERRIDE_string(readback_resolve, mode);
+static void SetZPDModeCvar(const std::string& mode) {
+  OVERRIDE_string(occlusion_query, mode);
 }
 
 using namespace xe::gpu::xenos;
@@ -141,8 +223,8 @@ CommandProcessor::CommandProcessor(GraphicsSystem* graphics_system,
       write_ptr_index_event_(xe::threading::Event::CreateAutoResetEvent(false)),
       write_ptr_index_(0) {
   assert_not_null(write_ptr_index_event_);
-  // Parse and cache readback resolve mode once
-  cached_readback_resolve_mode_ = ParseReadbackResolveMode();
+  // Parse and cache ZPD mode once.
+  cached_zpd_mode_ = ParseZPDMode();
 }
 
 CommandProcessor::~CommandProcessor() = default;
@@ -183,6 +265,12 @@ bool CommandProcessor::Initialize() {
 }
 
 void CommandProcessor::Shutdown() {
+  // Already stopped if drained early during relaunch (stopped again at
+  // teardown).
+  if (!worker_thread_) {
+    return;
+  }
+
   EndTracing();
 
   worker_running_ = false;
@@ -291,45 +379,43 @@ void CommandProcessor::InvalidateGpuMemory() {}
 
 void CommandProcessor::ClearReadbackBuffers() {}
 
-void CommandProcessor::SetReadbackResolveMode(ReadbackResolveMode mode) {
-  if (cached_readback_resolve_mode_ == mode) {
+bool CommandProcessor::IsReadbackResolveEnabled() const {
+  return cvars::readback_resolve;
+}
+
+void CommandProcessor::SetZPDMode(ZPDMode mode) {
+  if (cached_zpd_mode_ == mode) {
     return;
   }
-  // Update cached value
-  cached_readback_resolve_mode_ = mode;
-  // Update cvar string for UI display
-  const char* mode_str = "fast";
+  // Close any active query segment before the mode changes so that a
+  // BeginQuery recorded under the old mode gets a matching EndQuery.
+  // Without this, switching to kFake mid-frame would cause EndRenderPass
+  // to skip CloseQuerySegment, leaving the query dangling.
+  if (active_segment_.segment_active) {
+    CloseQuerySegment();
+  }
+  cached_zpd_mode_ = mode;
+  zpd_mode_ = mode;
+  const char* mode_str = "fake";
   switch (mode) {
-    case ReadbackResolveMode::kDisabled:
-      mode_str = "none";
+    case ZPDMode::kFast:
+      mode_str = "fast";
       break;
-    case ReadbackResolveMode::kSome:
-      mode_str = "some";
+    case ZPDMode::kFastAlt:
+      mode_str = "fast-alt";
       break;
-    case ReadbackResolveMode::kFull:
-      mode_str = "full";
+    case ZPDMode::kStrict:
+      mode_str = "strict";
       break;
     default:
       break;
   }
-  SetReadbackResolveCvar(mode_str);
+  SetZPDModeCvar(mode_str);
 
-  // Save to per-game config if a title is loaded
-  uint32_t title_id = kernel_state_ ? kernel_state_->title_id() : 0;
-  if (title_id != 0) {
-    toml::table config_table = config::LoadGameConfig(title_id);
-
-    if (!config_table.contains("GPU")) {
-      config_table.insert("GPU", toml::table{});
-    }
-
-    auto* gpu_table = config_table["GPU"].as_table();
-    if (gpu_table) {
-      gpu_table->insert_or_assign("readback_resolve", mode_str);
-    }
-
-    config::SaveGameConfig(title_id, config_table);
-  }
+  // Save to per-game config if a title is loaded.
+  config::SaveGameConfigSetting(
+      kernel_state_ ? kernel_state_->emulator() : nullptr, "GPU",
+      "occlusion_query", std::string(mode_str));
 }
 
 void CommandProcessor::SetDesiredSwapPostEffect(
@@ -345,8 +431,8 @@ void CommandProcessor::SetDesiredSwapPostEffect(
 
 void CommandProcessor::ThrottlePresentation() {
   // Host frame rate limiting based on framerate_limit cvar.
-  // This is separate from guest vblank timing (controlled by vsync cvar).
-  const uint64_t framerate_limit = cvars::framerate_limit;
+  const uint32_t framerate_limit = cvars::framerate_limit;
+
   if (framerate_limit == 0) {
     // No host frame limiting
     return;
@@ -385,6 +471,13 @@ void CommandProcessor::ThrottlePresentation() {
     if (sleep_ns > 0) {
       xe::threading::NanoSleep(sleep_ns);
     }
+#elif XE_PLATFORM_MAC
+    // Darwin's nanosleep oversleeps by 100-500us; NanoSleepPrecise spins the
+    // tail so 60Hz targets don't miss their frame budget.
+    const uint64_t sleep_ns = static_cast<uint64_t>(remaining_ms * 1000000.0);
+    if (sleep_ns > 0) {
+      xe::threading::NanoSleepPrecise(sleep_ns);
+    }
 #else
     const uint64_t sleep_ns = static_cast<uint64_t>(remaining_ms * 1000000.0);
     if (sleep_ns > 0) {
@@ -421,6 +514,11 @@ void CommandProcessor::WorkerThreadMain() {
           constexpr int wait_time_ms = 2;
           xe::threading::Wait(write_ptr_index_event_.get(), true,
                               std::chrono::milliseconds(wait_time_ms));
+          // Strict ZPD may still owe the guest a report it's spinning on with
+          // nothing left in the ring.
+          if (zpd_mode_ == ZPDMode::kStrict && zpd_awaited_report_count_) {
+            PrepareForWait();
+          }
         } else {
           xe::threading::MaybeYield();
         }
@@ -439,8 +537,8 @@ void CommandProcessor::WorkerThreadMain() {
     // Execute. Note that we handle wraparound transparently.
     read_ptr_index_ = ExecutePrimaryBuffer(read_ptr_index_, write_ptr_index);
 
-    // TODO(benvanik): use reader->Read_update_freq_ and only issue after moving
-    //     that many indices.
+    // ExecutePrimaryBuffer republishes this every read_ptr_update_freq_ dwords
+    // as it drains, this is the final position for the burst.
     // Keep in mind that the gpu also updates the cpu-side copy if the write
     // pointer and read pointer would be equal
     if (read_ptr_writeback_ptr_) {
@@ -505,9 +603,23 @@ bool CommandProcessor::Restore(ByteStream* stream) {
   return true;
 }
 
-bool CommandProcessor::SetupContext() { return true; }
+bool CommandProcessor::SetupContext() {
+  ResetVIZState();
+  viz_enabled_ = cvars::occlusion_query_viz;
+  ResetZPDState();
+  return true;
+}
 
-void CommandProcessor::ShutdownContext() {}
+void CommandProcessor::ShutdownContext() {
+  ResetVIZState();
+  ResetZPDState();
+}
+
+uint32_t CommandProcessor::GuestReadPtrOffset(int32_t offset) const {
+  return uint32_t(reader_.read_ptr() -
+                  reinterpret_cast<uintptr_t>(memory_->physical_membase()) +
+                  offset);
+}
 
 void CommandProcessor::InitializeRingBuffer(uint32_t ptr, uint32_t size_log2) {
   read_ptr_index_ = 0;
@@ -524,9 +636,10 @@ void CommandProcessor::EnableReadPointerWriteBack(uint32_t ptr,
   // ptr = RB_RPTR_ADDR, pointer to write back the address to.
   read_ptr_writeback_ptr_ = ptr;
   // CP_RB_CNTL Ring Buffer Control 0x704
-  // block_size = RB_BLKSZ, log2 of number of quadwords read between updates of
-  //              the read pointer.
-  read_ptr_update_freq_ = uint32_t(1) << block_size_log2 >> 2;
+  // block_size = RB_BLKSZ, log2 of the number of quadwords read between
+  // updates of the read pointer. Kept in dwords, the unit read_ptr_index_ and
+  // the write-back use. Usually 6, so 128 dwords.
+  read_ptr_update_freq_ = (uint32_t(1) << std::min(block_size_log2, 19u)) * 2;
 }
 
 XE_NOINLINE XE_COLD void CommandProcessor::LogKickoffInitator(uint32_t value) {
@@ -625,6 +738,7 @@ void CommandProcessor::HandleSpecialRegisterWrite(uint32_t index,
     uint32_t scratch_reg = index - XE_GPU_REG_SCRATCH_REG0;
     if ((1 << scratch_reg) & regs.values[XE_GPU_REG_SCRATCH_UMSK]) {
       // Enabled - write to address.
+      SubmitResolvesForGuestSync();
       uint32_t scratch_addr = regs.values[XE_GPU_REG_SCRATCH_ADDR];
       uint32_t mem_addr = scratch_addr + (scratch_reg * 4);
       xe::store_and_swap<uint32_t>(memory_->TranslatePhysical(mem_addr), value);
@@ -916,9 +1030,51 @@ void CommandProcessor::MakeCoherent() {
   regs_volatile[XE_GPU_REG_COHER_STATUS_HOST] = 0;
 }
 
-void CommandProcessor::PrepareForWait() { trace_writer_.Flush(); }
+void CommandProcessor::PrepareForWait() {
+  trace_writer_.Flush();
+  if (zpd_mode_ == ZPDMode::kStrict && zpd_awaited_report_count_) {
+    PrepareZPDForWait();
+  }
+  if (viz_pending_resolves_) {
+    PollCompletedSubmission();
+  }
+}
 
 void CommandProcessor::ReturnFromWait() {}
+
+void CommandProcessor::WriteTraceFrameScreenshot() {
+  if (trace_frame_file_path_.empty()) {
+    return;
+  }
+  std::filesystem::path png_path = trace_frame_file_path_;
+  png_path.replace_extension(".png");
+  trace_frame_file_path_.clear();
+
+  ui::Presenter* presenter =
+      graphics_system_ ? graphics_system_->presenter() : nullptr;
+  ui::RawImage image;
+  if (!presenter || !presenter->CaptureGuestOutput(image)) {
+    XELOGE("Failed to capture the guest output of the traced frame");
+    return;
+  }
+
+  auto file = std::ofstream(png_path, std::ios::binary);
+  if (!file.is_open()) {
+    XELOGE("Failed to open {} for the traced frame screenshot", png_path);
+    return;
+  }
+  if (!stbi_write_png_to_func(
+          [](void* context, void* data, int size) {
+            reinterpret_cast<std::ofstream*>(context)->write(
+                reinterpret_cast<const char*>(data), size);
+          },
+          &file, int(image.width), int(image.height), 4, image.data.data(),
+          int(image.stride))) {
+    XELOGE("Failed to write the traced frame screenshot to {}", png_path);
+    return;
+  }
+  XELOGI("Traced frame screenshot written to {}", png_path);
+}
 
 void CommandProcessor::InitializeTrace() {
   // Write the initial register values, to be loaded directly into the
@@ -931,6 +1087,504 @@ void CommandProcessor::InitializeTrace() {
   trace_writer_.WriteGammaRamp(gamma_ramp_256_entry_table(),
                                gamma_ramp_pwl_rgb(), gamma_ramp_rw_component_);
 }
+
+void CommandProcessor::BeginVIZQuery(uint32_t id) {
+  if (active_segment_.viz.generation != kInvalidVIZGeneration) {
+    CloseQuerySegment();
+    active_segment_.viz = {};
+  }
+
+  VIZQuery& query = viz_queries_[id];
+
+  const uint64_t generation = query.generation + 1;
+  query = {};
+  query.generation = generation;
+  query.resolved = false;
+  query.active = true;
+}
+
+void CommandProcessor::EndVIZQuery(uint32_t id) {
+  VIZQuery& query = viz_queries_[id];
+
+  if (active_segment_.viz.id == id &&
+      active_segment_.viz.generation == query.generation) {
+    CloseQuerySegment();
+    active_segment_.viz = {};
+  }
+  query.active = false;
+
+  if (query.resolved) {
+    return;
+  }
+
+  if (!query.surveyed) {
+    // No survey draw ever reached the backend, a real not-visible.
+    query.resolved = true;
+    query.visible = false;
+  } else if (query.fallback || !query.pending_segments) {
+    // Fallbacks are visible, no matter what pending segments say.
+    query.resolved = true;
+    query.visible = query.fallback || query.accumulated_visible;
+  }
+}
+
+void CommandProcessor::OnVIZSurveyDraw(bool measured) {
+  const reg::PA_SC_VIZ_QUERY viz_query =
+      register_file_->Get<reg::PA_SC_VIZ_QUERY>();
+  if (!viz_query.viz_query_ena) {
+    return;
+  }
+  VIZQuery& query = viz_queries_[viz_query.viz_query_id];
+  if (!query.active) {
+    return;
+  }
+  query.surveyed = true;
+  if (measured && active_segment_.segment_active &&
+      active_segment_.viz.id == viz_query.viz_query_id &&
+      active_segment_.viz.generation == query.generation) {
+    return;
+  }
+  query.fallback = true;
+}
+
+void CommandProcessor::OnVIZQueryResolved(uint32_t id, uint64_t generation,
+                                          bool visible) {
+  if (viz_pending_resolves_) {
+    --viz_pending_resolves_;
+  }
+
+  VIZQuery& query = viz_queries_[id];
+  if (query.generation != generation) {
+    return;
+  }
+
+  if (query.pending_segments) {
+    --query.pending_segments;
+  }
+
+  query.accumulated_visible |= visible;
+  // Retire the answer once the query is closed and all segments have resolved.
+  if (!query.resolved && !query.active && !query.pending_segments) {
+    query.resolved = true;
+    query.visible = query.fallback || query.accumulated_visible;
+  }
+}
+
+void CommandProcessor::SyncVIZEnabled() {
+  if (viz_enabled_ == cvars::occlusion_query_viz) {
+    return;
+  }
+  viz_enabled_ = cvars::occlusion_query_viz;
+  if (active_segment_.viz.generation != kInvalidVIZGeneration) {
+    CloseQuerySegment();
+    active_segment_.viz = {};
+  }
+  viz_draw_predicate_ = {};
+  // Generations carry on, so resolves still in flight don't match anything.
+  for (VIZQuery& query : viz_queries_) {
+    const uint64_t generation = query.generation;
+    query = {};
+    query.generation = generation;
+  }
+}
+
+bool CommandProcessor::PrepareVIZDraw(uint32_t token) {
+  viz_draw_predicate_ = {};
+  SyncVIZEnabled();
+  if (!viz_enabled_ || !(token & 0x100)) {
+    return true;
+  }
+
+  const uint32_t id = token & 0x3F;
+  VIZQuery& query = viz_queries_[id];
+
+  if (!query.resolved) {
+    // Pick up resolves that already completed.
+    PumpQueryResolves();
+  }
+
+  if (!query.resolved && query.pending_segments) {
+    // The predicate stands in for the answer only while it covers the whole
+    // query, so not after a fallback or with a segment still open on the ID.
+    if (query.predicate_armed && !query.fallback &&
+        !(active_segment_.viz.generation != kInvalidVIZGeneration &&
+          active_segment_.viz.id == id)) {
+      viz_draw_predicate_.id = id;
+      viz_draw_predicate_.generation = query.generation;
+      // Don't wait on an open query.
+    } else if (!query.active) {
+      // Segments resolve in submission order, so the newest is the answer.
+      AwaitVIZQueryResolve(query.last_segment_end_submission);
+    }
+  }
+
+  const bool draw = viz_draw_predicate_.generation != kInvalidVIZGeneration ||
+                    !query.resolved || query.visible;
+  if (draw && viz_draw_predicate_.generation == kInvalidVIZGeneration) {
+    return true;
+  }
+
+  // Only culled or predicated draws pay for the memexport and copy checks.
+  // Any unanalyzed memexport shader might export.
+  const bool memexport_used_vertex =
+      active_vertex_shader_ && (!active_vertex_shader_->is_ucode_analyzed() ||
+                                active_vertex_shader_->memexport_eM_written());
+  const bool memexport_used_pixel =
+      active_pixel_shader_ && (!active_pixel_shader_->is_ucode_analyzed() ||
+                               active_pixel_shader_->memexport_eM_written());
+  if (!memexport_used_vertex && !memexport_used_pixel &&
+      register_file_->Get<reg::RB_MODECONTROL>().edram_mode !=
+          xenos::EdramMode::kCopy) {
+    return draw;
+  }
+
+  viz_draw_predicate_ = {};
+  return true;
+}
+
+// Only called by EVENT_WRITE_ZPD. This closes the report's segment since the
+// last event and queues its counter snapshot.
+void CommandProcessor::QueueZPDReport(uint32_t report_address) {
+  if (active_segment_.report) {
+    CloseQuerySegment();
+  }
+
+  ZPDReport& report = zpd_current_report_;
+  report.address = report_address;
+  if (zpd_mode_ == ZPDMode::kStrict) {
+    // See EVENT_WRITE_ZPD for additional information on the pending sentinel.
+    const uint32_t kPendingSentinel = xe::byte_swap(0xFFFFFEEDu);
+    const auto* guest =
+        memory_->TranslatePhysical<xenos::xe_gpu_depth_sample_counts*>(
+            report_address);
+    report.awaited = guest->ZPass_A == kPendingSentinel ||
+                     guest->ZFail_A == kPendingSentinel;
+  } else {
+    // Fast modes write a guess now and correct it when the real delta lands.
+    // Unknown still means visible. Replaying the last real delta for the same
+    // report is usually a better guess than one fake sample. fast-alt is the
+    // same as fast, but can replay zeroes, which often improves correctness
+    // (545107FC, 454108D4, 4D5307D2), but stale zeroes tend to break occlusion
+    // culling tests, resulting in popping primitives (4D5308AB, 4D530805).
+    auto cache_it = fast_zpd_report_cached_deltas_.find(report_address);
+    if (cache_it != fast_zpd_report_cached_deltas_.end() &&
+        (cache_it->second.z_pass || zpd_mode_ == ZPDMode::kFastAlt)) {
+      report.speculative_delta = cache_it->second;
+    } else {
+      report.speculative_delta = XenosZPDReport::FromNativeQuery(1);
+    }
+    zpd_speculative_sample_counter_ += report.speculative_delta;
+    report.speculative_value = zpd_speculative_sample_counter_;
+    report.speculative = true;
+    WriteZPDReport(report_address, report.speculative_value);
+  }
+  zpd_awaited_report_count_ += report.awaited;
+  zpd_reports_.push_back(report);
+  zpd_stats_.reports_queued++;
+
+  // The next report's segment opens at its first draw.
+  // Report runs without draws between them never use any pool slots.
+  zpd_current_report_ = {};
+  zpd_current_report_.handle = zpd_next_report_handle_++;
+  active_segment_.segment_pending_begin = true;
+}
+
+void CommandProcessor::OpenQuerySegment(bool can_close_submission) {
+  ActiveQuerySegment& segment = active_segment_;
+  if (segment.segment_active || query_segment_opening_ || !CanOpenQuery()) {
+    return;
+  }
+  const bool report = zpd_current_report_.handle != kInvalidReportHandle &&
+                      segment.segment_pending_begin && !segment.survey;
+  const bool viz = segment.viz.generation != kInvalidVIZGeneration;
+  if (!report && !viz) {
+    return;
+  }
+
+  EnsureQueryResources();
+  if (!IsQueryPoolReady()) {
+    if (viz) {
+      viz_queries_[segment.viz.id].fallback = true;
+    }
+    if (report) {
+      // Fall back to fake results for the rest of the session.
+      zpd_stats_.failed++;
+      zpd_force_fake_fallback_ = true;
+      zpd_current_report_ = {};
+      segment = {};
+    } else {
+      segment.viz = {};
+    }
+    return;
+  }
+
+  // Frees any slots from completed submissions before asking for new ones.
+  PumpQueryResolves();
+
+  segment.report = report;
+  query_segment_opening_ = true;
+  QueryOpenResult result = OpenQuery(can_close_submission);
+  query_segment_opening_ = false;
+  if (result == QueryOpenResult::kPoolExhausted) {
+    zpd_stats_.pool_exhausted++;
+  }
+  if (result == QueryOpenResult::kPoolExhausted &&
+      zpd_mode_ != ZPDMode::kStrict) {
+    // Fast modes favor forward progress over accuracy. Report at least one
+    // passing sample instead of waiting for a slot to become available.
+    if (report) {
+      zpd_current_report_.delta.z_pass =
+          std::max<uint64_t>(zpd_current_report_.delta.z_pass, 1);
+      segment.segment_pending_begin = false;
+    }
+    if (viz) {
+      viz_queries_[segment.viz.id].fallback = true;
+    }
+    segment.report = false;
+    segment.viz = {};
+    return;
+  }
+  if (result != QueryOpenResult::kOpened) {
+    segment.report = false;
+    if (result != QueryOpenResult::kDeferred) {
+      zpd_stats_.failed++;
+      if (viz) {
+        viz_queries_[segment.viz.id].fallback = true;
+        segment.viz = {};
+      }
+    }
+    // A deferred segment opens at the next opportunity with these consumers.
+    return;
+  }
+  segment.segment_active = true;
+  if (report) {
+    segment.segment_pending_begin = false;
+  }
+  zpd_stats_.segments_begun++;
+}
+
+// Closes the active host segment without ending the report.
+// BeginQuery/EndQuery can't cross D3D12 command list or Vulkan render pass
+// boundaries. The result accumulates across all pieces.
+void CommandProcessor::CloseQuerySegment() {
+  ActiveQuerySegment& segment = active_segment_;
+  if (!segment.segment_active) {
+    return;
+  }
+  uint64_t submission = 0;
+  const bool closed = CloseQuery(
+      segment.report ? zpd_current_report_.handle : kInvalidReportHandle,
+      segment.viz, submission);
+  if (closed) {
+    zpd_stats_.segments_ended++;
+  } else {
+    zpd_stats_.failed++;
+  }
+  if (segment.report && closed) {
+    zpd_current_report_.pending_segments++;
+    zpd_current_report_.last_segment_end_submission = submission;
+  }
+  if (segment.viz.generation != kInvalidVIZGeneration) {
+    VIZQuery& query = viz_queries_[segment.viz.id];
+    if (closed) {
+      ++query.pending_segments;
+      query.last_segment_end_submission = submission;
+      ++viz_pending_resolves_;
+    } else {
+      // The segment is lost but its draws ran, so the query stays visible.
+      query.fallback = true;
+    }
+  }
+  // The report resumes at the next opportunity if this segment counted for
+  // it, or if it was still waiting for one around a survey.
+  const bool pending_begin = segment.report || segment.segment_pending_begin;
+  segment = {};
+  segment.segment_pending_begin = pending_begin;
+}
+
+void CommandProcessor::UpdateQuerySegment(uint32_t scale_area, bool count_total,
+                                          bool survey) {
+  ActiveQuerySegment& segment = active_segment_;
+  const reg::PA_SC_VIZ_QUERY viz_query =
+      register_file_->Get<reg::PA_SC_VIZ_QUERY>();
+  const VIZQuery& viz_active = viz_queries_[viz_query.viz_query_id];
+  const bool viz = cvars::occlusion_query_viz && viz_query.viz_query_ena &&
+                   viz_active.active;
+  // Surveys are killed after hi-Z on hardware, so no report counts them.
+  const bool report = !survey && segment.report_measuring();
+  if (!segment.report && !report && !viz) {
+    return;
+  }
+  count_total &= report;
+
+  // Close the segment and start a fresh one for this draw when the draw scale
+  // or hybrid Total counting changed in the middle of a report, when a report
+  // would share a segment with surveys, or when a new ID would inherit earlier
+  // draws. Later draws without the ID only err towards visible.
+  if (segment.segment_active &&
+      ((segment.report &&
+        ((segment.scale_area && segment.scale_area != scale_area) ||
+         segment.count_total != count_total)) ||
+       segment.report != report ||
+       (viz && !(segment.viz.id == viz_query.viz_query_id &&
+                 segment.viz.generation == viz_active.generation)))) {
+    CloseQuerySegment();
+  }
+
+  segment.scale_area = scale_area;
+  segment.count_total = count_total;
+
+  if (segment.segment_active) {
+    return;
+  }
+  segment.survey = survey;
+  segment.viz = {};
+  if (viz) {
+    segment.viz.id = viz_query.viz_query_id;
+    segment.viz.generation = viz_active.generation;
+  }
+  OpenQuerySegment(false);
+}
+
+void CommandProcessor::OnZPDQueryResolved(ReportHandle report_handle,
+                                          const XenosZPDReport& raw_counts,
+                                          uint32_t scale_area) {
+  ZPDReport* report = FindZPDReport(report_handle);
+  if (!report) {
+    return;
+  }
+  assert_true(report->pending_segments);
+  --report->pending_segments;
+  report->delta += raw_counts.Normalized(scale_area);
+}
+
+CommandProcessor::ZPDReport* CommandProcessor::FindZPDReport(
+    ReportHandle report_handle) {
+  if (report_handle == kInvalidReportHandle) {
+    return nullptr;
+  }
+  if (zpd_current_report_.handle == report_handle) {
+    return &zpd_current_report_;
+  }
+  if (!zpd_reports_.empty() && report_handle >= zpd_reports_.front().handle) {
+    size_t index = size_t(report_handle - zpd_reports_.front().handle);
+    if (index < zpd_reports_.size()) {
+      assert_true(zpd_reports_[index].handle == report_handle);
+      return &zpd_reports_[index];
+    }
+  }
+  return nullptr;
+}
+
+void CommandProcessor::PrepareZPDForWait() {
+  ReportHandle awaited_handle = kInvalidReportHandle;
+  for (const ZPDReport& report : zpd_reports_) {
+    if (report.awaited) {
+      awaited_handle = report.handle;
+      break;
+    }
+  }
+  if (awaited_handle == kInvalidReportHandle) {
+    return;
+  }
+
+  PollCompletedSubmission();
+  PumpPendingRetire();
+
+  // Draw-less queries still can't be written until the reports ahead resolve.
+  ZPDReport* wait_report = FindZPDReport(awaited_handle);
+  if (wait_report && !wait_report->pending_segments &&
+      zpd_reports_.front().pending_segments) {
+    wait_report = &zpd_reports_.front();
+  }
+  if (!wait_report || !wait_report->pending_segments) {
+    return;
+  }
+  if (AwaitQueryResolve(wait_report->handle,
+                        wait_report->last_segment_end_submission)) {
+    PumpPendingRetire();
+    return;
+  }
+
+  uint64_t now_ms = Clock::QueryHostUptimeMillis();
+  if (!zpd_pending_retire_start_ms_) {
+    zpd_pending_retire_start_ms_ = now_ms;
+    return;
+  }
+  if (now_ms - zpd_pending_retire_start_ms_ < kStrictZPDRetireDeadlineMs) {
+    return;
+  }
+
+  ZPDReport& front = zpd_reports_.front();
+  // Keep what resolved, with a floor of one so culling doesn't flash occluded.
+  front.delta.z_pass = std::max<uint64_t>(front.delta.z_pass, 1);
+  front.pending_segments = 0;
+  zpd_stats_.retires_abandoned++;
+  PumpPendingRetire();
+}
+
+void CommandProcessor::PumpPendingRetire() {
+  bool rebase_needed = false;
+  while (!zpd_reports_.empty()) {
+    ZPDReport& front = zpd_reports_.front();
+    if (front.pending_segments) {
+      if (zpd_mode_ == ZPDMode::kStrict) {
+        break;
+      }
+      // A stuck front report would block everything behind it.
+      uint64_t now_ms = Clock::QueryHostUptimeMillis();
+      if (!zpd_pending_retire_start_ms_) {
+        zpd_pending_retire_start_ms_ = now_ms;
+        break;
+      }
+      if (now_ms - zpd_pending_retire_start_ms_ < kFastZPDRetireDeadlineMs) {
+        break;
+      }
+      front.delta.z_pass = std::max<uint64_t>(front.delta.z_pass, 1);
+      front.pending_segments = 0;
+      zpd_stats_.retires_abandoned++;
+    }
+    zpd_pending_retire_start_ms_ = 0;
+
+    zpd_sample_counter_ += front.delta;
+    if (front.speculative) {
+      if (fast_zpd_report_cached_deltas_.size() >= kFastZPDCacheMaxEntries &&
+          !fast_zpd_report_cached_deltas_.count(front.address)) {
+        fast_zpd_report_cached_deltas_.clear();
+      }
+      fast_zpd_report_cached_deltas_[front.address] = front.delta;
+    }
+    if (!front.speculative) {
+      WriteZPDReport(front.address, zpd_sample_counter_);
+    } else if (front.speculative_value != zpd_sample_counter_) {
+      WriteZPDReport(front.address, zpd_sample_counter_);
+      zpd_stats_.speculative_corrections++;
+      rebase_needed = true;
+    }
+    if (front.awaited) {
+      assert_true(zpd_awaited_report_count_);
+      --zpd_awaited_report_count_;
+    }
+    zpd_reports_.pop_front();
+    zpd_stats_.reports_retired++;
+  }
+
+  if (rebase_needed) {
+    XenosZPDReport running = zpd_sample_counter_;
+    for (ZPDReport& report : zpd_reports_) {
+      assert_true(report.speculative);
+      running += report.speculative_delta;
+      if (report.speculative_value != running) {
+        WriteZPDReport(report.address, running);
+        report.speculative_value = running;
+      }
+    }
+    zpd_speculative_sample_counter_ = running;
+  } else if (zpd_reports_.empty()) {
+    zpd_speculative_sample_counter_ = zpd_sample_counter_;
+  }
+}
+
 #define COMMAND_PROCESSOR CommandProcessor
 #include "pm4_command_processor_implement.h"
 }  // namespace gpu

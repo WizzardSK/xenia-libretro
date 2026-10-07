@@ -52,6 +52,15 @@ std::error_code CreateFolder(const std::filesystem::path& path);
 // Creates an empty file at the given path, overwriting if it exists.
 bool CreateEmptyFile(const std::filesystem::path& path);
 
+// Reads the entire file at the given path as a byte buffer.
+// Returns an empty vector on open/read failure or for empty files.
+std::vector<uint8_t> ReadAllBytes(const std::filesystem::path& path);
+
+// Reads the entire file at the given path as a text string (binary mode; the
+// caller gets any \r bytes verbatim). Returns an empty string on open failure
+// or for empty files.
+std::string ReadAllText(const std::filesystem::path& path);
+
 // Opens the file at the given path with the specified mode.
 // This behaves like fopen and the returned handle can be used with stdio.
 FILE* OpenFile(const std::filesystem::path& path, const std::string_view mode);
@@ -129,10 +138,19 @@ struct FileInfo {
 };
 
 std::optional<FileInfo> GetInfo(const std::filesystem::path& path);
+namespace internal {
+// Lists a directory in whatever order the host hands it back, which differs
+// between platforms. Callers want ListFiles.
+std::vector<FileInfo> ListFilesUnsorted(const std::filesystem::path& path);
+}  // namespace internal
+
 std::vector<FileInfo> ListFiles(const std::filesystem::path& path);
 std::vector<FileInfo> ListDirectories(const std::filesystem::path& path);
 std::vector<FileInfo> FilterByName(const std::vector<FileInfo>& files,
                                    const std::regex pattern);
+std::vector<FileInfo> FindFileWithName(const std::filesystem::path& path,
+                                       std::string_view name,
+                                       bool recursive = false);
 
 bool SetAttributes(const std::filesystem::path& path, uint64_t attributes);
 

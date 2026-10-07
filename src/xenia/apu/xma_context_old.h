@@ -14,6 +14,7 @@
 #include <atomic>
 #include <mutex>
 #include <queue>
+#include <tuple>
 
 #include "xenia/apu/xma_context.h"
 #include "xenia/memory.h"

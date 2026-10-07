@@ -14,8 +14,8 @@
 
 DEFINE_bool(allow_avatar_initialization, false,
             "Enable Avatar Initialization\n"
-            " Only set true when testing Avatar games. Certain games may\n"
-            " require kinect implementation.",
+            "Only set true when testing Avatar games. Certain games may crash "
+            "due to requirement of full avatar implementation.",
             "Kernel");
 
 namespace xe {
@@ -349,7 +349,7 @@ dword_result_t XamAvatarLoadAnimation_entry(
 
   std::string summary = "Request to load avatar animation: ";
 
-  if (XAnimationTypeMap.find(*asset_id_ptr) != XAnimationTypeMap.cend()) {
+  if (XAnimationTypeMap.contains(*asset_id_ptr)) {
     summary += XAnimationTypeMap.at(*asset_id_ptr);
   } else {
     summary += fmt::format("Unknown animation 0x{:016x}",

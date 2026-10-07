@@ -608,7 +608,15 @@ enum xex2_system_flags_32 : uint32_t {
   XEX_SYSTEM_TITLE_SET_PRESENCE_STRING = 0x00000010,
   XEX_SYSTEM_CAMERA_ANGLE_CONTROL = 0x00000020,
   XEX_SYSTEM_SKELETAL_TRACKING_REQUIRED = 0x00000040,
-  XEX_SYSTEM_SKELETAL_TRACKING_SUPPORTED = 0x00000080
+  XEX_SYSTEM_SKELETAL_TRACKING_SUPPORTED = 0x00000080,
+  XEX_SYSTEM_USE_LARGE_HDS_FILE_CACHE = 0x00000100,
+  XEX_SYSTEM_TITLE_SUPPORTS_DEEP_LINK = 0x00000200,
+  XEX_SYSTEM_TITLE_BODY_PROFILE = 0x00000400,
+  XEX_SYSTEM_TITLE_WIN_USB = 0x00000800,
+  XEX_SYSTEM_TITLE_SUPPORTS_DEEP_LINK_REFRESH = 0x00001000,
+  XEX_SYSTEM_LOCAL_ONLY_SOCKETS = 0x00002000,
+  XEX_SYSTEM_TITLE_CONTENT_ACQUIRE_AND_DOWNLOAD = 0x00004000,
+  XEX_SYSTEM_ALLOW_SYSTEM_FOREGROUND = 0x00008000
 };
 
 inline const std::unordered_map<uint32_t, std::string>
@@ -626,7 +634,20 @@ inline const std::unordered_map<uint32_t, std::string>
         {XEX_SYSTEM_SKELETAL_TRACKING_REQUIRED,
          "XEX_SYSTEM_SKELETAL_TRACKING_REQUIRED"},
         {XEX_SYSTEM_SKELETAL_TRACKING_SUPPORTED,
-         "XEX_SYSTEM_SKELETAL_TRACKING_SUPPORTED"}};
+         "XEX_SYSTEM_SKELETAL_TRACKING_SUPPORTED"},
+        {XEX_SYSTEM_USE_LARGE_HDS_FILE_CACHE,
+         "XEX_SYSTEM_USE_LARGE_HDS_FILE_CACHE"},
+        {XEX_SYSTEM_TITLE_SUPPORTS_DEEP_LINK,
+         "XEX_SYSTEM_TITLE_SUPPORTS_DEEP_LINK"},
+        {XEX_SYSTEM_TITLE_BODY_PROFILE, "XEX_SYSTEM_TITLE_BODY_PROFILE"},
+        {XEX_SYSTEM_TITLE_WIN_USB, "XEX_SYSTEM_TITLE_WIN_USB"},
+        {XEX_SYSTEM_TITLE_SUPPORTS_DEEP_LINK_REFRESH,
+         "XEX_SYSTEM_TITLE_SUPPORTS_DEEP_LINK_REFRESH"},
+        {XEX_SYSTEM_LOCAL_ONLY_SOCKETS, "XEX_SYSTEM_LOCAL_ONLY_SOCKETS"},
+        {XEX_SYSTEM_TITLE_CONTENT_ACQUIRE_AND_DOWNLOAD,
+         "XEX_SYSTEM_TITLE_CONTENT_ACQUIRE_AND_DOWNLOAD"},
+        {XEX_SYSTEM_ALLOW_SYSTEM_FOREGROUND,
+         "XEX_SYSTEM_ALLOW_SYSTEM_FOREGROUND"}};
 
 struct xex2_resource {
   char name[8];              // 0x0
@@ -775,7 +796,7 @@ struct xex2_security_info {
   xe::be<uint32_t> header_size;              // 0x0
   xe::be<uint32_t> image_size;               // 0x4
   char rsa_signature[0x100];                 // 0x8
-  xe::be<uint32_t> unk_108;                  // 0x108 unk length
+  xe::be<uint32_t> info_size;                // 0x108
   xe::be<xex2_image_flags> image_flags;      // 0x10C
   xe::be<uint32_t> load_address;             // 0x110
   char section_digest[0x14];                 // 0x114
@@ -801,6 +822,21 @@ struct xex1_security_info {
   char aes_key[0x10];
   char xgd2_media_id[0x10];
   xe::be<uint32_t> region;
+  xe::be<uint32_t> image_flags;
+  xe::be<uint32_t> export_table;
+  xe::be<uint32_t> allowed_media_types;
+  xe::be<uint32_t> page_descriptor_count;
+  xex2_page_descriptor page_descriptors[1];
+};
+
+struct xex25_security_info {
+  xe::be<uint32_t> header_size;
+  xe::be<uint32_t> image_size;
+  char rsa_signature[0x100];
+  char image_digest[0x14];
+  char import_table_digest[0x14];
+  xe::be<uint32_t> load_address;
+  char aes_key[0x10];
   xe::be<uint32_t> image_flags;
   xe::be<uint32_t> export_table;
   xe::be<uint32_t> allowed_media_types;

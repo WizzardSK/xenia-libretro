@@ -9,9 +9,12 @@
 
 #include <thread>
 
+#include "xenia/base/clock.h"
 #include "xenia/base/cvar.h"
+#include "xenia/base/filesystem.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/string_util.h"
+#include "xenia/base/threading.h"
 #include "xenia/base/utf8.h"
 #include "xenia/emulator.h"
 #include "xenia/kernel/kernel_state.h"
@@ -20,14 +23,16 @@
 #include "xenia/kernel/util/shim_utils.h"
 #include "xenia/kernel/xam/xam_module.h"
 #include "xenia/kernel/xam/xam_private.h"
+#include "xenia/kernel/xam/xam_ui.h"
 #include "xenia/kernel/xboxkrnl/xboxkrnl_error.h"
 #include "xenia/kernel/xboxkrnl/xboxkrnl_memory.h"
 #include "xenia/kernel/xboxkrnl/xboxkrnl_modules.h"
 #include "xenia/kernel/xboxkrnl/xboxkrnl_threading.h"
-#include "xenia/kernel/xboxkrnl/xboxkrnl_xconfig.h"
+#include "xenia/kernel/xconfig.h"
 #include "xenia/kernel/xenumerator.h"
 #include "xenia/kernel/xthread.h"
 #include "xenia/ui/windowed_app_context.h"
+#include "xenia/vfs/devices/host_path_entry.h"
 #include "xenia/xbox.h"
 
 #include "third_party/fmt/include/fmt/format.h"
@@ -45,10 +50,6 @@ DEFINE_int32(avpack, 8,
              " 7 = TV PAL-60\n"
              " 8 = HDMI (default)",
              "Video");
-DECLARE_string(user_country);
-DECLARE_string(user_language);
-DECLARE_uint32(audio_flag);
-
 DEFINE_bool(staging_mode, 0,
             "Enables preview mode in dashboards to render debug information.",
             "Kernel");
@@ -65,8 +66,14 @@ namespace xam {
 // https://github.com/tpn/winsdk-10/blob/master/Include/10.0.14393.0/km/wdm.h#L15539
 typedef enum _MODE { KernelMode, UserMode, MaximumMode } MODE;
 
-dword_result_t XamFeatureEnabled_entry(dword_t app_id) { return 0; }
-DECLARE_XAM_EXPORT1(XamFeatureEnabled, kNone, kStub);
+dword_result_t XamFeatureEnabled_entry(qword_t feature_bit) {
+  const std::bitset<36> feature(0x40ffffffff);
+  if (feature.test(feature_bit)) {
+    return 1;
+  }
+  return 0;
+}
+DECLARE_XAM_EXPORT1(XamFeatureEnabled, kNone, kImplemented);
 
 dword_result_t XamGetStagingMode_entry() { return cvars::staging_mode; }
 DECLARE_XAM_EXPORT1(XamGetStagingMode, kNone, kStub);
@@ -96,39 +103,100 @@ dword_result_t XamGetOnlineSchema_entry() {
 }
 DECLARE_XAM_EXPORT1(XamGetOnlineSchema, kNone, kImplemented);
 
-void XamFormatDateString_entry(dword_t locale_format, qword_t filetime,
-                               lpvoid_t output_buffer, dword_t output_count) {
-  output_buffer.Zero(output_count * sizeof(char16_t));
+dword_result_t XamQueryLiveHiveA_entry(
+    lpstring_t feature_name, lpstring_t value_ptr, dword_t value_buffer_size,
+    pointer_t<XAM_OVERLAPPED> overlapped_ptr) {
+  // See Netplay, create shared function for both XamQueryLiveHiveA and
+  // XamGetLiveHiveValueA
+  X_RESULT extended_error = 0x80151802;  // X_ONLINE_E_LOGON_NOT_LOGGED_ON
+  if (!feature_name || !value_ptr || !value_buffer_size) {
+    extended_error = X_E_INVALIDARG;
+  }
 
-  auto tp = xe::chrono::WinSystemClock::to_sys(
-      xe::chrono::WinSystemClock::from_file_time(filetime));
-  auto dp = date::floor<date::days>(tp);
-  auto year_month_day = date::year_month_day{dp};
-
-  auto str = fmt::format(u"{:02d}/{:02d}/{}",
-                         static_cast<unsigned>(year_month_day.month()),
-                         static_cast<unsigned>(year_month_day.day()),
-                         static_cast<int>(year_month_day.year()));
-  xe::string_util::copy_and_swap_truncating(output_buffer.as<char16_t*>(), str,
-                                            output_count);
+  if (overlapped_ptr) {
+    kernel_state()->CompleteOverlappedImmediateEx(
+        overlapped_ptr, X_STATUS_SUCCESS, extended_error, 0);
+    return X_E_PENDING;
+  } else {
+    return extended_error;
+  }
 }
-DECLARE_XAM_EXPORT1(XamFormatDateString, kNone, kImplemented);
+DECLARE_XAM_EXPORT1(XamQueryLiveHiveA, kMisc, kStub);
 
-void XamFormatTimeString_entry(dword_t user_index, qword_t filetime,
-                               lpvoid_t output_buffer, dword_t output_count) {
-  output_buffer.Zero(output_count * sizeof(char16_t));
+dword_result_t XamGetLiveHiveValueA_entry(
+    lpstring_t feature_name, lpstring_t value_ptr, dword_t value_buffer_size,
+    int_t unk, pointer_t<XAM_OVERLAPPED> overlapped_ptr) {
+  // See Netplay
+  X_RESULT result = 0x80151802;  // X_ONLINE_E_LOGON_NOT_LOGGED_ON
+  if (!feature_name || !value_ptr || !value_buffer_size) {
+    result = X_E_INVALIDARG;
+  }
 
-  auto tp = xe::chrono::WinSystemClock::to_sys(
-      xe::chrono::WinSystemClock::from_file_time(filetime));
-  auto dp = date::floor<date::days>(tp);
-  auto time = date::hh_mm_ss{date::floor<std::chrono::milliseconds>(tp - dp)};
+  auto thread = kernel::XThread::GetCurrentThread();
+  auto ctx = thread->thread_state()->context();
+  auto type = xboxkrnl::xeKeGetCurrentProcessType(ctx);
+  if (unk == -1 && kernel_state()->emulator()->title_id() == kDashboardID &&
+      type == 2) {
+    return XamQueryLiveHiveA_entry(feature_name, value_ptr, value_buffer_size,
+                                   overlapped_ptr);
+  }
 
-  auto str = fmt::format(u"{:02d}:{:02d}", time.hours().count(),
-                         time.minutes().count());
-  xe::string_util::copy_and_swap_truncating(output_buffer.as<char16_t*>(), str,
-                                            output_count);
+  if (overlapped_ptr) {
+    kernel_state()->CompleteOverlappedImmediate(overlapped_ptr, result);
+    return X_ERROR_IO_PENDING;
+  } else {
+    return result;
+  }
 }
-DECLARE_XAM_EXPORT1(XamFormatTimeString, kNone, kImplemented);
+DECLARE_XAM_EXPORT1(XamGetLiveHiveValueA, kMisc, kStub);
+
+dword_result_t XamQueryLiveHiveW_entry(
+    lpu16string_t feature_name, lpu16string_t value_ptr,
+    dword_t value_buffer_size, pointer_t<XAM_OVERLAPPED> overlapped_ptr) {
+  // See Netplay, create shared function for both XamQueryLiveHiveW and
+  // XamGetLiveHiveValueW
+  X_RESULT extended_error = 0x80151802;  // X_ONLINE_E_LOGON_NOT_LOGGED_ON
+  if (!feature_name || !value_ptr || !value_buffer_size) {
+    extended_error = X_E_INVALIDARG;
+  }
+
+  if (overlapped_ptr) {
+    kernel_state()->CompleteOverlappedImmediateEx(
+        overlapped_ptr, X_STATUS_SUCCESS, extended_error, 0);
+    return X_E_PENDING;
+  } else {
+    return extended_error;
+  }
+}
+DECLARE_XAM_EXPORT1(XamQueryLiveHiveW, kMisc, kStub);
+
+dword_result_t XamGetLiveHiveValueW_entry(
+    lpu16string_t feature_name, lpu16string_t value_ptr,
+    dword_t value_buffer_size, int_t unk,
+    pointer_t<XAM_OVERLAPPED> overlapped_ptr) {
+  // See Netplay
+  X_RESULT result = 0x80151802;  // X_ONLINE_E_LOGON_NOT_LOGGED_ON
+  if (!feature_name || !value_ptr || !value_buffer_size) {
+    result = X_E_INVALIDARG;
+  }
+
+  auto thread = kernel::XThread::GetCurrentThread();
+  auto ctx = thread->thread_state()->context();
+  auto type = xboxkrnl::xeKeGetCurrentProcessType(ctx);
+  if (unk == -1 && kernel_state()->emulator()->title_id() == kDashboardID &&
+      type == 2) {
+    return XamQueryLiveHiveW_entry(feature_name, value_ptr, value_buffer_size,
+                                   overlapped_ptr);
+  }
+
+  if (overlapped_ptr) {
+    kernel_state()->CompleteOverlappedImmediate(overlapped_ptr, result);
+    return X_ERROR_IO_PENDING;
+  } else {
+    return result;
+  }
+}
+DECLARE_XAM_EXPORT1(XamGetLiveHiveValueW, kMisc, kStub);
 
 dword_result_t keXamBuildResourceLocator(uint64_t module,
                                          const std::u16string& container,
@@ -208,29 +276,74 @@ DECLARE_XAM_EXPORT1(XamBuildXamResourceLocator, kNone, kImplemented);
 
 dword_result_t XamGetCachedTitleName_entry(dword_t title_id,
                                            dword_t title_name_address,
-                                           lpdword_t title_name_size_ptr) {
-  if (!title_name_address || !title_name_size_ptr) {
+                                           lpdword_t title_name_length_ptr) {
+  char16_t* title_name_ptr =
+      kernel_state()->memory()->TranslateVirtual<char16_t*>(title_name_address);
+
+  if (!title_id) {
+    *title_name_ptr = 0;
+    *title_name_length_ptr = 1;
+
     return X_ERROR_INVALID_PARAMETER;
   }
 
   assert_false(title_id != kernel_state()->title_id());
 
-  char16_t* title_name_ptr =
-      kernel_state()->memory()->TranslateVirtual<char16_t*>(title_name_address);
-
   std::u16string title_name = xe::to_utf16(
       kernel_state()->emulator()->game_info_database()->GetTitleName());
 
-  size_t title_name_size = string_util::size_in_bytes(title_name, true);
+  xe::string_util::copy_and_swap_truncating(title_name_ptr, title_name,
+                                            title_name.size() + 1);
 
-  string_util::copy_and_swap_truncating(title_name_ptr, title_name,
-                                        title_name_size);
-
-  *title_name_size_ptr = static_cast<uint32_t>(title_name_size);
+  *title_name_length_ptr = title_name.size() + 1;
 
   return X_ERROR_SUCCESS;
 }
 DECLARE_XAM_EXPORT1(XamGetCachedTitleName, kNone, kImplemented);
+
+dword_result_t XamReadString_entry(dword_t title_id, qword_t id,
+                                   dword_t user_index, dword_t string_out_ptr,
+                                   lpdword_t string_size_ptr,
+                                   pointer_t<XAM_OVERLAPPED> overlapped_ptr) {
+  if (!string_out_ptr || id == 0xFFFF) {
+    return X_E_INVALIDARG;
+  }
+
+  if (!string_size_ptr) {
+    return X_E_INSUFFICIENT_BUFFER;
+  }
+
+  auto run = [=](uint32_t& extended_error, uint32_t& length) -> X_RESULT {
+    X_STATUS result = X_ERROR_SUCCESS;
+
+    // 584111F7 reads leaderboard strings
+    const std::u16string localized_string = xe::to_utf16(
+        kernel_state()->emulator()->game_info_database()->GetLocalizedString(
+            static_cast<uint32_t>(id)));
+
+    const size_t str_buffer_size = *string_size_ptr;
+
+    char16_t* str_buffer =
+        kernel_memory()->TranslateVirtual<char16_t*>(string_out_ptr);
+
+    xe::string_util::copy_and_swap_truncating(str_buffer, localized_string,
+                                              str_buffer_size);
+
+    extended_error = X_HRESULT_FROM_WIN32(result);
+    length = 0;
+
+    return result;
+  };
+
+  if (!overlapped_ptr) {
+    uint32_t extended_error, length = 0;
+    return run(extended_error, length);
+  }
+
+  kernel_state()->CompleteOverlappedDeferredEx(run, overlapped_ptr);
+  return X_ERROR_IO_PENDING;
+}
+DECLARE_XAM_EXPORT1(XamReadString, kNone, kImplemented);
 
 dword_result_t XamGetSystemVersion_entry() {
   // eh, just picking one. If we go too low we may break new games, but
@@ -259,62 +372,6 @@ dword_result_t XGetAVPack_entry() {
 }
 DECLARE_XAM_EXPORT1(XGetAVPack, kNone, kStub);
 
-uint32_t xeXGetGameRegion() {
-  static uint32_t constexpr table[] = {
-      0xFFFFu, 0x03FFu, 0x02FEu, 0x02FEu, 0x03FFu, 0x02FEu, 0x0201u, 0x03FFu,
-      0x02FEu, 0x02FEu, 0x03FFu, 0x03FFu, 0x03FFu, 0x03FFu, 0x02FEu, 0x03FFu,
-      0x00FFu, 0xFFFFu, 0x02FEu, 0x03FFu, 0x0102u, 0x03FFu, 0x03FFu, 0x02FEu,
-      0x02FEu, 0x02FEu, 0x03FFu, 0x03FFu, 0x03FFu, 0x02FEu, 0x03FFu, 0x02FEu,
-      0x02FEu, 0x02FEu, 0x02FEu, 0x02FEu, 0x02FEu, 0x02FEu, 0x03FFu, 0x03FFu,
-      0x03FFu, 0x02FEu, 0x02FEu, 0x03FFu, 0x02FEu, 0x02FEu, 0x03FFu, 0x03FFu,
-      0x03FFu, 0x02FEu, 0x02FEu, 0x03FFu, 0x03FFu, 0x0101u, 0x03FFu, 0x03FFu,
-      0x03FFu, 0x03FFu, 0x03FFu, 0x03FFu, 0x02FEu, 0x02FEu, 0x02FEu, 0x02FEu,
-      0x03FFu, 0x03FFu, 0x02FEu, 0x02FEu, 0x03FFu, 0x0102u, 0x03FFu, 0x00FFu,
-      0x03FFu, 0x03FFu, 0x02FEu, 0x02FEu, 0x0201u, 0x03FFu, 0x03FFu, 0x03FFu,
-      0x03FFu, 0x03FFu, 0x02FEu, 0x03FFu, 0x02FEu, 0x03FFu, 0x03FFu, 0x02FEu,
-      0x02FEu, 0x03FFu, 0x02FEu, 0x03FFu, 0x02FEu, 0x02FEu, 0xFFFFu, 0x03FFu,
-      0x03FFu, 0x03FFu, 0x03FFu, 0x02FEu, 0x03FFu, 0x03FFu, 0x02FEu, 0x00FFu,
-      0x03FFu, 0x03FFu, 0x03FFu, 0x03FFu, 0x03FFu, 0x03FFu, 0x03FFu};
-  auto country = static_cast<uint8_t>(xboxkrnl::GetUserCountryValue());
-  return country < xe::countof(table) ? table[country] : 0xFFFFu;
-}
-
-dword_result_t XGetGameRegion_entry() { return xeXGetGameRegion(); }
-DECLARE_XAM_EXPORT1(XGetGameRegion, kNone, kStub);
-
-XLanguage xeGetLanguage(bool extended_languages_support) {
-  auto desired_language =
-      static_cast<XLanguage>(xboxkrnl::GetUserLanguageValue());
-  uint32_t region = xeXGetGameRegion();
-  auto max_languages = extended_languages_support ? XLanguage::kMaxLanguages
-                                                  : XLanguage::kSChinese;
-  if (desired_language < max_languages) {
-    return desired_language;
-  }
-  if ((region & 0xff00) != 0x100) {
-    return XLanguage::kEnglish;
-  }
-  switch (region) {
-    case 0x101:  // NTSC-J (Japan)
-      return XLanguage::kJapanese;
-    case 0x102:  // NTSC-J (China)
-      return extended_languages_support ? XLanguage::kSChinese
-                                        : XLanguage::kEnglish;
-    default:
-      return XLanguage::kKorean;
-  }
-}
-
-dword_result_t XGetLanguage_entry() {
-  return static_cast<uint32_t>(xeGetLanguage(false));
-}
-DECLARE_XAM_EXPORT1(XGetLanguage, kNone, kImplemented);
-
-dword_result_t XamGetLanguage_entry() {
-  return static_cast<uint32_t>(xeGetLanguage(true));
-}
-DECLARE_XAM_EXPORT1(XamGetLanguage, kNone, kImplemented);
-
 dword_result_t XamGetCurrentTitleId_entry() {
   return kernel_state()->emulator()->title_id();
 }
@@ -342,15 +399,59 @@ dword_result_t XamGetExecutionId_entry(lpdword_t info_ptr) {
 }
 DECLARE_XAM_EXPORT1(XamGetExecutionId, kNone, kImplemented);
 
+void XamLoaderRegisterLaunchRequestCallback_entry(dword_t callback) {
+  auto xam = kernel_state()->GetKernelModule<XamModule>("xam.xex");
+  if (xam) {
+    xam->SetLaunchCallback(callback);
+  }
+}
+DECLARE_XAM_EXPORT1(XamLoaderRegisterLaunchRequestCallback, kNone, kStub);
+
+static std::string HexBytes(const std::vector<uint8_t>& data,
+                            size_t max_bytes) {
+  const size_t shown = std::min(data.size(), max_bytes);
+  std::string hex;
+  hex.reserve(shown * 2 + 3);
+  for (size_t i = 0; i < shown; ++i) {
+    hex += fmt::format("{:02X}", data[i]);
+  }
+  if (shown < data.size()) {
+    hex += "...";
+  }
+  return hex;
+}
+
+static constexpr size_t kLaunchDataLogBytes = 64;
+
 dword_result_t XamLoaderSetLaunchData_entry(lpvoid_t data, dword_t size) {
   auto xam = kernel_state()->GetKernelModule<XamModule>("xam.xex");
   auto& loader_data = xam->loader_data();
   loader_data.launch_data_present = size ? true : false;
   loader_data.launch_data.resize(size);
   std::memcpy(loader_data.launch_data.data(), data, size);
+  XELOGI("XamLoaderSetLaunchData: size={} data={}", uint32_t(size),
+         HexBytes(loader_data.launch_data, kLaunchDataLogBytes));
   return 0;
 }
 DECLARE_XAM_EXPORT1(XamLoaderSetLaunchData, kNone, kSketchy);
+
+// Stands in for the dashboard, which names the game in launch data.
+static void ChooseIndieGameLaunchData(XamModule::LoaderData& loader_data) {
+  std::string file_name;
+  uint32_t device_id = 0;
+  std::string display_name;
+  if (!xeXamChooseIndieGame(&file_name, &device_id, &display_name)) {
+    return;
+  }
+  auto& data = loader_data.launch_data;
+  data.assign(0x34, 0);
+  xe::store_and_swap<uint32_t>(data.data(), 0xCAFEBABE);
+  std::memcpy(data.data() + 4, file_name.data(),
+              std::min<size_t>(file_name.size(), 0x2A));
+  xe::store_and_swap<uint32_t>(data.data() + 0x30, device_id);
+  loader_data.launch_data_present = true;
+  kernel_state()->emulator()->SetTitleName(display_name);
+}
 
 dword_result_t XamLoaderGetLaunchDataSize_entry(lpdword_t size_ptr) {
   if (!size_ptr) {
@@ -359,12 +460,20 @@ dword_result_t XamLoaderGetLaunchDataSize_entry(lpdword_t size_ptr) {
 
   auto xam = kernel_state()->GetKernelModule<XamModule>("xam.xex");
   auto& loader_data = xam->loader_data();
-  if (!loader_data.launch_data_present) {
+  if (loader_data.launch_data.empty() &&
+      kernel_state()->title_id() == kXN_2002) {
+    ChooseIndieGameLaunchData(loader_data);
+  }
+  if (loader_data.launch_data.empty()) {
     *size_ptr = 0;
+    XELOGI("XamLoaderGetLaunchDataSize: none");
     return X_ERROR_NOT_FOUND;
   }
 
-  *size_ptr = uint32_t(xam->loader_data().launch_data.size());
+  const uint32_t size = uint32_t(loader_data.launch_data.size());
+  *size_ptr = size;
+  XELOGI("XamLoaderGetLaunchDataSize: size={} data={}", size,
+         HexBytes(loader_data.launch_data, kLaunchDataLogBytes));
   return X_ERROR_SUCCESS;
 }
 DECLARE_XAM_EXPORT1(XamLoaderGetLaunchDataSize, kNone, kSketchy);
@@ -374,126 +483,211 @@ dword_result_t XamLoaderGetLaunchData_entry(lpvoid_t buffer_ptr,
   auto xam = kernel_state()->GetKernelModule<XamModule>("xam.xex");
   auto& loader_data = xam->loader_data();
   if (!loader_data.launch_data_present) {
+    XELOGI("XamLoaderGetLaunchData: none");
     return X_ERROR_NOT_FOUND;
   }
 
   uint32_t copy_size =
       std::min(uint32_t(loader_data.launch_data.size()), uint32_t(buffer_size));
   std::memcpy(buffer_ptr, loader_data.launch_data.data(), copy_size);
+  XELOGI("XamLoaderGetLaunchData: buffer_size={} copied={} data={}",
+         uint32_t(buffer_size), copy_size,
+         HexBytes(loader_data.launch_data, kLaunchDataLogBytes));
   return X_ERROR_SUCCESS;
 }
 DECLARE_XAM_EXPORT1(XamLoaderGetLaunchData, kNone, kSketchy);
 
-void XamLoaderLaunchTitle_entry(lpstring_t raw_name_ptr, dword_t flags) {
+// Guest paths are case-insensitive so a title's spelling of a name may not
+// match the file on disk. Look the real one up in the directory.
+static std::filesystem::path ResolveHostFileName(
+    const std::filesystem::path& path) {
+  const auto dir = path.parent_path();
+  const std::string name = xe::path_to_utf8(path.filename());
+  if (dir.empty() || name.empty()) {
+    return path;
+  }
+  for (const auto& info : xe::filesystem::ListFiles(dir)) {
+    if (xe::utf8::equal_case(xe::path_to_utf8(info.name), name)) {
+      return dir / info.name;
+    }
+  }
+  return path;
+}
+
+// Whether |path| names a device rather than a file next to the title.
+static bool NamesDevice(std::string_view path) {
+  return path.find(':') != std::string_view::npos || path.starts_with('\\');
+}
+
+// The console's XamLoaderLaunchTitleEx, which XamLoaderLaunchTitle calls with
+// flag 4. The D: drive path is only checked for flag 4.
+static void LaunchTitle(std::string path, std::string_view d_drive_path,
+                        uint32_t flags) {
   auto xam = kernel_state()->GetKernelModule<XamModule>("xam.xex");
 
   auto& loader_data = xam->loader_data();
   loader_data.launch_flags = flags;
 
-  // Translate the launch path to a full path.
-  if (raw_name_ptr) {
-    auto path = raw_name_ptr.value();
-    if (path.empty()) {
-      // Empty path means exit to dashboard
-      loader_data.launch_path = "game:\\default.xex";
-    } else {
-      // Non-empty path means launching another title
-      loader_data.launch_data_present = true;
-
-      // Normalize the paths
-      std::filesystem::path host_path = loader_data.host_path;
-      std::string launch_path = xe::path_to_utf8(path);
-
-      XELOGI("XamLoaderLaunchTitle: original host_path={}, launch_path={}",
-             loader_data.host_path, launch_path);
-
-      // Remove common guest path prefixes (case-insensitive since Xbox
-      // paths are case-insensitive, games may pass e.g. "GAME:\")
-      auto remove_prefix = [&launch_path](std::string_view prefix) {
-        if (xe::utf8::starts_with_case(launch_path, prefix)) {
-          launch_path = launch_path.substr(prefix.length());
-        }
-      };
-      remove_prefix("game:\\");
-      remove_prefix("d:\\");
-
-      // If host_path points to a .xex, combine with launch_path
-      if (host_path.extension() == ".xex") {
-        host_path.remove_filename();
-        host_path = host_path / launch_path;
-        launch_path = "";
+  // Flag 4 exits to the dashboard for a path rooted at a device. Flag 2 boots
+  // the disc in the tray in place of the path, and with no tray to emulate
+  // that exits to the dashboard too.
+  if ((flags & 2) || ((flags & 4) && (path.starts_with('\\') ||
+                                      d_drive_path.starts_with('\\')))) {
+    path.clear();
+  }
+  // A path on a device that doesn't resolve can't be launched, like the
+  // X:\xbox.xex XeFu exits to.
+  const vfs::Entry* entry = nullptr;
+  if (NamesDevice(path)) {
+    entry = kernel_state()->file_system()->ResolvePath(path);
+    if (!entry) {
+      XELOGW("XamLoaderLaunchTitle: {} does not exist, exiting to dashboard",
+             path);
+      // xbox.xex starts the XeFu build it picked for the game from XeFu's
+      // folder. XeFu exits to xbox.xex, which a folder can do without.
+      auto emulator = kernel_state()->emulator();
+      const std::string name = xe::utf8::find_name_from_guest_path(path);
+      if (emulator->title_id() == kXeFuTitleId &&
+          !xe::utf8::equal_case(name, "xbox.xex")) {
+        emulator->ReportMissingXeFuFile(name);
       }
-
-      XELOGI("XamLoaderLaunchTitle: normalized host_path={}, launch_path={}",
-             xe::path_to_utf8(host_path), launch_path);
-
-      // Handle title launch in-process via full Shutdown/Setup cycle.
-      // Disabled on Linux — pthread_cancel corrupts global mutex state and
-      // cooperative shutdown is not yet reliable. Windows uses TerminateThread.
-#if XE_PLATFORM_WIN32
-      if (cvars::in_process_title_relaunch) {
-        auto emulator = kernel_state()->emulator();
-
-        XELOGI("XamLoaderLaunchTitle: in-process relaunch to '{}'",
-               xe::path_to_utf8(host_path));
-
-        auto new_host_path = xe::path_to_utf8(host_path);
-        auto new_launch_module = launch_path;
-        auto new_flags = loader_data.launch_flags;
-        auto new_data = loader_data.launch_data;
-        auto current_thread = XThread::GetCurrentThread();
-
-        // Must dispatch from a non-guest thread — RelaunchTitle terminates
-        // all guest threads including the caller.
-        std::thread([emulator, new_host_path = std::move(new_host_path),
-                     new_launch_module = std::move(new_launch_module),
-                     new_flags, new_data = std::move(new_data)]() mutable {
-          emulator->RelaunchTitle(new_host_path, new_launch_module, new_flags,
-                                  std::move(new_data));
-        }).detach();
-
-        current_thread->Suspend(nullptr);
-
-        // Unreachable — thread is terminated during relaunch.
-        assert_always();
-      }
-#endif  // XE_PLATFORM_WIN32
-
-      // Convert launch_data to hex string
-      std::string launch_data_hex;
-      for (uint8_t byte : loader_data.launch_data) {
-        launch_data_hex += fmt::format("{:02X}", byte);
-      }
-
-      // Call the callback to spawn the new process directly
-      auto on_launch_new_title =
-          kernel_state()->emulator()->on_launch_new_title();
-      if (on_launch_new_title) {
-        XELOGI("XamLoaderLaunchTitle: spawning new title process");
-        on_launch_new_title(xe::path_to_utf8(host_path), launch_path,
-                            loader_data.launch_flags, launch_data_hex);
-        // Callback calls quick_exit, so we don't reach here
-      }
-
-      // Terminate if callback wasn't set
-      XELOGI("XamLoaderLaunchTitle: terminating to launch new title");
-      kernel_state()->TerminateTitle();
-      // This function does not return
+      path.clear();
     }
-  } else {
-    assert_always("Game requested exit to dashboard via XamLoaderLaunchTitle");
   }
 
-  // Exit to dashboard - this function does not return.
-  kernel_state()->TerminateTitle();
+  // An empty path means exit to dashboard.
+  if (!path.empty()) {
+    loader_data.launch_data_present = true;
+
+    std::filesystem::path host_path = loader_data.host_path;
+    std::string launch_path = xe::path_to_utf8(path);
+
+    XELOGI("XamLoaderLaunchTitle: original host_path={}, launch_path={}",
+           loader_data.host_path, launch_path);
+
+    // Remove common guest path prefixes (case-insensitive since Xbox
+    // paths are case-insensitive, games may pass e.g. "GAME:\")
+    auto remove_prefix = [&launch_path](std::string_view prefix) {
+      if (xe::utf8::starts_with_case(launch_path, prefix)) {
+        launch_path = launch_path.substr(prefix.length());
+      }
+    };
+    remove_prefix("game:\\");
+    remove_prefix("d:\\");
+
+    if (NamesDevice(launch_path)) {
+      // Any other device is outside the title. Only a file a host directory
+      // backs can be launched from there.
+      auto host_entry = dynamic_cast<const vfs::HostPathEntry*>(entry);
+      if (!host_entry ||
+          (host_entry->attributes() & vfs::kFileAttributeDirectory)) {
+        XELOGW("XamLoaderLaunchTitle: can't launch {}, exiting to dashboard",
+               path);
+        kernel_state()->ExitToDashboard();
+        return;
+      }
+      host_path = host_entry->host_path();
+      launch_path = "";
+    } else if (host_path.extension() == ".xex") {
+      host_path.remove_filename();
+      host_path = ResolveHostFileName(host_path / launch_path);
+      launch_path = "";
+    }
+
+    XELOGI("XamLoaderLaunchTitle: normalized host_path={}, launch_path={}",
+           xe::path_to_utf8(host_path), launch_path);
+
+    // Handle title launch in-process via full Shutdown/Setup cycle. Disabled
+    // on macOS — pthread_cancel there doesn't run C++ destructors, so
+    // force-terminated guest threads leak locks and deadlock teardown; spawn a
+    // fresh process instead.
+#if !XE_PLATFORM_MAC
+    if (cvars::in_process_title_relaunch) {
+      auto emulator = kernel_state()->emulator();
+
+      XELOGI("XamLoaderLaunchTitle: in-process relaunch to '{}'",
+             xe::path_to_utf8(host_path));
+
+      auto new_host_path = xe::path_to_utf8(host_path);
+      auto new_launch_module = launch_path;
+      auto new_flags = loader_data.launch_flags;
+      auto new_data = loader_data.launch_data;
+      auto current_thread = XThread::GetCurrentThread();
+
+      // Must dispatch from a non-guest thread — RelaunchTitle terminates
+      // all guest threads including the caller.
+      std::thread([emulator, new_host_path = std::move(new_host_path),
+                   new_launch_module = std::move(new_launch_module), new_flags,
+                   new_data = std::move(new_data)]() mutable {
+        emulator->RelaunchTitle(new_host_path, new_launch_module, new_flags,
+                                std::move(new_data));
+      }).detach();
+
+      // Stop running guest code; RelaunchTitle terminates us. Suspend can
+      // return on POSIX, so park rather than fall through to spawn.
+      current_thread->Suspend(nullptr);
+      while (true) {
+        xe::threading::NanoSleep(int64_t(1'000'000'000));
+      }
+    }
+#endif  // !XE_PLATFORM_MAC
+
+    const std::string launch_data_hex =
+        HexBytes(loader_data.launch_data, loader_data.launch_data.size());
+
+    auto on_launch_new_title =
+        kernel_state()->emulator()->on_launch_new_title();
+    if (on_launch_new_title) {
+      XELOGI("XamLoaderLaunchTitle: spawning new title process");
+      // The new process has no drive of its own to find the game in.
+      auto* emulator = kernel_state()->emulator();
+      on_launch_new_title(xe::path_to_utf8(host_path), launch_path,
+                          loader_data.launch_flags, launch_data_hex,
+                          emulator->KeepsXboxGame(host_path)
+                              ? xe::path_to_utf8(emulator->xbox_disc_path())
+                              : std::string());
+    }
+
+    XELOGI("XamLoaderLaunchTitle: terminating to launch new title");
+    kernel_state()->TerminateTitle();  // Does not return.
+  }
+
+  XELOGI("XamLoaderLaunchTitle: game requested exit to dashboard");
+  kernel_state()->ExitToDashboard();
+}
+
+void XamLoaderLaunchTitle_entry(lpstring_t raw_name_ptr, dword_t flags) {
+  LaunchTitle(raw_name_ptr ? raw_name_ptr.value() : std::string(), {},
+              flags | 4);
 }
 DECLARE_XAM_EXPORT1(XamLoaderLaunchTitle, kNone, kSketchy);
 
-void XamLoaderTerminateTitle_entry() {
-  // This function does not return.
-  kernel_state()->TerminateTitle();
+// Nothing mounts the D: drive path, and the command line isn't passed on.
+void XamLoaderLaunchTitleEx_entry(lpstring_t raw_name_ptr,
+                                  lpstring_t raw_d_drive_path_ptr,
+                                  lpstring_t raw_command_line_ptr,
+                                  dword_t flags) {
+  const std::string d_drive_path =
+      raw_d_drive_path_ptr ? raw_d_drive_path_ptr.value() : std::string();
+  if (!d_drive_path.empty() || raw_command_line_ptr) {
+    XELOGW(
+        "XamLoaderLaunchTitleEx: not mounting D: drive path {} or passing "
+        "command line {}",
+        d_drive_path,
+        raw_command_line_ptr ? raw_command_line_ptr.value() : std::string());
+  }
+  LaunchTitle(raw_name_ptr ? raw_name_ptr.value() : std::string(), d_drive_path,
+              flags);
 }
+DECLARE_XAM_EXPORT1(XamLoaderLaunchTitleEx, kNone, kSketchy);
+
+void XamLoaderTerminateTitle_entry() { kernel_state()->ExitToDashboard(); }
 DECLARE_XAM_EXPORT1(XamLoaderTerminateTitle, kNone, kSketchy);
+
+// Navigates to the URI pushed with XamPushBackURI, or with none reboots to the
+// dashboard.
+void XamNavigateBack_entry() { kernel_state()->ExitToDashboard(); }
+DECLARE_XAM_EXPORT1(XamNavigateBack, kNone, kSketchy);
 
 uint32_t XamAllocImpl(uint32_t flags, uint32_t size,
                       xe::be<uint32_t>* out_ptr) {
@@ -554,13 +748,6 @@ dword_result_t XamFree_entry(lpdword_t ptr) {
 }
 DECLARE_XAM_EXPORT1(XamFree, kMemory, kImplemented);
 
-dword_result_t XamQueryLiveHiveW_entry(lpu16string_t name, lpvoid_t out_buf,
-                                       dword_t out_size,
-                                       dword_t type /* guess */) {
-  return X_STATUS_INVALID_PARAMETER_1;
-}
-DECLARE_XAM_EXPORT1(XamQueryLiveHiveW, kNone, kStub);
-
 // http://www.noxa.org/blog/2011/02/28/building-an-xbox-360-emulator-part-3-feasibilityos/
 // http://www.noxa.org/blog/2011/08/13/building-an-xbox-360-emulator-part-5-xex-files/
 dword_result_t RtlSleep_entry(dword_t dwMilliseconds, dword_t bAlertable) {
@@ -609,6 +796,18 @@ DECLARE_XAM_EXPORT1(RtlSetLastNTError, kNone, kImplemented);
 
 dword_result_t RtlGetLastError_entry() { return XThread::GetLastError(); }
 DECLARE_XAM_EXPORT1(RtlGetLastError, kNone, kImplemented);
+
+dword_result_t XGetOverlappedExtendedError_entry(
+    pointer_t<XAM_OVERLAPPED> overlapped_ptr) {
+  if (!overlapped_ptr) {
+    return XThread::GetLastError();
+  }
+  if (overlapped_ptr->result == X_ERROR_IO_PENDING) {
+    return X_ERROR_IO_INCOMPLETE;
+  }
+  return static_cast<uint32_t>(overlapped_ptr->extended_error);
+}
+DECLARE_XAM_EXPORT1(XGetOverlappedExtendedError, kNone, kImplemented);
 
 dword_result_t GetLastError_entry() { return RtlGetLastError_entry(); }
 DECLARE_XAM_EXPORT1(GetLastError, kNone, kImplemented);
@@ -756,11 +955,11 @@ dword_result_t XGetAudioFlags_entry() {
     return 2;
   }
 
-  if (!cvars::audio_flag) {
-    return 0x10000 | 0x1;
-  }
+  const auto audio_flags = kernel_state()->xconfig()->ReadSetting<uint32_t>(
+      XCONFIG_USER_CATEGORY,
+      XCONFIG_USER_CATEGORY_ENTRIES::XCONFIG_USER_AUDIO_FLAGS);
 
-  return cvars::audio_flag;
+  return audio_flags ? audio_flags : 0x10000 | 0x1;
 }
 DECLARE_XAM_EXPORT1(XGetAudioFlags, kNone, kImplemented);
 
@@ -888,6 +1087,83 @@ DECLARE_XAM_EXPORT1(XamDoesOmniNeedConfiguration, kNone, kStub);
 
 dword_result_t XamFirstRunExperienceShouldRun_entry() { return 0; }
 DECLARE_XAM_EXPORT1(XamFirstRunExperienceShouldRun, kNone, kStub);
+
+dword_result_t QueryPerformanceFrequency_entry(lpqword_t query) {
+  uint64_t result = Clock::guest_tick_frequency();
+  *query = static_cast<uint32_t>(result);
+  return 1;
+}
+DECLARE_XAM_EXPORT1(QueryPerformanceFrequency, kNone, kImplemented);
+
+void GetSystemTimeAsFileTime_entry(lpqword_t time_ptr,
+                                   const ppc_context_t& ctx) {
+  if (time_ptr) {
+    uint32_t ts_bundle = ctx->kernel_state->GetKeTimestampBundle();
+    uint64_t time = Clock::QueryGuestSystemTime();
+    ctx->TranslateVirtual<X_TIME_STAMP_BUNDLE*>(ts_bundle)->system_time =
+        xe::byte_swap(time);
+    *time_ptr = time;
+  }
+}
+DECLARE_XAM_EXPORT1(GetSystemTimeAsFileTime, kNone, kImplemented);
+
+dword_result_t XamIsIptvEnabled_entry() {
+  const bool iptv_enabled =
+      kernel_state()->xconfig()->ReadSetting<uint32_t>(
+          X_CONFIG_CATEGORY::XCONFIG_USER_CATEGORY, XCONFIG_USER_RETAIL_FLAGS) &
+      X_RETAIL_FLAGS::IPTVEnabled;
+
+  return !iptv_enabled ? X_E_FAIL : X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamIsIptvEnabled, kNone, kImplemented);
+
+dword_result_t XamIptvGetServiceName_entry(lpdword_t service_name_ptr) {
+  auto address = kernel_state()->xam_state()->GetIptvNameAddress();
+  auto buffer = kernel_state()->memory()->TranslateVirtual(address);
+  char16_t* data_ptr = reinterpret_cast<char16_t*>(buffer);
+  kernel_state()->xconfig()->ReadSetting(
+      X_CONFIG_CATEGORY::XCONFIG_IPTV_CATEGORY,
+      XCONFIG_IPTV_SERVICE_PROVIDER_NAME, data_ptr);
+  if (*data_ptr == u'\0') {
+    xe::string_util::copy_and_swap_truncating(data_ptr, u"Xenia TV", 9);
+  }
+  *service_name_ptr = address;
+
+  return X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamIptvGetServiceName, kNone, kImplemented);
+
+dword_result_t XamGetDvrStorage_entry(lpdword_t dvr_storage,
+                                      lpdword_t used_dvr_storage,
+                                      lpdword_t hdd_unused_space) {
+  *dvr_storage = 0;
+  *used_dvr_storage = 0;
+  return X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamGetDvrStorage, kNone, kStub);
+
+dword_result_t XamSetDvrStorage_entry(
+    dword_t dvr_storage_size, pointer_t<XAM_OVERLAPPED> overlapped_ptr) {
+  return X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamSetDvrStorage, kNone, kStub);
+
+dword_result_t XamLookupCommonStringByIndex_entry(dword_t string_index) {
+  return 0;
+}
+DECLARE_XAM_EXPORT1(XamLookupCommonStringByIndex, kNone, kStub);
+
+dword_result_t XamLogLocalizationEtx_entry(dword_t error_code, dword_t unk) {
+  if (error_code == 0x80300034) {
+    // uses second unk for some function
+    return X_ERROR_SUCCESS;
+  } else if (error_code == 0x80300035) {
+    // uses second unk for some function
+    return X_ERROR_SUCCESS;
+  }
+  return X_E_NOT_IMPLEMENTED;
+}
+DECLARE_XAM_EXPORT1(XamLogLocalizationEtx, kNone, kStub);
 
 }  // namespace xam
 }  // namespace kernel

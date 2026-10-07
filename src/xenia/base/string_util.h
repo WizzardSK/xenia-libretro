@@ -159,7 +159,7 @@ inline std::string trim(const std::string& value) {
 
 inline std::string remove_eol(const std::string& value) {
   std::string result = value;
-  result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
+  result.erase(std::ranges::remove(result, '\n').begin(), result.cend());
   return result;
 }
 
@@ -441,6 +441,19 @@ inline std::u16string read_u16string_and_swap(const char16_t* string_ptr) {
   output_str.resize(input_str.size() + 1);
   copy_and_swap_truncating(output_str.data(), input_str,
                            size_in_bytes(input_str, false));
+  output_str.pop_back();  // Remove nullptr added by copy_and_swap.
+  return output_str;
+}
+
+// Variant for strings read out of a fixed size buffer, stops at max_chars
+inline std::u16string read_u16string_and_swap(const char16_t* string_ptr,
+                                              size_t max_chars) {
+  std::u16string_view input_str(string_ptr, max_chars);
+  input_str = input_str.substr(0, input_str.find(u'\0'));
+
+  std::u16string output_str = {};
+  output_str.resize(input_str.size() + 1);
+  copy_and_swap_truncating(output_str.data(), input_str, output_str.size());
   output_str.pop_back();  // Remove nullptr added by copy_and_swap.
   return output_str;
 }

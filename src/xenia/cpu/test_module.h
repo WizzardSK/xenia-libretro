@@ -26,7 +26,8 @@ class TestModule : public Module {
  public:
   TestModule(Processor* processor, const std::string_view name,
              std::function<bool(uint32_t)> contains_address,
-             std::function<bool(hir::HIRBuilder&)> generate);
+             std::function<bool(hir::HIRBuilder&)> generate,
+             bool skip_cf_simplification = false);
   ~TestModule() override;
 
   const std::string& name() const override { return name_; }

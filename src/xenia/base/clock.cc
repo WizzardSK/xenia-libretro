@@ -26,8 +26,9 @@ DEFINE_bool(clock_no_scaling, false,
             "Guest system time is directly pulled from host.",
             "CPU");
 DEFINE_bool(clock_source_raw, false,
-            "Use the RDTSC instruction as the time source. "
-            "Host CPU must support invariant TSC.",
+            "On x64, Use the RDTSC instruction as the time source. Requires "
+            "invariant TSC. "
+            "On a64, Use the CNTVCT_EL0 register as the time source",
             "CPU");
 
 namespace xe {
@@ -38,6 +39,14 @@ double guest_time_scalar_ = 1.0;
 uint64_t guest_tick_frequency_ = Clock::host_tick_frequency_platform();
 // Base FILETIME of the guest system from app start.
 uint64_t guest_system_time_base_ = Clock::QueryHostSystemTime();
+
+std::pair<uint64_t, uint64_t> guest_system_time_ratio_ =
+    []() -> std::pair<uint64_t, uint64_t> {
+  std::pair<uint64_t, uint64_t> frac(uint64_t(10000000), guest_tick_frequency_);
+  reduce_fraction(frac);
+  return frac;
+}();
+
 // Combined time and frequency ratio between host and guest.
 // Split in numerator (first) and denominator (second).
 // Computed by RecomputeGuestTickScalar.
@@ -53,6 +62,13 @@ using tick_mutex_type = std::mutex;
 // Mutex to ensure last_host_tick_count_ and last_guest_tick_count_ are in sync
 // std::mutex tick_mutex_;
 static tick_mutex_type tick_mutex_;
+
+static void RecomputeGuestSystemTimeRatio() {
+  std::pair<uint64_t, uint64_t> frac(uint64_t(10000000), guest_tick_frequency_);
+  reduce_fraction(frac);
+  std::lock_guard<tick_mutex_type> lock(tick_mutex_);
+  guest_system_time_ratio_ = frac;
+}
 
 void RecomputeGuestTickScalar() {
   // Create a rational number with numerator (first) and denominator (second)
@@ -110,11 +126,8 @@ inline uint64_t QueryGuestSystemTimeOffset() {
 
   auto guest_tick_count = UpdateGuestClock();
 
-  uint64_t numerator = 10000000;  // 100ns/10MHz resolution
-  uint64_t denominator = guest_tick_frequency_;
-  reduce_fraction(numerator, denominator);
-
-  return guest_tick_count * numerator / denominator;
+  return guest_tick_count * guest_system_time_ratio_.first /
+         guest_system_time_ratio_.second;
 }
 uint64_t Clock::QueryHostTickFrequency() {
 #if XE_CLOCK_RAW_AVAILABLE
@@ -153,13 +166,8 @@ uint64_t Clock::guest_tick_frequency() { return guest_tick_frequency_; }
 
 void Clock::set_guest_tick_frequency(uint64_t frequency) {
   guest_tick_frequency_ = frequency;
+  RecomputeGuestSystemTimeRatio();
   RecomputeGuestTickScalar();
-}
-
-uint64_t Clock::guest_system_time_base() { return guest_system_time_base_; }
-
-void Clock::set_guest_system_time_base(uint64_t time_base) {
-  guest_system_time_base_ = time_base;
 }
 
 uint64_t Clock::QueryGuestTickCount() {

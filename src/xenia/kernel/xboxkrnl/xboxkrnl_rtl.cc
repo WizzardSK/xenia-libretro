@@ -7,9 +7,9 @@
  ******************************************************************************
  */
 
-#include "xenia/kernel/xboxkrnl/xboxkrnl_rtl.h"
-
 #include <cwctype>
+
+#include "xenia/kernel/xboxkrnl/xboxkrnl_rtl.h"
 
 #include "xenia/base/atomic.h"
 #include "xenia/base/pe_image.h"
@@ -229,10 +229,8 @@ void RtlInitAnsiString_entry(pointer_t<X_ANSI_STRING> destination,
 DECLARE_XBOXKRNL_EXPORT1(RtlInitAnsiString, kNone, kImplemented);
 // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlupcaseunicodechar
 dword_result_t RtlUpcaseUnicodeChar_entry(dword_t SourceCharacter) {
-  // std::ctype<char16_t> is no facet the standard provides (libc++ has
-  // none), so through wint_t in the "C" locale, as std::locale() was
-  return static_cast<uint16_t>(
-      std::towupper(static_cast<wint_t>(SourceCharacter & 0xFFFF)));
+  return static_cast<uint32_t>(std::towupper(
+      static_cast<wint_t>(static_cast<uint32_t>(SourceCharacter))));
 }
 DECLARE_XBOXKRNL_EXPORT1(RtlUpcaseUnicodeChar, kNone, kImplemented);
 
@@ -537,16 +535,16 @@ DECLARE_XBOXKRNL_EXPORT1(RtlImageXexHeaderField, kNone, kImplemented);
 #pragma pack(push, 1)
 struct X_RTL_CRITICAL_SECTION {
   X_DISPATCH_HEADER header;
-  int32_t lock_count;               // 0x10 -1 -> 0 on first lock
-  xe::be<int32_t> recursion_count;  // 0x14  0 -> 1 on first lock
-  xe::be<uint32_t> owning_thread;   // 0x18 PKTHREAD 0 unless locked
+  int32_t lock_count;                          // 0x10 -1 -> 0 on first lock
+  xe::be<int32_t> recursion_count;             // 0x14  0 -> 1 on first lock
+  TypedGuestPointer<X_KTHREAD> owning_thread;  // 0x18 PKTHREAD 0 unless locked
 };
 #pragma pack(pop)
 static_assert_size(X_RTL_CRITICAL_SECTION, 28);
 
 void xeRtlInitializeCriticalSection(X_RTL_CRITICAL_SECTION* cs,
                                     uint32_t cs_ptr) {
-  cs->header.type = 1;      // EventSynchronizationObject (auto reset)
+  cs->header.type = X_OBJECT_TYPES::EventSynchronizationObject;
   cs->header.absolute = 0;  // spin count div 256
   cs->header.signal_state = 0;
   cs->lock_count = -1;
@@ -569,7 +567,7 @@ X_STATUS xeRtlInitializeCriticalSectionAndSpinCount(X_RTL_CRITICAL_SECTION* cs,
     spin_count_div_256 = 255;
   }
 
-  cs->header.type = 1;  // EventSynchronizationObject (auto reset)
+  cs->header.type = X_OBJECT_TYPES::EventSynchronizationObject;
   cs->header.absolute = spin_count_div_256;
   cs->header.signal_state = 0;
   cs->lock_count = -1;
@@ -584,8 +582,8 @@ dword_result_t RtlInitializeCriticalSectionAndSpinCount_entry(
   return xeRtlInitializeCriticalSectionAndSpinCount(cs, cs.guest_address(),
                                                     spin_count);
 }
-DECLARE_XBOXKRNL_EXPORT1(RtlInitializeCriticalSectionAndSpinCount, kNone,
-                         kImplemented);
+DECLARE_XBOXKRNL_EXPORT2(RtlInitializeCriticalSectionAndSpinCount, kNone,
+                         kImplemented, kHighFrequency);
 
 static void CriticalSectionPrefetchW(const void* vp) {
 #if XE_ARCH_AMD64 == 1
@@ -666,7 +664,17 @@ void RtlLeaveCriticalSection_entry(pointer_t<X_RTL_CRITICAL_SECTION> cs) {
     XELOGE("Null critical section in RtlLeaveCriticalSection!");
     return;
   }
-  assert_true(cs->owning_thread == XThread::GetCurrentThread()->guest_object());
+  // Retail RtlLeaveCriticalSection does not check ownership, it just
+  // decrements. A non-owner leave is a caller error but titles rely on it, so
+  // log not assert.
+  uint32_t leaving_thread = XThread::GetCurrentThread()->guest_object();
+  if (cs->owning_thread != leaving_thread) {
+    XELOGD(
+        "RtlLeaveCriticalSection {:08X} left by non-owner (owner {:08X}, "
+        "caller "
+        "{:08X})",
+        cs.guest_address(), uint32_t(cs->owning_thread.m_ptr), leaving_thread);
+  }
 
   // Drop recursion count - if it isn't zero we still have the lock.
   assert_true(cs->recursion_count > 0);

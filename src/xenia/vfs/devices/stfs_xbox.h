@@ -12,6 +12,7 @@
 
 #include <time.h>
 
+#include "xenia/base/logging.h"
 #include "xenia/base/string_util.h"
 #include "xenia/kernel/util/xex2_info.h"
 #include "xenia/xbox.h"
@@ -368,27 +369,33 @@ struct XContentMetadata {
     char16_t chars[kNumLanguagesV2 - kNumLanguagesV1][128];
   } description_ex_raw;
 
-  std::u16string display_name(XLanguage language) const {
-    uint32_t lang_id =
-        language == XLanguage::kInvalid ? 1 : uint32_t(language) - 1;
-
+  // Resolves a system language to an STFS metadata slot index. STFS headers
+  // only hold kNumLanguagesV2 languages; the extended languages and kInvalid
+  // have no slot and resolve to English. Warns only for values outside the
+  // enum, which signal a bad language id rather than a known format limit.
+  static uint32_t language_slot(XLanguage language) {
+    uint32_t lang_id = uint32_t(language) - 1;
     if (lang_id >= kNumLanguagesV2) {
-      assert_always();
-      // no room for this lang, read from english slot..
+      if (uint32_t(language) >= uint32_t(XLanguage::kMaxLanguages)) {
+        XELOGW("STFS metadata: invalid language {}, using English",
+               uint32_t(language));
+      }
       lang_id = uint32_t(XLanguage::kEnglish) - 1;
     }
+    return lang_id;
+  }
+
+  std::u16string display_name(XLanguage language) const {
+    uint32_t lang_id = language_slot(language);
 
     const be<uint16_t>* str = 0;
-    if (lang_id >= 0 && lang_id < kNumLanguagesV1) {
+    if (lang_id < kNumLanguagesV1) {
       str = display_name_raw.uint[lang_id];
-    } else if (lang_id >= kNumLanguagesV1 && lang_id < kNumLanguagesV2 &&
-               metadata_version >= 2) {
+    } else if (lang_id < kNumLanguagesV2 && metadata_version >= 2) {
       str = display_name_ex_raw.uint[lang_id - kNumLanguagesV1];
     }
 
     if (!str) {
-      // Invalid language ID?
-      assert_always();
       return u"";
     }
 
@@ -396,25 +403,16 @@ struct XContentMetadata {
   }
 
   std::u16string description(XLanguage language) const {
-    uint32_t lang_id = uint32_t(language) - 1;
-
-    if (lang_id >= kNumLanguagesV2) {
-      assert_always();
-      // no room for this lang, read from english slot..
-      lang_id = uint32_t(XLanguage::kEnglish) - 1;
-    }
+    uint32_t lang_id = language_slot(language);
 
     const be<uint16_t>* str = 0;
-    if (lang_id >= 0 && lang_id < kNumLanguagesV1) {
+    if (lang_id < kNumLanguagesV1) {
       str = description_raw.uint[lang_id];
-    } else if (lang_id >= kNumLanguagesV1 && lang_id < kNumLanguagesV2 &&
-               metadata_version >= 2) {
+    } else if (lang_id < kNumLanguagesV2 && metadata_version >= 2) {
       str = description_ex_raw.uint[lang_id - kNumLanguagesV1];
     }
 
     if (!str) {
-      // Invalid language ID?
-      assert_always();
       return u"";
     }
 
@@ -430,25 +428,16 @@ struct XContentMetadata {
   }
 
   bool set_display_name(XLanguage language, const std::u16string_view value) {
-    uint32_t lang_id = uint32_t(language) - 1;
-
-    if (lang_id >= kNumLanguagesV2) {
-      assert_always();
-      // no room for this lang, store in english slot..
-      lang_id = uint32_t(XLanguage::kEnglish) - 1;
-    }
+    uint32_t lang_id = language_slot(language);
 
     char16_t* str = 0;
-    if (lang_id >= 0 && lang_id < kNumLanguagesV1) {
+    if (lang_id < kNumLanguagesV1) {
       str = display_name_raw.chars[lang_id];
-    } else if (lang_id >= kNumLanguagesV1 && lang_id < kNumLanguagesV2 &&
-               metadata_version >= 2) {
+    } else if (lang_id < kNumLanguagesV2 && metadata_version >= 2) {
       str = display_name_ex_raw.chars[lang_id - kNumLanguagesV1];
     }
 
     if (!str) {
-      // Invalid language ID?
-      assert_always();
       return false;
     }
 
@@ -458,25 +447,16 @@ struct XContentMetadata {
   }
 
   bool set_description(XLanguage language, const std::u16string_view value) {
-    uint32_t lang_id = uint32_t(language) - 1;
-
-    if (lang_id >= kNumLanguagesV2) {
-      assert_always();
-      // no room for this lang, store in english slot..
-      lang_id = uint32_t(XLanguage::kEnglish) - 1;
-    }
+    uint32_t lang_id = language_slot(language);
 
     char16_t* str = 0;
-    if (lang_id >= 0 && lang_id < kNumLanguagesV1) {
+    if (lang_id < kNumLanguagesV1) {
       str = description_raw.chars[lang_id];
-    } else if (lang_id >= kNumLanguagesV1 && lang_id < kNumLanguagesV2 &&
-               metadata_version >= 2) {
+    } else if (lang_id < kNumLanguagesV2 && metadata_version >= 2) {
       str = description_ex_raw.chars[lang_id - kNumLanguagesV1];
     }
 
     if (!str) {
-      // Invalid language ID?
-      assert_always();
       return false;
     }
 

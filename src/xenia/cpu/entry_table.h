@@ -10,11 +10,11 @@
 #ifndef XENIA_CPU_ENTRY_TABLE_H_
 #define XENIA_CPU_ENTRY_TABLE_H_
 
+#include <map>
 #include <unordered_map>
 #include <vector>
 
 #include "xenia/base/mutex.h"
-#include "xenia/base/split_map.h"
 namespace xe {
 namespace cpu {
 
@@ -41,15 +41,29 @@ class EntryTable {
 
   Entry* Get(uint32_t address);
   Entry::Status GetOrCreate(uint32_t address, Entry** out_entry);
+  // Publishes the result of compiling `entry` (obtained via GetOrCreate
+  // returning STATUS_NEW) under the same lock GetOrCreate's spin-wait uses to
+  // read entry->status. Callers must go through these instead of writing
+  // entry->status/function/end_address directly -- unsynchronized writes here
+  // raced against the lock-protected reads in GetOrCreate's spin-wait, so a
+  // waiting thread on a weak memory model (e.g. Apple Silicon) could observe
+  // STATUS_READY before entry->function was actually visible, returning a
+  // stale/torn function pointer.
+  void MarkReady(Entry* entry, Function* function, uint32_t end_address);
+  void MarkFailed(Entry* entry);
   void Delete(uint32_t address);
+  // Drops every ready entry overlapping [start, end] and returns what they
+  // compiled, so the caller can let their modules forget them too.
+  std::vector<Function*> DeleteRange(uint32_t start, uint32_t end);
 
   std::vector<Function*> FindWithAddress(uint32_t address);
 
  private:
   xe::global_critical_region global_critical_region_;
-  // TODO(benvanik): replace with a better data structure.
-  xe::split_map<uint32_t, Entry*> map_;
-  // std::unordered_map<uint32_t, Entry*> map_;
+  std::unordered_map<uint32_t, Entry*> map_;
+  // Ready entries by start address, for range scans.
+  std::map<uint32_t, Entry*> ready_by_address_;
+  uint32_t max_ready_span_ = 0;
 };
 
 }  // namespace cpu

@@ -12,10 +12,7 @@
 #include "xenia/apu/audio_system.h"
 #include "xenia/apu/xma_context.h"
 #include "xenia/base/logging.h"
-
-#if XE_PLATFORM_LINUX && !XE_PLATFORM_ANDROID
-#include "xenia/apu/sdl/sdl_audio_driver.h"
-#endif
+#include "xenia/kernel/guest_scheduler.h"
 
 extern "C" {
 #if XE_COMPILER_MSVC
@@ -31,17 +28,15 @@ extern "C" {
 }  // extern "C"
 
 DEFINE_bool(enable_xmp, true, "Enables Music Player playback.", "APU");
-DEFINE_int32(xmp_default_volume, 70,
-             "Default music volume if game doesn't set it [0-100].", "APU");
 
 namespace xe {
 namespace apu {
 
-int32_t InitializeAndOpenAvCodec(std::vector<uint8_t>* song_data,
+int32_t InitializeAndOpenAvCodec(std::span<uint8_t> song_data,
                                  AVFormatContext*& format_context,
                                  AVCodecContext*& av_context) {
   AVIOContext* io_ctx =
-      avio_alloc_context(song_data->data(), (int)song_data->size(), 0, nullptr,
+      avio_alloc_context(song_data.data(), (int)song_data.size(), 0, nullptr,
                          nullptr, nullptr, nullptr);
 
   format_context = avformat_alloc_context();
@@ -128,13 +123,15 @@ ProcessAudioResult ProcessAudioLoop(AudioMediaPlayer* player,
         }
 
         ret = avcodec_receive_frame(avctx, frame);
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+          break;
+        }
         if (ret < 0) {
           XELOGW("Error during decoding: {:X}", ret);
           break;
         }
 
-        ConvertAudioFrame(frame, avctx->channels, &frameBuffer);
+        ConvertAudioFrame(frame, avctx->ch_layout.nb_channels, &frameBuffer);
         player->ProcessAudioBuffer(&frameBuffer);
       }
     }
@@ -155,6 +152,13 @@ AudioMediaPlayer::AudioMediaPlayer(apu::AudioSystem* audio_system,
 
 AudioMediaPlayer::~AudioMediaPlayer() {
   Stop();
+  // Thread::reset() only closes the handle; must wait for the worker to exit.
+  worker_running_ = false;
+  resume_fence_.Signal();
+  if (worker_thread_) {
+    xe::threading::Wait(worker_thread_.get(), false);
+    worker_thread_.reset();
+  }
   DeleteDriver();
 };
 
@@ -208,8 +212,8 @@ X_STATUS AudioMediaPlayer::Play(uint32_t playlist_handle, uint32_t song_handle,
     return X_STATUS_SUCCESS;
   }
 
-  auto song_itr = std::find_if(
-      active_playlist_->songs.cbegin(), active_playlist_->songs.cend(),
+  auto song_itr = std::ranges::find_if(
+      std::as_const(active_playlist_->songs),
       [song_handle](const std::unique_ptr<XmpApp::Song>& song) {
         return song->handle == song_handle;
       });
@@ -224,9 +228,8 @@ X_STATUS AudioMediaPlayer::Play(uint32_t playlist_handle, uint32_t song_handle,
 }
 
 void AudioMediaPlayer::Play() {
-  std::vector<uint8_t>* song_buffer = new std::vector<uint8_t>();
-
-  if (!LoadSongToMemory(song_buffer)) {
+  std::span<uint8_t> song_buffer = LoadSongToMemory();
+  if (song_buffer.empty()) {
     return;
   }
 
@@ -234,7 +237,8 @@ void AudioMediaPlayer::Play() {
   AVCodecContext* codecContext = nullptr;
   InitializeAndOpenAvCodec(song_buffer, formatContext, codecContext);
 
-  if (!SetupDriver(codecContext->sample_rate, codecContext->channels)) {
+  if (!SetupDriver(codecContext->sample_rate,
+                   codecContext->ch_layout.nb_channels)) {
     XELOGE("Driver initialization failed!");
     avcodec_free_context(&codecContext);
     av_freep(&formatContext->pb->buffer);
@@ -248,7 +252,8 @@ void AudioMediaPlayer::Play() {
   OnStateChanged();
 
   if (volume_ == 0.0f) {
-    volume_ = cvars::xmp_default_volume / 100.0f;
+    volume_ = kernel_state_->xconfig()->ReadSetting<float>(
+        kernel::XCONFIG_USER_CATEGORY, kernel::XCONFIG_USER_MUSIC_VOLUME);
   }
 
   // Always apply the stored volume to the newly created driver
@@ -317,7 +322,10 @@ void AudioMediaPlayer::Stop(bool change_state, bool force) {
   active_song_ = nullptr;
 
   if (!force) {
-    processing_end_fence_.Wait();
+    // Reachable from the guest XMP shim, so on a fiber this must park rather
+    // than block: a plain fence wait would stall the whole dispatch CPU,
+    // including the fibers that could satisfy it.
+    kernel::GuestScheduler::WaitOnFence(processing_end_fence_);
   }
 
   if (change_state) {
@@ -347,11 +355,11 @@ X_STATUS AudioMediaPlayer::Next() {
     Stop(false, false);
   }
 
-  auto itr = std::find_if(active_playlist_->songs.cbegin(),
-                          active_playlist_->songs.cend(),
-                          [this](const std::unique_ptr<XmpApp::Song>& song) {
-                            return song->handle == current_song_handle_;
-                          });
+  auto itr =
+      std::ranges::find_if(std::as_const(active_playlist_->songs),
+                           [this](const std::unique_ptr<XmpApp::Song>& song) {
+                             return song->handle == current_song_handle_;
+                           });
 
   // There is no song with such ID?
   if (itr == active_playlist_->songs.cend()) {
@@ -380,11 +388,11 @@ X_STATUS AudioMediaPlayer::Previous() {
     Stop(false, false);
   }
 
-  auto itr = std::find_if(active_playlist_->songs.cbegin(),
-                          active_playlist_->songs.cend(),
-                          [this](const std::unique_ptr<XmpApp::Song>& song) {
-                            return song->handle == current_song_handle_;
-                          });
+  auto itr =
+      std::ranges::find_if(std::as_const(active_playlist_->songs),
+                           [this](const std::unique_ptr<XmpApp::Song>& song) {
+                             return song->handle == current_song_handle_;
+                           });
 
   // We're at the first entry, we need to go to the end.
   if (itr == active_playlist_->songs.cbegin()) {
@@ -399,9 +407,9 @@ X_STATUS AudioMediaPlayer::Previous() {
   return X_STATUS_SUCCESS;
 }
 
-bool AudioMediaPlayer::LoadSongToMemory(std::vector<uint8_t>* buffer) {
+std::span<uint8_t> AudioMediaPlayer::LoadSongToMemory() {
   if (!active_song_) {
-    return false;
+    return {};
   }
 
   // Find file based on provided path?
@@ -413,16 +421,26 @@ bool AudioMediaPlayer::LoadSongToMemory(std::vector<uint8_t>* buffer) {
       &vfs_file, &file_action);
 
   if (result) {
-    return false;
+    return {};
   }
 
-  buffer->resize(vfs_file->entry()->size());
-  size_t bytes_read = 0;
-  result = vfs_file->ReadSync(
-      std::span<uint8_t>(buffer->data(), vfs_file->entry()->size()), 0,
-      &bytes_read);
+  std::span<uint8_t> buffer = {
+      static_cast<uint8_t*>(av_malloc(vfs_file->entry()->size())),
+      vfs_file->entry()->size()};
 
-  return !result;
+  if (buffer.empty()) {
+    return {};
+  }
+
+  size_t bytes_read = 0;
+  result = vfs_file->ReadSync(buffer, 0, &bytes_read);
+  if (result != X_ERROR_SUCCESS) {
+    // Read failed. We need to manually release resources from av_malloc.
+    av_freep(buffer.data());
+    return {};
+  }
+
+  return buffer;
 }
 
 void AudioMediaPlayer::AddPlaylist(uint32_t handle,
@@ -433,7 +451,7 @@ void AudioMediaPlayer::AddPlaylist(uint32_t handle,
 
   if (playback_mode_ == XmpApp::PlaybackMode::kShuffle) {
     auto rng = std::default_random_engine{};
-    std::shuffle(playlist->songs.begin(), playlist->songs.end(), rng);
+    std::ranges::shuffle(playlist->songs, rng);
   }
 
   playlists_.insert({handle, std::move(playlist)});
@@ -470,11 +488,11 @@ bool AudioMediaPlayer::IsLastSongInPlaylist() const {
     return false;
   }
 
-  auto itr = std::find_if(active_playlist_->songs.cbegin(),
-                          active_playlist_->songs.cend(),
-                          [this](const std::unique_ptr<XmpApp::Song>& song) {
-                            return song->handle == current_song_handle_;
-                          });
+  auto itr =
+      std::ranges::find_if(std::as_const(active_playlist_->songs),
+                           [this](const std::unique_ptr<XmpApp::Song>& song) {
+                             return song->handle == current_song_handle_;
+                           });
   itr = std::next(itr);
   return itr == active_playlist_->songs.cend();
 }
@@ -530,16 +548,8 @@ bool AudioMediaPlayer::SetupDriver(uint32_t sample_rate, uint32_t channels) {
     return false;
   }
 
-#if XE_PLATFORM_LINUX && !XE_PLATFORM_ANDROID
-  // On Linux always use SDL driver for XMP to avoid conflicts with ALSA
-  // which opens the driver in exclusive hardware access mode
-  driver_ = std::unique_ptr<AudioDriver>(new xe::apu::sdl::SDLAudioDriver(
-      driver_semaphore_.get(), sample_rate, channels, false));
-#else
-  // Use the same driver type as the main audio system
   driver_ = std::unique_ptr<AudioDriver>(audio_system_->CreateDriver(
       driver_semaphore_.get(), sample_rate, channels, false));
-#endif
 
   if (!driver_) {
     driver_semaphore_.reset();

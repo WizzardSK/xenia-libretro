@@ -40,8 +40,6 @@ std::filesystem::path to_path(const std::u16string_view source) {
 namespace filesystem {
 
 std::filesystem::path GetExecutablePath() {
-  // Don't use _get_wpgmptr in Qt apps - CRT may not be initialized properly
-  // Use GetModuleFileName directly instead
   wchar_t buffer[MAX_PATH];
   DWORD len = GetModuleFileNameW(nullptr, buffer, MAX_PATH);
   return len > 0 ? std::filesystem::path(buffer) : std::filesystem::path();
@@ -231,7 +229,9 @@ std::optional<FileInfo> GetInfo(const std::filesystem::path& path) {
   return std::move(out_info);
 }
 
-std::vector<FileInfo> ListFiles(const std::filesystem::path& path) {
+namespace internal {
+
+std::vector<FileInfo> ListFilesUnsorted(const std::filesystem::path& path) {
   std::vector<FileInfo> result;
 
   WIN32_FIND_DATA ffd;
@@ -264,6 +264,8 @@ std::vector<FileInfo> ListFiles(const std::filesystem::path& path) {
 
   return result;
 }
+
+}  // namespace internal
 
 bool SetAttributes(const std::filesystem::path& path, uint64_t attributes) {
   return SetFileAttributes(path.c_str(), static_cast<DWORD>(attributes));

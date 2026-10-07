@@ -28,8 +28,7 @@ namespace ui {
 std::unique_ptr<Window> Window::Create(WindowedAppContext& app_context,
                                        const std::string_view title,
                                        uint32_t desired_logical_width,
-                                       uint32_t desired_logical_height,
-                                       bool is_game_process) {
+                                       uint32_t desired_logical_height) {
   return std::make_unique<AndroidWindow>(
       app_context, title, desired_logical_width, desired_logical_height);
 }

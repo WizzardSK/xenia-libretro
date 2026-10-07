@@ -9,7 +9,7 @@
 
 #include "xenia/base/logging.h"
 #include "xenia/emulator.h"
-#include "xenia/kernel/kernel_flags.h"
+#include "xenia/kernel/guest_scheduler.h"
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/kernel/util/shim_utils.h"
 #include "xenia/kernel/xam/xam_private.h"
@@ -18,12 +18,6 @@
 #include "xenia/ui/window.h"
 #include "xenia/ui/windowed_app_context.h"
 #include "xenia/xbox.h"
-
-DEFINE_bool(allow_nui_initialization, false,
-            "Enable NUI initialization\n"
-            " Only set true when testing kinect games. Certain games may\n"
-            " require avatar implementation.",
-            "Kernel");
 
 namespace xe {
 namespace kernel {
@@ -69,8 +63,14 @@ dword_result_t XamNuiGetDeviceStatus_entry(
   */
 
   status_ptr.Zero();
-  status_ptr->status = cvars::allow_nui_initialization;
-  return cvars::allow_nui_initialization ? X_ERROR_SUCCESS : 0xC0050006;
+
+  const bool kinect_initialized =
+      kernel_state()->xconfig()->ReadSetting<uint32_t>(
+          X_CONFIG_CATEGORY::XCONFIG_USER_CATEGORY, XCONFIG_USER_RETAIL_FLAGS) &
+      X_RETAIL_FLAGS::KinectInitialized;
+
+  status_ptr->status = kinect_initialized;
+  return kinect_initialized ? X_ERROR_SUCCESS : 0xC0050006;
 }
 DECLARE_XAM_EXPORT1(XamNuiGetDeviceStatus, kNone, kStub);
 
@@ -190,7 +190,7 @@ dword_result_t XamNuiCameraSetFlags_entry(qword_t unk1, dword_t unk2) {
 DECLARE_XAM_EXPORT1(XamNuiCameraSetFlags, kNone, kStub);
 
 dword_result_t XamIsNuiUIActive_entry() {
-  return kernel_state()->xam_state()->xam_nui_dialogs_shown_ > 0;
+  return kernel_state()->xam_state()->is_xam_dialog_present_.load();
 }
 DECLARE_XAM_EXPORT1(XamIsNuiUIActive, kNone, kImplemented);
 
@@ -203,8 +203,12 @@ dword_result_t XamNuiIsDeviceReady_entry() {
      - 0x0004
      - 0x0040
   */
-  uint16_t device_state = cvars::allow_nui_initialization ? 1 : 0;
-  return device_state >> 1 & 1;
+  const bool kinect_initialized =
+      kernel_state()->xconfig()->ReadSetting<uint32_t>(
+          X_CONFIG_CATEGORY::XCONFIG_USER_CATEGORY, XCONFIG_USER_RETAIL_FLAGS) &
+      X_RETAIL_FLAGS::KinectInitialized;
+
+  return kinect_initialized >> 1 & 1;
 }
 DECLARE_XAM_EXPORT1(XamNuiIsDeviceReady, kNone, kImplemented);
 
@@ -358,10 +362,6 @@ dword_result_t XamShowNuiTroubleshooterUI_entry(dword_t user_index,
      XamShowNuiTroubleshooterUI(0xff,0,0) if param = -0x7ff8fffe
   */
 
-  if (cvars::headless) {
-    return 0;
-  }
-
   const Emulator* emulator = kernel_state()->emulator();
   ui::Window* display_window = emulator->display_window();
   ui::ImGuiDrawer* imgui_drawer = emulator->imgui_drawer();
@@ -373,9 +373,9 @@ dword_result_t XamShowNuiTroubleshooterUI_entry(dword_t user_index,
               "The game has indicated there is a problem with NUI (Kinect).")
               ->Then(&fence);
         })) {
-      kernel_state()->xam_state()->xam_dialogs_shown_++;
-      fence.Wait();
-      kernel_state()->xam_state()->xam_dialogs_shown_--;
+      kernel_state()->xam_state()->is_xam_dialog_present_.store(true);
+      GuestScheduler::WaitOnFence(fence);
+      kernel_state()->xam_state()->is_xam_dialog_present_.store(false);
     }
   }
 

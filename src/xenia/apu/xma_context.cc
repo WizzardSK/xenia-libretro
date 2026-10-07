@@ -18,6 +18,10 @@
 #include "xenia/base/profiling.h"
 #include "xenia/base/ring_buffer.h"
 
+#if XE_ARCH_ARM64
+#include <arm_neon.h>
+#endif
+
 extern "C" {
 #if XE_COMPILER_MSVC
 #pragma warning(push)
@@ -47,12 +51,24 @@ void XmaContext::DumpRaw(AVFrame* frame, int id) {
   }
   size_t data_size = sizeof(float);
   for (int i = 0; i < frame->nb_samples; i++) {
-    for (int ch = 0; ch < frame->channels; ch++) {
+    for (int ch = 0; ch < frame->ch_layout.nb_channels; ch++) {
       fwrite(frame->data[ch] + data_size * i, 1, data_size, outfile);
     }
   }
   fclose(outfile);
 }
+
+#if XE_ARCH_ARM64
+// FCVTNS saturates (NaN -> 0, positive overflow -> INT32_MAX); x86's CVTPS2DQ
+// yields the integer indefinite value instead, which PACKSSDW turns into
+// -32768. Substitute it so both backends produce identical samples.
+static inline int32x4_t ConvertToInt32X64(float32x4_t v) {
+  // |v| < 2^31 is false for NaN and the infinities. v == -2^31 also reports
+  // false, but its in-range conversion is INT32_MIN too, so this stays exact.
+  const uint32x4_t representable = vcaltq_f32(v, vdupq_n_f32(2147483648.0f));
+  return vbslq_s32(representable, vcvtnq_s32_f32(v), vdupq_n_s32(INT32_MIN));
+}
+#endif  // XE_ARCH_ARM64
 
 void XmaContext::ConvertFrame(const uint8_t** samples, bool is_two_channel,
                               uint8_t* output_buffer) {
@@ -113,21 +129,44 @@ void XmaContext::ConvertFrame(const uint8_t** samples, bool is_two_channel,
       _mm_storeu_si128(reinterpret_cast<__m128i*>(&out[i]), out_mm);
     }
   }
-#else
-  uint32_t o = 0;
-  for (uint32_t i = 0; i < kSamplesPerFrame; i++) {
-    for (uint32_t j = 0; j <= uint32_t(is_two_channel); j++) {
-      // Select the appropriate array based on the current channel.
-      auto in = reinterpret_cast<const float*>(samples[j]);
-
-      // Raw samples sometimes aren't within [-1, 1]
-      float scaled_sample = xe::clamp_float(in[i], -1.0f, 1.0f) * scale;
-
-      // Convert the sample and output it in big endian.
-      auto sample = static_cast<int16_t>(scaled_sample);
-      out[o++] = xe::byte_swap(sample);
+#elif XE_ARCH_ARM64
+  // NEON mirror of the SSE2 path above: scale, round-to-nearest convert with
+  // cvtps_epi32 semantics, saturating pack to int16, byte-swap to big-endian.
+  static_assert(kSamplesPerFrame % 8 == 0);
+  const auto in_channel_0 = reinterpret_cast<const float*>(samples[0]);
+  const float32x4_t scale_v = vdupq_n_f32(scale);
+  if (is_two_channel && samples[1] != nullptr) {
+    const auto in_channel_1 = reinterpret_cast<const float*>(samples[1]);
+    for (uint32_t i = 0; i < kSamplesPerFrame; i += 4) {
+      // Load 4 samples for each channel and rescale.
+      const float32x4_t in_l = vld1q_f32(&in_channel_0[i]);
+      const float32x4_t in_r = vld1q_f32(&in_channel_1[i]);
+      const int32x4_t l32 = ConvertToInt32X64(vmulq_f32(in_l, scale_v));
+      const int32x4_t r32 = ConvertToInt32X64(vmulq_f32(in_r, scale_v));
+      // Saturated pack to int16.
+      const int16x4_t l16 = vqmovn_s32(l32);
+      const int16x4_t r16 = vqmovn_s32(r32);
+      // Interleave channels, then byte swap each 16-bit sample.
+      const int16x4x2_t zipped = vzip_s16(l16, r16);
+      const int16x8_t interleaved = vcombine_s16(zipped.val[0], zipped.val[1]);
+      const uint8x16_t swapped = vrev16q_u8(vreinterpretq_u8_s16(interleaved));
+      vst1q_u8(reinterpret_cast<uint8_t*>(&out[i * 2]), swapped);
+    }
+  } else {
+    for (uint32_t i = 0; i < kSamplesPerFrame; i += 8) {
+      // Load 8 samples and rescale.
+      const float32x4_t in0 = vld1q_f32(&in_channel_0[i]);
+      const float32x4_t in1 = vld1q_f32(&in_channel_0[i + 4]);
+      const int32x4_t s0 = ConvertToInt32X64(vmulq_f32(in0, scale_v));
+      const int32x4_t s1 = ConvertToInt32X64(vmulq_f32(in1, scale_v));
+      // Saturated pack to int16, then byte swap.
+      const int16x8_t packed = vcombine_s16(vqmovn_s32(s0), vqmovn_s32(s1));
+      const uint8x16_t swapped = vrev16q_u8(vreinterpretq_u8_s16(packed));
+      vst1q_u8(reinterpret_cast<uint8_t*>(&out[i]), swapped);
     }
   }
+#else
+#error ConvertFrame has no implementation for this architecture.
 #endif
 }
 

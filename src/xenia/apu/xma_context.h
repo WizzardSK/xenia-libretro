@@ -67,11 +67,15 @@ struct XMA_CONTEXT_DATA {
   uint32_t loop_subframe_skip : 3;            // +17bit, XMASetLoopData might be
                                               // subframe_decode_count
   uint32_t subframe_decode_count : 4;         // +20bit
-  uint32_t subframe_skip_count : 3;           // +24bit
-  uint32_t sample_rate : 2;                   // +27bit enum of sample rates
-  uint32_t is_stereo : 1;                     // +29bit
-  uint32_t unk_dword_1_c : 1;                 // +30bit
-  uint32_t output_buffer_valid : 1;           // +31bit, XMAIsOutputBufferValid
+  uint32_t output_buffer_padding : 3;  // +24bit, extra output buffer blocks
+                                       // reserved per decoded frame
+                                       // NOTE(has207): this is pure guess
+                                       // but that's how we're using it
+                                       // currently
+  uint32_t sample_rate : 2;            // +27bit enum of sample rates
+  uint32_t is_stereo : 1;              // +29bit
+  uint32_t unk_dword_1_c : 1;          // +30bit
+  uint32_t output_buffer_valid : 1;    // +31bit, XMAIsOutputBufferValid
 
   // DWORD 2
   uint32_t input_buffer_read_offset : 26;  // XMAGetInputBufferReadOffset
@@ -216,11 +220,15 @@ class XmaContext {
 
   uint32_t id() { return id_; }
   uint32_t guest_ptr() { return guest_ptr_; }
-  bool is_allocated() { return is_allocated_; }
-  bool is_enabled() { return is_enabled_; }
+  bool is_allocated() { return is_allocated_.load(std::memory_order_acquire); }
+  bool is_enabled() { return is_enabled_.load(std::memory_order_acquire); }
 
-  void set_is_allocated(bool is_allocated) { is_allocated_ = is_allocated; }
-  void set_is_enabled(bool is_enabled) { is_enabled_ = is_enabled; }
+  void set_is_allocated(bool is_allocated) {
+    is_allocated_.store(is_allocated, std::memory_order_release);
+  }
+  void set_is_enabled(bool is_enabled) {
+    is_enabled_.store(is_enabled, std::memory_order_release);
+  }
 
  protected:
   static void DumpRaw(AVFrame* frame, int id);
@@ -233,12 +241,12 @@ class XmaContext {
   uint32_t id_ = 0;
   uint32_t guest_ptr_ = 0;
   xe_mutex lock_;
-  volatile bool is_allocated_ = false;
-  volatile bool is_enabled_ = false;
+  std::atomic<bool> is_allocated_ = false;
+  std::atomic<bool> is_enabled_ = false;
 
   // ffmpeg structures
   AVPacket* av_packet_ = nullptr;
-  AVCodec* av_codec_ = nullptr;
+  const AVCodec* av_codec_ = nullptr;
   AVCodecContext* av_context_ = nullptr;
   AVFrame* av_frame_ = nullptr;
 };

@@ -49,9 +49,7 @@ class GpdInfoTitle : public GpdInfo {
   uint32_t GetUnlockedAchievementCount() const;
 
  private:
-  const char16_t* GetAchievementTitlePtr(const uint32_t id);
-  const char16_t* GetAchievementDescriptionPtr(const uint32_t id);
-  const char16_t* GetAchievementUnachievedDescriptionPtr(const uint32_t id);
+  std::u16string GetAchievementString(const uint32_t id, uint32_t index);
 };
 
 }  // namespace xam

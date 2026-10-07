@@ -15,12 +15,14 @@
 #include "platform.h"
 #if XE_PLATFORM_WIN32
 #include "platform_win.h"
-#elif XE_PLATFORM_LINUX
-#include <sys/types.h>
+#endif
+#if XE_PLATFORM_MAC
+#include <os/lock.h>  // os_unfair_lock
 #endif
 #include "memory.h"
 #define XE_ENABLE_FAST_WIN32_MUTEX 1
 #define XE_ENABLE_FAST_LINUX_MUTEX 1
+#define XE_ENABLE_FAST_APPLE_MUTEX 1
 namespace xe {
 
 #if XE_PLATFORM_WIN32 == 1 && XE_ENABLE_FAST_WIN32_MUTEX == 1
@@ -37,6 +39,7 @@ class alignas(4096) xe_global_mutex {
   void lock();
   void unlock();
   bool try_lock();
+  bool is_held_by_current_thread() const;
 };
 using global_mutex_type = xe_global_mutex;
 
@@ -72,10 +75,7 @@ class xe_unlikely_mutex {
     } else {
       do {
         // chrispy: warning, if no SMT, mm_pause does nothing...
-#if XE_ARCH_AMD64 == 1
-        _mm_pause();
-#endif
-
+        SpinPause();
       } while (!_tryget());
     }
   }
@@ -91,7 +91,7 @@ using xe_mutex = xe_fast_mutex;
 // Mimics Windows CRITICAL_SECTION behavior: spin before blocking
 class alignas(4096) xe_global_mutex {
   std::atomic<uint32_t> state_{0};  // 0 = unlocked, 1 = locked, 2 = contended
-  std::atomic<pid_t> owner_{0};
+  std::atomic<uint64_t> owner_{0};  // pthread_self() of owner, 0 = unowned
   uint32_t recursion_count_{0};
 
   void lock_slow();
@@ -103,6 +103,7 @@ class alignas(4096) xe_global_mutex {
   void lock();
   void unlock();
   bool try_lock();
+  bool is_held_by_current_thread() const;
 };
 using global_mutex_type = xe_global_mutex;
 
@@ -140,10 +141,10 @@ class xe_unlikely_mutex {
     }
     // Spin a bit before yielding
     for (int i = 0; i < XE_LINUX_MUTEX_SPINCOUNT; ++i) {
-#if XE_ARCH_AMD64 == 1
-      _mm_pause();
-#endif
-      if (_tryget()) return;
+      SpinPause();
+      if (_tryget()) {
+        return;
+      }
     }
     // Fall back to yielding
     while (!_tryget()) {
@@ -155,8 +156,97 @@ class xe_unlikely_mutex {
 };
 
 using xe_mutex = xe_fast_mutex;
+#elif XE_PLATFORM_MAC == 1 && XE_ENABLE_FAST_APPLE_MUTEX == 1
+// Apple (macOS / iOS): os_unfair_lock (<os/lock.h>) is the documented
+// OSSpinLock replacement -- a lightweight lock that "allows waiters to block
+// efficiently on contention" and "contain[s] thread ownership information that
+// the system may use to attempt to resolve priority inversions" (Apple
+// os/lock.h). The std::recursive_mutex fallback used otherwise wraps a
+// "firstfit" pthread mutex that traps into the kernel (__psynch_mutexwait) on
+// every contended acquire; os_unfair_lock spins-then-blocks and is
+// priority-inversion aware across P/E cores. It is non-recursive, so recursion
+// is tracked here (owner thread + count) and the underlying lock is taken only
+// on the first acquire, mirroring the Win32 SRWLOCK implementation.
+class alignas(4096) xe_global_mutex {
+  os_unfair_lock lock_ = OS_UNFAIR_LOCK_INIT;
+  std::atomic<uint64_t> owner_{0};  // pthread_self() of owner, 0 = unowned
+  uint32_t recursion_count_ = 0;
+
+ public:
+  xe_global_mutex() = default;
+  ~xe_global_mutex() = default;
+
+  void lock();
+  void unlock();
+  bool try_lock();
+  bool is_held_by_current_thread() const;
+};
+using global_mutex_type = xe_global_mutex;
+
+// Non-recursive mutex via os_unfair_lock.
+class alignas(64) xe_fast_mutex {
+  os_unfair_lock lock_ = OS_UNFAIR_LOCK_INIT;
+
+ public:
+  xe_fast_mutex() = default;
+  ~xe_fast_mutex() = default;
+
+  void lock();
+  void unlock();
+  bool try_lock();
+};
+using xe_mutex = xe_fast_mutex;
+
+// Rarely-contended lock: a plain std::mutex is sufficient.
+using xe_unlikely_mutex = std::mutex;
 #else
-using global_mutex_type = std::recursive_mutex;
+// Generic owner-tracking recursive mutex for platforms without a fast-path
+// implementation. The guest scheduler's preempt deferral and I/O-offload
+// guard need is_held_by_current_thread, which std::recursive_mutex cannot
+// answer.
+class xe_global_mutex {
+  std::mutex inner_;
+  std::atomic<std::thread::id> owner_{};
+  uint32_t recursion_count_ = 0;
+
+ public:
+  xe_global_mutex() = default;
+  ~xe_global_mutex() = default;
+
+  void lock() {
+    auto self = std::this_thread::get_id();
+    if (owner_.load(std::memory_order_relaxed) == self) {
+      ++recursion_count_;
+      return;
+    }
+    inner_.lock();
+    owner_.store(self, std::memory_order_relaxed);
+    recursion_count_ = 1;
+  }
+  void unlock() {
+    if (--recursion_count_ == 0) {
+      owner_.store(std::thread::id(), std::memory_order_relaxed);
+      inner_.unlock();
+    }
+  }
+  bool try_lock() {
+    auto self = std::this_thread::get_id();
+    if (owner_.load(std::memory_order_relaxed) == self) {
+      ++recursion_count_;
+      return true;
+    }
+    if (!inner_.try_lock()) {
+      return false;
+    }
+    owner_.store(self, std::memory_order_relaxed);
+    recursion_count_ = 1;
+    return true;
+  }
+  bool is_held_by_current_thread() const {
+    return owner_.load(std::memory_order_relaxed) == std::this_thread::get_id();
+  }
+};
+using global_mutex_type = xe_global_mutex;
 using xe_mutex = std::mutex;
 using xe_unlikely_mutex = std::mutex;
 #endif
@@ -210,6 +300,10 @@ class global_critical_region {
  public:
   constexpr global_critical_region() {}
   static global_mutex_type& mutex();
+
+  // True if the calling host thread currently holds the region. Always false on
+  // the std::recursive_mutex fallback, which has no owner query.
+  static bool is_held_by_current_thread();
 
   // Acquires a lock on the global critical section.
   // Use this when keeping an instance is not possible. Otherwise, prefer

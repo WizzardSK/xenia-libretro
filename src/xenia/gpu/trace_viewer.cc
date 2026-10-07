@@ -63,7 +63,7 @@ TraceViewer::TraceViewer(xe::ui::WindowedAppContext& app_context,
 TraceViewer::~TraceViewer() = default;
 
 bool TraceViewer::OnInitialize() {
-  std::string path = cvars::target_trace_file.string();
+  std::string path = xe::path_to_utf8(cvars::target_trace_file);
 
   // If no path passed, ask the user.
   // On Android, however, there's no synchronous file picker, and the trace file
@@ -78,7 +78,7 @@ bool TraceViewer::OnInitialize() {
     file_picker->set_title("Select Trace File");
     file_picker->set_extensions({
         {"Supported Files", "*.xtr"},
-        {"All Files (*.*)", "*.*"},
+        {"All Files", "*"},
     });
     if (file_picker->Show()) {
       auto selected_files = file_picker->selected_files();
@@ -132,6 +132,12 @@ bool TraceViewer::Setup() {
       [this]() { return CreateGraphicsSystem(); }, nullptr);
   if (XFAILED(result)) {
     XELOGE("Failed to setup emulator: {:08X}", result);
+    return false;
+  }
+  // Setup only stores the factories; the graphics system is created here.
+  result = emulator_->SetupSubsystems();
+  if (XFAILED(result)) {
+    XELOGE("Failed to setup emulator subsystems: {:08X}", result);
     return false;
   }
   memory_ = emulator_->memory();
@@ -1763,8 +1769,8 @@ void TraceViewer::DrawStateUI() {
             regs.GetVertexFetch(vertex_binding.fetch_constant);
         assert_true(fetch.endian == xenos::Endian::k8in32);
         char tree_root_id[32];
-        sprintf(tree_root_id, "#vertices_root_%d",
-                vertex_binding.fetch_constant);
+        snprintf(tree_root_id, sizeof(tree_root_id), "#vertices_root_%d",
+                 vertex_binding.fetch_constant);
         if (ImGui::TreeNode(tree_root_id, "vf%d: 0x%.8X (%db), %s",
                             vertex_binding.fetch_constant, fetch.address << 2,
                             fetch.size * 4,

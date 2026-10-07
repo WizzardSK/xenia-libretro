@@ -11,17 +11,19 @@
 
 #include "xenia/base/logging.h"
 #include "xenia/base/memory.h"
+#include "xenia/base/profiling.h"
 #include "xenia/gpu/gpu_flags.h"
 #include "xenia/gpu/metal/metal_command_processor.h"
-#include "xenia/ui/metal/metal_util.h"
 
 namespace xe {
 namespace gpu {
 namespace metal {
 
 MetalSharedMemory::MetalSharedMemory(MetalCommandProcessor& command_processor,
-                                     Memory& memory)
-    : SharedMemory(memory), command_processor_(command_processor) {}
+                                     Memory& memory, TraceWriter& trace_writer)
+    : SharedMemory(memory),
+      command_processor_(command_processor),
+      trace_writer_(trace_writer) {}
 
 MetalSharedMemory::~MetalSharedMemory() { Shutdown(); }
 
@@ -48,7 +50,7 @@ bool MetalSharedMemory::Initialize() {
     return false;
   }
 
-  if (cvars::metal_shared_memory_zero_copy && device->hasUnifiedMemory()) {
+  if (cvars::shared_memory_zero_copy) {
     size_t system_page_size = xe::memory::page_size();
     if (reinterpret_cast<uintptr_t>(xbox_ram) % system_page_size == 0) {
       buffer_ = device->newBuffer(xbox_ram, kBufferSize,
@@ -91,24 +93,9 @@ void MetalSharedMemory::ClearCache() { SharedMemory::ClearCache(); }
 bool MetalSharedMemory::UploadRanges(
     const std::pair<uint32_t, uint32_t>* upload_page_ranges,
     uint32_t num_upload_ranges) {
+  SCOPE_profile_cpu_f("gpu");
   // Copy modified ranges from Xbox memory to Metal buffer when not using
   // bytes-no-copy shared memory.
-
-  static bool first_upload = true;
-  if (first_upload) {
-    first_upload = false;
-    const uint32_t page_size = 1u << page_size_log2();
-    XELOGD("MetalSharedMemory::UploadRanges: page_size={}, {} ranges to upload",
-           page_size, num_upload_ranges);
-    for (uint32_t i = 0; i < std::min(5u, num_upload_ranges); i++) {
-      uint32_t start_byte = upload_page_ranges[i].first * page_size;
-      uint32_t length_bytes = upload_page_ranges[i].second * page_size;
-      XELOGD("  Range[{}]: page={} count={} -> byte offset=0x{:08X} length={}",
-             i, upload_page_ranges[i].first, upload_page_ranges[i].second,
-             start_byte, length_bytes);
-    }
-  }
-
   if (!buffer_ || num_upload_ranges == 0) {
     return true;
   }
@@ -152,6 +139,7 @@ bool MetalSharedMemory::UploadRanges(
     if (end > kBufferSize) {
       end = kBufferSize;
     }
+    trace_writer_.WriteMemoryRead(start, end - start);
 
     if (!have_merged) {
       merged_start = start;
@@ -176,10 +164,24 @@ bool MetalSharedMemory::UploadRanges(
     flush_merged_range(merged_start, merged_end);
   }
 
-  XELOGD("MetalSharedMemory::UploadRanges: Copied {} ranges to Metal buffer",
-         num_upload_ranges);
-
   return true;
+}
+
+bool MetalSharedMemory::InitializeTraceSubmitDownloads() {
+  PrepareForTraceDownload();
+  return trace_download_page_count() != 0;
+}
+
+void MetalSharedMemory::InitializeTraceCompleteDownloads() {
+  if (buffer_) {
+    const uint8_t* buffer_data =
+        static_cast<const uint8_t*>(buffer_->contents());
+    for (const auto& download_range : trace_download_ranges()) {
+      trace_writer_.WriteMemoryRead(download_range.first, download_range.second,
+                                    buffer_data + download_range.first);
+    }
+  }
+  ReleaseTraceDownloadRanges();
 }
 
 void MetalSharedMemory::Shutdown() {

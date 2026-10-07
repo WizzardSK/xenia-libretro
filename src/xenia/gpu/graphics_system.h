@@ -64,6 +64,10 @@ class GraphicsSystem {
 
   virtual std::string name() const = 0;
 
+  // Whether the host can clamp depth instead of clipping at the near and far
+  // planes, which is what force_depth_clamp asks for.
+  virtual bool supports_depth_clamp() const { return true; }
+
   Memory* memory() const { return memory_; }
   cpu::Processor* processor() const { return processor_; }
   kernel::KernelState* kernel_state() const { return kernel_state_; }
@@ -75,6 +79,8 @@ class GraphicsSystem {
                          ui::WindowedAppContext* app_context,
                          bool with_presentation);
   virtual void Shutdown();
+  // Stops the vblank thread. Idempotent, and Shutdown does it too.
+  void StopFrameLimiter();
 
   // May be called from any thread any number of times, even during recovery
   // from a device loss.
@@ -103,6 +109,8 @@ class GraphicsSystem {
   void RequestFrameTrace();
   void BeginTracing();
   void EndTracing();
+  void RequestEndTracing();
+  bool is_tracing_stream() const;
 
   bool is_paused() const { return paused_; }
   void Pause();
@@ -146,6 +154,13 @@ class GraphicsSystem {
 
   std::atomic<bool> frame_limiter_worker_running_;
   kernel::object_ref<kernel::XHostThread> frame_limiter_worker_thread_;
+
+  // Anchors for synthesizing D1MODE_V_COUNTER. last_vblank_guest_tick_ is
+  // the guest tick at the most recent MarkVblank; vblank_period_ticks_ is
+  // the most recent measured interval between MarkVblank calls. Both are
+  // 0 before the first vblank fires.
+  std::atomic<uint64_t> last_vblank_guest_tick_{0};
+  std::atomic<uint64_t> vblank_period_ticks_{0};
 
   RegisterFile* register_file_;
   std::unique_ptr<CommandProcessor> command_processor_;

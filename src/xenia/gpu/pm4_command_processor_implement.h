@@ -103,7 +103,7 @@ void COMMAND_PROCESSOR::ExecuteIndirectBuffer(uint32_t ptr,
         // Return up a level if we encounter a bad packet.
         XELOGE("**** INDIRECT RINGBUFFER: Failed to execute packet.");
         assert_always();
-        // break;
+        break;
       }
     } while (reader_.read_count());
 
@@ -381,7 +381,8 @@ bool COMMAND_PROCESSOR::ExecutePacket() {
   }
   else {
   handle_bad_packet:
-    trace_writer_.WritePacketStart(uint32_t(reader_.read_ptr() - 4), 1);
+    trace_writer_.WritePacketStart(COMMAND_PROCESSOR::GuestReadPtrOffset(-4),
+                                   1);
     trace_writer_.WritePacketEnd();
     return true;
   }
@@ -408,7 +409,8 @@ bool COMMAND_PROCESSOR::ExecutePacketType0(uint32_t packet) XE_RESTRICT {
 
   if (COMMAND_PROCESSOR::GetCurrentRingReadCount() >=
       count * sizeof(uint32_t)) {
-    trace_writer_.WritePacketStart(uint32_t(reader_.read_ptr() - 4), 1 + count);
+    trace_writer_.WritePacketStart(COMMAND_PROCESSOR::GuestReadPtrOffset(-4),
+                                   1 + count);
 
     uint32_t base_index = (packet & 0x7FFF);
     uint32_t write_one_reg = (packet >> 15) & 0x1;
@@ -431,7 +433,7 @@ XE_NOINLINE
 bool COMMAND_PROCESSOR::ExecutePacketType1(uint32_t packet) XE_RESTRICT {
   // Type-1 packet.
   // Contains two registers of data. Type-0 should be more common.
-  trace_writer_.WritePacketStart(uint32_t(reader_.read_ptr() - 4), 3);
+  trace_writer_.WritePacketStart(COMMAND_PROCESSOR::GuestReadPtrOffset(-4), 3);
   uint32_t reg_index_1 = packet & 0x7FF;
   uint32_t reg_index_2 = (packet >> 11) & 0x7FF;
   uint32_t reg_data_1 = reader_.ReadAndSwap<uint32_t>();
@@ -445,7 +447,7 @@ bool COMMAND_PROCESSOR::ExecutePacketType1(uint32_t packet) XE_RESTRICT {
 bool COMMAND_PROCESSOR::ExecutePacketType2(uint32_t packet) XE_RESTRICT {
   // Type-2 packet.
   // No-op. Do nothing.
-  trace_writer_.WritePacketStart(uint32_t(reader_.read_ptr() - 4), 1);
+  trace_writer_.WritePacketStart(COMMAND_PROCESSOR::GuestReadPtrOffset(-4), 1);
   trace_writer_.WritePacketEnd();
   return true;
 }
@@ -473,9 +475,10 @@ bool COMMAND_PROCESSOR::ExecutePacketType3(uint32_t packet) XE_RESTRICT {
       count * sizeof(uint32_t)) {
     // To handle nesting behavior when tracing we special case indirect buffers.
     if (opcode == PM4_INDIRECT_BUFFER) {
-      trace_writer_.WritePacketStart(uint32_t(reader_.read_ptr() - 4), 2);
+      trace_writer_.WritePacketStart(COMMAND_PROCESSOR::GuestReadPtrOffset(-4),
+                                     2);
     } else {
-      trace_writer_.WritePacketStart(uint32_t(reader_.read_ptr() - 4),
+      trace_writer_.WritePacketStart(COMMAND_PROCESSOR::GuestReadPtrOffset(-4),
                                      1 + count);
     }
 
@@ -684,14 +687,21 @@ bool COMMAND_PROCESSOR::ExecutePacketType3(uint32_t packet) XE_RESTRICT {
         if (trace_state_ == TraceState::kSingleFrame) {
           trace_state_ = TraceState::kDisabled;
           trace_writer_.Close();
+          // The guest output now holds exactly the frame that was traced.
+          WriteTraceFrameScreenshot();
+        } else if (trace_state_ == TraceState::kDisabled) {
+          trace_writer_.Close();
         }
       } else if (trace_state_ == TraceState::kSingleFrame) {
         // New trace request - we only start tracing at the beginning of a
         // frame.
-        uint32_t title_id = kernel_state_->GetExecutableModule()->title_id();
+        auto executable_module = kernel_state_->GetExecutableModule();
+        uint32_t title_id =
+            executable_module ? executable_module->title_id() : 0;
         auto file_name = fmt::format("{:08X}_{}.xtr", title_id, counter_ - 1);
         auto path = trace_frame_path_ / file_name;
         trace_writer_.Open(path, title_id);
+        trace_frame_file_path_ = path;
         InitializeTrace();
       }
     }
@@ -750,6 +760,11 @@ bool COMMAND_PROCESSOR::ExecutePacketType3_INTERRUPT(
                                          cpu_mask);
   }
 
+  // The handler runs as if everything before this point in the command stream
+  // is done, so awaited export output it may read has to be in guest RAM first.
+  COMMAND_PROCESSOR::AwaitMemexportForFence();
+  COMMAND_PROCESSOR::SubmitResolvesForGuestSync();
+
   for (int n = 0; n < 6; n++) {
     if (cpu_mask & (1 << n)) {
       graphics_system_->DispatchInterruptCallback(1, n);
@@ -785,6 +800,9 @@ bool COMMAND_PROCESSOR::ExecutePacketType3_XE_SWAP(uint32_t packet,
 
   COMMAND_PROCESSOR::IssueSwap(frontbuffer_ptr, frontbuffer_width,
                                frontbuffer_height);
+
+  // Advance the present-frame counter shown in the log prefix.
+  logging::IncrementFrameNumber();
 
   // Apply host frame rate limiting (separate from guest vblank timing)
   COMMAND_PROCESSOR::ThrottlePresentation();
@@ -862,6 +880,14 @@ bool COMMAND_PROCESSOR::ExecutePacketType3_WAIT_REG_MEM(
                              static_cast<xenos::Endian>(poll_reg_addr & 0x3));
     } else {
       if (poll_reg_addr == XE_GPU_REG_COHER_STATUS_HOST) {
+        // A pending request (non-zero status, cleared by MakeCoherent) is the
+        // guest asking for a range to be made visible to it, so awaited export
+        // output landing there has to have reached guest RAM first.
+        if (register_file_->values[XE_GPU_REG_COHER_STATUS_HOST]) {
+          COMMAND_PROCESSOR::AwaitMemexportForCoherency(
+              register_file_->values[XE_GPU_REG_COHER_BASE_HOST],
+              register_file_->values[XE_GPU_REG_COHER_SIZE_HOST]);
+        }
         MakeCoherent();
         value = value_ref;
       }
@@ -967,6 +993,7 @@ bool COMMAND_PROCESSOR::ExecutePacketType3_MEM_WRITE(
     COMMAND_PROCESSOR::InsertDebugMarker("PM4_MEM_WRITE: 0x%08X (%u dwords)",
                                          write_addr & ~0x3, count - 1);
   }
+  COMMAND_PROCESSOR::SubmitResolvesForGuestSync();
 
   for (uint32_t i = 0; i < count - 1; i++) {
     uint32_t write_data = reader_.ReadAndSwap<uint32_t>();
@@ -1020,6 +1047,7 @@ bool COMMAND_PROCESSOR::ExecutePacketType3_COND_WRITE(
     // Write.
     if (wait_info & 0x100) {
       // Memory.
+      COMMAND_PROCESSOR::SubmitResolvesForGuestSync();
       auto endianness = static_cast<xenos::Endian>(write_reg_addr & 0x3);
       write_reg_addr &= ~0x3;
       write_data = GpuSwap(write_data, endianness);
@@ -1074,6 +1102,12 @@ bool COMMAND_PROCESSOR::ExecutePacketType3_EVENT_WRITE_SHD(
 
   // Writeback initiator.
   COMMAND_PROCESSOR::WriteEventInitiator(event_type);
+
+  // The guest treats this fence as "the GPU is done", so awaited export output
+  // it is about to read has to be in guest RAM first.
+  COMMAND_PROCESSOR::AwaitMemexportForFence();
+  COMMAND_PROCESSOR::SubmitResolvesForGuestSync();
+
   uint32_t data_value;
   if ((initiator >> 31) & 0x1) {
     // Write counter (GPU vblank counter?).
@@ -1146,14 +1180,14 @@ bool COMMAND_PROCESSOR::ExecutePacketType3_EVENT_WRITE_EXT(
   return true;
 }
 
-static uint32_t samples = cvars::query_occlusion_sample_upper_threshold;
-
-#if !defined(XE_GPU_OVERRIDES_EVENT_WRITE_ZPD)
 XE_NOINLINE
+// This is not a simple BEGIN/END around a host occlusion query. One slot can
+// span multiple submissions, be force closed by a colliding BEGIN, or get an
+// orphaned END with no matching BEGIN. Hardware only uses a single register
+// (RB_SAMPLE_COUNT_ADDR) for the target address, no explicit handle passing.
+// Debugging RB_SAMPLE_COUNT_CTL has not yet revealed any helpful bits.
 bool COMMAND_PROCESSOR::ExecutePacketType3_EVENT_WRITE_ZPD(
     uint32_t packet, uint32_t count) XE_RESTRICT {
-  // Set by D3D as BE but struct ABI is LE
-  const uint32_t kQueryFinished = xe::byte_swap(0xFFFFFEED);
   assert_true(count == 1);
   uint32_t initiator = reader_.ReadAndSwap<uint32_t>();
   uint32_t event_type = initiator & 0x3F;
@@ -1166,45 +1200,62 @@ bool COMMAND_PROCESSOR::ExecutePacketType3_EVENT_WRITE_ZPD(
   // Writeback initiator.
   COMMAND_PROCESSOR::WriteEventInitiator(event_type);
 
-  if (cvars::query_occlusion_sample_lower_threshold < 0) {
+  uint32_t report_address =
+      register_file_->values[XE_GPU_REG_RB_SAMPLE_COUNT_ADDR];
+  // RB_SAMPLE_COUNT_CTL is unused by real hardware.
+
+  if (!report_address) {
     return true;
   }
-  // Occlusion queries:
-  // This command is send on query begin and end.
-  // As a workaround report some fixed amount of passed samples.
-  auto* pSampleCounts = memory_->TranslatePhysical<xe_gpu_depth_sample_counts*>(
-      register_file_->values[XE_GPU_REG_RB_SAMPLE_COUNT_ADDR]);
-  // 0xFFFFFEED is written to this two locations by D3D only on D3DISSUE_END
-  // and used to detect a finished query.
-  bool is_end_via_z_pass = pSampleCounts->ZPass_A == kQueryFinished &&
-                           pSampleCounts->ZPass_B == kQueryFinished;
-  // Older versions of D3D also checks for ZFail (4D5307D5).
-  bool is_end_via_z_fail = pSampleCounts->ZFail_A == kQueryFinished &&
-                           pSampleCounts->ZFail_B == kQueryFinished;
-  std::memset(pSampleCounts, 0, sizeof(xe_gpu_depth_sample_counts));
-  if (is_end_via_z_pass || is_end_via_z_fail) {
-    pSampleCounts->ZPass_A = samples;
-    pSampleCounts->Total_A = samples;
+
+  if (cvars::occlusion_query_log) {
+    const auto* report =
+        memory_->TranslatePhysical<xe_gpu_depth_sample_counts*>(report_address);
+    XELOGI(
+        "ZPD: EVENT_WRITE_ZPD event={} address=0x{:08X} Total=({:08X},{:08X}) "
+        "ZFail=({:08X},{:08X}) ZPass=({:08X},{:08X}) Stencil=({:08X},{:08X})",
+        GetEventName(event_type), report_address, uint32_t(report->Total_A),
+        uint32_t(report->Total_B), uint32_t(report->ZFail_A),
+        uint32_t(report->ZFail_B), uint32_t(report->ZPass_A),
+        uint32_t(report->ZPass_B), uint32_t(report->StencilFail_A),
+        uint32_t(report->StencilFail_B));
   }
 
-  samples =
-      samples <= static_cast<uint32_t>(
-                     cvars::query_occlusion_sample_lower_threshold)
-          ? static_cast<uint32_t>(cvars::query_occlusion_sample_upper_threshold)
-          : samples - 1;
+  if (zpd_mode_ != ZPDMode::kFake && !zpd_force_fake_fallback_) {
+    // Z-Pass Done (ZPD) facilitates all D3D occlusion queries.
+    // D3D fills the counters (usually ZPass_A + ZPass_B, but some 2005-2006 D3D
+    // versions use ZFail_A + ZFail_B, and sometimes even both counters' B
+    // fields are kept zero) with a swapped 0xFFFFFEED sentinel while counting.
+    // Rather than trying to clumsily infer boundaries here, the command
+    // processor treats each event as a free-running sample counter snapshot.
+    // VIZ_QUERY is a coarse hi-Z visibility test, not strictly an OQ.
+    COMMAND_PROCESSOR::QueueZPDReport(report_address);
+    return true;
+  }
 
+  // Fake / fallback mode.
+  if (cvars::occlusion_query_fake_lower_threshold < 0) {
+    return true;
+  }
+  fake_zpd_sample_count_ =
+      (fake_zpd_sample_count_ <=
+       static_cast<uint32_t>(cvars::occlusion_query_fake_lower_threshold))
+          ? static_cast<uint32_t>(cvars::occlusion_query_fake_upper_threshold)
+          : fake_zpd_sample_count_ - 1;
+
+  zpd_speculative_sample_counter_ +=
+      XenosZPDReport::FromNativeQuery(fake_zpd_sample_count_);
+  zpd_sample_counter_ = zpd_speculative_sample_counter_;
+  COMMAND_PROCESSOR::WriteZPDReport(report_address, zpd_sample_counter_);
   return true;
 }
-#endif  // !defined(XE_GPU_OVERRIDES_EVENT_WRITE_ZPD)
 
 bool COMMAND_PROCESSOR::ExecutePacketType3Draw(
     uint32_t packet, const char* opcode_name, uint32_t viz_query_condition,
     uint32_t count_remaining) XE_RESTRICT {
-  // if viz_query_condition != 0, this is a conditional draw based on viz query.
-  // This ID matches the one issued in PM4_VIZ_QUERY
-  // uint32_t viz_id = viz_query_condition & 0x3F;
-  // when true, render conditionally based on query result
-  // uint32_t viz_use = viz_query_condition & 0x100;
+  // viz_query_condition is the VIZ token.
+  // Bit 8 makes the draw conditional on the ID's visibility in bits 0:5,
+  // from an earlier PM4_VIZ_QUERY.
 
   assert_not_zero(count_remaining);
   if (!count_remaining) {
@@ -1286,15 +1337,10 @@ bool COMMAND_PROCESSOR::ExecutePacketType3Draw(
   reader_.AdvanceRead(count_remaining * sizeof(uint32_t));
 
   if (draw_succeeded) {
-    auto viz_query = register_file_->Get<reg::PA_SC_VIZ_QUERY>();
-    bool viz_query_active =
-        viz_query.viz_query_ena && viz_query.kill_pix_post_hi_z;
-    if (!viz_query_active || SupportsGuestOcclusionQueries()) {
-      // TODO(Triang3l): Don't drop the draw call completely if the vertex
-      // shader has memexport.
-      // TODO(Triang3l || JoelLinn): Handle this properly in the render
-      // backends.
-
+    // A consumer draw whose survey is still outstanding runs under the
+    // backend's predicate instead of blocking. Surveys themselves are
+    // ordinary draws here.
+    if (COMMAND_PROCESSOR::PrepareVIZDraw(viz_query_condition)) {
       // Push PM4 command marker as parent for IssueDraw/IssueCopy operations.
       if (COMMAND_PROCESSOR::debug_markers_enabled()) {
         COMMAND_PROCESSOR::PushDebugMarker("%s", opcode_name);
@@ -1305,6 +1351,7 @@ bool COMMAND_PROCESSOR::ExecutePacketType3Draw(
           is_indexed ? &index_buffer_info : nullptr,
           xenos::IsMajorModeExplicit(vgt_draw_initiator.major_mode,
                                      vgt_draw_initiator.prim_type));
+      viz_draw_predicate_ = {};
 
       // Pop PM4 command marker.
       if (COMMAND_PROCESSOR::debug_markers_enabled()) {
@@ -1318,6 +1365,10 @@ bool COMMAND_PROCESSOR::ExecutePacketType3Draw(
                uint32_t(vgt_draw_initiator.source_select));
       }
     }
+  }
+
+  if (!draw_succeeded) {
+    COMMAND_PROCESSOR::OnVIZSurveyDraw(false);
   }
 
   // If read the packed correctly, but merely couldn't execute it (because of,
@@ -1516,11 +1567,11 @@ bool COMMAND_PROCESSOR::ExecutePacketType3_IM_LOAD(uint32_t packet,
 
   trace_writer_.WriteMemoryRead(CpuToGpu(addr), size_dwords * 4);
   auto shader = COMMAND_PROCESSOR::LoadShader(
-      shader_type, addr, memory_->TranslatePhysical<uint32_t*>(addr),
-      size_dwords);
+      shader_type, memory_->TranslatePhysical<uint32_t*>(addr), size_dwords);
   switch (shader_type) {
     case xenos::ShaderType::kVertex:
       active_vertex_shader_ = shader;
+      active_vertex_shader_ucode_address_ = addr;
       break;
     case xenos::ShaderType::kPixel:
       active_pixel_shader_ = shader;
@@ -1553,11 +1604,14 @@ bool COMMAND_PROCESSOR::ExecutePacketType3_IM_LOAD_IMMEDIATE(
         shader_type == xenos::ShaderType::kVertex ? "VS" : "PS", size_dwords);
   }
   auto shader = COMMAND_PROCESSOR::LoadShader(
-      shader_type, uint32_t(reader_.read_ptr()),
-      reinterpret_cast<uint32_t*>(reader_.read_ptr()), size_dwords);
+      shader_type, reinterpret_cast<uint32_t*>(reader_.read_ptr()),
+      size_dwords);
   switch (shader_type) {
     case xenos::ShaderType::kVertex:
       active_vertex_shader_ = shader;
+      // Embedded in the command buffer, no tracked address - the interpreter
+      // placeholder falls back to synchronous translation for these.
+      active_vertex_shader_ucode_address_ = 0;
       break;
     case xenos::ShaderType::kPixel:
       active_pixel_shader_ = shader;
@@ -1590,8 +1644,22 @@ bool COMMAND_PROCESSOR::ExecutePacketType3_INVALIDATE_STATE(
 
 bool COMMAND_PROCESSOR::ExecutePacketType3_VIZ_QUERY(
     uint32_t packet, uint32_t count) XE_RESTRICT {
-  // begin/end initiator for viz query extent processing
   // https://www.google.com/patents/US20050195186
+  // VIZ_QUERY (VIZ) is Xenos' GPU-side conditional rendering / predication
+  // query mechanism. It's not actually an occlusion query like EVENT_WRITE_ZPD.
+  // There's no sample counts to return to the guest and no buffer that the CPU
+  // needs to read. Mercifully, VIZ has distinct BEGIN and END event types which
+  // clear the internal state of the scan converter.
+  //
+  // The scan converter tracks a state of 64 IDs, and geometry submissions
+  // between BEGIN/END events update one of those IDs, and later draw packets
+  // can use the results so the command processor can discard them. It's
+  // actually pretty similar to modern D3D12 predication or Vulkan conditional
+  // rendering, except geometry can be killed by hi-Z before any later tests.
+  //
+  // As a close-enough approximation, native occlusion queries are used for host
+  // RT and ZPass-like counting in-shader for interlock, and any passing sample
+  // is treated like a visible result.
   assert_true(count == 1);
 
   uint32_t dword0 = reader_.ReadAndSwap<uint32_t>();
@@ -1605,23 +1673,16 @@ bool COMMAND_PROCESSOR::ExecutePacketType3_VIZ_QUERY(
   }
 
   if (!end) {
-    // begin a new viz query @ id
-    // On hardware this clears the internal state of the scan converter (which
-    // is different to the register)
     COMMAND_PROCESSOR::WriteEventInitiator(VIZQUERY_START);
-    // XELOGGPU("Begin viz query ID {:02X}", id);
+    COMMAND_PROCESSOR::SyncVIZEnabled();
+    if (viz_enabled_) {
+      COMMAND_PROCESSOR::BeginVIZQuery(id);
+    }
   } else {
-    // end the viz query
     COMMAND_PROCESSOR::WriteEventInitiator(VIZQUERY_END);
-    // XELOGGPU("End viz query ID {:02X}", id);
-    // The scan converter writes the internal result back to the register here.
-    // We just fake it and say it was visible in case it is read back.
-    if (id < 32) {
-      register_file_->values[XE_GPU_REG_PA_SC_VIZ_QUERY_STATUS_0] |= uint32_t(1)
-                                                                     << id;
-    } else {
-      register_file_->values[XE_GPU_REG_PA_SC_VIZ_QUERY_STATUS_1] |=
-          uint32_t(1) << (id - 32);
+    COMMAND_PROCESSOR::SyncVIZEnabled();
+    if (viz_enabled_) {
+      COMMAND_PROCESSOR::EndVIZQuery(id);
     }
   }
 
@@ -1663,8 +1724,17 @@ uint32_t COMMAND_PROCESSOR::ExecutePrimaryBuffer(uint32_t read_index,
   // prefetch the wraparound range
   // it likely is already in L3 cache, but in a zen system it may be another
   // chiplets l3
-  reader_.BeginPrefetchedRead<swcache::PrefetchTag::Level2>(
-      GetCurrentRingReadCount());
+  uint32_t remaining = GetCurrentRingReadCount();
+  reader_.BeginPrefetchedRead<swcache::PrefetchTag::Level2>(remaining);
+
+  // The guest polls the read pointer write-back to see how much ring space it
+  // has, and hardware advances it as the ring drains. Publishing only once the
+  // burst ends leaves the guest waiting on work we have already done, so
+  // republish every RB_BLKSZ dwords on the way through. A zero stride means
+  // the guest never armed the write-back.
+  const uint32_t writeback_stride =
+      read_ptr_update_freq_ * uint32_t(sizeof(uint32_t));
+  uint32_t remaining_at_writeback = remaining;
   do {
     if (!COMMAND_PROCESSOR::ExecutePacket()) {
       // This probably should be fatal - but we're going to continue anyways.
@@ -1672,7 +1742,25 @@ uint32_t COMMAND_PROCESSOR::ExecutePrimaryBuffer(uint32_t read_index,
       assert_always();
       break;
     }
-  } while (reader_.read_count());
+    remaining = GetCurrentRingReadCount();
+    // remaining only grows back if a malformed packet ran the read offset past
+    // the end of the burst, and then there is nothing honest to publish.
+    if (writeback_stride && remaining <= remaining_at_writeback &&
+        remaining_at_writeback - remaining >= writeback_stride) {
+      // Re-read the target, the guest can re-point or disable the write-back
+      // from its own thread while we are draining.
+      uint32_t writeback_ptr = read_ptr_writeback_ptr_;
+      if (writeback_ptr) {
+        // Publishing the read pointer hands that ring space back, so it has to
+        // land after our reads of it.
+        std::atomic_thread_fence(std::memory_order_release);
+        xe::store_and_swap<uint32_t>(
+            memory_->TranslatePhysical(writeback_ptr),
+            uint32_t(reader_.read_offset() / sizeof(uint32_t)));
+      }
+      remaining_at_writeback = remaining;
+    }
+  } while (remaining);
 
   COMMAND_PROCESSOR::OnPrimaryBufferEnd();
 

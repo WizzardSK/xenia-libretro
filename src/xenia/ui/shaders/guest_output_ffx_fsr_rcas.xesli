@@ -11,7 +11,7 @@
 
 #include "amd_language.xesli"
 
-#if XE_GUEST_OUTPUT_DITHER
+#ifdef XE_GUEST_OUTPUT_DITHER
   #include "dither_8bpc.xesli"
 #endif  // XE_GUEST_OUTPUT_DITHER
 
@@ -37,7 +37,7 @@ entry_outputs_end_stage_inputs_begin_xe
 entry_stage_inputs_end_bindings_begin_pixel_xe
   push_const_binding_xe(buffer(0))
   entry_binding_next_xe
-  texture_xe(texture_2d_xe, xe_fsr_rcas_source, set=0, binding=0, t0, space0,
+  texture_xe(texture_2d_xe, xe_fsr_rcas_source, 0, 0, t0, space0,
              texture(0))
 entry_bindings_end_inputs_begin_xe
   entry_in_pixel_coord_xe
@@ -52,7 +52,7 @@ entry_inputs_end_code_begin_xe
                pack_half_2x16_xe(float2_xe(sharpness, sharpness)), 0u, 0u);
   float4_xe rcas_color;
   FsrRcasF(rcas_color.r, rcas_color.g, rcas_color.b, pixel_coord, rcas_const);
-  #if XE_GUEST_OUTPUT_DITHER
+  #ifdef XE_GUEST_OUTPUT_DITHER
     // Clamping because on Vulkan, the surface may specify any format, including
     // floating-point.
     rcas_color.rgb =

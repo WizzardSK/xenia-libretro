@@ -7,143 +7,108 @@
  ******************************************************************************
  */
 
-#include <chrono>
-#include <cstdlib>
-#include <thread>
+#include <filesystem>
+#include <string>
+#include <vector>
 
-#include "third_party/metal-cpp/Metal/Metal.hpp"
-#include "third_party/stb/stb_image_write.h"
 #include "xenia/base/console_app_main.h"
-#include "xenia/base/filesystem.h"
+#include "xenia/base/cvar.h"
 #include "xenia/base/logging.h"
-#include "xenia/base/string.h"
 #include "xenia/gpu/metal/metal_command_processor.h"
 #include "xenia/gpu/metal/metal_graphics_system.h"
 #include "xenia/gpu/trace_dump.h"
+#include "xenia/ui/metal/metal_api.h"
+#include "xenia/ui/metal/metal_provider.h"
+
+DEFINE_string(
+    metal_trace_dump_capture, "",
+    "Path of a .gputrace to write around the replayed frame. Empty takes no "
+    "capture. Needs METAL_CAPTURE_ENABLED=1 in the environment.",
+    "Metal");
 
 namespace xe {
 namespace gpu {
 namespace metal {
 
-using namespace xe::gpu::xenos;
-
 class MetalTraceDump : public TraceDump {
  public:
   std::unique_ptr<gpu::GraphicsSystem> CreateGraphicsSystem() override {
-    auto graphics_system = std::make_unique<MetalGraphicsSystem>();
-    metal_graphics_system_ = graphics_system.get();
-    return graphics_system;
+    return std::unique_ptr<gpu::GraphicsSystem>(new MetalGraphicsSystem());
   }
 
   void BeginHostCapture() override {
-    // Check if GPU capture is enabled via environment variable
-    const char* capture_enabled = std::getenv("XENIA_GPU_CAPTURE_ENABLED");
-    if (!capture_enabled || std::string(capture_enabled) != "1") {
-      XELOGI(
-          "Metal GPU capture disabled (set XENIA_GPU_CAPTURE_ENABLED=1 to "
-          "enable)");
+    if (cvars::metal_trace_dump_capture.empty()) {
+      return;
+    }
+    auto* provider = static_cast<const ui::metal::MetalProvider*>(
+        graphics_system_->provider());
+    MTL::Device* device = provider ? provider->GetDevice() : nullptr;
+    if (!device) {
+      XELOGE("Metal trace dump: no device to capture");
       return;
     }
 
-    // Get capture output directory from environment
-    const char* capture_dir = std::getenv("XENIA_GPU_CAPTURE_DIR");
-    if (!capture_dir) {
-      capture_dir = ".";
-    }
-
-    // Get the command queue from the command processor
-    if (!metal_graphics_system_) {
-      XELOGW("MetalTraceDump: No graphics system for GPU capture");
+    MTL::CaptureManager* manager = MTL::CaptureManager::sharedCaptureManager();
+    if (!manager || !manager->supportsDestination(
+                        MTL::CaptureDestinationGPUTraceDocument)) {
+      XELOGE(
+          "Metal trace dump: GPU trace documents unavailable - run with "
+          "METAL_CAPTURE_ENABLED=1");
       return;
     }
 
-    auto* cmd_proc = static_cast<MetalCommandProcessor*>(
-        metal_graphics_system_->command_processor());
-    if (!cmd_proc) {
-      XELOGW("MetalTraceDump: No command processor for GPU capture");
-      return;
-    }
+    // Metal refuses to overwrite, and a .gputrace is a directory.
+    std::filesystem::path capture_path(cvars::metal_trace_dump_capture);
+    std::error_code remove_error;
+    std::filesystem::remove_all(capture_path, remove_error);
 
-    MTL::CommandQueue* command_queue = cmd_proc->GetMetalCommandQueue();
-    if (!command_queue) {
-      XELOGW("MetalTraceDump: No command queue for GPU capture");
-      return;
-    }
-
-    // Start programmatic GPU capture
-    capture_manager_ = MTL::CaptureManager::sharedCaptureManager();
-    if (!capture_manager_) {
-      XELOGW("MetalTraceDump: GPU capture manager not available");
-      return;
-    }
-
-    auto* descriptor = MTL::CaptureDescriptor::alloc()->init();
-    descriptor->setCaptureObject(command_queue);
+    NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
+    NS::String* path_string = NS::String::string(capture_path.string().c_str(),
+                                                 NS::UTF8StringEncoding);
+    MTL::CaptureDescriptor* descriptor =
+        MTL::CaptureDescriptor::alloc()->init();
+    descriptor->setCaptureObject(device);
     descriptor->setDestination(MTL::CaptureDestinationGPUTraceDocument);
-
-    // Create output path
-    std::string capture_path =
-        std::string(capture_dir) + "/gpu_capture.gputrace";
-    auto* url = NS::URL::fileURLWithPath(
-        NS::String::string(capture_path.c_str(), NS::UTF8StringEncoding));
-    descriptor->setOutputURL(url);
+    descriptor->setOutputURL(NS::URL::fileURLWithPath(path_string));
 
     NS::Error* error = nullptr;
-    if (capture_manager_->startCapture(descriptor, &error)) {
-      XELOGI("MetalTraceDump: Started GPU capture to {}", capture_path);
-      is_capturing_ = true;
+    if (manager->startCapture(descriptor, &error)) {
+      capturing_ = true;
+      XELOGI("Metal trace dump: capturing to {}", capture_path.string());
     } else {
-      XELOGE("MetalTraceDump: Failed to start GPU capture: {}",
-             error ? error->localizedDescription()->utf8String() : "unknown");
+      const char* message = "unknown error";
+      if (error && error->localizedDescription()) {
+        message = error->localizedDescription()->utf8String();
+      }
+      XELOGE("Metal trace dump: failed to start capture - {}", message);
     }
-
     descriptor->release();
+    pool->release();
   }
 
   void EndHostCapture() override {
-    // Ensure the final frame is pushed to the presenter even if the trace
-    // didn't contain a swap command.
-    if (metal_graphics_system_) {
-      auto* cmd_proc = static_cast<MetalCommandProcessor*>(
-          metal_graphics_system_->command_processor());
-      if (cmd_proc) {
-        if (!cmd_proc->HasSeenSwap()) {
-          XELOGI("MetalTraceDump: Forcing swap to ensure frame capture...");
-          cmd_proc->ForceIssueSwap();
-        } else {
-          XELOGI("MetalTraceDump: swap already seen; skipping forced swap");
-        }
-      }
+    // A trace whose frame holds no swap never reaches the presenter, so there
+    // would be nothing for the PNG.
+    auto* command_processor = static_cast<MetalCommandProcessor*>(
+        graphics_system_->command_processor());
+    if (command_processor && !command_processor->HasSeenSwap()) {
+      command_processor->ForceIssueSwap();
     }
 
-    // Stop GPU capture if we started one
-    if (capture_manager_ && is_capturing_) {
-      capture_manager_->stopCapture();
-      XELOGI("MetalTraceDump: GPU capture completed");
-      is_capturing_ = false;
+    if (!capturing_) {
+      return;
     }
+    capturing_ = false;
+    MTL::CaptureManager* manager = MTL::CaptureManager::sharedCaptureManager();
+    if (manager && manager->isCapturing()) {
+      manager->stopCapture();
+    }
+    XELOGI("Metal trace dump: capture written to {}",
+           cvars::metal_trace_dump_capture);
   }
 
  private:
-  MetalGraphicsSystem* metal_graphics_system_ = nullptr;
-  MTL::CaptureManager* capture_manager_ = nullptr;
-  bool is_capturing_ = false;
-
- public:
-  int Main(const std::vector<std::string>& args) {
-    // Store args for PNG path generation since base class members are private
-    png_output_path_ = "trace_output.png";  // Default
-    if (args.size() >= 2) {
-      png_output_path_ =
-          std::filesystem::path(args[1]).replace_extension(".png");
-    }
-
-    // Use base implementation to set up, but our overridden Run() method
-    return TraceDump::Main(args);
-  }
-
- private:
-  std::filesystem::path png_output_path_;
+  bool capturing_ = false;
 };
 
 int trace_dump_main(const std::vector<std::string>& args) {

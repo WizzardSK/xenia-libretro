@@ -2,13 +2,14 @@
  ******************************************************************************
  * Xenia : Xbox 360 Emulator Research Project                                 *
  ******************************************************************************
- * Copyright 2026 Ben Vanik. All rights reserved.                             *
+ * Copyright 2025 Ben Vanik. All rights reserved.                             *
  * Released under the BSD license - see LICENSE in the root for more details. *
  ******************************************************************************
  */
 
 #include "xenia/gpu/metal/metal_command_processor.h"
 #include "xenia/gpu/gpu_flags.h"
+#include "xenia/gpu/metal/msl_bindings.h"
 
 #include <dispatch/dispatch.h>
 #include <algorithm>
@@ -16,7 +17,6 @@
 #include <atomic>
 #include <cctype>
 #include <chrono>
-#include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -32,68 +32,160 @@
 #include "third_party/metal-cpp/Foundation/NSURL.hpp"
 #include "third_party/metal-cpp/Metal/MTLEvent.hpp"
 
+#include "metal_irconverter_runtime.h"
+
 #include "third_party/fmt/include/fmt/format.h"
 #include "xenia/base/assert.h"
 #include "xenia/base/cvar.h"
 #include "xenia/base/filesystem.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/math.h"
-#include "xenia/base/memory.h"
 #include "xenia/base/profiling.h"
+#include "xenia/base/threading.h"
 #include "xenia/base/xxhash.h"
 #include "xenia/gpu/draw_util.h"
 #include "xenia/gpu/gpu_flags.h"
 #include "xenia/gpu/graphics_system.h"
 #include "xenia/gpu/metal/metal_graphics_system.h"
-#include "xenia/gpu/metal/metal_shader_cache.h"
-#include "xenia/gpu/metal/metal_shader_converter.h"
+#include "xenia/gpu/metal/metal_tessellation_shaders.h"
 #include "xenia/gpu/packet_disassembler.h"
 #include "xenia/gpu/registers.h"
-#include "xenia/gpu/texture_info.h"
+#include "xenia/gpu/spirv_to_dxil_compiler.h"
+#include "xenia/gpu/texture_util.h"
 #include "xenia/gpu/xenos.h"
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/kernel/user_module.h"
-#include "xenia/ui/metal/metal_gpu_completion_timeline.h"
-using BYTE = uint8_t;
-#include "xenia/gpu/shaders/bytecode/d3d12_5_1/adaptive_quad_hs.h"
-#include "xenia/gpu/shaders/bytecode/d3d12_5_1/adaptive_triangle_hs.h"
-#include "xenia/gpu/shaders/bytecode/d3d12_5_1/continuous_quad_1cp_hs.h"
-#include "xenia/gpu/shaders/bytecode/d3d12_5_1/continuous_quad_4cp_hs.h"
-#include "xenia/gpu/shaders/bytecode/d3d12_5_1/continuous_triangle_1cp_hs.h"
-#include "xenia/gpu/shaders/bytecode/d3d12_5_1/continuous_triangle_3cp_hs.h"
-#include "xenia/gpu/shaders/bytecode/d3d12_5_1/discrete_quad_1cp_hs.h"
-#include "xenia/gpu/shaders/bytecode/d3d12_5_1/discrete_quad_4cp_hs.h"
-#include "xenia/gpu/shaders/bytecode/d3d12_5_1/discrete_triangle_1cp_hs.h"
-#include "xenia/gpu/shaders/bytecode/d3d12_5_1/discrete_triangle_3cp_hs.h"
-#include "xenia/gpu/shaders/bytecode/d3d12_5_1/tessellation_adaptive_vs.h"
-#include "xenia/gpu/shaders/bytecode/d3d12_5_1/tessellation_indexed_vs.h"
-#include "xenia/gpu/shaders/bytecode/metal/resolve_downscale_cs.h"
 #include "xenia/ui/metal/metal_presenter.h"
 
 #ifndef DISPATCH_DATA_DESTRUCTOR_NONE
 #define DISPATCH_DATA_DESTRUCTOR_NONE DISPATCH_DATA_DESTRUCTOR_DEFAULT
 #endif
 
-// Metal IR Converter Runtime - defines IRDescriptorTableEntry and bind points
-#define IR_RUNTIME_METALCPP
-#include "third_party/metal-shader-converter/include/metal_irconverter_runtime.h"
-
-// IR Converter bind points (from metal_irconverter_runtime.h)
-// kIRDescriptorHeapBindPoint = 0
-
+DECLARE_bool(precise_interpolation);
 DECLARE_bool(clear_memory_page_state);
 DECLARE_bool(submit_on_primary_buffer_end);
-// kIRSamplerHeapBindPoint = 1
-// kIRArgumentBufferBindPoint = 2
-// kIRArgumentBufferDrawArgumentsBindPoint = 4
-// kIRArgumentBufferUniformsBindPoint = 5
-// kIRVertexBufferBindPoint = 6
+DEFINE_int32(
+    metal_draw_ring_count, 128,
+    "Metal per-command-buffer draw ring size (descriptor-table pages). "
+    "Higher reduces ring churn but uses more memory.",
+    "Metal");
+DEFINE_bool(
+    metal_use_dxil, true,
+    "Translate guest shaders through SPIR-V -> DXIL -> AIR with Apple's Metal "
+    "Shader Converter instead of SPIRV-Cross.",
+    "Metal");
+UPDATE_from_bool(metal_use_dxil, 2026, 8, 21, 12, false);
+DEFINE_int32(
+    metal_pipeline_creation_threads, -1,
+    "Number of threads used for SPIRV-Cross shader and render pipeline "
+    "compilation in the Metal backend. -1 to calculate automatically (75% of "
+    "logical CPU cores), a positive number to specify the number of threads "
+    "explicitly (up to the number of logical CPU cores), 0 to disable "
+    "multithreaded compilation.",
+    "Metal");
 
 namespace xe {
 namespace gpu {
 namespace metal {
 
 namespace {
+// Guest shaders go SPIR-V -> DXIL -> AIR instead of SPIR-V -> MSL. Both start
+// from the same SpirvShaderTranslator output.
+bool UseDxilPath() { return cvars::metal_use_dxil; }
+
+bool CreateMetalFunction(MTL::Device* device,
+                         const MetalShaderConversionResult& conversion,
+                         MTL::Library*& library_out,
+                         MTL::Function*& function_out) {
+  NS::Error* error = nullptr;
+  dispatch_data_t metallib_data = dispatch_data_create(
+      conversion.metallib.data(), conversion.metallib.size(), nullptr,
+      DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+  MTL::Library* library = device->newLibrary(metallib_data, &error);
+  dispatch_release(metallib_data);
+  if (!library) {
+    return false;
+  }
+  NS::String* name = NS::String::string(conversion.entry_point_name.c_str(),
+                                        NS::UTF8StringEncoding);
+  MTL::Function* function = library->newFunction(name);
+  if (!function) {
+    library->release();
+    return false;
+  }
+  library_out = library;
+  function_out = function;
+  return true;
+}
+
+const char* StageNameOf(MetalShaderStage stage) {
+  switch (stage) {
+    case MetalShaderStage::kHull:
+      return "hull";
+    case MetalShaderStage::kDomain:
+      return "domain";
+    default:
+      return "vertex";
+  }
+}
+
+IRRuntimeTessellationPipelineConfig BuildTessellationPipelineConfig(
+    const MetalShaderReflection& vertex, const MetalShaderReflection& hull,
+    const MetalShaderReflection& domain) {
+  IRRuntimeTessellationPipelineConfig config = {};
+  config.outputPrimitiveType =
+      IRRuntimeTessellatorOutputPrimitive(hull.hs_tessellator_output_primitive);
+  config.vsOutputSizeInBytes = vertex.vertex_output_size_in_bytes;
+  config.gsMaxInputPrimitivesPerMeshThreadgroup =
+      domain.ds_max_input_prims_per_mesh_threadgroup;
+  config.hsMaxPatchesPerObjectThreadgroup =
+      hull.hs_max_patches_per_object_threadgroup;
+  config.hsInputControlPointCount = hull.hs_input_control_point_count;
+  config.hsMaxObjectThreadsPerThreadgroup =
+      hull.hs_max_object_threads_per_patch;
+  config.hsMaxTessellationFactor = hull.hs_max_tessellation_factor;
+  config.gsInstanceCount = 1;
+  return config;
+}
+
+void GetBoundRenderTargetSize(const MetalRenderTargetCache* render_target_cache,
+                              uint32_t fallback_width, uint32_t fallback_height,
+                              uint32_t& width_out, uint32_t& height_out) {
+  width_out = std::max(fallback_width, uint32_t(1));
+  height_out = std::max(fallback_height, uint32_t(1));
+  if (!render_target_cache) {
+    return;
+  }
+  MTL::Texture* pass_size_texture = render_target_cache->GetColorTarget(0);
+  if (!pass_size_texture) {
+    pass_size_texture = render_target_cache->GetDepthTarget();
+  }
+  if (!pass_size_texture) {
+    pass_size_texture = render_target_cache->GetDummyColorTarget();
+  }
+  if (!pass_size_texture) {
+    return;
+  }
+  width_out =
+      std::max(static_cast<uint32_t>(pass_size_texture->width()), uint32_t(1));
+  height_out =
+      std::max(static_cast<uint32_t>(pass_size_texture->height()), uint32_t(1));
+}
+
+void ClampScissorToBounds(draw_util::Scissor& scissor, uint32_t width,
+                          uint32_t height) {
+  width = std::max(width, uint32_t(1));
+  height = std::max(height, uint32_t(1));
+
+  scissor.offset[0] = std::min(scissor.offset[0], width);
+  scissor.offset[1] = std::min(scissor.offset[1], height);
+
+  uint32_t max_scissor_width = width - scissor.offset[0];
+  uint32_t max_scissor_height = height - scissor.offset[1];
+  scissor.extent[0] = std::min(scissor.extent[0], max_scissor_width);
+  scissor.extent[1] = std::min(scissor.extent[1], max_scissor_height);
+}
+
 void LogMetalErrorDetails(const char* label, NS::Error* error) {
   if (!error) {
     return;
@@ -119,6 +211,152 @@ void LogMetalErrorDetails(const char* label, NS::Error* error) {
     auto* info_desc = user_info->description();
     XELOGE("{}: userInfo={}", label,
            info_desc ? info_desc->utf8String() : "<null>");
+  }
+}
+
+constexpr int64_t kAsyncCompileLogIntervalNs =
+    int64_t(std::chrono::nanoseconds(std::chrono::seconds(1)).count());
+constexpr size_t kResolvedMemoryRangesMax = 8192;
+
+// Indexed by CommandBufferKind, for the shutdown summary. Submission kinds
+// name what ended the previous submission.
+const char* const kCommandBufferKindNames[] = {
+    "submission_other",
+    "submission_copy_draw_sync",
+    "submission_zpd_query",
+    "submission_uniforms_rollover",
+    "submission_primary_end",
+    "submission_wait",
+    "texture_upload_batch",
+    "texture_upload_private",
+    "texture_other",
+    "rt_resolve",
+    "rt_dump",
+    "rt_other",
+};
+static_assert(std::size(kCommandBufferKindNames) ==
+                  size_t(MetalCommandProcessor::CommandBufferKind::kCount),
+              "Command buffer kind names must match the enum");
+
+int64_t GetSteadyTimeNs() {
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(
+             std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
+
+bool ShouldLogRateLimited(std::atomic<int64_t>& last_log_ns,
+                          int64_t interval_ns) {
+  const int64_t now = GetSteadyTimeNs();
+  int64_t previous = last_log_ns.load(std::memory_order_relaxed);
+  while (now - previous >= interval_ns) {
+    if (last_log_ns.compare_exchange_weak(previous, now,
+                                          std::memory_order_relaxed,
+                                          std::memory_order_relaxed)) {
+      return true;
+    }
+  }
+  return false;
+}
+void PopulatePipelineFormatsFromRenderPassDescriptor(
+    MTL::RenderPassDescriptor* pass_descriptor, MTL::PixelFormat* color_formats,
+    uint32_t color_count, MTL::PixelFormat* depth_format,
+    MTL::PixelFormat* stencil_format, uint32_t* sample_count) {
+  if (!pass_descriptor) {
+    return;
+  }
+
+  auto update_sample_count = [&](MTL::Texture* texture) {
+    if (!texture || !sample_count) {
+      return;
+    }
+    NS::UInteger sc = texture->sampleCount();
+    if (sc > 0) {
+      *sample_count =
+          std::max<uint32_t>(*sample_count, static_cast<uint32_t>(sc));
+    }
+  };
+
+  if (color_formats) {
+    auto* color_attachments = pass_descriptor->colorAttachments();
+    for (uint32_t i = 0; i < color_count; ++i) {
+      auto* attachment =
+          color_attachments ? color_attachments->object(i) : nullptr;
+      if (!attachment) {
+        continue;
+      }
+      MTL::Texture* texture = attachment->texture();
+      if (!texture) {
+        continue;
+      }
+      color_formats[i] = texture->pixelFormat();
+      update_sample_count(texture);
+    }
+  }
+
+  if (depth_format) {
+    if (auto* depth_attachment = pass_descriptor->depthAttachment()) {
+      MTL::Texture* texture = depth_attachment->texture();
+      if (texture) {
+        *depth_format = texture->pixelFormat();
+        update_sample_count(texture);
+      }
+    }
+  }
+
+  if (stencil_format) {
+    if (auto* stencil_attachment = pass_descriptor->stencilAttachment()) {
+      MTL::Texture* texture = stencil_attachment->texture();
+      if (texture) {
+        *stencil_format = texture->pixelFormat();
+        update_sample_count(texture);
+      }
+    }
+  }
+
+  if (depth_format && stencil_format) {
+    if (*depth_format != MTL::PixelFormatInvalid &&
+        *stencil_format == MTL::PixelFormatInvalid) {
+      switch (*depth_format) {
+        case MTL::PixelFormatDepth32Float_Stencil8:
+        case MTL::PixelFormatDepth24Unorm_Stencil8:
+        case MTL::PixelFormatX32_Stencil8:
+          *stencil_format = *depth_format;
+          break;
+        default:
+          break;
+      }
+    } else if (*stencil_format != MTL::PixelFormatInvalid &&
+               *depth_format == MTL::PixelFormatInvalid) {
+      switch (*stencil_format) {
+        case MTL::PixelFormatDepth32Float_Stencil8:
+        case MTL::PixelFormatDepth24Unorm_Stencil8:
+        case MTL::PixelFormatX32_Stencil8:
+          *depth_format = *stencil_format;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+}
+
+void EnsureDepthFormatForDepthWritingFragment(const char* pipeline_name,
+                                              bool fragment_writes_depth,
+                                              MTL::PixelFormat* depth_format) {
+  if (!fragment_writes_depth || !depth_format ||
+      *depth_format != MTL::PixelFormatInvalid) {
+    return;
+  }
+  // Metal requires a valid depth attachment format if the fragment shader
+  // writes depth even when the current render pass has no depth target bound.
+  *depth_format = MTL::PixelFormatDepth32Float;
+  static bool logged = false;
+  if (!logged) {
+    logged = true;
+    XELOGW(
+        "{}: fragment writes depth without a bound depth attachment; "
+        "using Depth32Float pipeline fallback",
+        pipeline_name);
   }
 }
 
@@ -320,66 +558,28 @@ MTL::BlendFactor ToMetalBlendFactorAlpha(xenos::BlendFactor blend_factor) {
   return kBlendFactorAlphaMap[uint32_t(blend_factor) & 0x1F];
 }
 
-void DownscaleResolveTileData(const uint8_t* source, uint8_t* dest,
-                              uint32_t tile_count, uint32_t pixel_size_log2,
-                              uint32_t scale_x, uint32_t scale_y,
-                              bool half_pixel_offset) {
-  if (!source || !dest || tile_count == 0) {
-    return;
-  }
-  const uint32_t pixel_size = 1u << pixel_size_log2;
-  const uint32_t scale_xy = scale_x * scale_y;
-  const uint32_t tile_size_1x = 32u * 32u * pixel_size;
-  const uint32_t tile_size_scaled = tile_size_1x * scale_xy;
-  const uint32_t block_sample_offset =
-      (half_pixel_offset && scale_xy > 1u)
-          ? ((scale_x >> 1u) + (scale_y >> 1u) * scale_x)
-          : 0u;
-  const uint32_t block_sample_offset_bytes = block_sample_offset * pixel_size;
-  const uint32_t src_pixel_stride = pixel_size * scale_xy;
-
-  for (uint32_t tile_index = 0; tile_index < tile_count; ++tile_index) {
-    const uint8_t* src_tile =
-        source + tile_index * tile_size_scaled + block_sample_offset_bytes;
-    uint8_t* dst_tile = dest + tile_index * tile_size_1x;
-    for (uint32_t pixel_index = 0; pixel_index < 32u * 32u; ++pixel_index) {
-      const uint32_t src_offset = pixel_index * src_pixel_stride;
-      const uint32_t dst_offset = pixel_index * pixel_size;
-      switch (pixel_size_log2) {
-        case 0: {
-          dst_tile[dst_offset] = src_tile[src_offset];
-          break;
-        }
-        case 1: {
-          uint16_t value;
-          std::memcpy(&value, src_tile + src_offset, sizeof(value));
-          std::memcpy(dst_tile + dst_offset, &value, sizeof(value));
-          break;
-        }
-        case 2: {
-          uint32_t value;
-          std::memcpy(&value, src_tile + src_offset, sizeof(value));
-          std::memcpy(dst_tile + dst_offset, &value, sizeof(value));
-          break;
-        }
-        case 3: {
-          uint64_t value;
-          std::memcpy(&value, src_tile + src_offset, sizeof(value));
-          std::memcpy(dst_tile + dst_offset, &value, sizeof(value));
-          break;
-        }
-        default:
-          break;
-      }
-    }
-  }
-}
-
 }  // namespace
 
 MetalCommandProcessor::MetalCommandProcessor(
     MetalGraphicsSystem* graphics_system, kernel::KernelState* kernel_state)
-    : CommandProcessor(graphics_system, kernel_state) {}
+    : CommandProcessor(graphics_system, kernel_state),
+      dxil_binder_(*this, metal_shader_converter_) {}
+
+std::string MetalCommandProcessor::GetTitleStateSuffix() const {
+  if (!render_target_cache_) {
+    return {};
+  }
+  std::ostringstream suffix;
+  suffix << (UseDxilPath() ? " - DXIL" : " - SPIRV-Cross");
+  uint32_t draw_resolution_scale_x =
+      texture_cache_ ? texture_cache_->draw_resolution_scale_x() : 1;
+  uint32_t draw_resolution_scale_y =
+      texture_cache_ ? texture_cache_->draw_resolution_scale_y() : 1;
+  if (draw_resolution_scale_x > 1 || draw_resolution_scale_y > 1) {
+    suffix << ' ' << draw_resolution_scale_x << 'x' << draw_resolution_scale_y;
+  }
+  return suffix.str();
+}
 
 MetalCommandProcessor::~MetalCommandProcessor() {
   // End any active render encoder before releasing
@@ -395,6 +595,8 @@ MetalCommandProcessor::~MetalCommandProcessor() {
     current_command_buffer_->release();
     current_command_buffer_ = nullptr;
   }
+  WaitForPendingCompletionHandlers();
+  ShutdownAsyncCompilation();
   if (render_pass_descriptor_) {
     render_pass_descriptor_->release();
     render_pass_descriptor_ = nullptr;
@@ -407,38 +609,6 @@ MetalCommandProcessor::~MetalCommandProcessor() {
     depth_stencil_texture_->release();
     depth_stencil_texture_ = nullptr;
   }
-
-  // Release pipeline cache
-  for (auto& pair : pipeline_cache_) {
-    if (pair.second) {
-      pair.second->release();
-    }
-  }
-  pipeline_cache_.clear();
-
-  for (auto& pair : geometry_pipeline_cache_) {
-    if (pair.second.pipeline) {
-      pair.second.pipeline->release();
-    }
-  }
-  geometry_pipeline_cache_.clear();
-
-  for (auto& pair : geometry_vertex_stage_cache_) {
-    if (pair.second.library) {
-      pair.second.library->release();
-    }
-    if (pair.second.stage_in_library) {
-      pair.second.stage_in_library->release();
-    }
-  }
-  geometry_vertex_stage_cache_.clear();
-
-  for (auto& pair : geometry_shader_stage_cache_) {
-    if (pair.second.library) {
-      pair.second.library->release();
-    }
-  }
-  geometry_shader_stage_cache_.clear();
 
   for (auto& pair : depth_stencil_state_cache_) {
     if (pair.second) {
@@ -460,156 +630,764 @@ MetalCommandProcessor::~MetalCommandProcessor() {
     null_sampler_->release();
     null_sampler_ = nullptr;
   }
-  {
-    std::lock_guard<std::mutex> lock(draw_ring_mutex_);
-    active_draw_ring_.reset();
-    draw_ring_pool_.clear();
-    command_buffer_draw_rings_.clear();
-  }
-  res_heap_ab_ = nullptr;
-  smp_heap_ab_ = nullptr;
-  cbv_heap_ab_ = nullptr;
   uniforms_buffer_ = nullptr;
-  top_level_ab_ = nullptr;
-  draw_args_buffer_ = nullptr;
-
-  ShutdownShaderStorage();
-}
-
-MetalCommandProcessor::DrawRingBuffers::~DrawRingBuffers() {
-  if (res_heap_ab) {
-    res_heap_ab->release();
-    res_heap_ab = nullptr;
-  }
-  if (smp_heap_ab) {
-    smp_heap_ab->release();
-    smp_heap_ab = nullptr;
-  }
-  if (cbv_heap_ab) {
-    cbv_heap_ab->release();
-    cbv_heap_ab = nullptr;
-  }
-  if (uniforms_buffer) {
-    uniforms_buffer->release();
-    uniforms_buffer = nullptr;
-  }
-  if (top_level_ab) {
-    top_level_ab->release();
-    top_level_ab = nullptr;
-  }
-  if (draw_args_buffer) {
-    draw_args_buffer->release();
-    draw_args_buffer = nullptr;
-  }
-}
-
-void MetalCommandProcessor::UpdateDebugMarkersEnabled() {
-  // Enable debug markers if the CVAR is set (RenderDoc auto-detect disabled on
-  // macOS).
-  debug_markers_enabled_ = IsGpuDebugMarkersEnabled();
-}
-
-void MetalCommandProcessor::PushDebugMarker(const char* format, ...) {
-  if (!debug_markers_enabled_) {
-    return;
-  }
-  char label[256];
-  va_list args;
-  va_start(args, format);
-  vsnprintf(label, sizeof(label), format, args);
-  va_end(args);
-  auto* ns_label = NS::String::string(label, NS::UTF8StringEncoding);
-  if (current_render_encoder_) {
-    current_render_encoder_->pushDebugGroup(ns_label);
-    debug_marker_stack_.push_back(DebugMarkerTarget::kRenderEncoder);
-  } else if (current_command_buffer_) {
-    current_command_buffer_->pushDebugGroup(ns_label);
-    debug_marker_stack_.push_back(DebugMarkerTarget::kCommandBuffer);
-  }
-}
-
-void MetalCommandProcessor::PopDebugMarker() {
-  if (!debug_markers_enabled_ || debug_marker_stack_.empty()) {
-    return;
-  }
-  DebugMarkerTarget target = debug_marker_stack_.back();
-  debug_marker_stack_.pop_back();
-  if (target == DebugMarkerTarget::kRenderEncoder) {
-    if (current_render_encoder_) {
-      current_render_encoder_->popDebugGroup();
+  command_buffer_spirv_uniform_buffers_.clear();
+  size_t uniforms_pool_size = 0;
+  {
+    std::lock_guard<std::mutex> lock(spirv_uniforms_mutex_);
+    uniforms_pool_size = spirv_uniforms_pool_.size();
+    spirv_uniforms_available_.clear();
+    for (MTL::Buffer* pool_uniforms : spirv_uniforms_pool_) {
+      if (pool_uniforms) {
+        pool_uniforms->release();
+      }
     }
+    spirv_uniforms_pool_.clear();
+    spirv_uniforms_pool_initialized_ = false;
+  }
+  if (spirv_uniforms_available_semaphore_) {
+    // Buffers dropped above were never signalled back, and libdispatch traps
+    // on a semaphore released below the count it was created with.
+    for (size_t i = 0; i < uniforms_pool_size; ++i) {
+      dispatch_semaphore_signal(spirv_uniforms_available_semaphore_);
+    }
+#if !OS_OBJECT_USE_OBJC
+    dispatch_release(spirv_uniforms_available_semaphore_);
+#endif
+    spirv_uniforms_available_semaphore_ = nullptr;
+  }
+}
+
+void MetalCommandProcessor::InitializeAsyncCompilation() {
+  ShutdownAsyncCompilation();
+
+  if (!cvars::async_shader_compilation) {
+    return;
+  }
+
+  uint32_t logical_processor_count = std::thread::hardware_concurrency();
+  if (!logical_processor_count) {
+    logical_processor_count = 6;
+  }
+
+  if (cvars::metal_pipeline_creation_threads == 0) {
+    return;
+  }
+
+  size_t thread_count = 0;
+  if (cvars::metal_pipeline_creation_threads < 0) {
+    thread_count = std::max<uint32_t>(logical_processor_count * 3 / 4, 1);
   } else {
-    if (current_command_buffer_) {
-      current_command_buffer_->popDebugGroup();
+    thread_count =
+        std::min<uint32_t>(uint32_t(cvars::metal_pipeline_creation_threads),
+                           logical_processor_count);
+  }
+  if (!thread_count) {
+    return;
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(async_compile_mutex_);
+    async_compile_shutdown_ = false;
+  }
+
+  async_compile_threads_.reserve(thread_count);
+  for (size_t i = 0; i < thread_count; ++i) {
+    async_compile_threads_.emplace_back([this, i]() { AsyncCompileThread(i); });
+  }
+
+  XELOGI(
+      "Metal: async {} shader/pipeline compilation enabled with {} worker "
+      "thread(s)",
+      UseDxilPath() ? "DXIL" : "SPIRV-Cross", thread_count);
+}
+
+void MetalCommandProcessor::ShutdownAsyncCompilation() {
+  {
+    std::lock_guard<std::mutex> lock(async_compile_mutex_);
+    async_compile_shutdown_ = true;
+  }
+  async_compile_cv_.notify_all();
+
+  for (std::thread& thread : async_compile_threads_) {
+    if (thread.joinable()) {
+      thread.join();
+    }
+  }
+  async_compile_threads_.clear();
+
+  std::lock_guard<std::mutex> lock(async_compile_mutex_);
+  std::priority_queue<ShaderCompileRequest, std::vector<ShaderCompileRequest>,
+                      ShaderCompileRequestCompare>
+      empty_queue;
+  std::swap(async_shader_queue_, empty_queue);
+  while (!async_pipeline_queue_.empty()) {
+    auto request = async_pipeline_queue_.top();
+    async_pipeline_queue_.pop();
+    if (request.vertex_function) {
+      request.vertex_function->release();
+      request.vertex_function = nullptr;
+    }
+    if (request.fragment_function) {
+      request.fragment_function->release();
+      request.fragment_function = nullptr;
+    }
+  }
+  while (!async_tess_shaders_queue_.empty()) {
+    async_tess_shaders_queue_.pop();
+  }
+  async_shader_pending_.clear();
+  async_shader_failed_.clear();
+  async_pipeline_pending_.clear();
+  async_pipeline_failed_.clear();
+  async_tess_shaders_pending_.clear();
+  async_tess_shaders_failed_.clear();
+  async_compile_busy_ = 0;
+  async_compile_shutdown_ = false;
+}
+
+MTL::Function* MetalCommandProcessor::GetHostShaderFunction(
+    const Shader::Translation* translation) {
+  if (!translation) {
+    return nullptr;
+  }
+  if (UseDxilPath()) {
+    return static_cast<const DxilShader::DxilTranslation*>(translation)
+        ->metal_function();
+  }
+  return static_cast<const MslShader::MslTranslation*>(translation)
+      ->metal_function();
+}
+
+MetalCommandProcessor::ShaderCompileStatus
+MetalCommandProcessor::EnsureTranslationSpirv(
+    Shader::Translation* translation, SpirvShaderTranslator& translator) {
+  if (translation->is_translated()) {
+    return translation->is_valid() ? ShaderCompileStatus::kReady
+                                   : ShaderCompileStatus::kFailed;
+  }
+  if (!translation->TryClaimTranslation()) {
+    // Don't wait on is_translated(): the shader's bindings are published by
+    // whichever modification translates first, so another one can set this
+    // while they are still half-written. The mutex orders it.
+    return ShaderCompileStatus::kPending;
+  }
+  if (!translator.TranslateAnalyzedShader(*translation)) {
+    XELOGE("Metal: failed to translate shader {:016X} mod {:016X} to SPIR-V",
+           translation->shader().ucode_data_hash(),
+           translation->modification());
+    return ShaderCompileStatus::kFailed;
+  }
+  return ShaderCompileStatus::kReady;
+}
+
+bool MetalCommandProcessor::CompileHostShader(Shader::Translation* translation,
+                                              bool is_ios) {
+  if (!translation) {
+    return false;
+  }
+  if (UseDxilPath()) {
+    return static_cast<DxilShader::DxilTranslation*>(translation)
+        ->CompileToAir(device_, metal_shader_converter_);
+  }
+  return static_cast<MslShader::MslTranslation*>(translation)
+      ->CompileToMsl(device_, is_ios);
+}
+
+void MetalCommandProcessor::NoteShaderCompileFailed(
+    Shader::Translation* translation) {
+  if (!translation) {
+    return;
+  }
+  std::lock_guard<std::mutex> lock(async_compile_mutex_);
+  async_shader_failed_.insert(translation);
+}
+
+MetalCommandProcessor::ShaderCompileStatus
+MetalCommandProcessor::GetShaderCompileStatus(
+    Shader::Translation* translation) {
+  if (!translation) {
+    return ShaderCompileStatus::kFailed;
+  }
+
+  std::lock_guard<std::mutex> lock(async_compile_mutex_);
+  if (async_shader_failed_.find(translation) != async_shader_failed_.end()) {
+    return ShaderCompileStatus::kFailed;
+  }
+  if (async_shader_pending_.find(translation) != async_shader_pending_.end()) {
+    return ShaderCompileStatus::kPending;
+  }
+  return GetHostShaderFunction(translation) ? ShaderCompileStatus::kReady
+                                            : ShaderCompileStatus::kNotQueued;
+}
+
+bool MetalCommandProcessor::EnqueueShaderCompilation(
+    Shader::Translation* translation, bool is_ios, uint8_t priority) {
+  if (!translation || !cvars::async_shader_compilation ||
+      async_compile_threads_.empty()) {
+    return false;
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(async_compile_mutex_);
+    ShaderCompileRequest request;
+    request.translation = translation;
+    request.shader_hash = translation->shader().ucode_data_hash();
+    request.modification = translation->modification();
+    request.is_ios = is_ios;
+    request.priority = priority;
+    async_shader_pending_.insert(translation);
+    async_shader_queue_.push(request);
+  }
+  async_compile_cv_.notify_one();
+  return true;
+}
+
+bool MetalCommandProcessor::EnqueuePipelineCompilation(
+    const PipelineCompileRequest& request) {
+  if (!cvars::async_shader_compilation || async_compile_threads_.empty()) {
+    return false;
+  }
+  // A DXIL tessellation pipeline is linked from the MSC stage libraries, not
+  // from Metal functions, so it is the one kind with no vertex function.
+  if (request.description.kind == PipelineKind::kDxilTessellation
+          ? request.tessellation_shaders == nullptr
+          : request.vertex_function == nullptr) {
+    return false;
+  }
+
+  PipelineCompileRequest queued_request = request;
+  {
+    std::lock_guard<std::mutex> lock(async_compile_mutex_);
+    if (async_pipeline_cache_.find(request.pipeline_key) !=
+        async_pipeline_cache_.end()) {
+      return true;
+    }
+    if (async_pipeline_failed_.find(request.pipeline_key) !=
+        async_pipeline_failed_.end()) {
+      return false;
+    }
+    if (async_pipeline_pending_.find(request.pipeline_key) !=
+        async_pipeline_pending_.end()) {
+      return true;
+    }
+
+    if (queued_request.vertex_function) {
+      queued_request.vertex_function->retain();
+    }
+    if (queued_request.fragment_function) {
+      queued_request.fragment_function->retain();
+    }
+    async_pipeline_pending_.insert(request.pipeline_key);
+    async_pipeline_queue_.push(queued_request);
+  }
+
+  async_compile_cv_.notify_one();
+  return true;
+}
+
+Shader::Translation* MetalCommandProcessor::GetOrCreateHostTranslation(
+    SpirvShader& shader, uint64_t modification, bool allow_async,
+    ShaderCompileStatus* compile_status_out) {
+  constexpr bool kIsIos =
+#if XE_PLATFORM_IOS
+      true;
+#else
+      false;
+#endif
+  Shader::Translation* translation =
+      shader.GetOrCreateTranslation(modification);
+  ShaderCompileStatus status = GetShaderCompileStatus(translation);
+  if (status == ShaderCompileStatus::kNotQueued) {
+    // Vertex shaders go first: the placeholder a pending pixel shader draws
+    // through needs one, so the draw stops being dropped sooner.
+    if (allow_async &&
+        EnqueueShaderCompilation(
+            translation, kIsIos,
+            shader.type() == xenos::ShaderType::kVertex ? 2 : 1)) {
+      status = ShaderCompileStatus::kPending;
+    } else {
+      status = EnsureTranslationSpirv(translation, *spirv_shader_translator_);
+      if (status == ShaderCompileStatus::kReady &&
+          !CompileHostShader(translation, kIsIos)) {
+        status = ShaderCompileStatus::kFailed;
+      }
+      if (status == ShaderCompileStatus::kFailed) {
+        NoteShaderCompileFailed(translation);
+      }
+    }
+  }
+  // Only the first translation of a shader gathers its bindings, so a sibling
+  // modification can still be filling them. The draw needs them.
+  if (status == ShaderCompileStatus::kReady && !shader.bindings_ready()) {
+    status = ShaderCompileStatus::kPending;
+  }
+  if (status == ShaderCompileStatus::kPending && !allow_async) {
+    // An earlier draw that could wait for this queued it. This caller can't, so
+    // the only way to get it is to let the compile threads finish.
+    AwaitAsyncCompiles();
+    status = GetShaderCompileStatus(translation);
+    if (status == ShaderCompileStatus::kReady && !shader.bindings_ready()) {
+      status = ShaderCompileStatus::kPending;
+    }
+  }
+  *compile_status_out = status;
+  return translation;
+}
+
+void MetalCommandProcessor::LogShaderCompilePending(
+    const Shader::Translation* translation, const char* stage_tag) {
+  if (!ShouldLogRateLimited(async_shader_pending_last_log_ns_,
+                            kAsyncCompileLogIntervalNs)) {
+    return;
+  }
+  XELOGI(
+      "Metal: skipping draw - {} shader compile pending (shader={:016X}, "
+      "mod={:016X})",
+      stage_tag, translation->shader().ucode_data_hash(),
+      translation->modification());
+}
+
+void MetalCommandProcessor::LogPipelineCompilePending(
+    const Shader::Translation* vertex_translation,
+    const Shader::Translation* pixel_translation) {
+  if (!ShouldLogRateLimited(async_pipeline_pending_last_log_ns_,
+                            kAsyncCompileLogIntervalNs)) {
+    return;
+  }
+  XELOGI(
+      "Metal: skipping draw - render pipeline compile pending "
+      "(VS {:016X} mod {:016X}, PS {:016X} mod {:016X})",
+      vertex_translation->shader().ucode_data_hash(),
+      vertex_translation->modification(),
+      pixel_translation ? pixel_translation->shader().ucode_data_hash() : 0,
+      pixel_translation ? pixel_translation->modification() : 0);
+}
+
+void MetalCommandProcessor::LogPlaceholderDraw(
+    const Shader::Translation* vertex_translation,
+    const Shader::Translation* pixel_translation) {
+  if (!ShouldLogRateLimited(async_placeholder_last_log_ns_,
+                            kAsyncCompileLogIntervalNs)) {
+    return;
+  }
+  XELOGI(
+      "Metal: drawing through the vertex-only placeholder while the pixel "
+      "shader builds (VS {:016X} mod {:016X}, PS {:016X} mod {:016X})",
+      vertex_translation->shader().ucode_data_hash(),
+      vertex_translation->modification(),
+      pixel_translation ? pixel_translation->shader().ucode_data_hash() : 0,
+      pixel_translation ? pixel_translation->modification() : 0);
+}
+
+void MetalCommandProcessor::ApplyColorAttachmentState(
+    MTL::RenderPipelineColorAttachmentDescriptorArray* attachments,
+    const PipelineCompileRequest& request) {
+  for (uint32_t i = 0; i < 4; ++i) {
+    auto* color_attachment = attachments->object(i);
+    MTL::PixelFormat color_format =
+        MTL::PixelFormat(request.description.color_formats[i]);
+    color_attachment->setPixelFormat(color_format);
+    if (color_format == MTL::PixelFormatInvalid) {
+      color_attachment->setWriteMask(MTL::ColorWriteMaskNone);
+      color_attachment->setBlendingEnabled(false);
+      continue;
+    }
+
+    uint32_t rt_write_mask =
+        (request.description.normalized_color_mask >> (i * 4)) & 0xF;
+    color_attachment->setWriteMask(ToMetalColorWriteMask(rt_write_mask));
+    if (!rt_write_mask) {
+      color_attachment->setBlendingEnabled(false);
+      continue;
+    }
+
+    reg::RB_BLENDCONTROL blendcontrol;
+    blendcontrol.value = request.description.blendcontrol[i];
+
+    MTL::BlendFactor src_rgb =
+        ToMetalBlendFactorRgb(blendcontrol.color_srcblend);
+    MTL::BlendFactor dst_rgb =
+        ToMetalBlendFactorRgb(blendcontrol.color_destblend);
+    MTL::BlendOperation op_rgb =
+        ToMetalBlendOperation(blendcontrol.color_comb_fcn);
+    MTL::BlendFactor src_alpha =
+        ToMetalBlendFactorAlpha(blendcontrol.alpha_srcblend);
+    MTL::BlendFactor dst_alpha =
+        ToMetalBlendFactorAlpha(blendcontrol.alpha_destblend);
+    MTL::BlendOperation op_alpha =
+        ToMetalBlendOperation(blendcontrol.alpha_comb_fcn);
+
+    bool blending_enabled =
+        src_rgb != MTL::BlendFactorOne || dst_rgb != MTL::BlendFactorZero ||
+        op_rgb != MTL::BlendOperationAdd || src_alpha != MTL::BlendFactorOne ||
+        dst_alpha != MTL::BlendFactorZero || op_alpha != MTL::BlendOperationAdd;
+    color_attachment->setBlendingEnabled(blending_enabled);
+    if (blending_enabled) {
+      color_attachment->setSourceRGBBlendFactor(src_rgb);
+      color_attachment->setDestinationRGBBlendFactor(dst_rgb);
+      color_attachment->setRgbBlendOperation(op_rgb);
+      color_attachment->setSourceAlphaBlendFactor(src_alpha);
+      color_attachment->setDestinationAlphaBlendFactor(dst_alpha);
+      color_attachment->setAlphaBlendOperation(op_alpha);
     }
   }
 }
 
-void MetalCommandProcessor::InsertDebugMarker(const char* format, ...) {
-  if (!debug_markers_enabled_) {
-    return;
+MTL::RenderPipelineState* MetalCommandProcessor::CreatePipelineState(
+    const PipelineCompileRequest& request, std::string* error_out) {
+  if (error_out) {
+    error_out->clear();
   }
-  char label[256];
-  va_list args;
-  va_start(args, format);
-  vsnprintf(label, sizeof(label), format, args);
-  va_end(args);
-  auto* ns_label = NS::String::string(label, NS::UTF8StringEncoding);
-  if (current_render_encoder_) {
-    current_render_encoder_->insertDebugSignpost(ns_label);
-  } else if (current_command_buffer_) {
-    current_command_buffer_->pushDebugGroup(ns_label);
-    current_command_buffer_->popDebugGroup();
+  switch (request.description.kind) {
+    case PipelineKind::kMslTessellation:
+      return CreateMslTessellationPipelineState(request, error_out);
+    case PipelineKind::kDxilTessellation:
+      return CreateDxilTessellationPipelineState(request, error_out);
+    case PipelineKind::kRender:
+      break;
   }
-}
+  if (!request.vertex_function) {
+    if (error_out) {
+      *error_out = "missing vertex shader function";
+    }
+    return nullptr;
+  }
 
-void MetalCommandProcessor::RequestCapture() {
-  capture_requested_.store(true, std::memory_order_release);
-}
+  MTL::RenderPipelineDescriptor* desc =
+      MTL::RenderPipelineDescriptor::alloc()->init();
+  desc->setVertexFunction(request.vertex_function);
+  if (request.fragment_function) {
+    desc->setFragmentFunction(request.fragment_function);
+  }
 
-void MetalCommandProcessor::MaybeStartCapture() {
-  if (!capture_requested_.exchange(false, std::memory_order_acq_rel)) {
-    return;
-  }
-  if (!command_queue_) {
-    XELOGW("Metal capture requested but command queue is not ready");
-    return;
-  }
-  capture_manager_ = MTL::CaptureManager::sharedCaptureManager();
-  if (!capture_manager_) {
-    XELOGW("Metal capture manager not available");
-    return;
-  }
-  auto* descriptor = MTL::CaptureDescriptor::alloc()->init();
-  descriptor->setCaptureObject(command_queue_);
-  descriptor->setDestination(MTL::CaptureDestinationGPUTraceDocument);
-
-  const char* capture_dir = std::getenv("XENIA_GPU_CAPTURE_DIR");
-  std::string filename =
-      capture_dir ? (std::string(capture_dir) + "/metal_capture.gputrace")
-                  : std::string("./metal_capture.gputrace");
-  auto* url = NS::URL::fileURLWithPath(
-      NS::String::string(filename.c_str(), NS::UTF8StringEncoding));
-  descriptor->setOutputURL(url);
+  ApplyColorAttachmentState(desc->colorAttachments(), request);
+  desc->setDepthAttachmentPixelFormat(
+      MTL::PixelFormat(request.description.depth_format));
+  desc->setStencilAttachmentPixelFormat(
+      MTL::PixelFormat(request.description.stencil_format));
+  desc->setSampleCount(request.description.sample_count);
+  desc->setAlphaToCoverageEnabled(request.description.alpha_to_mask_enable !=
+                                  0);
 
   NS::Error* error = nullptr;
-  if (capture_manager_->startCapture(descriptor, &error)) {
-    capture_active_ = true;
-    XELOGI("Metal capture started: {}", filename);
-  } else {
-    XELOGE("Metal capture start failed: {} (set MTL_CAPTURE_ENABLED=1)",
-           error ? error->localizedDescription()->utf8String() : "unknown");
+  MTL::RenderPipelineState* pipeline =
+      device_->newRenderPipelineState(desc, &error);
+  desc->release();
+
+  if (!pipeline && error_out && error) {
+    NS::String* description = error->localizedDescription();
+    if (description) {
+      *error_out = description->utf8String();
+    }
   }
-  descriptor->release();
+
+  return pipeline;
 }
 
-void MetalCommandProcessor::StopCaptureIfActive() {
-  if (!capture_active_ || !capture_manager_) {
-    return;
+MTL::RenderPipelineState*
+MetalCommandProcessor::CreateMslTessellationPipelineState(
+    const PipelineCompileRequest& request, std::string* error_out) {
+  if (!request.vertex_function) {
+    if (error_out) {
+      *error_out = "missing domain shader function";
+    }
+    return nullptr;
   }
-  capture_manager_->stopCapture();
-  capture_active_ = false;
-  XELOGI("Metal capture completed");
+  MTL::RenderPipelineDescriptor* desc =
+      MTL::RenderPipelineDescriptor::alloc()->init();
+  // The post-tessellation vertex function IS the domain shader.
+  desc->setVertexFunction(request.vertex_function);
+  if (request.fragment_function) {
+    desc->setFragmentFunction(request.fragment_function);
+  } else if (depth_only_pixel_library_ &&
+             !depth_only_pixel_function_name_.empty()) {
+    auto* fn_name = NS::String::string(depth_only_pixel_function_name_.c_str(),
+                                       NS::UTF8StringEncoding);
+    MTL::Function* depth_fn = depth_only_pixel_library_->newFunction(fn_name);
+    if (depth_fn) {
+      desc->setFragmentFunction(depth_fn);
+      depth_fn->release();
+    }
+  }
+
+  desc->setMaxTessellationFactor(64);
+  desc->setTessellationFactorStepFunction(
+      MTL::TessellationFactorStepFunctionPerPatch);
+  switch (request.description.tessellation_mode) {
+    case xenos::TessellationMode::kDiscrete:
+      desc->setTessellationPartitionMode(MTL::TessellationPartitionModeInteger);
+      break;
+    case xenos::TessellationMode::kContinuous:
+    case xenos::TessellationMode::kAdaptive:
+      desc->setTessellationPartitionMode(
+          MTL::TessellationPartitionModeFractionalEven);
+      break;
+  }
+  // The domain shader reads control points from shared memory.
+  desc->setTessellationControlPointIndexType(
+      MTL::TessellationControlPointIndexTypeNone);
+
+  ApplyColorAttachmentState(desc->colorAttachments(), request);
+  desc->setDepthAttachmentPixelFormat(
+      MTL::PixelFormat(request.description.depth_format));
+  desc->setStencilAttachmentPixelFormat(
+      MTL::PixelFormat(request.description.stencil_format));
+  desc->setSampleCount(request.description.sample_count);
+  desc->setAlphaToCoverageEnabled(request.description.alpha_to_mask_enable !=
+                                  0);
+
+  NS::Error* error = nullptr;
+  MTL::RenderPipelineState* pipeline =
+      device_->newRenderPipelineState(desc, &error);
+  desc->release();
+  if (!pipeline && error_out && error) {
+    NS::String* description = error->localizedDescription();
+    if (description) {
+      *error_out = description->utf8String();
+    }
+  }
+  return pipeline;
+}
+
+MTL::RenderPipelineState*
+MetalCommandProcessor::CreateDxilTessellationPipelineState(
+    const PipelineCompileRequest& request, std::string* error_out) {
+  const DxilTessellationShaders* shaders = request.tessellation_shaders;
+  if (!shaders) {
+    if (error_out) {
+      *error_out = "missing tessellation stages";
+    }
+    return nullptr;
+  }
+  const MetalShaderReflection& hull = shaders->hull.reflection;
+  const MetalShaderReflection& domain = shaders->domain.reflection;
+  auto output_primitive =
+      IRRuntimeTessellatorOutputPrimitive(hull.hs_tessellator_output_primitive);
+  IRRuntimePrimitiveType geometry_primitive = IRRuntimePrimitiveTypeTriangle;
+  const char* geometry_function = kIRTrianglePassthroughGeometryShader;
+  switch (output_primitive) {
+    case IRRuntimeTessellatorOutputPoint:
+      geometry_primitive = IRRuntimePrimitiveTypePoint;
+      geometry_function = kIRPointPassthroughGeometryShader;
+      break;
+    case IRRuntimeTessellatorOutputLine:
+      geometry_primitive = IRRuntimePrimitiveTypeLine;
+      geometry_function = kIRLinePassthroughGeometryShader;
+      break;
+    default:
+      break;
+  }
+  if (!IRRuntimeValidateTessellationPipeline(
+          output_primitive, geometry_primitive,
+          hull.hs_output_control_point_size, domain.ds_input_control_point_size,
+          hull.hs_patch_constants_size, domain.ds_patch_constants_size,
+          hull.hs_output_control_point_count,
+          domain.ds_input_control_point_count)) {
+    if (error_out) {
+      *error_out = "hull and domain stages are not compatible";
+    }
+    return nullptr;
+  }
+
+  MTL::MeshRenderPipelineDescriptor* desc =
+      MTL::MeshRenderPipelineDescriptor::alloc()->init();
+  ApplyColorAttachmentState(desc->colorAttachments(), request);
+  desc->setDepthAttachmentPixelFormat(
+      MTL::PixelFormat(request.description.depth_format));
+  desc->setStencilAttachmentPixelFormat(
+      MTL::PixelFormat(request.description.stencil_format));
+  desc->setRasterSampleCount(request.description.sample_count);
+  desc->setAlphaToCoverageEnabled(request.description.alpha_to_mask_enable !=
+                                  0);
+
+  IRGeometryTessellationEmulationPipelineDescriptor ir_desc = {};
+  // No stage-in: the guest fetches vertices from shared memory, so the host
+  // vertex shader takes no attributes.
+  ir_desc.stageInLibrary = nullptr;
+  ir_desc.vertexLibrary = shaders->vertex.library;
+  ir_desc.vertexFunctionName = shaders->vertex.function_name.c_str();
+  ir_desc.hullLibrary = shaders->hull.library;
+  ir_desc.hullFunctionName = shaders->hull.function_name.c_str();
+  ir_desc.domainLibrary = shaders->domain.library;
+  ir_desc.domainFunctionName = shaders->domain.function_name.c_str();
+  // MSC synthesizes the passthrough. The guest has no geometry shader.
+  ir_desc.geometryLibrary = nullptr;
+  ir_desc.geometryFunctionName = geometry_function;
+  ir_desc.fragmentLibrary = request.fragment_library;
+  ir_desc.fragmentFunctionName = request.fragment_function_name.empty()
+                                     ? nullptr
+                                     : request.fragment_function_name.c_str();
+  ir_desc.basePipelineDescriptor = desc;
+  ir_desc.pipelineConfig =
+      BuildTessellationPipelineConfig(shaders->vertex.reflection, hull, domain);
+
+  NS::Error* error = nullptr;
+  MTL::RenderPipelineState* pipeline =
+      IRRuntimeNewGeometryTessellationEmulationPipeline(device_, &ir_desc,
+                                                        &error);
+  desc->release();
+  if (!pipeline && error_out && error) {
+    NS::String* description = error->localizedDescription();
+    if (description) {
+      *error_out = description->utf8String();
+    }
+  }
+  return pipeline;
+}
+
+void MetalCommandProcessor::AsyncCompileThread(size_t thread_index) {
+  xe::threading::set_name(fmt::format("Metal Shaders {}", thread_index));
+  std::unique_ptr<SpirvShaderTranslator> worker_translator =
+      CreateSpirvShaderTranslator();
+  while (true) {
+    enum class RequestKind { kPipeline, kShader, kTessellationShaders };
+    RequestKind request_kind = RequestKind::kPipeline;
+    ShaderCompileRequest shader_request;
+    PipelineCompileRequest pipeline_request;
+    TessellationShadersCompileRequest tess_shaders_request;
+    {
+      std::unique_lock<std::mutex> lock(async_compile_mutex_);
+      async_compile_cv_.wait(lock, [this]() {
+        return async_compile_shutdown_ || !async_shader_queue_.empty() ||
+               !async_pipeline_queue_.empty() ||
+               !async_tess_shaders_queue_.empty();
+      });
+      if (async_compile_shutdown_) {
+        return;
+      }
+      // Pipelines first: they are the nearly finished work, and everything
+      // else exists to unblock one.
+      if (!async_pipeline_queue_.empty()) {
+        request_kind = RequestKind::kPipeline;
+        pipeline_request = async_pipeline_queue_.top();
+        async_pipeline_queue_.pop();
+      } else if (!async_shader_queue_.empty()) {
+        request_kind = RequestKind::kShader;
+        shader_request = async_shader_queue_.top();
+        async_shader_queue_.pop();
+      } else {
+        request_kind = RequestKind::kTessellationShaders;
+        tess_shaders_request = async_tess_shaders_queue_.front();
+        async_tess_shaders_queue_.pop();
+      }
+      ++async_compile_busy_;
+    }
+
+    NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
+    if (request_kind == RequestKind::kTessellationShaders) {
+      auto shaders = std::make_unique<DxilTessellationShaders>();
+      bool compiled = BuildDxilTessellationShaders(
+          *tess_shaders_request.domain_spirv,
+          tess_shaders_request.domain_ucode_hash,
+          tess_shaders_request.tessellation_mode,
+          tess_shaders_request.host_vertex_shader_type, *shaders);
+      std::lock_guard<std::mutex> lock(async_compile_mutex_);
+      async_tess_shaders_pending_.erase(tess_shaders_request.key);
+      if (compiled) {
+        // The pending set admits one build per key, so this always inserts.
+        // A loser would release its stages through the destructor.
+        dxil_tessellation_cache_.emplace(tess_shaders_request.key,
+                                         std::move(shaders));
+      } else {
+        async_tess_shaders_failed_.insert(tess_shaders_request.key);
+      }
+      FinishAsyncCompileTaskLocked();
+    } else if (request_kind == RequestKind::kPipeline) {
+      std::string pipeline_error;
+      MTL::RenderPipelineState* pipeline =
+          CreatePipelineState(pipeline_request, &pipeline_error);
+      bool compiled = pipeline != nullptr;
+
+      {
+        std::lock_guard<std::mutex> lock(async_compile_mutex_);
+        async_pipeline_pending_.erase(pipeline_request.pipeline_key);
+        if (compiled) {
+          auto insert_result = async_pipeline_cache_.emplace(
+              pipeline_request.pipeline_key, pipeline);
+          if (!insert_result.second && pipeline) {
+            pipeline->release();
+          }
+          async_pipeline_failed_.erase(pipeline_request.pipeline_key);
+        } else {
+          async_pipeline_failed_.insert(pipeline_request.pipeline_key);
+        }
+        FinishAsyncCompileTaskLocked();
+      }
+
+      if (pipeline_request.vertex_function) {
+        pipeline_request.vertex_function->release();
+      }
+      if (pipeline_request.fragment_function) {
+        pipeline_request.fragment_function->release();
+      }
+
+      if (!compiled && ShouldLogRateLimited(async_pipeline_failure_last_log_ns_,
+                                            kAsyncCompileLogIntervalNs)) {
+        if (!pipeline_error.empty()) {
+          XELOGE(
+              "Metal: async pipeline compile failed on worker {} "
+              "(VS {:016X} mod {:016X}, PS {:016X} mod {:016X}): {}",
+              thread_index, pipeline_request.description.vertex_shader_hash,
+              pipeline_request.description.vertex_shader_modification,
+              pipeline_request.description.pixel_shader_hash,
+              pipeline_request.description.pixel_shader_modification,
+              pipeline_error);
+        } else {
+          XELOGE(
+              "Metal: async pipeline compile failed on worker {} "
+              "(VS {:016X} mod {:016X}, PS {:016X} mod {:016X})",
+              thread_index, pipeline_request.description.vertex_shader_hash,
+              pipeline_request.description.vertex_shader_modification,
+              pipeline_request.description.pixel_shader_hash,
+              pipeline_request.description.pixel_shader_modification);
+        }
+      }
+    } else {
+      ShaderCompileStatus translation_status =
+          shader_request.translation
+              ? EnsureTranslationSpirv(shader_request.translation,
+                                       *worker_translator)
+              : ShaderCompileStatus::kFailed;
+      bool compiled =
+          translation_status == ShaderCompileStatus::kReady &&
+          CompileHostShader(shader_request.translation, shader_request.is_ios);
+      // Nothing queues a translation twice and the draw thread only translates
+      // one that is not queued, so losing the claim here shouldn't happen.
+      // Leave it unqueued for a later draw to retry rather than fail it
+      // forever, which would black out the shader for the whole run.
+      bool contended = translation_status == ShaderCompileStatus::kPending;
+
+      {
+        std::lock_guard<std::mutex> lock(async_compile_mutex_);
+        if (shader_request.translation) {
+          async_shader_pending_.erase(shader_request.translation);
+          if (!compiled && !contended) {
+            async_shader_failed_.insert(shader_request.translation);
+          }
+        }
+        FinishAsyncCompileTaskLocked();
+      }
+
+      if (!compiled && !contended &&
+          ShouldLogRateLimited(async_shader_failure_last_log_ns_,
+                               kAsyncCompileLogIntervalNs)) {
+        XELOGE(
+            "Metal: async shader compile failed on worker {} (shader "
+            "{:016X}, mod {:016X})",
+            thread_index, shader_request.shader_hash,
+            shader_request.modification);
+      }
+    }
+    pool->release();
+  }
+}
+
+MetalCommandProcessor::SpirvArgumentBufferPage::~SpirvArgumentBufferPage() {
+  if (buffer) {
+    buffer->release();
+    buffer = nullptr;
+  }
 }
 
 void MetalCommandProcessor::TracePlaybackWroteMemory(uint32_t base_ptr,
@@ -619,6 +1397,25 @@ void MetalCommandProcessor::TracePlaybackWroteMemory(uint32_t base_ptr,
   }
   if (primitive_processor_) {
     primitive_processor_->MemoryInvalidationCallback(base_ptr, length, true);
+  }
+}
+
+void MetalCommandProcessor::InitializeTrace() {
+  CommandProcessor::InitializeTrace();
+
+  // Neither download is bracketed by a submission of its own, so everything in
+  // flight has to have landed before they read what the GPU wrote.
+  EndCommandBuffer();
+  if (submission_current_) {
+    AwaitSubmissionCompletion(submission_current_);
+  }
+
+  if (render_target_cache_ &&
+      render_target_cache_->InitializeTraceSubmitDownloads()) {
+    render_target_cache_->InitializeTraceCompleteDownloads();
+  }
+  if (shared_memory_ && shared_memory_->InitializeTraceSubmitDownloads()) {
+    shared_memory_->InitializeTraceCompleteDownloads();
   }
 }
 
@@ -640,6 +1437,9 @@ void MetalCommandProcessor::RestoreEdramSnapshot(const void* snapshot) {
         "cache initialization");
     return;
   }
+  // Trace playback frame boundary: drop resolve-write tracking from previous
+  // frame before restoring a new snapshot.
+  ClearResolvedMemory();
   render_target_cache_->RestoreEdramSnapshot(snapshot);
 }
 
@@ -656,41 +1456,8 @@ void MetalCommandProcessor::InvalidateGpuMemory() {
 }
 
 void MetalCommandProcessor::ClearReadbackBuffers() {
-  for (auto& entry : readback_buffers_) {
-    ReadbackBuffer& rb = entry.second;
-    for (size_t i = 0; i < 2; ++i) {
-      if (rb.buffers[i]) {
-        rb.buffers[i]->release();
-        rb.buffers[i] = nullptr;
-      }
-      rb.sizes[i] = 0;
-      rb.submission_ids[i] = 0;
-    }
-    rb.current_index = 0;
-    rb.last_used_frame = 0;
-  }
-  readback_buffers_.clear();
-}
-
-void MetalCommandProcessor::EvictOldReadbackBuffers(
-    std::unordered_map<uint64_t, ReadbackBuffer>& buffer_map) {
-  if (frame_current_ <= kReadbackBufferEvictionAgeFrames) {
-    return;
-  }
-
-  for (auto it = buffer_map.begin(); it != buffer_map.end();) {
-    if (it->second.last_used_frame <
-        frame_current_ - kReadbackBufferEvictionAgeFrames) {
-      for (int i = 0; i < 2; ++i) {
-        if (it->second.buffers[i]) {
-          it->second.buffers[i]->release();
-        }
-      }
-      it = buffer_map.erase(it);
-    } else {
-      ++it;
-    }
-  }
+  // TODO(wmarti): Implement readback buffer clearing when resolve readback
+  // is added. See D3D12's readback_buffers_.
 }
 
 ui::metal::MetalProvider& MetalCommandProcessor::GetMetalProvider() const {
@@ -698,29 +1465,107 @@ ui::metal::MetalProvider& MetalCommandProcessor::GetMetalProvider() const {
 }
 
 uint64_t MetalCommandProcessor::GetCurrentSubmission() const {
-  return completion_timeline_ ? completion_timeline_->GetUpcomingSubmission()
-                              : 1;
+  return submission_current_ ? submission_current_ : 1;
 }
 
 uint64_t MetalCommandProcessor::GetCompletedSubmission() const {
-  return completion_timeline_
-             ? completion_timeline_->GetCompletedSubmissionFromLastUpdate()
-             : 0;
+  return completed_command_buffers_.load(std::memory_order_acquire);
 }
 
 void MetalCommandProcessor::MarkResolvedMemory(uint32_t base_ptr,
                                                uint32_t length) {
-  if (length == 0) return;
-  resolved_memory_ranges_.push_back({base_ptr, length});
+  if (length == 0) {
+    return;
+  }
+  constexpr uint64_t kAddressLimit =
+      uint64_t(std::numeric_limits<uint32_t>::max()) + 1ull;
+  uint64_t merged_base = base_ptr;
+  uint64_t merged_end =
+      std::min<uint64_t>(merged_base + uint64_t(length), kAddressLimit);
+  if (merged_end <= merged_base) {
+    return;
+  }
+
+  for (size_t i = 0; i < resolved_memory_ranges_.size();) {
+    const auto& range = resolved_memory_ranges_[i];
+    const uint64_t range_base = range.base;
+    const uint64_t range_end =
+        std::min<uint64_t>(range_base + uint64_t(range.length), kAddressLimit);
+    // Merge overlapping or adjacent ranges.
+    if (merged_end + 1 < range_base || range_end + 1 < merged_base) {
+      ++i;
+      continue;
+    }
+    merged_base = std::min(merged_base, range_base);
+    merged_end = std::max(merged_end, range_end);
+    resolved_memory_ranges_.erase(resolved_memory_ranges_.begin() + i);
+  }
+
+  const uint64_t merged_length_64 =
+      std::min<uint64_t>(merged_end - merged_base, kAddressLimit - merged_base);
+  if (!merged_length_64) {
+    return;
+  }
+  ResolvedRange merged_range = {uint32_t(merged_base),
+                                uint32_t(merged_length_64)};
+  auto insert_it = std::lower_bound(
+      resolved_memory_ranges_.begin(), resolved_memory_ranges_.end(),
+      merged_range, [](const ResolvedRange& lhs, const ResolvedRange& rhs) {
+        return lhs.base < rhs.base;
+      });
+  resolved_memory_ranges_.insert(insert_it, merged_range);
+
+  if (resolved_memory_ranges_.size() <= kResolvedMemoryRangesMax) {
+    return;
+  }
+
+  std::sort(resolved_memory_ranges_.begin(), resolved_memory_ranges_.end(),
+            [](const ResolvedRange& lhs, const ResolvedRange& rhs) {
+              return lhs.base < rhs.base;
+            });
+  while (resolved_memory_ranges_.size() > kResolvedMemoryRangesMax) {
+    size_t best_index = std::numeric_limits<size_t>::max();
+    uint64_t best_gap = std::numeric_limits<uint64_t>::max();
+    for (size_t i = 0; i + 1 < resolved_memory_ranges_.size(); ++i) {
+      const auto& left = resolved_memory_ranges_[i];
+      const auto& right = resolved_memory_ranges_[i + 1];
+      const uint64_t left_end = uint64_t(left.base) + uint64_t(left.length);
+      const uint64_t right_base = uint64_t(right.base);
+      const uint64_t gap = right_base > left_end ? right_base - left_end : 0;
+      if (gap < best_gap) {
+        best_gap = gap;
+        best_index = i;
+        if (!gap) {
+          break;
+        }
+      }
+    }
+    if (best_index == std::numeric_limits<size_t>::max()) {
+      break;
+    }
+    auto& left = resolved_memory_ranges_[best_index];
+    const auto& right = resolved_memory_ranges_[best_index + 1];
+    const uint64_t merged_base_64 =
+        std::min<uint64_t>(left.base, uint64_t(right.base));
+    const uint64_t merged_end_64 =
+        std::max<uint64_t>(uint64_t(left.base) + uint64_t(left.length),
+                           uint64_t(right.base) + uint64_t(right.length));
+    const uint64_t merged_len_64 = std::min<uint64_t>(
+        merged_end_64 - merged_base_64, kAddressLimit - merged_base_64);
+    left.base = uint32_t(merged_base_64);
+    left.length = uint32_t(std::max<uint64_t>(1, merged_len_64));
+    resolved_memory_ranges_.erase(resolved_memory_ranges_.begin() + best_index +
+                                  1);
+  }
 }
 
 bool MetalCommandProcessor::IsResolvedMemory(uint32_t base_ptr,
                                              uint32_t length) const {
-  uint32_t end_ptr = base_ptr + length;
+  const uint64_t end_ptr = uint64_t(base_ptr) + uint64_t(length);
   for (const auto& range : resolved_memory_ranges_) {
-    uint32_t range_end = range.base + range.length;
+    const uint64_t range_end = uint64_t(range.base) + uint64_t(range.length);
     // Check if ranges overlap
-    if (base_ptr < range_end && end_ptr > range.base) {
+    if (uint64_t(base_ptr) < range_end && end_ptr > uint64_t(range.base)) {
       return true;
     }
   }
@@ -729,6 +1574,22 @@ bool MetalCommandProcessor::IsResolvedMemory(uint32_t base_ptr,
 
 void MetalCommandProcessor::ClearResolvedMemory() {
   resolved_memory_ranges_.clear();
+}
+
+void MetalCommandProcessor::NoteMemexportRangesWritten() {
+  if (!shared_memory_ || memexport_ranges_.empty()) {
+    return;
+  }
+  for (const draw_util::MemExportRange& memexport_range : memexport_ranges_) {
+    uint32_t base_bytes = memexport_range.base_address_dwords << 2;
+    shared_memory_->RangeWrittenByGpu(base_bytes, memexport_range.size_bytes);
+    MarkMemexportPagesWritten(base_bytes, memexport_range.size_bytes,
+                              memexport_ranges_awaited_);
+    // Written from the still-open command buffer, so a later draw sampling it
+    // as a texture needs the same split a resolve gets.
+    MarkResolvedMemory(base_bytes, memexport_range.size_bytes);
+  }
+  copy_resolve_writes_pending_ = true;
 }
 
 void MetalCommandProcessor::ForceIssueSwap() {
@@ -777,12 +1638,6 @@ bool MetalCommandProcessor::SetupContext() {
     return false;
   }
 
-  // Check if debug markers should be enabled (CVAR).
-  UpdateDebugMarkersEnabled();
-  if (debug_markers_enabled_) {
-    XELOGI("GPU debug markers enabled for Metal debug tools");
-  }
-
   const ui::metal::MetalProvider& provider = GetMetalProvider();
   device_ = provider.GetDevice();
   command_queue_ = provider.GetCommandQueue();
@@ -803,26 +1658,56 @@ bool MetalCommandProcessor::SetupContext() {
         "waitUntilCompleted");
   }
 
-  completion_timeline_ = ui::metal::MetalGPUCompletionTimeline::Create(device_);
-  if (!completion_timeline_) {
-    XELOGE("MetalCommandProcessor: Failed to create completion timeline");
-    return false;
-  }
-  submission_open_ = false;
-  submission_completed_processed_ = 0;
-  frame_open_ = false;
-  frame_current_ = 1;
-  frame_completed_ = 0;
-  std::fill_n(closed_frame_submissions_, kQueueFrames, 0);
-
-  bool supports_apple7 = device_->supportsFamily(MTL::GPUFamilyApple7);
-  bool supports_mac2 = device_->supportsFamily(MTL::GPUFamilyMac2);
-  mesh_shader_supported_ = supports_apple7 || supports_mac2;
+  // MSC runs tessellation as object and mesh stages.
+  mesh_shader_supported_ = device_->supportsFamily(MTL::GPUFamilyApple7) ||
+                           device_->supportsFamily(MTL::GPUFamilyMac2);
 
   draw_ring_count_ = std::max<int32_t>(1, ::cvars::metal_draw_ring_count);
+  if (!UseDxilPath()) {
+    // Large per-command-buffer ring sizes have been observed to corrupt
+    // SPIRV-Cross uniform/constant data; cap here and rely on multi-buffer
+    // pool growth in EnsureSpirvUniformBuffer* for throughput.
+    constexpr size_t kMaxSpirvRingPagesPerCommandBuffer = 8;
+    if (draw_ring_count_ > kMaxSpirvRingPagesPerCommandBuffer) {
+      XELOGW(
+          "SPIRV-Cross: clamping per-command-buffer ring pages from {} to {} "
+          "for correctness",
+          draw_ring_count_, kMaxSpirvRingPagesPerCommandBuffer);
+      draw_ring_count_ = kMaxSpirvRingPagesPerCommandBuffer;
+    }
+  }
+  msl_system_constants_version_ = 1;
+  msl_constants_versioned_uniform_buffer_ = nullptr;
+  msl_system_constants_written_vertex_versions_.assign(draw_ring_count_, 0);
+  msl_system_constants_written_pixel_versions_.assign(draw_ring_count_, 0);
+  msl_current_float_constant_map_vertex_.fill(0);
+  msl_current_float_constant_map_pixel_.fill(0);
+  msl_float_constants_dirty_vertex_ = true;
+  msl_float_constants_dirty_pixel_ = true;
+  msl_bool_loop_constants_dirty_ = true;
+  msl_fetch_constants_dirty_ = true;
+  msl_bound_vertex_texture_binding_uid_ = 0;
+  msl_bound_pixel_texture_binding_uid_ = 0;
+  msl_bound_vertex_sampler_binding_uid_ = 0;
+  msl_bound_pixel_sampler_binding_uid_ = 0;
+  msl_bound_vertex_argument_buffer_offset_ = 0;
+  msl_bound_pixel_argument_buffer_offset_ = 0;
+  msl_bound_vertex_argument_buffer_offset_valid_ = false;
+  msl_bound_pixel_argument_buffer_offset_valid_ = false;
+  msl_last_argbuf_vertex_translation_ = nullptr;
+  msl_last_argbuf_vertex_encoded_length_ = 0;
+  msl_last_argbuf_vertex_layout_uid_ = 0;
+  msl_last_argbuf_pixel_translation_ = nullptr;
+  msl_last_argbuf_pixel_encoded_length_ = 0;
+  msl_last_argbuf_pixel_layout_uid_ = 0;
+  msl_bound_uniforms_buffer_ = nullptr;
+  msl_bound_uniforms_vs_base_offset_ = 0;
+  msl_bound_uniforms_ps_base_offset_ = 0;
+  msl_bound_uniforms_offsets_valid_ = false;
 
   // Initialize shared memory
-  shared_memory_ = std::make_unique<MetalSharedMemory>(*this, *memory_);
+  shared_memory_ =
+      std::make_unique<MetalSharedMemory>(*this, *memory_, trace_writer_);
   if (!shared_memory_->Initialize()) {
     XELOGE("Failed to initialize shared memory");
     return false;
@@ -836,26 +1721,8 @@ bool MetalCommandProcessor::SetupContext() {
     return false;
   }
 
-  // Get the draw resolution scale for the render target cache and the texture
-  // cache (match D3D12/Vulkan behavior).
-  uint32_t draw_resolution_scale_x = 1;
-  uint32_t draw_resolution_scale_y = 1;
-  bool draw_resolution_scale_not_clamped =
-      TextureCache::GetConfigDrawResolutionScale(draw_resolution_scale_x,
-                                                 draw_resolution_scale_y);
-  if (!draw_resolution_scale_not_clamped) {
-    XELOGW(
-        "The requested draw resolution scale is not supported by the emulator "
-        "or config, reducing to {}x{}",
-        draw_resolution_scale_x, draw_resolution_scale_y);
-  }
-  XELOGI("Metal: draw resolution scale {}x{} (supported={})",
-         draw_resolution_scale_x, draw_resolution_scale_y,
-         draw_resolution_scale_not_clamped);
-
-  texture_cache_ = std::make_unique<MetalTextureCache>(
-      this, *register_file_, *shared_memory_, draw_resolution_scale_x,
-      draw_resolution_scale_y);
+  texture_cache_ = std::make_unique<MetalTextureCache>(this, *register_file_,
+                                                       *shared_memory_, 1, 1);
   if (!texture_cache_->Initialize()) {
     XELOGE("Failed to initialize Metal texture cache");
     return false;
@@ -863,39 +1730,24 @@ bool MetalCommandProcessor::SetupContext() {
 
   // Initialize render target cache
   render_target_cache_ = std::make_unique<MetalRenderTargetCache>(
-      *register_file_, *memory_, &trace_writer_, draw_resolution_scale_x,
-      draw_resolution_scale_y, *this);
+      *register_file_, *memory_, &trace_writer_, 1, 1, *this);
   if (!render_target_cache_->Initialize()) {
     XELOGE("Failed to initialize Metal render target cache");
     return false;
   }
 
-  resolve_downscale_pipeline_ = CreateComputePipelineFromEmbeddedLibrary(
-      device_, resolve_downscale_cs_metallib,
-      sizeof(resolve_downscale_cs_metallib), "resolve_downscale");
-  if (!resolve_downscale_pipeline_) {
-    XELOGW("MetalCommandProcessor: resolve downscale pipeline unavailable");
-  }
+  // Fallback for query segment normalization when no draw pinned a scale.
+  zpd_draw_resolution_scale_x_ = texture_cache_->draw_resolution_scale_x();
+  zpd_draw_resolution_scale_y_ = texture_cache_->draw_resolution_scale_y();
+
+  zpd_visibility_pool_ = std::make_unique<MetalZPDVisibilityPool>();
+  EnsureQueryResources();
 
   // Initialize shader translation pipeline
   if (!InitializeShaderTranslation()) {
     XELOGE("Failed to initialize shader translation");
     return false;
   }
-  if (mesh_shader_supported_) {
-    uint64_t tess_tables_size = IRRuntimeTessellatorTablesSize();
-    tessellator_tables_buffer_ =
-        device_->newBuffer(tess_tables_size, MTL::ResourceStorageModeShared);
-    if (!tessellator_tables_buffer_) {
-      XELOGE("Failed to allocate tessellator tables buffer ({} bytes)",
-             tess_tables_size);
-      return false;
-    }
-    tessellator_tables_buffer_->setLabel(
-        NS::String::string("XeniaTessellatorTables", NS::UTF8StringEncoding));
-    IRRuntimeLoadTessellatorTables(tessellator_tables_buffer_);
-  }
-
   // Create render target texture for offscreen rendering
   MTL::TextureDescriptor* color_desc = MTL::TextureDescriptor::alloc()->init();
   color_desc->setTextureType(MTL::TextureType2D);
@@ -922,7 +1774,13 @@ bool MetalCommandProcessor::SetupContext() {
   depth_desc->setPixelFormat(MTL::PixelFormatDepth32Float_Stencil8);
   depth_desc->setWidth(render_target_width_);
   depth_desc->setHeight(render_target_height_);
+#if XE_PLATFORM_IOS
+  // This fallback depth/stencil target is transient (clear/dontcare only) and
+  // never sampled, so memoryless is the most efficient iOS storage mode.
+  depth_desc->setStorageMode(MTL::StorageModeMemoryless);
+#else
   depth_desc->setStorageMode(MTL::StorageModePrivate);
+#endif
   depth_desc->setUsage(MTL::TextureUsageRenderTarget);
 
   depth_stencil_texture_ = device_->newTexture(depth_desc);
@@ -1019,13 +1877,37 @@ bool MetalCommandProcessor::SetupContext() {
     return false;
   }
 
-  auto ring = CreateDrawRingBuffers();
-  if (!ring) {
+  // SPIRV-Cross path: use command-buffer-scoped uniforms buffers so CPU writes
+  // to the next submission can't race with in-flight GPU reads. The DXIL path
+  // sub-allocates its constants per draw instead.
+  if (!UseDxilPath()) {
+    if (!EnsureSpirvUniformBuffer()) {
+      return false;
+    }
+  }
+
+  // Needed on both guest shader paths: the render target cache's internal
+  // compute shaders go through the converter even when the guest shaders don't.
+  if (!metal_shader_converter_.Initialize()) {
+    XELOGE("Metal: the shader converter is unavailable, nothing can render");
     return false;
   }
-  SetActiveDrawRing(ring);
+
+  // After the converter, which the DXIL path's workers compile against.
+  InitializeAsyncCompilation();
 
   return true;
+}
+
+std::unique_ptr<SpirvShaderTranslator>
+MetalCommandProcessor::CreateSpirvShaderTranslator() const {
+  return std::make_unique<SpirvShaderTranslator>(
+      spirv_translator_features_,
+      spirv_translator_native_2x_msaa_,  // native_2x_msaa_with_att
+      false,                             // native_2x_msaa_no_att
+      false,  // edram_fragment_shader_interlock (host RT path)
+      cvars::precise_interpolation, spirv_translator_resolution_scale_x_,
+      spirv_translator_resolution_scale_y_);
 }
 
 bool MetalCommandProcessor::InitializeShaderTranslation() {
@@ -1040,145 +1922,106 @@ bool MetalCommandProcessor::InitializeShaderTranslation() {
   bool gamma_render_target_as_unorm8 = !(
       edram_rov_used || render_target_cache_->gamma_render_target_as_unorm16());
 
-  XELOGI(
-      "DxbcShaderTranslator init: gamma_as_unorm8={}, msaa_2x={}, scale={}x{}",
-      gamma_render_target_as_unorm8, render_target_cache_->msaa_2x_supported(),
-      render_target_cache_->draw_resolution_scale_x(),
-      render_target_cache_->draw_resolution_scale_y());
+  XELOGI("Shader translator init: gamma_as_unorm8={}, msaa_2x={}, scale={}x{}",
+         gamma_render_target_as_unorm8,
+         render_target_cache_->msaa_2x_supported(),
+         render_target_cache_->draw_resolution_scale_x(),
+         render_target_cache_->draw_resolution_scale_y());
 
-  shader_translator_ = std::make_unique<DxbcShaderTranslator>(
-      ui::GraphicsProvider::GpuVendorID::kApple,
-      false,  // bindless_resources_used - not using bindless for now
-      edram_rov_used, gamma_render_target_as_unorm8,
-      render_target_cache_->msaa_2x_supported(),
-      render_target_cache_->draw_resolution_scale_x(),
-      render_target_cache_->draw_resolution_scale_y(),
-      false);  // force_emit_source_map
+  // Both guest shader paths consume this translator's SPIR-V. Enable all
+  // features as a baseline, then disable what Metal doesn't need.
+  SpirvShaderTranslator::Features spirv_features(true);
+  // Not using fragment shader interlock — we use host render targets.
+  spirv_features.fragment_shader_sample_interlock = false;
+  // Barycentric interpolation not needed for current Metal path.
+  spirv_features.fragment_shader_barycentric = false;
+  // Metal fast-math doesn't guarantee IEEE NaN/Inf preservation.
+  spirv_features.signed_zero_inf_nan_preserve_float32 = false;
+  // Metal fast-math flushes denorms.
+  spirv_features.denorm_flush_to_zero_float32 = true;
+  // RTE rounding not guaranteed by Metal.
+  spirv_features.rounding_mode_rte_float32 = false;
 
-  // Initialize DXBC to DXIL converter
-  dxbc_to_dxil_converter_ = std::make_unique<DxbcToDxilConverter>();
-  if (!dxbc_to_dxil_converter_->Initialize()) {
-    XELOGE("Failed to initialize DXBC to DXIL converter");
-    return false;
-  }
+  // Snapshotted so a compile thread can build its own translator without
+  // reading the render target cache from off the draw thread.
+  spirv_translator_features_ = spirv_features;
+  spirv_translator_native_2x_msaa_ = render_target_cache_->msaa_2x_supported();
+  spirv_translator_resolution_scale_x_ =
+      render_target_cache_->draw_resolution_scale_x();
+  spirv_translator_resolution_scale_y_ =
+      render_target_cache_->draw_resolution_scale_y();
+  spirv_shader_translator_ = CreateSpirvShaderTranslator();
 
-  // Initialize Metal Shader Converter
-  metal_shader_converter_ = std::make_unique<MetalShaderConverter>();
-  if (!metal_shader_converter_->Initialize()) {
-    XELOGE("Failed to initialize Metal Shader Converter");
-    return false;
-  }
+  XELOGI("SpirvShaderTranslator init ({} path): msaa_2x={}, scale={}x{}",
+         UseDxilPath() ? "DXIL" : "SPIRV-Cross MSL",
+         render_target_cache_->msaa_2x_supported(),
+         render_target_cache_->draw_resolution_scale_x(),
+         render_target_cache_->draw_resolution_scale_y());
 
-  // Configure MSC minimum targets to avoid materialization failures on older
-  // GPUs/OS versions.
-  if (device_) {
-    IRGPUFamily min_family = IRGPUFamilyMetal3;
-    if (device_->supportsFamily(MTL::GPUFamilyApple10)) {
-      min_family = IRGPUFamilyApple10;
-    } else if (device_->supportsFamily(MTL::GPUFamilyApple9)) {
-      min_family = IRGPUFamilyApple9;
-    } else if (device_->supportsFamily(MTL::GPUFamilyApple8)) {
-      min_family = IRGPUFamilyApple8;
-    } else if (device_->supportsFamily(MTL::GPUFamilyApple7)) {
-      min_family = IRGPUFamilyApple7;
-    } else if (device_->supportsFamily(MTL::GPUFamilyApple6)) {
-      min_family = IRGPUFamilyApple6;
-    } else if (device_->supportsFamily(MTL::GPUFamilyMac2) ||
-               device_->supportsFamily(MTL::GPUFamilyMetal4) ||
-               device_->supportsFamily(MTL::GPUFamilyMetal3)) {
-      min_family = IRGPUFamilyMetal3;
-    }
-
-    NS::OperatingSystemVersion os_version =
-        NS::ProcessInfo::processInfo()->operatingSystemVersion();
-    std::ostringstream version_stream;
-    version_stream << os_version.majorVersion << "." << os_version.minorVersion
-                   << "." << os_version.patchVersion;
-    metal_shader_converter_->SetMinimumTarget(
-        min_family, IROperatingSystem_macOS, version_stream.str());
+  if (!UseDxilPath() && !InitializeMslTessellation()) {
+    XELOGW(
+        "SPIRV-Cross: Tessellation factor pipelines failed to init; "
+        "tessellated draws will be skipped");
   }
 
   return true;
 }
 
 void MetalCommandProcessor::PrepareForWait() {
-  // Flush any pending Metal command buffers before entering wait state.
-  // This is critical because:
-  // 1. The worker thread's autorelease pool will be drained when it exits
-  // 2. Metal objects in that pool might still be referenced by in-flight
-  // commands
-  // 3. Releasing those objects during pool drain can hang waiting for GPU
-  // completion
-  //
-  // By submitting and waiting for all GPU work now, we ensure clean pool
-  // drainage.
+  // Runs on every ring-empty stall, so it must not block on the GPU.
+  EndCommandBuffer(CommandBufferKind::kSubmissionWait);
 
-  EndRenderEncoder();
-
-  if (submission_open_ || current_command_buffer_) {
-    uint64_t submission_to_wait =
-        current_command_buffer_ ? GetCurrentSubmission() : 0;
-    if (!submission_open_) {
-      XELOGW(
-          "MetalCommandProcessor::PrepareForWait: command buffer without "
-          "open submission");
-      submission_open_ = true;
-    }
-    EndSubmission(false);
-    if (submission_to_wait) {
-      CheckSubmissionCompletion(submission_to_wait);
-    }
-  }
-  DrainCommandBufferAutoreleasePool();
-
-  // Even if we have no active command buffer, there might be GPU work from
-  // previously submitted command buffers that autoreleased objects depend on.
-  // Submit and wait for a dummy command buffer to ensure ALL GPU work
-  // completes.
-  if (command_queue_) {
-    NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
-    // Note: commandBuffer() returns an autoreleased object per metal-cpp docs.
-    // We do NOT call release() since we didn't retain() it.
-    // The autorelease pool will handle cleanup.
-    MTL::CommandBuffer* sync_cmd = command_queue_->commandBuffer();
-    if (sync_cmd) {
-      uint64_t wait_value = 0;
-      if (wait_shared_event_) {
-        wait_value = ++wait_shared_event_value_;
-        sync_cmd->encodeSignalEvent(wait_shared_event_, wait_value);
-      }
-      sync_cmd->commit();
-      if (wait_shared_event_) {
-        wait_shared_event_->waitUntilSignaledValue(
-            wait_value, std::numeric_limits<uint64_t>::max());
-      } else {
-        sync_cmd->waitUntilCompleted();
-      }
-      // Don't release - it's autoreleased and will be cleaned up by the pool
-    }
-    pool->release();
-  }
-
-  // Also call the base class to flush trace writer
   CommandProcessor::PrepareForWait();
 }
 
-void MetalCommandProcessor::ShutdownContext() {
-  EndRenderEncoder();
+void MetalCommandProcessor::PollCompletedSubmission() {
+  ProcessCompletedSubmissions();
+  PumpQueryResolves();
+}
 
-  if (submission_open_ || current_command_buffer_) {
-    uint64_t submission_to_wait =
-        current_command_buffer_ ? GetCurrentSubmission() : 0;
-    if (!submission_open_) {
+void MetalCommandProcessor::WaitForPendingCompletionHandlers() {
+  constexpr auto kMaxWait = std::chrono::seconds(5);
+  const auto wait_start = std::chrono::steady_clock::now();
+  while (pending_completion_handlers_.load(std::memory_order_acquire) != 0) {
+    if (std::chrono::steady_clock::now() - wait_start >= kMaxWait) {
       XELOGW(
-          "MetalCommandProcessor::ShutdownContext: command buffer without "
-          "open submission");
-      submission_open_ = true;
+          "MetalCommandProcessor: timed out waiting for {} completion "
+          "handler(s) during shutdown",
+          pending_completion_handlers_.load(std::memory_order_relaxed));
+      break;
     }
-    EndSubmission(false);
-    if (submission_to_wait) {
-      CheckSubmissionCompletion(submission_to_wait);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+}
+
+void MetalCommandProcessor::ShutdownContext() {
+  // End any active render encoder before shutdown
+  if (current_render_encoder_) {
+    current_render_encoder_->endEncoding();
+    // Don't release yet - wait until command buffer completes
+  }
+
+  // Submit and wait for any pending command buffer
+  if (current_command_buffer_) {
+    uint64_t wait_value = 0;
+    if (wait_shared_event_) {
+      wait_value = ++wait_shared_event_value_;
+      current_command_buffer_->encodeSignalEvent(wait_shared_event_,
+                                                 wait_value);
     }
+    ScheduleSpirvUniformBufferRelease(current_command_buffer_);
+    ScheduleSpirvArgumentBufferRelease(current_command_buffer_);
+    current_command_buffer_->commit();
+    if (wait_shared_event_) {
+      wait_shared_event_->waitUntilSignaledValue(
+          wait_value, std::numeric_limits<uint64_t>::max());
+    } else {
+      current_command_buffer_->waitUntilCompleted();
+    }
+    current_command_buffer_->release();
+    current_command_buffer_ = nullptr;
+    current_draw_index_ = 0;
+    copy_resolve_writes_pending_ = false;
   }
 
   // Even if we have no active command buffer at this point, there may be
@@ -1205,6 +2048,22 @@ void MetalCommandProcessor::ShutdownContext() {
     pool->release();
   }
 
+  WaitForPendingCompletionHandlers();
+
+  // Deterministic for a given workload, so a single-frame trace replay can be
+  // read from it - the 60-frame counter window never closes in one.
+  std::string kind_breakdown;
+  for (size_t i = 0; i < kCommandBufferKindCount; ++i) {
+    if (!command_buffer_kind_counts_[i]) {
+      continue;
+    }
+    kind_breakdown += fmt::format(" {}={}", kCommandBufferKindNames[i],
+                                  command_buffer_kind_counts_[i]);
+  }
+  XELOGI("Metal: {} command buffer(s) executed,{}",
+         gpu_time_command_buffers_.load(std::memory_order_relaxed),
+         kind_breakdown.empty() ? " none created" : kind_breakdown);
+
   // Now safe to release encoder and command buffer
   if (current_render_encoder_) {
     current_render_encoder_->release();
@@ -1216,23 +2075,15 @@ void MetalCommandProcessor::ShutdownContext() {
   }
   DrainCommandBufferAutoreleasePool();
 
-  ClearReadbackBuffers();
-  if (resolve_downscale_buffer_) {
-    resolve_downscale_buffer_->release();
-    resolve_downscale_buffer_ = nullptr;
-    resolve_downscale_buffer_size_ = 0;
-  }
-  if (resolve_downscale_pipeline_) {
-    resolve_downscale_pipeline_->release();
-    resolve_downscale_pipeline_ = nullptr;
+  {
+    std::lock_guard<std::mutex> lock(spirv_argbuf_mutex_);
+    command_buffer_spirv_argbuf_pages_.clear();
+    pending_spirv_argbuf_releases_.clear();
+    spirv_argbuf_pool_.clear();
   }
 
-  {
-    std::lock_guard<std::mutex> lock(draw_ring_mutex_);
-    active_draw_ring_.reset();
-    draw_ring_pool_.clear();
-    command_buffer_draw_rings_.clear();
-  }
+  ShutdownQueryResources();
+  zpd_visibility_pool_.reset();
 
   if (texture_cache_) {
     texture_cache_->Shutdown();
@@ -1243,36 +2094,214 @@ void MetalCommandProcessor::ShutdownContext() {
     primitive_processor_->Shutdown();
     primitive_processor_.reset();
   }
+  frame_open_ = false;
+  ClearResolvedMemory();
+  ResetMemexportPages();
+
+  ShutdownAsyncCompilation();
+  storage_writer_.ShutdownShaderStorage();
+
+  ShutdownMslTessellation();
+  for (auto& [key, pso] : async_pipeline_cache_) {
+    if (pso) {
+      pso->release();
+    }
+  }
+  async_pipeline_cache_.clear();
+  dxil_tessellation_cache_.clear();
   if (tessellator_tables_buffer_) {
     tessellator_tables_buffer_->release();
     tessellator_tables_buffer_ = nullptr;
   }
-  if (depth_only_pixel_library_) {
-    depth_only_pixel_library_->release();
-    depth_only_pixel_library_ = nullptr;
-  }
-  depth_only_pixel_function_name_.clear();
-  frame_open_ = false;
-  frame_current_ = 1;
-  frame_completed_ = 0;
-  std::fill_n(closed_frame_submissions_, kQueueFrames, 0);
-  submission_open_ = false;
-  submission_completed_processed_ = 0;
-  completion_timeline_.reset();
+  guest_shader_cache_.clear();
+  spirv_shader_translator_.reset();
 
-  shader_cache_.clear();
+  uniforms_buffer_ = nullptr;
+  command_buffer_spirv_uniform_buffers_.clear();
+  size_t uniforms_pool_size = 0;
+  {
+    std::lock_guard<std::mutex> lock(spirv_uniforms_mutex_);
+    uniforms_pool_size = spirv_uniforms_pool_.size();
+    spirv_uniforms_available_.clear();
+    for (MTL::Buffer* pool_uniforms : spirv_uniforms_pool_) {
+      if (pool_uniforms) {
+        pool_uniforms->release();
+      }
+    }
+    spirv_uniforms_pool_.clear();
+    spirv_uniforms_pool_initialized_ = false;
+  }
+  if (spirv_uniforms_available_semaphore_) {
+    // Buffers dropped above were never signalled back, and libdispatch traps
+    // on a semaphore released below the count it was created with.
+    for (size_t i = 0; i < uniforms_pool_size; ++i) {
+      dispatch_semaphore_signal(spirv_uniforms_available_semaphore_);
+    }
+#if !OS_OBJECT_USE_OBJC
+    dispatch_release(spirv_uniforms_available_semaphore_);
+#endif
+    spirv_uniforms_available_semaphore_ = nullptr;
+  }
+
   shared_memory_.reset();
-  shader_translator_.reset();
-  dxbc_to_dxil_converter_.reset();
-  metal_shader_converter_.reset();
   if (wait_shared_event_) {
     wait_shared_event_->release();
     wait_shared_event_ = nullptr;
   }
 
-  ShutdownShaderStorage();
+  ClearMslShaderSourceCacheDirectory();
 
   CommandProcessor::ShutdownContext();
+}
+
+void MetalCommandProcessor::TranslateShadersForStorage(
+    const std::set<std::pair<uint64_t, uint64_t>>& translations_needed) {
+  // Queue every modification the stored pipelines reference. Falls back to this
+  // thread when there is no pool.
+  size_t queued = 0;
+  for (const auto& [ucode_hash, modification] : translations_needed) {
+    auto it = guest_shader_cache_.find(ucode_hash);
+    if (it == guest_shader_cache_.end()) {
+      continue;
+    }
+    // A domain modification's SPIR-V is a tessellation evaluation module, which
+    // the DXIL path cannot build as a standalone vertex function.
+    // GetDxilTessellationShaders links it with the host stages instead.
+    if (UseDxilPath() && it->second->type() == xenos::ShaderType::kVertex &&
+        Shader::IsHostVertexShaderTypeDomain(
+            SpirvShaderTranslator::Modification(modification)
+                .vertex.host_vertex_shader_type)) {
+      continue;
+    }
+    ShaderCompileStatus status = ShaderCompileStatus::kReady;
+    GetOrCreateHostTranslation(*it->second, modification, /*allow_async=*/true,
+                               &status);
+    if (status == ShaderCompileStatus::kPending) {
+      ++queued;
+    }
+  }
+  if (queued) {
+    // A pipeline can't be queued without its compiled functions, so the shader
+    // half is finished here even when the caller asked for non-blocking init.
+    AwaitAsyncCompiles();
+  }
+}
+
+size_t MetalCommandProcessor::CreateStoredPipelines(
+    const std::vector<PipelineStoredDescription>& stored_descriptions) {
+  replaying_stored_pipelines_ = true;
+  size_t created = 0;
+  size_t skipped_shader = 0;
+  size_t skipped_tessellation = 0;
+  size_t skipped_other_path = 0;
+
+  // Ask for every tessellation stage set first, so the one drain below covers
+  // them all rather than one per description.
+  bool tessellation_queued = false;
+  for (const PipelineStoredDescription& stored : stored_descriptions) {
+    const PipelineDescription& description = stored.description;
+    if (!UseDxilPath() ||
+        PipelineKind(description.kind) != PipelineKind::kDxilTessellation) {
+      continue;
+    }
+    auto it = guest_shader_cache_.find(description.vertex_shader_hash);
+    if (it == guest_shader_cache_.end()) {
+      continue;
+    }
+    ShaderCompileStatus status = ShaderCompileStatus::kReady;
+    GetDxilTessellationShaders(*static_cast<DxilShader*>(it->second.get()),
+                               description.vertex_shader_modification,
+                               description.tessellation_mode,
+                               description.host_vertex_shader_type,
+                               /*allow_async=*/true, &status);
+    tessellation_queued |= status == ShaderCompileStatus::kPending;
+  }
+  if (tessellation_queued) {
+    AwaitAsyncCompiles();
+  }
+
+  for (const PipelineStoredDescription& stored : stored_descriptions) {
+    const PipelineDescription& description = stored.description;
+    // A tessellation pipeline belongs to the path that recorded it, and its
+    // shaders are the wrong subclass for the other one.
+    if (IsTessellationPipelineKind(PipelineKind(description.kind)) &&
+        (PipelineKind(description.kind) == PipelineKind::kDxilTessellation) !=
+            UseDxilPath()) {
+      ++skipped_other_path;
+      continue;
+    }
+    auto vertex_it = guest_shader_cache_.find(description.vertex_shader_hash);
+    if (vertex_it == guest_shader_cache_.end()) {
+      ++skipped_shader;
+      continue;
+    }
+    ShaderCompileStatus status = ShaderCompileStatus::kReady;
+    Shader::Translation* pixel_translation = nullptr;
+    if (description.pixel_shader_hash) {
+      auto pixel_it = guest_shader_cache_.find(description.pixel_shader_hash);
+      if (pixel_it == guest_shader_cache_.end()) {
+        ++skipped_shader;
+        continue;
+      }
+      pixel_translation = GetOrCreateHostTranslation(
+          *pixel_it->second, description.pixel_shader_modification,
+          /*allow_async=*/false, &status);
+      if (status != ShaderCompileStatus::kReady) {
+        ++skipped_shader;
+        continue;
+      }
+    }
+
+    // The description is the key, so a rebuilt pipeline lands exactly where the
+    // draw that stored it will look for it.
+    PipelineCompileRequest request = {};
+    request.description = description;
+    request.pipeline_key = description.GetHash();
+    request.priority = pixel_translation ? 2 : 1;
+    if (PipelineKind(description.kind) == PipelineKind::kDxilTessellation) {
+      // The domain modification never becomes a standalone vertex function, so
+      // it is asked for through the linked stages rather than translated here.
+      const DxilTessellationShaders* shaders = GetDxilTessellationShaders(
+          *static_cast<DxilShader*>(vertex_it->second.get()),
+          description.vertex_shader_modification, description.tessellation_mode,
+          description.host_vertex_shader_type, /*allow_async=*/true, &status);
+      if (!shaders) {
+        ++skipped_tessellation;
+        continue;
+      }
+      request.tessellation_shaders = shaders;
+      if (pixel_translation) {
+        auto* dxil_pixel =
+            static_cast<DxilShader::DxilTranslation*>(pixel_translation);
+        request.fragment_library = dxil_pixel->metal_library();
+        request.fragment_function_name = dxil_pixel->entry_point_name();
+      }
+    } else {
+      Shader::Translation* vertex_translation = GetOrCreateHostTranslation(
+          *vertex_it->second, description.vertex_shader_modification,
+          /*allow_async=*/false, &status);
+      if (status != ShaderCompileStatus::kReady) {
+        ++skipped_shader;
+        continue;
+      }
+      request.vertex_function = GetHostShaderFunction(vertex_translation);
+      request.fragment_function = GetHostShaderFunction(pixel_translation);
+    }
+
+    PipelineCompileStatus pipeline_status = PipelineCompileStatus::kFailed;
+    AcquirePipelineState(request, /*allow_async=*/true, &pipeline_status);
+    if (pipeline_status != PipelineCompileStatus::kFailed) {
+      ++created;
+    }
+  }
+  replaying_stored_pipelines_ = false;
+  if (skipped_shader || skipped_tessellation || skipped_other_path) {
+    XELOGI(
+        "Metal pipeline storage: skipped {} for missing or unbuildable "
+        "shaders, {} for tessellation stages, {} belonging to the other path",
+        skipped_shader, skipped_tessellation, skipped_other_path);
+  }
+  return created;
 }
 
 void MetalCommandProcessor::InitializeShaderStorage(
@@ -1280,469 +2309,181 @@ void MetalCommandProcessor::InitializeShaderStorage(
     std::function<void()> completion_callback) {
   CommandProcessor::InitializeShaderStorage(cache_root, title_id, blocking,
                                             nullptr);
-  InitializeShaderStorageInternal(cache_root, title_id, blocking);
-  if (completion_callback) {
-    completion_callback();
-  }
-}
-
-bool MetalCommandProcessor::InitializeShaderStorageInternal(
-    const std::filesystem::path& cache_root, uint32_t title_id, bool blocking) {
-  ShutdownShaderStorage();
+  storage_writer_.ShutdownShaderStorage();
 
   if (!device_) {
     XELOGW("Metal shader storage init skipped (no device)");
-    return false;
-  }
-
-  shader_storage_root_ = cache_root / "shaders" / "metal";
-  shader_storage_local_root_ =
-      shader_storage_root_ / "local" / GetShaderStorageDeviceTag();
-  shader_storage_title_root_ =
-      shader_storage_local_root_ / fmt::format("{:08X}", title_id);
-
-  std::error_code ec;
-  std::filesystem::create_directories(shader_storage_title_root_, ec);
-  if (ec) {
-    XELOGW("Metal shader storage: Failed to create {}: {}",
-           shader_storage_title_root_.string(), ec.message());
-    return false;
-  }
-
-  metallib_cache_dir_ = shader_storage_title_root_ / "metallib";
-  if (::cvars::metal_shader_disk_cache && g_metal_shader_cache) {
-    g_metal_shader_cache->Initialize(metallib_cache_dir_);
-  }
-
-  const char* path_suffix = "rtv";
-
-  pipeline_disk_cache_path_ =
-      shader_storage_title_root_ /
-      fmt::format("{:08X}.{}.metal.pipelines", title_id, path_suffix);
-  pipeline_binary_archive_path_ =
-      shader_storage_title_root_ /
-      fmt::format("{:08X}.{}.metal.binarchive", title_id, path_suffix);
-
-  if (::cvars::metal_pipeline_disk_cache) {
-    LoadPipelineDiskCache(pipeline_disk_cache_path_,
-                          &pipeline_disk_cache_entries_);
-  }
-
-  if (::cvars::metal_pipeline_binary_archive) {
-    InitializePipelineBinaryArchive(pipeline_binary_archive_path_);
-  }
-
-  if (blocking && pipeline_binary_archive_ &&
-      !pipeline_disk_cache_entries_.empty()) {
-    PrewarmPipelineBinaryArchive(pipeline_disk_cache_entries_);
-  }
-
-  return true;
-}
-
-void MetalCommandProcessor::ShutdownShaderStorage() {
-  if (pipeline_binary_archive_) {
-    SerializePipelineBinaryArchive();
-    pipeline_binary_archive_->release();
-    pipeline_binary_archive_ = nullptr;
-  }
-  if (pipeline_disk_cache_file_) {
-    std::fclose(pipeline_disk_cache_file_);
-    pipeline_disk_cache_file_ = nullptr;
-  }
-  pipeline_disk_cache_keys_.clear();
-  pipeline_disk_cache_entries_.clear();
-
-  if (g_metal_shader_cache) {
-    g_metal_shader_cache->Shutdown();
-  }
-}
-
-std::string MetalCommandProcessor::GetShaderStorageDeviceTag() const {
-  std::string tag = "unknown";
-  if (device_ && device_->name()) {
-    tag = device_->name()->utf8String();
-  }
-
-  for (char& ch : tag) {
-    if (!std::isalnum(static_cast<unsigned char>(ch))) {
-      ch = '_';
+    if (completion_callback) {
+      completion_callback();
     }
-  }
-  return tag;
-}
-
-bool MetalCommandProcessor::LoadPipelineDiskCache(
-    const std::filesystem::path& path,
-    std::vector<PipelineDiskCacheEntry>* entries) {
-  if (!entries) {
-    return false;
-  }
-  entries->clear();
-  pipeline_disk_cache_keys_.clear();
-
-  pipeline_disk_cache_file_ = xe::filesystem::OpenFile(path, "a+b");
-  if (!pipeline_disk_cache_file_) {
-    XELOGW("Metal pipeline disk cache: Failed to open {}", path.string());
-    return false;
-  }
-
-  PipelineDiskCacheHeader header = {};
-  if (std::fread(&header, sizeof(header), 1, pipeline_disk_cache_file_) != 1 ||
-      header.magic != kPipelineDiskCacheMagic ||
-      header.version != kPipelineDiskCacheVersion) {
-    header.magic = kPipelineDiskCacheMagic;
-    header.version = kPipelineDiskCacheVersion;
-    header.reserved[0] = 0;
-    header.reserved[1] = 0;
-    xe::filesystem::Seek(pipeline_disk_cache_file_, 0, SEEK_SET);
-    std::fwrite(&header, sizeof(header), 1, pipeline_disk_cache_file_);
-    std::fflush(pipeline_disk_cache_file_);
-    xe::filesystem::Seek(pipeline_disk_cache_file_, 0, SEEK_END);
-    return true;
-  }
-
-  while (true) {
-    PipelineDiskCacheEntryHeader entry_header = {};
-    if (std::fread(&entry_header, sizeof(entry_header), 1,
-                   pipeline_disk_cache_file_) != 1) {
-      break;
-    }
-
-    if (entry_header.entry_size < sizeof(PipelineDiskCacheEntryBase) ||
-        entry_header.entry_size > kPipelineDiskCacheMaxEntrySize) {
-      break;
-    }
-
-    PipelineDiskCacheEntryBase base = {};
-    if (std::fread(&base, sizeof(base), 1, pipeline_disk_cache_file_) != 1) {
-      break;
-    }
-
-    size_t expected_size = sizeof(PipelineDiskCacheEntryBase) +
-                           size_t(base.vertex_attribute_count) *
-                               sizeof(PipelineDiskCacheVertexAttribute) +
-                           size_t(base.vertex_layout_count) *
-                               sizeof(PipelineDiskCacheVertexLayout);
-    if (entry_header.entry_size != expected_size) {
-      xe::filesystem::Seek(
-          pipeline_disk_cache_file_,
-          entry_header.entry_size - sizeof(PipelineDiskCacheEntryBase),
-          SEEK_CUR);
-      continue;
-    }
-
-    PipelineDiskCacheEntry entry = {};
-    entry.pipeline_key = base.pipeline_key;
-    entry.vertex_shader_cache_key = base.vertex_shader_cache_key;
-    entry.pixel_shader_cache_key = base.pixel_shader_cache_key;
-    entry.sample_count = base.sample_count;
-    entry.depth_format = base.depth_format;
-    entry.stencil_format = base.stencil_format;
-    std::memcpy(entry.color_formats, base.color_formats,
-                sizeof(base.color_formats));
-    entry.normalized_color_mask = base.normalized_color_mask;
-    entry.alpha_to_mask_enable = base.alpha_to_mask_enable;
-    std::memcpy(entry.blendcontrol, base.blendcontrol,
-                sizeof(base.blendcontrol));
-
-    entry.vertex_attributes.resize(base.vertex_attribute_count);
-    if (base.vertex_attribute_count) {
-      if (std::fread(entry.vertex_attributes.data(),
-                     sizeof(PipelineDiskCacheVertexAttribute),
-                     base.vertex_attribute_count, pipeline_disk_cache_file_) !=
-          base.vertex_attribute_count) {
-        break;
-      }
-    }
-    entry.vertex_layouts.resize(base.vertex_layout_count);
-    if (base.vertex_layout_count) {
-      if (std::fread(entry.vertex_layouts.data(),
-                     sizeof(PipelineDiskCacheVertexLayout),
-                     base.vertex_layout_count,
-                     pipeline_disk_cache_file_) != base.vertex_layout_count) {
-        break;
-      }
-    }
-
-    entries->push_back(std::move(entry));
-    pipeline_disk_cache_keys_.insert(base.pipeline_key);
-  }
-
-  xe::filesystem::Seek(pipeline_disk_cache_file_, 0, SEEK_END);
-  return true;
-}
-
-bool MetalCommandProcessor::AppendPipelineDiskCacheEntry(
-    const PipelineDiskCacheEntry& entry) {
-  if (!pipeline_disk_cache_file_) {
-    return false;
-  }
-  if (!pipeline_disk_cache_keys_.insert(entry.pipeline_key).second) {
-    return false;
-  }
-
-  PipelineDiskCacheEntryBase base = {};
-  base.pipeline_key = entry.pipeline_key;
-  base.vertex_shader_cache_key = entry.vertex_shader_cache_key;
-  base.pixel_shader_cache_key = entry.pixel_shader_cache_key;
-  base.sample_count = entry.sample_count;
-  base.depth_format = entry.depth_format;
-  base.stencil_format = entry.stencil_format;
-  std::memcpy(base.color_formats, entry.color_formats,
-              sizeof(base.color_formats));
-  base.normalized_color_mask = entry.normalized_color_mask;
-  base.alpha_to_mask_enable = entry.alpha_to_mask_enable;
-  std::memcpy(base.blendcontrol, entry.blendcontrol, sizeof(base.blendcontrol));
-  base.vertex_attribute_count =
-      static_cast<uint32_t>(entry.vertex_attributes.size());
-  base.vertex_layout_count = static_cast<uint32_t>(entry.vertex_layouts.size());
-
-  size_t entry_size =
-      sizeof(PipelineDiskCacheEntryBase) +
-      entry.vertex_attributes.size() *
-          sizeof(PipelineDiskCacheVertexAttribute) +
-      entry.vertex_layouts.size() * sizeof(PipelineDiskCacheVertexLayout);
-  if (entry_size > kPipelineDiskCacheMaxEntrySize) {
-    return false;
-  }
-
-  PipelineDiskCacheEntryHeader entry_header = {};
-  entry_header.entry_size = static_cast<uint32_t>(entry_size);
-
-  std::fwrite(&entry_header, sizeof(entry_header), 1,
-              pipeline_disk_cache_file_);
-  std::fwrite(&base, sizeof(base), 1, pipeline_disk_cache_file_);
-  if (!entry.vertex_attributes.empty()) {
-    std::fwrite(entry.vertex_attributes.data(),
-                sizeof(PipelineDiskCacheVertexAttribute),
-                entry.vertex_attributes.size(), pipeline_disk_cache_file_);
-  }
-  if (!entry.vertex_layouts.empty()) {
-    std::fwrite(entry.vertex_layouts.data(),
-                sizeof(PipelineDiskCacheVertexLayout),
-                entry.vertex_layouts.size(), pipeline_disk_cache_file_);
-  }
-  std::fflush(pipeline_disk_cache_file_);
-  pipeline_disk_cache_entries_.push_back(entry);
-  return true;
-}
-
-bool MetalCommandProcessor::InitializePipelineBinaryArchive(
-    const std::filesystem::path& archive_path) {
-  if (!device_) {
-    return false;
-  }
-  if (pipeline_binary_archive_) {
-    pipeline_binary_archive_->release();
-    pipeline_binary_archive_ = nullptr;
-  }
-
-  MTL::BinaryArchiveDescriptor* desc =
-      MTL::BinaryArchiveDescriptor::alloc()->init();
-  NS::String* path_string =
-      NS::String::string(archive_path.string().c_str(), NS::UTF8StringEncoding);
-  NS::URL* url = NS::URL::fileURLWithPath(path_string);
-  desc->setUrl(url);
-
-  NS::Error* error = nullptr;
-  pipeline_binary_archive_ = device_->newBinaryArchive(desc, &error);
-  desc->release();
-  if (!pipeline_binary_archive_) {
-    if (error) {
-      XELOGW("Metal binary archive init failed: {}",
-             error->localizedDescription()->utf8String());
-    }
-    return false;
-  }
-  pipeline_binary_archive_path_ = archive_path;
-  pipeline_binary_archive_dirty_ = false;
-  return true;
-}
-
-void MetalCommandProcessor::SerializePipelineBinaryArchive() {
-  if (!pipeline_binary_archive_ || !pipeline_binary_archive_dirty_) {
-    return;
-  }
-  NS::String* path_string = NS::String::string(
-      pipeline_binary_archive_path_.string().c_str(), NS::UTF8StringEncoding);
-  NS::URL* url = NS::URL::fileURLWithPath(path_string);
-  NS::Error* error = nullptr;
-  if (!pipeline_binary_archive_->serializeToURL(url, &error)) {
-    if (error) {
-      XELOGW("Metal binary archive serialize failed: {}",
-             error->localizedDescription()->utf8String());
-    }
-  }
-  pipeline_binary_archive_dirty_ = false;
-}
-
-void MetalCommandProcessor::PrewarmPipelineBinaryArchive(
-    const std::vector<PipelineDiskCacheEntry>& entries) {
-  if (!pipeline_binary_archive_ || entries.empty()) {
-    return;
-  }
-  if (!g_metal_shader_cache || !g_metal_shader_cache->IsInitialized()) {
     return;
   }
 
-  size_t prewarmed = 0;
-  for (const auto& entry : entries) {
-    MetalShaderCache::CachedMetallib vs_cached;
-    if (!g_metal_shader_cache->Load(entry.vertex_shader_cache_key,
-                                    &vs_cached)) {
-      continue;
-    }
+  // The SPIRV-Cross path's MSL text is a translation cache, not a record of
+  // what to rebuild.
+  SetMslShaderSourceCacheDirectory(GetShaderStorageLocalRoot(cache_root) /
+                                   "metal" / fmt::format("{:08X}", title_id) /
+                                   "msl_source");
 
-    NS::Error* error = nullptr;
-    dispatch_data_t vs_data = dispatch_data_create(
-        vs_cached.metallib_data.data(), vs_cached.metallib_data.size(), nullptr,
-        DISPATCH_DATA_DESTRUCTOR_NONE);
-    MTL::Library* vs_library = device_->newLibrary(vs_data, &error);
-    dispatch_release(vs_data);
-    if (!vs_library) {
-      continue;
-    }
-    NS::String* vs_name = NS::String::string(vs_cached.function_name.c_str(),
-                                             NS::UTF8StringEncoding);
-    MTL::Function* vs_function = vs_library->newFunction(vs_name);
-    if (!vs_function) {
-      vs_library->release();
-      continue;
-    }
+  // One file for both guest shader paths: they share a SpirvShaderTranslator
+  // config, so a description means the same thing to either, and only the
+  // tessellation kinds are path-specific.
+  ShaderStorageWriter<PipelineStoredDescription>::PipelineStorageConfig config;
+  config.file_suffix = ".metal.xpso";
+  config.api_magic = kPipelineStorageAPIMagicMetal;
+  // Sum so a bump of either version invalidates - both only ever move up.
+  config.version = PipelineDescription::kVersion +
+                   SpirvShaderTranslator::Modification::kVersion;
 
-    MTL::Library* ps_library = nullptr;
-    MTL::Function* ps_function = nullptr;
-    if (entry.pixel_shader_cache_key) {
-      MetalShaderCache::CachedMetallib ps_cached;
-      if (g_metal_shader_cache->Load(entry.pixel_shader_cache_key,
-                                     &ps_cached)) {
-        dispatch_data_t ps_data = dispatch_data_create(
-            ps_cached.metallib_data.data(), ps_cached.metallib_data.size(),
-            nullptr, DISPATCH_DATA_DESTRUCTOR_NONE);
-        ps_library = device_->newLibrary(ps_data, &error);
-        dispatch_release(ps_data);
-        if (ps_library) {
-          NS::String* ps_name = NS::String::string(
-              ps_cached.function_name.c_str(), NS::UTF8StringEncoding);
-          ps_function = ps_library->newFunction(ps_name);
-        }
-      }
+  uint32_t storage_index = storage_writer_.storage_index() + 1;
+  std::vector<PipelineStoredDescription> stored_descriptions;
+  if (!storage_writer_.InitializeShaderStorage(
+          cache_root, title_id, config,
+          [&](xenos::ShaderType type, const uint32_t* ucode_dwords,
+              uint32_t ucode_dword_count, uint64_t ucode_data_hash) {
+            Shader* shader = LoadShader(type, ucode_dwords, ucode_dword_count);
+            if (!shader || shader->ucode_storage_index() == storage_index) {
+              return true;
+            }
+            shader->set_ucode_storage_index(storage_index);
+            if (!shader->is_ucode_analyzed()) {
+              shader->AnalyzeUcode(ucode_disasm_buffer_);
+            }
+            return true;
+          },
+          [this](const std::set<std::pair<uint64_t, uint64_t>>
+                     & translations_needed) {
+            TranslateShadersForStorage(translations_needed);
+          },
+          stored_descriptions)) {
+    XELOGW("Metal: persistent shader storage is disabled");
+    if (completion_callback) {
+      completion_callback();
     }
+    return;
+  }
 
-    MTL::RenderPipelineDescriptor* desc =
-        MTL::RenderPipelineDescriptor::alloc()->init();
-    desc->setVertexFunction(vs_function);
-    if (ps_function) {
-      desc->setFragmentFunction(ps_function);
-    }
+  uint64_t start_ticks = xe::Clock::QueryHostTickCount();
+  size_t accepted = CreateStoredPipelines(stored_descriptions);
+  if (blocking) {
+    // The caller is waiting on this, so finish rather than leaving the compile
+    // threads to race the guest's first draws.
+    AwaitAsyncCompiles();
+  }
+  XELOGI(
+      "Metal pipeline storage: {} of {} stored pipelines {} in {} ms ({} path)",
+      accepted, stored_descriptions.size(),
+      blocking ? "rebuilt" : "rebuilt or queued",
+      (xe::Clock::QueryHostTickCount() - start_ticks) * 1000 /
+          xe::Clock::QueryHostTickFrequency(),
+      UseDxilPath() ? "DXIL" : "SPIRV-Cross");
 
-    for (uint32_t i = 0; i < 4; ++i) {
-      desc->colorAttachments()->object(i)->setPixelFormat(
-          static_cast<MTL::PixelFormat>(entry.color_formats[i]));
-    }
-    desc->setDepthAttachmentPixelFormat(
-        static_cast<MTL::PixelFormat>(entry.depth_format));
-    desc->setStencilAttachmentPixelFormat(
-        static_cast<MTL::PixelFormat>(entry.stencil_format));
-    desc->setSampleCount(entry.sample_count);
-    desc->setAlphaToCoverageEnabled(entry.alpha_to_mask_enable != 0);
-
-    for (uint32_t i = 0; i < 4; ++i) {
-      auto* color_attachment = desc->colorAttachments()->object(i);
-      if (entry.color_formats[i] ==
-          static_cast<uint32_t>(MTL::PixelFormatInvalid)) {
-        color_attachment->setWriteMask(MTL::ColorWriteMaskNone);
-        color_attachment->setBlendingEnabled(false);
-        continue;
-      }
-      uint32_t rt_write_mask = (entry.normalized_color_mask >> (i * 4)) & 0xF;
-      color_attachment->setWriteMask(ToMetalColorWriteMask(rt_write_mask));
-      if (!rt_write_mask) {
-        color_attachment->setBlendingEnabled(false);
-        continue;
-      }
-
-      reg::RB_BLENDCONTROL blendcontrol = {};
-      blendcontrol.value = entry.blendcontrol[i];
-      MTL::BlendFactor src_rgb =
-          ToMetalBlendFactorRgb(blendcontrol.color_srcblend);
-      MTL::BlendFactor dst_rgb =
-          ToMetalBlendFactorRgb(blendcontrol.color_destblend);
-      MTL::BlendOperation op_rgb =
-          ToMetalBlendOperation(blendcontrol.color_comb_fcn);
-      MTL::BlendFactor src_alpha =
-          ToMetalBlendFactorAlpha(blendcontrol.alpha_srcblend);
-      MTL::BlendFactor dst_alpha =
-          ToMetalBlendFactorAlpha(blendcontrol.alpha_destblend);
-      MTL::BlendOperation op_alpha =
-          ToMetalBlendOperation(blendcontrol.alpha_comb_fcn);
-
-      bool blending_enabled = src_rgb != MTL::BlendFactorOne ||
-                              dst_rgb != MTL::BlendFactorZero ||
-                              op_rgb != MTL::BlendOperationAdd ||
-                              src_alpha != MTL::BlendFactorOne ||
-                              dst_alpha != MTL::BlendFactorZero ||
-                              op_alpha != MTL::BlendOperationAdd;
-      color_attachment->setBlendingEnabled(blending_enabled);
-      if (blending_enabled) {
-        color_attachment->setSourceRGBBlendFactor(src_rgb);
-        color_attachment->setDestinationRGBBlendFactor(dst_rgb);
-        color_attachment->setRgbBlendOperation(op_rgb);
-        color_attachment->setSourceAlphaBlendFactor(src_alpha);
-        color_attachment->setDestinationAlphaBlendFactor(dst_alpha);
-        color_attachment->setAlphaBlendOperation(op_alpha);
-      }
-    }
-
-    if (!entry.vertex_attributes.empty() || !entry.vertex_layouts.empty()) {
-      MTL::VertexDescriptor* vertex_desc =
-          MTL::VertexDescriptor::alloc()->init();
-      for (const auto& attr : entry.vertex_attributes) {
-        auto* attr_desc =
-            vertex_desc->attributes()->object(attr.attribute_index);
-        attr_desc->setFormat(static_cast<MTL::VertexFormat>(attr.format));
-        attr_desc->setOffset(attr.offset);
-        attr_desc->setBufferIndex(attr.buffer_index);
-      }
-      for (const auto& layout : entry.vertex_layouts) {
-        auto* layout_desc = vertex_desc->layouts()->object(layout.buffer_index);
-        layout_desc->setStride(layout.stride);
-        layout_desc->setStepFunction(
-            static_cast<MTL::VertexStepFunction>(layout.step_function));
-        layout_desc->setStepRate(layout.step_rate);
-      }
-      desc->setVertexDescriptor(vertex_desc);
-      vertex_desc->release();
-    }
-
-    NS::Array* archives = NS::Array::array(pipeline_binary_archive_);
-    desc->setBinaryArchives(archives);
-    if (pipeline_binary_archive_->addRenderPipelineFunctions(desc, &error)) {
-      pipeline_binary_archive_dirty_ = true;
-      ++prewarmed;
-    }
-    desc->release();
-    vs_function->release();
-    vs_library->release();
-    if (ps_function) {
-      ps_function->release();
-    }
-    if (ps_library) {
-      ps_library->release();
-    }
+  if (completion_callback) {
+    completion_callback();
   }
 }
 
 void MetalCommandProcessor::IssueSwap(uint32_t frontbuffer_ptr,
                                       uint32_t frontbuffer_width,
                                       uint32_t frontbuffer_height) {
+  SCOPE_profile_cpu_f("gpu");
+  EndZPDFrame();
   ProcessCompletedSubmissions();
+
+  // Completion handlers land a frame or two behind, which a window this wide
+  // absorbs.
+  static constexpr uint32_t kGpuTimeWindowFrames = 60;
+  if (++gpu_time_window_frames_ >= kGpuTimeWindowFrames) {
+    uint64_t now_ns = completed_gpu_time_ns_.load(std::memory_order_relaxed);
+    COUNT_profile_set("gpu/gpu_busy_us_per_frame",
+                      int64_t((now_ns - gpu_time_window_start_ns_) /
+                              (uint64_t(1000) * gpu_time_window_frames_)));
+    gpu_time_window_start_ns_ = now_ns;
+
+    uint64_t command_buffers_now =
+        gpu_time_command_buffers_.load(std::memory_order_relaxed);
+    COUNT_profile_set(
+        "gpu/command_buffers_per_frame",
+        int64_t((command_buffers_now - gpu_time_command_buffers_window_start_) /
+                gpu_time_window_frames_));
+    gpu_time_command_buffers_window_start_ = command_buffers_now;
+
+    // Unrolled: COUNT_profile_set caches its token in a function-local static,
+    // so a loop would file every kind under the first name it saw.
+    auto kind_per_frame = [&](CommandBufferKind kind) {
+      size_t i = size_t(kind);
+      uint64_t now = command_buffer_kind_counts_[i];
+      int64_t per_frame = int64_t((now - command_buffer_kind_window_start_[i]) /
+                                  gpu_time_window_frames_);
+      command_buffer_kind_window_start_[i] = now;
+      return per_frame;
+    };
+    COUNT_profile_set("gpu/cb_submission_other_per_frame",
+                      kind_per_frame(CommandBufferKind::kSubmissionOther));
+    COUNT_profile_set(
+        "gpu/cb_submission_copy_draw_sync_per_frame",
+        kind_per_frame(CommandBufferKind::kSubmissionCopyToDrawSync));
+    COUNT_profile_set("gpu/cb_submission_zpd_query_per_frame",
+                      kind_per_frame(CommandBufferKind::kSubmissionZpdQuery));
+    COUNT_profile_set(
+        "gpu/cb_submission_uniforms_rollover_per_frame",
+        kind_per_frame(CommandBufferKind::kSubmissionUniformsRollover));
+    COUNT_profile_set(
+        "gpu/cb_submission_primary_end_per_frame",
+        kind_per_frame(CommandBufferKind::kSubmissionPrimaryBufferEnd));
+    COUNT_profile_set("gpu/cb_submission_wait_per_frame",
+                      kind_per_frame(CommandBufferKind::kSubmissionWait));
+    COUNT_profile_set("gpu/cb_texture_upload_batch_per_frame",
+                      kind_per_frame(CommandBufferKind::kTextureUploadBatch));
+    COUNT_profile_set("gpu/cb_texture_upload_private_per_frame",
+                      kind_per_frame(CommandBufferKind::kTextureUploadPrivate));
+    COUNT_profile_set("gpu/cb_texture_other_per_frame",
+                      kind_per_frame(CommandBufferKind::kTextureOther));
+    COUNT_profile_set("gpu/cb_rt_resolve_per_frame",
+                      kind_per_frame(CommandBufferKind::kRenderTargetResolve));
+    COUNT_profile_set("gpu/cb_rt_dump_per_frame",
+                      kind_per_frame(CommandBufferKind::kRenderTargetDump));
+    COUNT_profile_set("gpu/cb_rt_other_per_frame",
+                      kind_per_frame(CommandBufferKind::kRenderTargetOther));
+
+    COUNT_profile_set(
+        "gpu/render_passes_per_frame",
+        int64_t((render_passes_total_ - render_passes_window_start_) /
+                gpu_time_window_frames_));
+    render_passes_window_start_ = render_passes_total_;
+
+    gpu_time_window_frames_ = 0;
+  }
+
   saw_swap_ = true;
   last_swap_ptr_ = frontbuffer_ptr;
   last_swap_width_ = frontbuffer_width;
   last_swap_height_ = frontbuffer_height;
-  EndSubmission(true);
+
+  // End any active render encoder
+  EndRenderEncoder();
+
+  // Submit and wait for command buffer
+  if (current_command_buffer_) {
+    ScheduleSpirvUniformBufferRelease(current_command_buffer_);
+    ScheduleSpirvArgumentBufferRelease(current_command_buffer_);
+    current_command_buffer_->commit();
+    current_command_buffer_->release();
+    current_command_buffer_ = nullptr;
+    current_draw_index_ = 0;
+    copy_resolve_writes_pending_ = false;
+  }
+
+  if (primitive_processor_ && frame_open_) {
+    primitive_processor_->EndFrame();
+    frame_open_ = false;
+  }
+  // Frame boundary reached - resolved memory tracking is only needed within a
+  // frame when trace playback writes memory.
+  ClearResolvedMemory();
+  if (shared_memory_ && ::cvars::clear_memory_page_state) {
+    shared_memory_->SetSystemPageBlocksValidWithGpuDataWritten();
+  }
 
   // Push the rendered frame to the presenter's guest output mailbox
   // This is required for trace dumps to capture the output. Use the
@@ -1852,53 +2593,368 @@ void MetalCommandProcessor::IssueSwap(uint32_t frontbuffer_ptr,
                     context);
             context.SetIs8bpc(!use_pwl_gamma_ramp_copy);
             uint64_t submission_id = 0;
-            bool copy_ok = metal_presenter->CopyTextureToGuestOutput(
+            bool copy_success = metal_presenter->CopyTextureToGuestOutput(
                 source_texture, metal_context.resource_uav_capable(),
                 source_width, source_height, force_swap_rb_copy,
                 use_pwl_gamma_ramp_copy, &submission_id);
-            if (submission_id) {
+            if (copy_success && submission_id) {
               metal_context.SetSubmissionId(submission_id);
             }
-            return copy_ok;
+            return copy_success;
           });
     }
   }
-
-  StopCaptureIfActive();
 }
 
 void MetalCommandProcessor::OnPrimaryBufferEnd() {
-  if (cvars::submit_on_primary_buffer_end && submission_open_ &&
-      CanEndSubmissionImmediately()) {
-    EndSubmission(false);
+  // Pump any completed resolves now since the guest is likely about to poll.
+  PumpQueryResolves();
+  PumpPendingRetire();
+
+  if (!current_command_buffer_) {
+    return;
+  }
+
+  // Keep command buffers open across primary-buffer boundaries unless a
+  // copy->draw visibility boundary is pending.
+  if (!copy_resolve_writes_pending_) {
+    return;
+  }
+
+  if (!cvars::submit_on_primary_buffer_end) {
+    return;
+  }
+  EndCommandBuffer(CommandBufferKind::kSubmissionPrimaryBufferEnd);
+}
+
+bool MetalCommandProcessor::IsAsyncCompileIdleLocked() const {
+  return async_compile_busy_ == 0 && async_shader_queue_.empty() &&
+         async_pipeline_queue_.empty() && async_tess_shaders_queue_.empty() &&
+         async_shader_pending_.empty() && async_pipeline_pending_.empty() &&
+         async_tess_shaders_pending_.empty();
+}
+
+void MetalCommandProcessor::FinishAsyncCompileTaskLocked() {
+  if (async_compile_busy_) {
+    --async_compile_busy_;
+  }
+  if (IsAsyncCompileIdleLocked()) {
+    async_compile_idle_cv_.notify_all();
   }
 }
 
-Shader* MetalCommandProcessor::LoadShader(xenos::ShaderType shader_type,
-                                          uint32_t guest_address,
-                                          const uint32_t* host_address,
-                                          uint32_t dword_count) {
-  // Create hash for caching using XXH3 (same as D3D12)
-  uint64_t hash = XXH3_64bits(host_address, dword_count * sizeof(uint32_t));
+void MetalCommandProcessor::AwaitAsyncCompiles() {
+  if (async_compile_threads_.empty()) {
+    return;
+  }
+  SCOPE_profile_cpu_i("gpu", "MetalCommandProcessor::AwaitAsyncCompiles");
+  {
+    std::unique_lock<std::mutex> lock(async_compile_mutex_);
+    if (IsAsyncCompileIdleLocked()) {
+      return;
+    }
+    async_compile_idle_cv_.wait(
+        lock, [this]() { return IsAsyncCompileIdleLocked(); });
+  }
+  if (ShouldLogRateLimited(async_compile_drain_last_log_ns_,
+                           kAsyncCompileLogIntervalNs)) {
+    XELOGI(
+        "Metal: blocked the draw thread on async compilation - a draw needed "
+        "the guest's exact shaders");
+  }
+}
 
-  // Check cache
-  auto it = shader_cache_.find(hash);
-  if (it != shader_cache_.end()) {
-    return it->second.get();
+MTL::CommandBuffer* MetalCommandProcessor::CreateAccountedCommandBuffer(
+    CommandBufferKind kind) {
+  SCOPE_profile_cpu_f("gpu");
+  if (!command_queue_) {
+    return nullptr;
+  }
+  MTL::CommandBuffer* command_buffer = nullptr;
+  {
+    // Blocks once the queue's in-flight command buffers are all outstanding,
+    // so this reads as GPU backpressure rather than allocation cost.
+    SCOPE_profile_cpu_i("gpu", "MetalCommandProcessor::QueueCommandBuffer");
+    command_buffer = command_queue_->commandBuffer();
+  }
+  if (command_buffer) {
+    ++command_buffer_kind_counts_[size_t(kind)];
+    SCOPE_profile_cpu_i("gpu", "MetalCommandProcessor::AddGpuTimeHandler");
+    AddGpuTimeHandler(command_buffer);
+  }
+  return command_buffer;
+}
+
+void MetalCommandProcessor::DiscardAccountedCommandBuffer(
+    MTL::CommandBuffer* command_buffer, CommandBufferKind kind) {
+  if (command_buffer) {
+    --command_buffer_kind_counts_[size_t(kind)];
+    pending_completion_handlers_.fetch_sub(1, std::memory_order_release);
+  }
+}
+
+void MetalCommandProcessor::AddGpuTimeHandler(
+    MTL::CommandBuffer* command_buffer) {
+  pending_completion_handlers_.fetch_add(1, std::memory_order_relaxed);
+  command_buffer->addCompletedHandler([this](MTL::CommandBuffer* completed) {
+    double gpu_seconds = completed->GPUEndTime() - completed->GPUStartTime();
+    if (gpu_seconds > 0.0) {
+      completed_gpu_time_ns_.fetch_add(uint64_t(gpu_seconds * 1e9),
+                                       std::memory_order_relaxed);
+    }
+    gpu_time_command_buffers_.fetch_add(1, std::memory_order_relaxed);
+    pending_completion_handlers_.fetch_sub(1, std::memory_order_release);
+  });
+}
+
+void MetalCommandProcessor::AwaitSubmissionCompletion(uint64_t submission) {
+  std::unique_lock<std::mutex> lock(completion_mutex_);
+  completion_cond_.wait(lock, [this, submission]() {
+    return completed_command_buffers_.load(std::memory_order_acquire) >=
+           submission;
+  });
+}
+
+void MetalCommandProcessor::AwaitAllQueueOperationsCompletion() {
+  // Ending first, so a memexport draw that is still only recorded gets
+  // submitted rather than waited past.
+  EndCommandBuffer(CommandBufferKind::kSubmissionWait);
+  AwaitSubmissionCompletion(submission_current_);
+}
+
+// ============================================================================
+// ZPD (occlusion query) backend overrides.
+// ============================================================================
+
+void MetalCommandProcessor::EnsureQueryResources() {
+  if (GetZPDMode() == ZPDMode::kFake || !zpd_visibility_pool_) {
+    return;
+  }
+  if (!zpd_visibility_pool_->EnsureInitialized(device_, kQueryPoolCapacity)) {
+    // CanOpenQuery gates on the pool, so OpenQuerySegment returns before
+    // reaching the base class's own pool-readiness check that arms this. Left
+    // unset, every report would resolve to zero samples - fully occluded -
+    // instead of falling back to fake counts.
+    zpd_force_fake_fallback_ = true;
+  }
+}
+
+void MetalCommandProcessor::ShutdownQueryResources() {
+  if (!zpd_visibility_pool_) {
+    return;
+  }
+  zpd_resolves_in_flight_.clear();
+  zpd_active_query_.Reset();
+  zpd_visibility_pool_->Shutdown();
+}
+
+bool MetalCommandProcessor::IsQueryPoolReady() const {
+  return zpd_visibility_pool_ && zpd_visibility_pool_->is_initialized();
+}
+
+bool MetalCommandProcessor::CanOpenQuery() const {
+  // Metal visibility queries can only be enabled on a render encoder whose
+  // descriptor had visibilityResultBuffer set before the encoder was created.
+  return current_command_buffer_ != nullptr &&
+         current_render_encoder_ != nullptr &&
+         render_encoder_has_zpd_visibility_;
+}
+
+CommandProcessor::QueryOpenResult MetalCommandProcessor::OpenQuery(
+    bool can_close_submission) {
+  if (!IsQueryPoolReady()) {
+    return QueryOpenResult::kFailed;
+  }
+  if (!CanOpenQuery()) {
+    return QueryOpenResult::kDeferred;
   }
 
-  // Create new shader - analysis and translation happen later when the shader
-  // is actually used in a draw call (matching D3D12 pattern)
-  auto shader = std::make_unique<MetalShader>(shader_type, hash, host_address,
-                                              dword_count);
+  bool is_pool_exhausted = !zpd_visibility_pool_->has_free_indices();
+  if (is_pool_exhausted) {
+    PumpQueryResolves();
+    is_pool_exhausted = !zpd_visibility_pool_->has_free_indices();
+  }
 
-  MetalShader* result = shader.get();
-  shader_cache_[hash] = std::move(shader);
+  bool waited_for_submission = false;
 
-  XELOGD("Loaded {} shader at {:08X} ({} dwords, hash {:016X})",
-         shader_type == xenos::ShaderType::kVertex ? "vertex" : "pixel",
-         guest_address, dword_count, hash);
+  if (is_pool_exhausted) {
+    if (GetZPDMode() == ZPDMode::kFast || GetZPDMode() == ZPDMode::kFastAlt) {
+      return QueryOpenResult::kPoolExhausted;
+    }
 
+    uint64_t wait_for = 0;
+    if (!zpd_resolves_in_flight_.empty()) {
+      wait_for = zpd_resolves_in_flight_.front().submission;
+    }
+
+    uint64_t completed_submission = GetCompletedSubmission();
+    if (wait_for > completed_submission) {
+      if (wait_for >= GetCurrentSubmission()) {
+        // The oldest slot is held by the submission being recorded. Commit it
+        // so it can retire, and let the next draw retry the segment.
+        if (can_close_submission) {
+          EndRenderEncoder();
+          EndCommandBuffer(CommandBufferKind::kSubmissionZpdQuery);
+        }
+        return QueryOpenResult::kDeferred;
+      }
+
+      if (cvars::occlusion_query_log) {
+        XELOGI("ZPD: Stall awaiting submission={} completed_before={}",
+               wait_for, completed_submission);
+      }
+      AwaitSubmissionCompletion(wait_for);
+      waited_for_submission = true;
+      PumpQueryResolves();
+      is_pool_exhausted = !zpd_visibility_pool_->has_free_indices();
+    }
+  }
+
+  if (is_pool_exhausted) {
+    return waited_for_submission ? QueryOpenResult::kPoolExhausted
+                                 : QueryOpenResult::kDeferred;
+  }
+
+  MetalZPDActiveQuery active_query;
+  if (!zpd_visibility_pool_->Acquire(
+          active_query.index, active_query.generation, active_query.offset)) {
+    return QueryOpenResult::kFailed;
+  }
+
+  current_render_encoder_->setVisibilityResultMode(
+      MTL::VisibilityResultModeCounting, active_query.offset);
+  zpd_active_query_ = active_query;
+  return QueryOpenResult::kOpened;
+}
+
+bool MetalCommandProcessor::CloseQuery(ReportHandle report_handle,
+                                       const VIZQueryHandle& viz,
+                                       uint64_t& out_submission) {
+  if (!current_render_encoder_ || !render_encoder_has_zpd_visibility_ ||
+      !zpd_active_query_.is_open()) {
+    return false;
+  }
+
+  // Disable at this segment's own offset. The offset passed alongside Disabled
+  // is still touched by the pass, so a hardcoded 0 would zero pool slot 0 and
+  // make whatever segment owns it resolve as fully occluded.
+  current_render_encoder_->setVisibilityResultMode(
+      MTL::VisibilityResultModeDisabled, zpd_active_query_.offset);
+
+  MetalZPDResolve resolve;
+  resolve.submission = GetCurrentSubmission();
+  resolve.index = zpd_active_query_.index;
+  resolve.generation = zpd_active_query_.generation;
+  resolve.scale_area = GetZPDScaleArea();
+  resolve.report_handle = report_handle;
+  resolve.viz = viz;
+  zpd_resolves_in_flight_.push_back(resolve);
+
+  out_submission = resolve.submission;
+
+  zpd_active_query_.Reset();
+  return true;
+}
+
+void MetalCommandProcessor::PumpQueryResolves() {
+  if (!zpd_visibility_pool_) {
+    return;
+  }
+
+  uint64_t completed = GetCompletedSubmission();
+  if (completed == 0) {
+    return;
+  }
+
+  while (!zpd_resolves_in_flight_.empty()) {
+    if (zpd_resolves_in_flight_.front().submission > completed) {
+      break;
+    }
+    MetalZPDResolve resolve = zpd_resolves_in_flight_.front();
+    zpd_resolves_in_flight_.pop_front();
+
+    if (!zpd_visibility_pool_->IsGenerationCurrent(resolve.index,
+                                                   resolve.generation)) {
+      if (cvars::occlusion_query_log) {
+        XELOGI(
+            "ZPD/Metal: Dropping stale query index={} generation={} handle={}",
+            resolve.index, resolve.generation, resolve.report_handle);
+      }
+      continue;
+    }
+
+    uint64_t raw_samples = zpd_visibility_pool_->Read(resolve.index);
+    zpd_visibility_pool_->Release(resolve.index, resolve.generation);
+    if (resolve.report_handle != kInvalidReportHandle) {
+      // Metal has no in-shader counter path, so only ZPass is ever counted.
+      OnZPDQueryResolved(resolve.report_handle,
+                         XenosZPDReport::FromNativeQuery(raw_samples),
+                         resolve.scale_area);
+    }
+    if (resolve.viz.generation != kInvalidVIZGeneration) {
+      OnVIZQueryResolved(resolve.viz.id, resolve.viz.generation,
+                         raw_samples != 0);
+    }
+  }
+}
+
+bool MetalCommandProcessor::AwaitQueryResolve(ReportHandle report_handle,
+                                              uint64_t wait_for_submission) {
+  if (GetZPDMode() == ZPDMode::kFake) {
+    return false;
+  }
+
+  PumpQueryResolves();
+
+  const ZPDReport* report = FindZPDReport(report_handle);
+  if (!report || !report->pending_segments) {
+    return true;
+  }
+  if (wait_for_submission == 0) {
+    return false;
+  }
+
+  // The segment may still be in the submission being recorded, which has to be
+  // committed before it can ever complete. A closed command buffer needs no
+  // flush: everything recorded so far is already on the queue.
+  if (wait_for_submission >= GetCurrentSubmission() &&
+      current_command_buffer_) {
+    // No wait on the compile threads: a counted draw already resolved its own
+    // shaders, and Metal records concrete pipeline states, so a compile in
+    // flight for some other draw has no bearing on committing this one.
+    EndRenderEncoder();
+    EndCommandBuffer(CommandBufferKind::kSubmissionZpdQuery);
+  }
+
+  if (wait_for_submission > GetCompletedSubmission()) {
+    AwaitSubmissionCompletion(wait_for_submission);
+  }
+
+  PumpQueryResolves();
+
+  report = FindZPDReport(report_handle);
+  return !report || !report->pending_segments;
+}
+
+Shader* MetalCommandProcessor::LoadShader(xenos::ShaderType shader_type,
+                                          const uint32_t* host_address,
+                                          uint32_t dword_count) {
+  uint64_t hash = XXH3_64bits(host_address, dword_count * sizeof(uint32_t));
+
+  auto it = guest_shader_cache_.find(hash);
+  if (it != guest_shader_cache_.end()) {
+    return it->second.get();
+  }
+  std::unique_ptr<SpirvShader> shader;
+  if (UseDxilPath()) {
+    shader = std::make_unique<DxilShader>(shader_type, hash, host_address,
+                                          dword_count);
+  } else {
+    shader = std::make_unique<MslShader>(shader_type, hash, host_address,
+                                         dword_count);
+  }
+  SpirvShader* result = shader.get();
+  guest_shader_cache_[hash] = std::move(shader);
   return result;
 }
 
@@ -1906,21 +2962,25 @@ bool MetalCommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
                                       uint32_t index_count,
                                       IndexBufferInfo* index_buffer_info,
                                       bool major_mode_explicit) {
+  SCOPE_profile_cpu_f("gpu");
   const RegisterFile& regs = *register_file_;
   uint32_t normalized_color_mask = 0;
 
-  if (!BeginSubmission(true)) {
-    return false;
-  }
+  // VIZ surveys aren't measured on Metal yet, so every ID stays visible.
+  OnVIZSurveyDraw(false);
 
   // Check for copy mode
   xenos::EdramMode edram_mode = regs.Get<reg::RB_MODECONTROL>().edram_mode;
   if (edram_mode == xenos::EdramMode::kCopy) {
+    if (draw_util::IsVIZSurveyDraw(regs)) {
+      return true;
+    }
     return IssueCopy();
   }
 
-  // Vertex shader analysis.
-  auto vertex_shader = static_cast<MetalShader*>(active_vertex_shader());
+  // Vertex shader analysis — use Shader* base type so both draw paths share
+  // this common code.
+  Shader* vertex_shader = active_vertex_shader();
   if (!vertex_shader) {
     XELOGW("IssueDraw: No vertex shader");
     return false;
@@ -1934,10 +2994,10 @@ bool MetalCommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
   bool primitive_polygonal = draw_util::IsPrimitivePolygonal(regs);
   bool is_rasterization_done =
       draw_util::IsRasterizationPotentiallyDone(regs, primitive_polygonal);
-  MetalShader* pixel_shader = nullptr;
+  Shader* pixel_shader = nullptr;
   if (is_rasterization_done) {
     if (edram_mode == xenos::EdramMode::kColorDepth) {
-      pixel_shader = static_cast<MetalShader*>(active_pixel_shader());
+      pixel_shader = active_pixel_shader();
       if (pixel_shader) {
         if (!pixel_shader->is_ucode_analyzed()) {
           pixel_shader->AnalyzeUcode(ucode_disasm_buffer_);
@@ -1963,6 +3023,8 @@ bool MetalCommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
   if (memexport_used_pixel) {
     draw_util::AddMemExportRanges(regs, *pixel_shader, memexport_ranges_);
   }
+  memexport_ranges_awaited_ =
+      IsMemexportAwaited(memexport_used_vertex, memexport_used_pixel);
   // Primitive/index processing (like D3D12/Vulkan).
   PrimitiveProcessor::ProcessingResult primitive_processing_result;
   if (!primitive_processor_) {
@@ -1982,15 +3044,15 @@ bool MetalCommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
         Shader::HostVertexShaderType::kVertex;
   }
 
-  bool use_tessellation_emulation = false;
   if (primitive_processing_result.IsTessellated()) {
-    if (!mesh_shader_supported_) {
+    // The DXIL path tessellates through MSC's object/mesh emulation.
+    if (UseDxilPath() && !mesh_shader_supported_) {
       static bool tess_mesh_logged = false;
       if (!tess_mesh_logged) {
         tess_mesh_logged = true;
         XELOGW(
-            "Metal: Tessellation emulation requested but mesh shaders are not "
-            "supported on this device");
+            "Metal: skipping tessellated draws, mesh shaders are not supported "
+            "on this device");
       }
       return true;
     }
@@ -2003,7 +3065,6 @@ bool MetalCommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
             "using depth-only PS fallback");
       }
     }
-    use_tessellation_emulation = true;
   }
 
   // Configure render targets via MetalRenderTargetCache, similar to D3D12.
@@ -2026,861 +3087,368 @@ bool MetalCommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
 
   // Begin command buffer if needed (will use cache-provided render targets).
   BeginCommandBuffer();
-  EnsureDrawRingCapacity();
-
-  MTL::RenderPipelineState* pipeline = nullptr;
-  // Select per-draw shader modifications (mirrors D3D12 PipelineCache).
-  uint32_t ps_param_gen_pos = UINT32_MAX;
-  uint32_t interpolator_mask = 0;
-  if (pixel_shader) {
-    interpolator_mask = vertex_shader->writes_interpolators() &
-                        pixel_shader->GetInterpolatorInputMask(
-                            regs.Get<reg::SQ_PROGRAM_CNTL>(),
-                            regs.Get<reg::SQ_CONTEXT_MISC>(), ps_param_gen_pos);
+  if (!current_command_buffer_ || !current_render_encoder_) {
+    static bool spirv_no_command_buffer_logged = false;
+    if (!spirv_no_command_buffer_logged) {
+      spirv_no_command_buffer_logged = true;
+      XELOGE(
+          "IssueDraw: failed to begin Metal command buffer/render encoder; "
+          "skipping draws until uniforms buffer allocation recovers");
+    }
+    return true;
   }
 
-  auto normalized_depth_control = draw_util::GetNormalizedDepthControl(regs);
-  Shader::HostVertexShaderType host_vertex_shader_type_for_translation =
-      primitive_processing_result.host_vertex_shader_type;
-  if (host_vertex_shader_type_for_translation ==
-          Shader::HostVertexShaderType::kPointListAsTriangleStrip ||
-      host_vertex_shader_type_for_translation ==
-          Shader::HostVertexShaderType::kRectangleListAsTriangleStrip) {
-    if (!mesh_shader_supported_) {
-      static bool host_vs_expansion_logged = false;
-      if (!host_vs_expansion_logged) {
-        host_vs_expansion_logged = true;
-        XELOGW(
-            "Metal: Host VS expansion requested without mesh shader support; "
-            "skipping draw");
+  if (UseDxilPath()) {
+    return IssueDrawDxil(vertex_shader, pixel_shader,
+                         primitive_processing_result, primitive_polygonal,
+                         memexport_used, normalized_color_mask, regs);
+  }
+
+  if (!EnsureSpirvUniformBufferCapacity()) {
+    XELOGE(
+        "IssueDraw: failed to prepare SPIRV-Cross uniforms ring; skipping "
+        "draw");
+    return true;
+  }
+  return IssueDrawMsl(vertex_shader, pixel_shader, primitive_processing_result,
+                      primitive_polygonal, is_rasterization_done,
+                      memexport_used, normalized_color_mask, regs);
+}
+
+bool MetalCommandProcessor::RequestDrawSharedMemoryRanges(
+    const Shader& vertex_shader, const RegisterFile& regs) {
+  SCOPE_profile_cpu_f("gpu");
+  if (!shared_memory_) {
+    return true;
+  }
+  const Shader::ConstantRegisterMap& constant_map_vertex =
+      vertex_shader.constant_register_map();
+  for (uint32_t i = 0; i < xe::countof(constant_map_vertex.vertex_fetch_bitmap);
+       ++i) {
+    uint32_t vfetch_bits_remaining = constant_map_vertex.vertex_fetch_bitmap[i];
+    uint32_t j;
+    while (xe::bit_scan_forward(vfetch_bits_remaining, &j)) {
+      vfetch_bits_remaining &= ~(uint32_t(1) << j);
+      uint32_t vfetch_index = i * 32 + j;
+      xenos::xe_gpu_vertex_fetch_t vfetch = regs.GetVertexFetch(vfetch_index);
+      switch (vfetch.type) {
+        case xenos::FetchConstantType::kVertex:
+          break;
+        case xenos::FetchConstantType::kInvalidVertex:
+          if (::cvars::gpu_allow_invalid_fetch_constants) {
+            break;
+          }
+          XELOGW(
+              "Metal: Vertex fetch constant {} ({:08X} {:08X}) has \"invalid\" "
+              "type. Use --gpu_allow_invalid_fetch_constants to bypass.",
+              vfetch_index, vfetch.dword_0, vfetch.dword_1);
+          return false;
+        default:
+          XELOGW("Metal: Vertex fetch constant {} ({:08X} {:08X}) is invalid.",
+                 vfetch_index, vfetch.dword_0, vfetch.dword_1);
+          return false;
       }
-      return true;
-    }
-    // Geometry emulation handles point/rectangle expansion; use the normal
-    // vertex shader translation path to avoid unsupported host VS types.
-    host_vertex_shader_type_for_translation =
-        Shader::HostVertexShaderType::kVertex;
-  }
-  DxbcShaderTranslator::Modification vertex_shader_modification =
-      GetCurrentVertexShaderModification(
-          *vertex_shader, host_vertex_shader_type_for_translation,
-          interpolator_mask);
-  DxbcShaderTranslator::Modification pixel_shader_modification =
-      pixel_shader ? GetCurrentPixelShaderModification(
-                         *pixel_shader, interpolator_mask, ps_param_gen_pos,
-                         normalized_depth_control)
-                   : DxbcShaderTranslator::Modification(0);
-
-  PipelineGeometryShader geometry_shader_type = PipelineGeometryShader::kNone;
-  if (!primitive_processing_result.IsTessellated()) {
-    switch (primitive_processing_result.host_primitive_type) {
-      case xenos::PrimitiveType::kPointList:
-        geometry_shader_type = PipelineGeometryShader::kPointList;
-        break;
-      case xenos::PrimitiveType::kRectangleList:
-        geometry_shader_type = PipelineGeometryShader::kRectangleList;
-        break;
-      case xenos::PrimitiveType::kQuadList:
-        geometry_shader_type = PipelineGeometryShader::kQuadList;
-        break;
-      default:
-        break;
-    }
-  }
-
-  GeometryShaderKey geometry_shader_key;
-  bool use_geometry_emulation = false;
-  if (geometry_shader_type != PipelineGeometryShader::kNone) {
-    bool can_build_geometry_shader =
-        pixel_shader || !vertex_shader_modification.vertex.interpolator_mask;
-    if (!can_build_geometry_shader) {
-      static bool geom_interp_mismatch_logged = false;
-      if (!geom_interp_mismatch_logged) {
-        geom_interp_mismatch_logged = true;
+      // Mask to physical like the shader - the guest may use a mirror window.
+      uint32_t buffer_offset = xenos::CpuToGpu(vfetch.address << 2);
+      uint32_t buffer_length = vfetch.size << 2;
+      if (buffer_offset > SharedMemory::kBufferSize ||
+          SharedMemory::kBufferSize - buffer_offset < buffer_length) {
         XELOGW(
-            "Metal: geometry emulation skipped because pixel shader is null "
-            "but vertex interpolators are present");
-      }
-    } else {
-      use_geometry_emulation =
-          GetGeometryShaderKey(geometry_shader_type, vertex_shader_modification,
-                               pixel_shader_modification, geometry_shader_key);
-    }
-  }
-  if (use_geometry_emulation && !mesh_shader_supported_) {
-    static bool mesh_support_logged = false;
-    if (!mesh_support_logged) {
-      mesh_support_logged = true;
-      XELOGW(
-          "Metal: geometry emulation requested but mesh shaders are not "
-          "supported on this device");
-    }
-    use_geometry_emulation = false;
-  }
-  if (use_geometry_emulation && !pixel_shader) {
-    static bool geom_no_ps_logged = false;
-    if (!geom_no_ps_logged) {
-      geom_no_ps_logged = true;
-      XELOGW(
-          "Metal: geometry emulation requested without a pixel shader; using "
-          "depth-only PS fallback");
-    }
-  }
-
-  // Get or create shader translations for the selected modifications.
-  auto vertex_translation = static_cast<MetalShader::MetalTranslation*>(
-      vertex_shader->GetOrCreateTranslation(vertex_shader_modification.value));
-  if (!vertex_translation->is_translated()) {
-    if (!shader_translator_->TranslateAnalyzedShader(*vertex_translation)) {
-      XELOGE("Failed to translate vertex shader to DXBC");
-      return false;
-    }
-  }
-  if (!use_tessellation_emulation && !vertex_translation->is_valid()) {
-    if (!vertex_translation->TranslateToMetal(device_, *dxbc_to_dxil_converter_,
-                                              *metal_shader_converter_)) {
-      XELOGE("Failed to translate vertex shader to Metal");
-      return false;
-    }
-  }
-
-  MetalShader::MetalTranslation* pixel_translation = nullptr;
-  if (pixel_shader) {
-    pixel_translation = static_cast<MetalShader::MetalTranslation*>(
-        pixel_shader->GetOrCreateTranslation(pixel_shader_modification.value));
-    if (!pixel_translation->is_translated()) {
-      if (!shader_translator_->TranslateAnalyzedShader(*pixel_translation)) {
-        XELOGE("Failed to translate pixel shader to DXBC");
+            "Metal: Vertex fetch constant {} out of range (offset=0x{:08X} "
+            "size={})",
+            vfetch_index, buffer_offset, buffer_length);
         return false;
       }
-    }
-    if (!pixel_translation->is_valid()) {
-      if (!pixel_translation->TranslateToMetal(
-              device_, *dxbc_to_dxil_converter_, *metal_shader_converter_)) {
-        XELOGE("Failed to translate pixel shader to Metal");
+      if (!shared_memory_->RequestRange(buffer_offset, buffer_length)) {
+        XELOGE(
+            "Metal: Failed to request vertex buffer at 0x{:08X} (size {}) in "
+            "shared memory",
+            buffer_offset, buffer_length);
         return false;
       }
     }
   }
 
-  TessellationPipelineState* tessellation_pipeline_state = nullptr;
-  GeometryPipelineState* geometry_pipeline_state = nullptr;
-  if (use_tessellation_emulation) {
-    tessellation_pipeline_state = GetOrCreateTessellationPipelineState(
-        vertex_translation, pixel_translation, primitive_processing_result,
-        regs);
-    pipeline = tessellation_pipeline_state
-                   ? tessellation_pipeline_state->pipeline
-                   : nullptr;
-  } else if (use_geometry_emulation) {
-    geometry_pipeline_state = GetOrCreateGeometryPipelineState(
-        vertex_translation, pixel_translation, geometry_shader_key, regs);
-    pipeline =
-        geometry_pipeline_state ? geometry_pipeline_state->pipeline : nullptr;
+  for (const draw_util::MemExportRange& memexport_range : memexport_ranges_) {
+    uint32_t base_bytes = memexport_range.base_address_dwords << 2;
+    if (!shared_memory_->RequestRange(base_bytes, memexport_range.size_bytes)) {
+      XELOGE(
+          "Metal: Failed to request memexport stream at 0x{:08X} (size {}) in "
+          "shared memory",
+          base_bytes, memexport_range.size_bytes);
+      return false;
+    }
+  }
+  return true;
+}
+
+void MetalCommandProcessor::ComputeDrawViewportInfo(
+    const RegisterFile& regs, const Shader* pixel_shader,
+    reg::RB_DEPTHCONTROL normalized_depth_control,
+    draw_util::ViewportInfo& viewport_info_out) {
+  constexpr uint32_t kViewportBoundsMax = 32767;
+  bool convert_z_to_float24 = ::cvars::depth_float24_convert_in_pixel_shader;
+  // ZPD segments can't mix scales. The resolved sample count is divided by one
+  // scale area per segment, so a change splits the segment.
+  // Metal has no in-shader counter path, so a segment never counts Total.
+  UpdateQuerySegment(
+      (texture_cache_ ? texture_cache_->draw_resolution_scale_x() : 1) *
+          (texture_cache_ ? texture_cache_->draw_resolution_scale_y() : 1),
+      false, draw_util::IsVIZSurveyDraw(regs));
+  draw_util::GetViewportInfoArgs gviargs{};
+  gviargs.Setup(
+      texture_cache_ ? texture_cache_->draw_resolution_scale_x() : 1,
+      texture_cache_ ? texture_cache_->draw_resolution_scale_y() : 1,
+      texture_cache_ ? texture_cache_->draw_resolution_scale_x_divisor()
+                     : divisors::MagicDiv(1),
+      texture_cache_ ? texture_cache_->draw_resolution_scale_y_divisor()
+                     : divisors::MagicDiv(1),
+      true, kViewportBoundsMax, kViewportBoundsMax, false,
+      normalized_depth_control, convert_z_to_float24, true,
+      pixel_shader && pixel_shader->writes_depth());
+  gviargs.SetupRegisterValues(regs);
+  if (gviargs == previous_viewport_info_args_) {
+    viewport_info_out = previous_viewport_info_;
   } else {
-    pipeline =
-        GetOrCreatePipelineState(vertex_translation, pixel_translation, regs);
+    draw_util::GetHostViewportInfo(&gviargs, viewport_info_out);
+    previous_viewport_info_args_ = gviargs;
+    previous_viewport_info_ = viewport_info_out;
+  }
+}
+
+void MetalCommandProcessor::ApplyViewportAndScissor(
+    const RegisterFile& regs, const draw_util::ViewportInfo& viewport_info) {
+  SCOPE_profile_cpu_f("gpu");
+  uint32_t draw_resolution_scale_x =
+      texture_cache_ ? texture_cache_->draw_resolution_scale_x() : 1;
+  uint32_t draw_resolution_scale_y =
+      texture_cache_ ? texture_cache_->draw_resolution_scale_y() : 1;
+
+  draw_util::Scissor scissor;
+  draw_util::GetScissor(regs, scissor);
+  scissor.offset[0] *= draw_resolution_scale_x;
+  scissor.offset[1] *= draw_resolution_scale_y;
+  scissor.extent[0] *= draw_resolution_scale_x;
+  scissor.extent[1] *= draw_resolution_scale_y;
+
+  // Clamp scissor to actual render target bounds (Metal requires this).
+  uint32_t rt_width = 1;
+  uint32_t rt_height = 1;
+  GetBoundRenderTargetSize(render_target_cache_.get(), render_target_width_,
+                           render_target_height_, rt_width, rt_height);
+  ClampScissorToBounds(scissor, rt_width, rt_height);
+
+  MTL::Viewport mtl_viewport;
+  mtl_viewport.originX = static_cast<double>(viewport_info.xy_offset[0]);
+  mtl_viewport.originY = static_cast<double>(viewport_info.xy_offset[1]);
+  mtl_viewport.width = static_cast<double>(viewport_info.xy_extent[0]);
+  mtl_viewport.height = static_cast<double>(viewport_info.xy_extent[1]);
+  mtl_viewport.znear = viewport_info.z_min;
+  mtl_viewport.zfar = viewport_info.z_max;
+  if (!msl_viewport_valid_ ||
+      std::memcmp(&msl_viewport_, &mtl_viewport, sizeof(mtl_viewport)) != 0) {
+    current_render_encoder_->setViewport(mtl_viewport);
+    msl_viewport_ = mtl_viewport;
+    msl_viewport_valid_ = true;
   }
 
-  if (!pipeline) {
-    XELOGE("Failed to create pipeline state");
-    return false;
+  MTL::ScissorRect mtl_scissor;
+  mtl_scissor.x = scissor.offset[0];
+  mtl_scissor.y = scissor.offset[1];
+  mtl_scissor.width = scissor.extent[0];
+  mtl_scissor.height = scissor.extent[1];
+  if (!msl_scissor_valid_ || msl_scissor_.x != mtl_scissor.x ||
+      msl_scissor_.y != mtl_scissor.y ||
+      msl_scissor_.width != mtl_scissor.width ||
+      msl_scissor_.height != mtl_scissor.height) {
+    current_render_encoder_->setScissorRect(mtl_scissor);
+    msl_scissor_ = mtl_scissor;
+    msl_scissor_valid_ = true;
+  }
+}
+
+bool MetalCommandProcessor::PrepareDrawTextures(uint32_t used_texture_mask,
+                                                const RegisterFile& regs) {
+  SCOPE_profile_cpu_f("gpu");
+  if (copy_resolve_writes_pending_ && used_texture_mask) {
+    auto overlaps_resolved_texture_ranges = [&](uint32_t texture_fetch_mask) {
+      uint32_t remaining_fetch_bits = texture_fetch_mask;
+      uint32_t fetch_index = 0;
+      while (xe::bit_scan_forward(remaining_fetch_bits, &fetch_index)) {
+        remaining_fetch_bits &= ~(uint32_t(1) << fetch_index);
+        xenos::xe_gpu_texture_fetch_t fetch = regs.GetTextureFetch(fetch_index);
+        uint32_t width_minus_1 = 0;
+        uint32_t height_minus_1 = 0;
+        uint32_t depth_or_array_size_minus_1 = 0;
+        uint32_t base_page = 0;
+        uint32_t mip_page = 0;
+        uint32_t mip_max_level = 0;
+        texture_util::GetSubresourcesFromFetchConstant(
+            fetch, &width_minus_1, &height_minus_1,
+            &depth_or_array_size_minus_1, &base_page, &mip_page, nullptr,
+            &mip_max_level);
+        if (!base_page && !mip_page) {
+          continue;
+        }
+        auto layout = texture_util::GetGuestTextureLayout(
+            fetch.dimension, fetch.pitch, width_minus_1 + 1, height_minus_1 + 1,
+            depth_or_array_size_minus_1 + 1, fetch.tiled, fetch.format,
+            fetch.packed_mips, true, mip_max_level);
+        const uint32_t base_size = layout.base.level_data_extent_bytes;
+        const uint32_t mip_size = layout.mips_total_extent_bytes;
+        if (base_page && base_size &&
+            IsResolvedMemory(base_page << 12, base_size)) {
+          return true;
+        }
+        if (mip_page && mip_size &&
+            IsResolvedMemory(mip_page << 12, mip_size)) {
+          return true;
+        }
+      }
+      return false;
+    };
+    if (overlaps_resolved_texture_ranges(used_texture_mask)) {
+      EndCommandBuffer(CommandBufferKind::kSubmissionCopyToDrawSync);
+      BeginCommandBuffer();
+      // The split put every resolve behind a queue boundary, discharging all
+      // of them - not just the range this draw hit.
+      ClearResolvedMemory();
+      if (!current_command_buffer_ || !current_render_encoder_) {
+        XELOGE(
+            "Metal: failed to re-begin command buffer for copy->draw sync "
+            "split");
+        return false;
+      }
+    }
   }
 
-  uint32_t used_texture_mask =
-      vertex_shader->GetUsedTextureMaskAfterTranslation();
-  if (pixel_shader) {
-    used_texture_mask |= pixel_shader->GetUsedTextureMaskAfterTranslation();
-  }
-  if (texture_cache_ && used_texture_mask) {
+  if (texture_cache_ && used_texture_mask &&
+      texture_cache_->AnyUsedTextureRequestWorkPending(used_texture_mask)) {
     texture_cache_->RequestTextures(used_texture_mask);
   }
+  return true;
+}
 
-  struct VertexBindingRange {
-    uint32_t binding_index = 0;
-    uint32_t offset = 0;
-    uint32_t length = 0;
-    uint32_t stride = 0;
-  };
-  std::array<VertexBindingRange, 32> vertex_ranges;
-  uint32_t vertex_range_count = 0;
-  const auto& vb_bindings = vertex_shader->vertex_bindings();
-  bool uses_vertex_fetch = ShaderUsesVertexFetch(*vertex_shader);
-
-  // Sync shared memory before drawing - ensure GPU has latest data
-  // This is particularly important for trace playback where memory is
-  // written incrementally
-  if (shared_memory_) {
-    const Shader::ConstantRegisterMap& constant_map_vertex =
-        vertex_shader->constant_register_map();
-    for (uint32_t i = 0;
-         i < xe::countof(constant_map_vertex.vertex_fetch_bitmap); ++i) {
-      uint32_t vfetch_bits_remaining =
-          constant_map_vertex.vertex_fetch_bitmap[i];
-      uint32_t j;
-      while (xe::bit_scan_forward(vfetch_bits_remaining, &j)) {
-        vfetch_bits_remaining &= ~(uint32_t(1) << j);
-        uint32_t vfetch_index = i * 32 + j;
-        xenos::xe_gpu_vertex_fetch_t vfetch = regs.GetVertexFetch(vfetch_index);
-        switch (vfetch.type) {
-          case xenos::FetchConstantType::kVertex:
-            break;
-          case xenos::FetchConstantType::kInvalidVertex:
-            if (::cvars::gpu_allow_invalid_fetch_constants) {
-              break;
-            }
-            XELOGW(
-                "Vertex fetch constant {} ({:08X} {:08X}) has \"invalid\" "
-                "type. "
-                "Use --gpu_allow_invalid_fetch_constants to bypass.",
-                vfetch_index, vfetch.dword_0, vfetch.dword_1);
-            return false;
-          default:
-            XELOGW("Vertex fetch constant {} ({:08X} {:08X}) is invalid.",
-                   vfetch_index, vfetch.dword_0, vfetch.dword_1);
-            return false;
-        }
-        uint32_t buffer_offset = vfetch.address << 2;
-        uint32_t buffer_length = vfetch.size << 2;
-        if (buffer_offset > SharedMemory::kBufferSize ||
-            SharedMemory::kBufferSize - buffer_offset < buffer_length) {
-          XELOGW(
-              "Vertex fetch constant {} out of range (offset=0x{:08X} size={})",
-              vfetch_index, buffer_offset, buffer_length);
-          return false;
-        }
-        if (!shared_memory_->RequestRange(buffer_offset, buffer_length)) {
-          XELOGE(
-              "Failed to request vertex buffer at 0x{:08X} (size {}) in shared "
-              "memory",
-              buffer_offset, buffer_length);
-          return false;
-        }
-      }
-    }
-
-    for (const draw_util::MemExportRange& memexport_range : memexport_ranges_) {
-      uint32_t base_bytes = memexport_range.base_address_dwords << 2;
-      if (!shared_memory_->RequestRange(base_bytes,
-                                        memexport_range.size_bytes)) {
-        XELOGE(
-            "Failed to request memexport stream at 0x{:08X} (size {}) in "
-            "shared "
-            "memory",
-            base_bytes, memexport_range.size_bytes);
-        return false;
-      }
-    }
-
-    for (const auto& binding : vb_bindings) {
-      xenos::xe_gpu_vertex_fetch_t vfetch =
-          regs.GetVertexFetch(binding.fetch_constant);
-      uint32_t buffer_offset = vfetch.address << 2;
-      uint32_t buffer_length = vfetch.size << 2;
-      VertexBindingRange range;
-      range.binding_index = static_cast<uint32_t>(binding.binding_index);
-      range.offset = buffer_offset;
-      range.length = buffer_length;
-      range.stride = binding.stride_words * 4;
-      assert_true(vertex_range_count < vertex_ranges.size());
-      vertex_ranges[vertex_range_count++] = range;
+void MetalCommandProcessor::UpdateGuestConstantCaches(
+    const Shader* vertex_shader, const Shader* pixel_shader,
+    const RegisterFile& regs) {
+  SCOPE_profile_cpu_f("gpu");
+  // SpirvShaderTranslator uses packed float constants like Vulkan, so a change
+  // in which constants a shader uses changes the packing.
+  const Shader::ConstantRegisterMap& float_constant_map_vertex =
+      vertex_shader->constant_register_map();
+  for (uint32_t i = 0; i < 4; ++i) {
+    if (msl_current_float_constant_map_vertex_[i] !=
+        float_constant_map_vertex.float_bitmap[i]) {
+      msl_current_float_constant_map_vertex_[i] =
+          float_constant_map_vertex.float_bitmap[i];
+      msl_float_constants_dirty_vertex_ = true;
     }
   }
-
-  // Set pipeline state on encoder
-  current_render_encoder_->setRenderPipelineState(pipeline);
-  if (use_tessellation_emulation) {
-    if (!tessellator_tables_buffer_) {
-      XELOGE("Tessellation emulation requires tessellator tables buffer");
-      return false;
-    }
-    current_render_encoder_->setObjectBuffer(
-        tessellator_tables_buffer_, 0, kIRRuntimeTessellatorTablesBindPoint);
-    current_render_encoder_->setMeshBuffer(
-        tessellator_tables_buffer_, 0, kIRRuntimeTessellatorTablesBindPoint);
-    UseRenderEncoderResource(tessellator_tables_buffer_,
-                             MTL::ResourceUsageRead);
-  }
-
-  // Determine if shared memory should be UAV (for memexport).
-  bool shared_memory_is_uav = memexport_used_vertex || memexport_used_pixel;
-  MTL::ResourceUsage shared_memory_usage =
-      shared_memory_is_uav ? (MTL::ResourceUsageRead | MTL::ResourceUsageWrite)
-                           : MTL::ResourceUsageRead;
-  // Bind IR Converter runtime resources.
-  // The Metal Shader Converter expects resources at specific bind points.
-  if (res_heap_ab_ && smp_heap_ab_ && uniforms_buffer_ && shared_memory_) {
-    // Determine primitive type characteristics
-    bool primitive_polygonal = draw_util::IsPrimitivePolygonal(regs);
-
-    // Get viewport info for NDC transform. Use the actual RT0 dimensions
-    // when available so system constants match the current render target.
-    uint32_t vp_width = render_target_width_;
-    uint32_t vp_height = render_target_height_;
-    if (render_target_cache_) {
-      MTL::Texture* rt0_tex = render_target_cache_->GetColorTarget(0);
-      if (rt0_tex) {
-        vp_width = rt0_tex->width();
-        vp_height = rt0_tex->height();
-      } else if (MTL::Texture* depth_tex =
-                     render_target_cache_->GetDepthTarget()) {
-        vp_width = depth_tex->width();
-        vp_height = depth_tex->height();
-      } else if (MTL::Texture* dummy =
-                     render_target_cache_->GetDummyColorTarget()) {
-        vp_width = dummy->width();
-        vp_height = dummy->height();
-      }
-    }
-    draw_util::ViewportInfo viewport_info;
-    auto depth_control = draw_util::GetNormalizedDepthControl(regs);
-    constexpr uint32_t kViewportBoundsMax = 32767;
-    bool host_render_targets_used = true;
-    bool convert_z_to_float24 = host_render_targets_used &&
-                                ::cvars::depth_float24_convert_in_pixel_shader;
-    uint32_t draw_resolution_scale_x =
-        texture_cache_ ? texture_cache_->draw_resolution_scale_x() : 1;
-    uint32_t draw_resolution_scale_y =
-        texture_cache_ ? texture_cache_->draw_resolution_scale_y() : 1;
-    draw_util::GetViewportInfoArgs gviargs{};
-    gviargs.Setup(
-        draw_resolution_scale_x, draw_resolution_scale_y,
-        texture_cache_ ? texture_cache_->draw_resolution_scale_x_divisor()
-                       : divisors::MagicDiv(1),
-        texture_cache_ ? texture_cache_->draw_resolution_scale_y_divisor()
-                       : divisors::MagicDiv(1),
-        true, kViewportBoundsMax, kViewportBoundsMax, false, depth_control,
-        convert_z_to_float24, host_render_targets_used,
-        pixel_shader && pixel_shader->writes_depth());
-    gviargs.SetupRegisterValues(regs);
-    draw_util::GetHostViewportInfo(&gviargs, viewport_info);
-
-    // Apply per-draw viewport and scissor so the Metal viewport
-    // matches the guest viewport computed by draw_util.
-    draw_util::Scissor scissor;
-    draw_util::GetScissor(regs, scissor);
-    // draw_resolution_scale_x/y already computed above for viewport.
-    scissor.offset[0] *= draw_resolution_scale_x;
-    scissor.offset[1] *= draw_resolution_scale_y;
-    scissor.extent[0] *= draw_resolution_scale_x;
-    scissor.extent[1] *= draw_resolution_scale_y;
-
-    // Clamp scissor to actual render target bounds (Metal requires this).
-    if (scissor.offset[0] + scissor.extent[0] > vp_width) {
-      scissor.extent[0] =
-          (scissor.offset[0] < vp_width) ? (vp_width - scissor.offset[0]) : 0;
-    }
-    if (scissor.offset[1] + scissor.extent[1] > vp_height) {
-      scissor.extent[1] =
-          (scissor.offset[1] < vp_height) ? (vp_height - scissor.offset[1]) : 0;
-    }
-
-    MTL::Viewport mtl_viewport;
-    mtl_viewport.originX = static_cast<double>(viewport_info.xy_offset[0]);
-    mtl_viewport.originY = static_cast<double>(viewport_info.xy_offset[1]);
-    mtl_viewport.width = static_cast<double>(viewport_info.xy_extent[0]);
-    mtl_viewport.height = static_cast<double>(viewport_info.xy_extent[1]);
-    mtl_viewport.znear = viewport_info.z_min;
-    mtl_viewport.zfar = viewport_info.z_max;
-    current_render_encoder_->setViewport(mtl_viewport);
-
-    MTL::ScissorRect mtl_scissor;
-    mtl_scissor.x = scissor.offset[0];
-    mtl_scissor.y = scissor.offset[1];
-    mtl_scissor.width = scissor.extent[0];
-    mtl_scissor.height = scissor.extent[1];
-    current_render_encoder_->setScissorRect(mtl_scissor);
-
-    ApplyRasterizerState(primitive_polygonal);
-
-    // Fixed-function depth/stencil state is not part of the pipeline state in
-    // Metal, so update it per draw.
-    ApplyDepthStencilState(primitive_polygonal, depth_control);
-
-    // Update full system constants from GPU registers
-    // This populates flags, NDC transform, alpha test, blend constants, etc.
-    uint32_t normalized_color_mask =
-        pixel_shader ? draw_util::GetNormalizedColorMask(
-                           regs, pixel_shader->writes_color_targets())
-                     : 0;
-    UpdateSystemConstantValues(
-        shared_memory_is_uav, primitive_polygonal,
-        primitive_processing_result.line_loop_closing_index,
-        primitive_processing_result.host_shader_index_endian, viewport_info,
-        used_texture_mask, depth_control, normalized_color_mask);
-
-    float blend_constants[] = {
-        regs.Get<float>(XE_GPU_REG_RB_BLEND_RED),
-        regs.Get<float>(XE_GPU_REG_RB_BLEND_GREEN),
-        regs.Get<float>(XE_GPU_REG_RB_BLEND_BLUE),
-        regs.Get<float>(XE_GPU_REG_RB_BLEND_ALPHA),
-    };
-    bool blend_factor_update_needed =
-        !ff_blend_factor_valid_ ||
-        std::memcmp(ff_blend_factor_, blend_constants, sizeof(float) * 4) != 0;
-    if (blend_factor_update_needed) {
-      std::memcpy(ff_blend_factor_, blend_constants, sizeof(float) * 4);
-      ff_blend_factor_valid_ = true;
-      current_render_encoder_->setBlendColor(
-          blend_constants[0], blend_constants[1], blend_constants[2],
-          blend_constants[3]);
-    }
-
-    constexpr size_t kStageVertex = 0;
-    constexpr size_t kStagePixel = 1;
-    uint32_t ring_index = current_draw_index_ % uint32_t(draw_ring_count_);
-    size_t table_index_vertex = size_t(ring_index) * kStageCount + kStageVertex;
-    size_t table_index_pixel = size_t(ring_index) * kStageCount + kStagePixel;
-
-    // Uniforms buffer layout (4KB per CBV for alignment):
-    //   b0 (offset 0):     System constants (~512 bytes)
-    //   b1 (offset 4096):  Float constants (256 float4s = 4KB)
-    //   b2 (offset 8192):  Bool/loop constants (~256 bytes)
-    //   b3 (offset 12288): Fetch constants (768 bytes)
-    //   b4 (offset 16384): Descriptor indices (unused in bindful mode)
-    const size_t kCBVSize = kCbvSizeBytes;
-    uint8_t* uniforms_base =
-        static_cast<uint8_t*>(uniforms_buffer_->contents());
-    uint8_t* uniforms_vertex =
-        uniforms_base + table_index_vertex * kUniformsBytesPerTable;
-    uint8_t* uniforms_pixel =
-        uniforms_base + table_index_pixel * kUniformsBytesPerTable;
-
-    // b0: System constants.
-    std::memcpy(uniforms_vertex, &system_constants_,
-                sizeof(DxbcShaderTranslator::SystemConstants));
-    std::memcpy(uniforms_pixel, &system_constants_,
-                sizeof(DxbcShaderTranslator::SystemConstants));
-
-    // b1: Float constants at offset 4096 (1 * kCBVSize).
-    const size_t kFloatConstantOffset = 1 * kCBVSize;
-    // DxbcShaderTranslator uses packed float constants, mirroring the D3D12
-    // backend behavior: only the constants actually used by the shader are
-    // written sequentially based on Shader::ConstantRegisterMap.
-    auto write_packed_float_constants = [&](uint8_t* dst, const Shader& shader,
-                                            uint32_t regs_base) {
-      std::memset(dst, 0, kCBVSize);
-      const Shader::ConstantRegisterMap& map = shader.constant_register_map();
-      if (!map.float_count) {
-        return;
-      }
-      uint8_t* out = dst;
-      for (uint32_t i = 0; i < 4; ++i) {
-        uint64_t bits = map.float_bitmap[i];
-        uint32_t constant_index;
-        while (xe::bit_scan_forward(bits, &constant_index)) {
-          bits &= ~(uint64_t(1) << constant_index);
-          if (out + 4 * sizeof(uint32_t) > dst + kCBVSize) {
-            return;
-          }
-          std::memcpy(
-              out, &regs.values[regs_base + (i << 8) + (constant_index << 2)],
-              4 * sizeof(uint32_t));
-          out += 4 * sizeof(uint32_t);
-        }
-      }
-    };
-
-    // Vertex shader uses c0-c255, pixel shader uses c256-c511.
-    write_packed_float_constants(uniforms_vertex + kFloatConstantOffset,
-                                 *vertex_shader,
-                                 XE_GPU_REG_SHADER_CONSTANT_000_X);
-    if (pixel_shader) {
-      write_packed_float_constants(uniforms_pixel + kFloatConstantOffset,
-                                   *pixel_shader,
-                                   XE_GPU_REG_SHADER_CONSTANT_256_X);
-    } else {
-      std::memset(uniforms_pixel + kFloatConstantOffset, 0, kCBVSize);
-    }
-
-    // b2: Bool/Loop constants at offset 8192 (2 * kCBVSize).
-    const size_t kBoolLoopConstantOffset = 2 * kCBVSize;
-    constexpr size_t kBoolLoopConstantsSize = (8 + 32) * sizeof(uint32_t);
-    std::memcpy(uniforms_vertex + kBoolLoopConstantOffset,
-                &regs.values[XE_GPU_REG_SHADER_CONSTANT_BOOL_000_031],
-                kBoolLoopConstantsSize);
-    std::memcpy(uniforms_pixel + kBoolLoopConstantOffset,
-                &regs.values[XE_GPU_REG_SHADER_CONSTANT_BOOL_000_031],
-                kBoolLoopConstantsSize);
-
-    // b3: Fetch constants at offset 12288 (3 * kCBVSize).
-    // 32 fetch groups * 6 DWORDs = 192 DWORDs (same data as 96 vertex fetches).
-    const size_t kFetchConstantOffset = 3 * kCBVSize;
-    const size_t kFetchConstantCount =
-        xenos::kTextureFetchConstantCount * 6;  // 192 DWORDs = 768 bytes
-    std::memcpy(uniforms_vertex + kFetchConstantOffset,
-                &regs.values[XE_GPU_REG_SHADER_CONSTANT_FETCH_00_0],
-                kFetchConstantCount * sizeof(uint32_t));
-    std::memcpy(uniforms_pixel + kFetchConstantOffset,
-                &regs.values[XE_GPU_REG_SHADER_CONSTANT_FETCH_00_0],
-                kFetchConstantCount * sizeof(uint32_t));
-
-    auto* res_entries_all =
-        reinterpret_cast<IRDescriptorTableEntry*>(res_heap_ab_->contents());
-    const size_t kDescriptorTableCount = kStageCount * draw_ring_count_;
-    const size_t uav_table_base_index =
-        kResourceHeapSlotsPerTable * kDescriptorTableCount;
-    auto* uav_entries_all = res_entries_all + uav_table_base_index;
-    auto* smp_entries_all =
-        reinterpret_cast<IRDescriptorTableEntry*>(smp_heap_ab_->contents());
-    auto* cbv_entries_all =
-        reinterpret_cast<IRDescriptorTableEntry*>(cbv_heap_ab_->contents());
-
-    IRDescriptorTableEntry* res_entries_vertex =
-        res_entries_all + table_index_vertex * kResourceHeapSlotsPerTable;
-    IRDescriptorTableEntry* res_entries_pixel =
-        res_entries_all + table_index_pixel * kResourceHeapSlotsPerTable;
-    IRDescriptorTableEntry* uav_entries_vertex =
-        uav_entries_all + table_index_vertex * kResourceHeapSlotsPerTable;
-    IRDescriptorTableEntry* uav_entries_pixel =
-        uav_entries_all + table_index_pixel * kResourceHeapSlotsPerTable;
-    IRDescriptorTableEntry* smp_entries_vertex =
-        smp_entries_all + table_index_vertex * kSamplerHeapSlotsPerTable;
-    IRDescriptorTableEntry* smp_entries_pixel =
-        smp_entries_all + table_index_pixel * kSamplerHeapSlotsPerTable;
-    IRDescriptorTableEntry* cbv_entries_vertex =
-        cbv_entries_all + table_index_vertex * kCbvHeapSlotsPerTable;
-    IRDescriptorTableEntry* cbv_entries_pixel =
-        cbv_entries_all + table_index_pixel * kCbvHeapSlotsPerTable;
-
-    uint64_t res_heap_gpu_base_vertex =
-        res_heap_ab_->gpuAddress() + table_index_vertex *
-                                         kResourceHeapSlotsPerTable *
-                                         sizeof(IRDescriptorTableEntry);
-    uint64_t res_heap_gpu_base_pixel =
-        res_heap_ab_->gpuAddress() + table_index_pixel *
-                                         kResourceHeapSlotsPerTable *
-                                         sizeof(IRDescriptorTableEntry);
-    uint64_t uav_heap_gpu_base_vertex =
-        res_heap_ab_->gpuAddress() +
-        (uav_table_base_index +
-         table_index_vertex * kResourceHeapSlotsPerTable) *
-            sizeof(IRDescriptorTableEntry);
-    uint64_t uav_heap_gpu_base_pixel =
-        res_heap_ab_->gpuAddress() +
-        (uav_table_base_index +
-         table_index_pixel * kResourceHeapSlotsPerTable) *
-            sizeof(IRDescriptorTableEntry);
-    uint64_t smp_heap_gpu_base_vertex =
-        smp_heap_ab_->gpuAddress() + table_index_vertex *
-                                         kSamplerHeapSlotsPerTable *
-                                         sizeof(IRDescriptorTableEntry);
-    uint64_t smp_heap_gpu_base_pixel =
-        smp_heap_ab_->gpuAddress() + table_index_pixel *
-                                         kSamplerHeapSlotsPerTable *
-                                         sizeof(IRDescriptorTableEntry);
-
-    uint64_t uniforms_gpu_base_vertex =
-        uniforms_buffer_->gpuAddress() +
-        table_index_vertex * kUniformsBytesPerTable;
-    uint64_t uniforms_gpu_base_pixel =
-        uniforms_buffer_->gpuAddress() +
-        table_index_pixel * kUniformsBytesPerTable;
-
-    MTL::Buffer* shared_mem_buffer = shared_memory_->GetBuffer();
-    if (shared_mem_buffer) {
-      IRDescriptorTableSetBuffer(&res_entries_vertex[0],
-                                 shared_mem_buffer->gpuAddress(),
-                                 shared_mem_buffer->length());
-      IRDescriptorTableSetBuffer(&res_entries_pixel[0],
-                                 shared_mem_buffer->gpuAddress(),
-                                 shared_mem_buffer->length());
-      IRDescriptorTableSetBuffer(&uav_entries_vertex[0],
-                                 shared_mem_buffer->gpuAddress(),
-                                 shared_mem_buffer->length());
-      IRDescriptorTableSetBuffer(&uav_entries_pixel[0],
-                                 shared_mem_buffer->gpuAddress(),
-                                 shared_mem_buffer->length());
-      UseRenderEncoderResource(shared_mem_buffer, shared_memory_usage);
-    }
-    if (render_target_cache_) {
-      if (MTL::Buffer* edram_buffer = render_target_cache_->GetEdramBuffer()) {
-        IRDescriptorTableSetBuffer(&uav_entries_vertex[1],
-                                   edram_buffer->gpuAddress(),
-                                   edram_buffer->length());
-        IRDescriptorTableSetBuffer(&uav_entries_pixel[1],
-                                   edram_buffer->gpuAddress(),
-                                   edram_buffer->length());
-        UseRenderEncoderResource(
-            edram_buffer, MTL::ResourceUsageRead | MTL::ResourceUsageWrite);
-      }
-    }
-
-    std::array<MTL::Texture*, 64> textures_for_encoder;
-    uint32_t textures_for_encoder_count = 0;
-    auto track_texture_usage = [&](MTL::Texture* texture) {
-      if (!texture) {
-        return;
-      }
-      for (uint32_t i = 0; i < textures_for_encoder_count; ++i) {
-        if (textures_for_encoder[i] == texture) {
-          return;
-        }
-      }
-      assert_true(textures_for_encoder_count < textures_for_encoder.size());
-      textures_for_encoder[textures_for_encoder_count++] = texture;
-    };
-
-    auto bind_shader_textures = [&](const char* stage, MetalShader* shader,
-                                    IRDescriptorTableEntry* stage_res_entries) {
-      if (!shader || !texture_cache_) {
-        return;
-      }
-      const auto& shader_texture_bindings =
-          shader->GetTextureBindingsAfterTranslation();
-      MetalTextureCache* metal_texture_cache = texture_cache_.get();
-      for (size_t binding_index = 0;
-           binding_index < shader_texture_bindings.size(); ++binding_index) {
-        uint32_t srv_slot = 1 + static_cast<uint32_t>(binding_index);
-        if (srv_slot >= kResourceHeapSlotsPerTable) {
-          break;
-        }
-        const auto& binding = shader_texture_bindings[binding_index];
-        MTL::Texture* texture = texture_cache_->GetTextureForBinding(
-            binding.fetch_constant, binding.dimension, binding.is_signed);
-        if (!texture) {
-          // Use a dimension-compatible null texture to avoid Metal validation
-          // errors (for example, cube-array expectations from converted
-          // shaders).
-          switch (binding.dimension) {
-            case xenos::FetchOpDimension::k1D:
-            case xenos::FetchOpDimension::k2D:
-              texture = metal_texture_cache->GetNullTexture2D();
-              break;
-            case xenos::FetchOpDimension::k3DOrStacked:
-              texture = metal_texture_cache->GetNullTexture3D();
-              break;
-            case xenos::FetchOpDimension::kCube:
-              texture = metal_texture_cache->GetNullTextureCube();
-              break;
-            default:
-              texture = metal_texture_cache->GetNullTexture2D();
-              break;
-          }
-          if (!logged_missing_texture_warning_) {
-            XELOGW(
-                "Metal: Missing texture for fetch constant {} (dimension {} "
-                "signed {})",
-                binding.fetch_constant, static_cast<int>(binding.dimension),
-                binding.is_signed);
-            logged_missing_texture_warning_ = true;
-          }
-        }
-        if (texture) {
-          IRDescriptorTableSetTexture(&stage_res_entries[srv_slot], texture,
-                                      0.0f, 0);
-          track_texture_usage(texture);
-        }
-      }
-    };
-
-    auto bind_shader_samplers = [&](const char* stage, MetalShader* shader,
-                                    IRDescriptorTableEntry* stage_smp_entries) {
-      if (!shader || !texture_cache_) {
-        return;
-      }
-      const auto& sampler_bindings =
-          shader->GetSamplerBindingsAfterTranslation();
-      for (size_t sampler_index = 0; sampler_index < sampler_bindings.size();
-           ++sampler_index) {
-        if (sampler_index >= kSamplerHeapSlotsPerTable) {
-          break;
-        }
-        auto parameters = texture_cache_->GetSamplerParameters(
-            sampler_bindings[sampler_index]);
-        MTL::SamplerState* sampler_state =
-            texture_cache_->GetOrCreateSampler(parameters);
-        if (!sampler_state) {
-          sampler_state = null_sampler_;
-        }
-        if (sampler_state) {
-          IRDescriptorTableSetSampler(&stage_smp_entries[sampler_index],
-                                      sampler_state, 0.0f);
-        }
-      }
-    };
-
-    bind_shader_textures("VS", vertex_shader, res_entries_vertex);
-    bind_shader_textures("PS", pixel_shader, res_entries_pixel);
-    bind_shader_samplers("VS", vertex_shader, smp_entries_vertex);
-    bind_shader_samplers("PS", pixel_shader, smp_entries_pixel);
-
-    for (uint32_t i = 0; i < textures_for_encoder_count; ++i) {
-      UseRenderEncoderResource(textures_for_encoder[i], MTL::ResourceUsageRead);
-    }
-
-    UseRenderEncoderResource(null_buffer_, MTL::ResourceUsageRead);
-    UseRenderEncoderResource(null_texture_, MTL::ResourceUsageRead);
-    UseRenderEncoderResource(res_heap_ab_, MTL::ResourceUsageRead);
-    UseRenderEncoderResource(smp_heap_ab_, MTL::ResourceUsageRead);
-    UseRenderEncoderResource(top_level_ab_, MTL::ResourceUsageRead);
-    UseRenderEncoderResource(cbv_heap_ab_, MTL::ResourceUsageRead);
-    UseRenderEncoderResource(uniforms_buffer_, MTL::ResourceUsageRead);
-
-    auto write_top_level_and_cbvs = [&](size_t table_index,
-                                        uint64_t res_table_gpu_base,
-                                        uint64_t uav_table_gpu_base,
-                                        uint64_t smp_table_gpu_base,
-                                        IRDescriptorTableEntry* cbv_entries,
-                                        uint64_t uniforms_gpu_base) {
-      size_t top_level_offset = table_index * kTopLevelABBytesPerTable;
-      auto* top_level_ptrs = reinterpret_cast<uint64_t*>(
-          static_cast<uint8_t*>(top_level_ab_->contents()) + top_level_offset);
-      std::memset(top_level_ptrs, 0, kTopLevelABBytesPerTable);
-
-      for (int i = 0; i < 4; ++i) {
-        top_level_ptrs[i] = res_table_gpu_base;
-      }
-      top_level_ptrs[4] = res_table_gpu_base;
-      for (int i = 5; i < 9; ++i) {
-        top_level_ptrs[i] = uav_table_gpu_base;
-      }
-      top_level_ptrs[9] = smp_table_gpu_base;
-
-      IRDescriptorTableSetBuffer(&cbv_entries[0],
-                                 uniforms_gpu_base + 0 * kCbvSizeBytes,
-                                 kCbvSizeBytes);
-      IRDescriptorTableSetBuffer(&cbv_entries[1],
-                                 uniforms_gpu_base + 1 * kCbvSizeBytes,
-                                 kCbvSizeBytes);
-      IRDescriptorTableSetBuffer(&cbv_entries[2],
-                                 uniforms_gpu_base + 2 * kCbvSizeBytes,
-                                 kCbvSizeBytes);
-      IRDescriptorTableSetBuffer(&cbv_entries[3],
-                                 uniforms_gpu_base + 3 * kCbvSizeBytes,
-                                 kCbvSizeBytes);
-      IRDescriptorTableSetBuffer(&cbv_entries[4],
-                                 uniforms_gpu_base + 4 * kCbvSizeBytes,
-                                 kCbvSizeBytes);
-      IRDescriptorTableSetBuffer(&cbv_entries[5], null_buffer_->gpuAddress(),
-                                 kCbvSizeBytes);
-      IRDescriptorTableSetBuffer(&cbv_entries[6], null_buffer_->gpuAddress(),
-                                 kCbvSizeBytes);
-
-      uint64_t cbv_table_gpu_base =
-          cbv_heap_ab_->gpuAddress() +
-          table_index * kCbvHeapSlotsPerTable * sizeof(IRDescriptorTableEntry);
-      top_level_ptrs[10] = cbv_table_gpu_base;
-      top_level_ptrs[11] = cbv_table_gpu_base;
-      top_level_ptrs[12] = cbv_table_gpu_base;
-      top_level_ptrs[13] = cbv_table_gpu_base;
-    };
-
-    write_top_level_and_cbvs(table_index_vertex, res_heap_gpu_base_vertex,
-                             uav_heap_gpu_base_vertex, smp_heap_gpu_base_vertex,
-                             cbv_entries_vertex, uniforms_gpu_base_vertex);
-    write_top_level_and_cbvs(table_index_pixel, res_heap_gpu_base_pixel,
-                             uav_heap_gpu_base_pixel, smp_heap_gpu_base_pixel,
-                             cbv_entries_pixel, uniforms_gpu_base_pixel);
-
-    if (use_geometry_emulation || use_tessellation_emulation) {
-      current_render_encoder_->setObjectBuffer(
-          top_level_ab_, table_index_vertex * kTopLevelABBytesPerTable,
-          kIRArgumentBufferBindPoint);
-      current_render_encoder_->setMeshBuffer(
-          top_level_ab_, table_index_vertex * kTopLevelABBytesPerTable,
-          kIRArgumentBufferBindPoint);
-      current_render_encoder_->setFragmentBuffer(
-          top_level_ab_, table_index_pixel * kTopLevelABBytesPerTable,
-          kIRArgumentBufferBindPoint);
-
-      if (use_tessellation_emulation) {
-        current_render_encoder_->setObjectBuffer(
-            top_level_ab_, table_index_vertex * kTopLevelABBytesPerTable,
-            kIRArgumentBufferHullDomainBindPoint);
-        current_render_encoder_->setMeshBuffer(
-            top_level_ab_, table_index_vertex * kTopLevelABBytesPerTable,
-            kIRArgumentBufferHullDomainBindPoint);
-      }
-
-      current_render_encoder_->setObjectBuffer(res_heap_ab_, 0,
-                                               kIRDescriptorHeapBindPoint);
-      current_render_encoder_->setMeshBuffer(res_heap_ab_, 0,
-                                             kIRDescriptorHeapBindPoint);
-      current_render_encoder_->setFragmentBuffer(res_heap_ab_, 0,
-                                                 kIRDescriptorHeapBindPoint);
-      current_render_encoder_->setObjectBuffer(smp_heap_ab_, 0,
-                                               kIRSamplerHeapBindPoint);
-      current_render_encoder_->setMeshBuffer(smp_heap_ab_, 0,
-                                             kIRSamplerHeapBindPoint);
-      current_render_encoder_->setFragmentBuffer(smp_heap_ab_, 0,
-                                                 kIRSamplerHeapBindPoint);
-    } else {
-      current_render_encoder_->setVertexBuffer(
-          top_level_ab_, table_index_vertex * kTopLevelABBytesPerTable,
-          kIRArgumentBufferBindPoint);
-      current_render_encoder_->setFragmentBuffer(
-          top_level_ab_, table_index_pixel * kTopLevelABBytesPerTable,
-          kIRArgumentBufferBindPoint);
-
-      current_render_encoder_->setVertexBuffer(res_heap_ab_, 0,
-                                               kIRDescriptorHeapBindPoint);
-      current_render_encoder_->setFragmentBuffer(res_heap_ab_, 0,
-                                                 kIRDescriptorHeapBindPoint);
-      current_render_encoder_->setVertexBuffer(smp_heap_ab_, 0,
-                                               kIRSamplerHeapBindPoint);
-      current_render_encoder_->setFragmentBuffer(smp_heap_ab_, 0,
-                                                 kIRSamplerHeapBindPoint);
-    }
-  }
-
-  // Bind vertex buffers / descriptors.
-  if (use_geometry_emulation || use_tessellation_emulation) {
-    IRRuntimeVertexBuffers vertex_buffers = {};
-    MTL::Buffer* shared_mem_buffer =
-        shared_memory_ ? shared_memory_->GetBuffer() : nullptr;
-    if (shared_mem_buffer) {
-      UseRenderEncoderResource(shared_mem_buffer, shared_memory_usage);
-      for (uint32_t i = 0; i < vertex_range_count; ++i) {
-        const auto& range = vertex_ranges[i];
-        size_t binding_index = range.binding_index;
-        if (binding_index <
-            (sizeof(vertex_buffers) / sizeof(vertex_buffers[0]))) {
-          vertex_buffers[binding_index].addr =
-              shared_mem_buffer->gpuAddress() + range.offset;
-          vertex_buffers[binding_index].length = range.length;
-          vertex_buffers[binding_index].stride = range.stride;
-        }
-      }
-    }
-    // MSC manual: bind IRRuntimeVertexBuffers at kIRVertexBufferBindPoint (6)
-    // for the object stage when using geometry emulation.
-    current_render_encoder_->setObjectBytes(
-        vertex_buffers, sizeof(vertex_buffers), kIRVertexBufferBindPoint);
-  } else if (uses_vertex_fetch) {
-    // Vertex fetch shaders read directly from shared memory via SRV, so avoid
-    // stage-in bindings that can trigger invalid buffer loads.
-    if (shared_memory_) {
-      if (MTL::Buffer* shared_mem_buffer = shared_memory_->GetBuffer()) {
-        UseRenderEncoderResource(shared_mem_buffer, shared_memory_usage);
+  if (pixel_shader) {
+    const Shader::ConstantRegisterMap& float_constant_map_pixel =
+        pixel_shader->constant_register_map();
+    for (uint32_t i = 0; i < 4; ++i) {
+      if (msl_current_float_constant_map_pixel_[i] !=
+          float_constant_map_pixel.float_bitmap[i]) {
+        msl_current_float_constant_map_pixel_[i] =
+            float_constant_map_pixel.float_bitmap[i];
+        msl_float_constants_dirty_pixel_ = true;
       }
     }
   } else {
-    // Bind vertex buffers at kIRVertexBufferBindPoint (index 6+) for stage-in.
-    // The pipeline's vertex descriptor expects buffers at these indices,
-    // populated from the vertex fetch constants. The buffer addresses come from
-    // shared memory.
-    if (shared_memory_ && !vb_bindings.empty()) {
-      MTL::Buffer* shared_mem_buffer = shared_memory_->GetBuffer();
-      if (shared_mem_buffer) {
-        // Mark shared memory as used for reading
-        UseRenderEncoderResource(shared_mem_buffer, shared_memory_usage);
-
-        // Bind vertex buffers for each binding
-        for (uint32_t i = 0; i < vertex_range_count; ++i) {
-          const auto& range = vertex_ranges[i];
-          uint64_t buffer_index =
-              kIRVertexBufferBindPoint + uint64_t(range.binding_index);
-          current_render_encoder_->setVertexBuffer(shared_mem_buffer,
-                                                   range.offset, buffer_index);
-        }
-      }
-    } else if (shared_memory_) {
-      // No vertex bindings, but still mark shared memory as resident
-      if (MTL::Buffer* shared_mem_buffer = shared_memory_->GetBuffer()) {
-        UseRenderEncoderResource(shared_mem_buffer, shared_memory_usage);
+    for (uint32_t i = 0; i < 4; ++i) {
+      if (msl_current_float_constant_map_pixel_[i] != 0) {
+        msl_current_float_constant_map_pixel_[i] = 0;
+        msl_float_constants_dirty_pixel_ = true;
       }
     }
+  }
+
+  auto rebuild_packed_float_constants =
+      [&](std::array<uint8_t, kCbvSizeBytes>& dst, const Shader* shader,
+          uint32_t regs_base) {
+        std::memset(dst.data(), 0, kCbvSizeBytes);
+        if (!shader) {
+          return;
+        }
+        const Shader::ConstantRegisterMap& map =
+            shader->constant_register_map();
+        if (!map.float_count) {
+          return;
+        }
+        uint8_t* out = dst.data();
+        for (uint32_t i = 0; i < 4; ++i) {
+          uint64_t bits = map.float_bitmap[i];
+          uint32_t constant_index;
+          while (xe::bit_scan_forward(bits, &constant_index)) {
+            bits &= ~(uint64_t(1) << constant_index);
+            if (out + 4 * sizeof(uint32_t) > dst.data() + kCbvSizeBytes) {
+              return;
+            }
+            std::memcpy(
+                out, &regs.values[regs_base + (i << 8) + (constant_index << 2)],
+                4 * sizeof(uint32_t));
+            out += 4 * sizeof(uint32_t);
+          }
+        }
+      };
+  if (msl_float_constants_dirty_vertex_) {
+    rebuild_packed_float_constants(msl_cached_float_constants_vertex_,
+                                   vertex_shader,
+                                   XE_GPU_REG_SHADER_CONSTANT_000_X);
+    msl_float_constants_dirty_vertex_ = false;
+  }
+  if (msl_float_constants_dirty_pixel_) {
+    rebuild_packed_float_constants(msl_cached_float_constants_pixel_,
+                                   pixel_shader,
+                                   XE_GPU_REG_SHADER_CONSTANT_256_X);
+    msl_float_constants_dirty_pixel_ = false;
+  }
+
+  if (msl_bool_loop_constants_dirty_) {
+    std::memcpy(msl_cached_bool_loop_constants_.data(),
+                &regs.values[XE_GPU_REG_SHADER_CONSTANT_BOOL_000_031],
+                kBoolLoopConstantsSize);
+    msl_bool_loop_constants_dirty_ = false;
+  }
+  if (msl_fetch_constants_dirty_) {
+    std::memcpy(msl_cached_fetch_constants_.data(),
+                &regs.values[XE_GPU_REG_SHADER_CONSTANT_FETCH_00_0],
+                kFetchConstantsSize);
+    msl_fetch_constants_dirty_ = false;
+  }
+}
+
+bool MetalCommandProcessor::ResolveDrawIndexBuffer(
+    const PrimitiveProcessor::ProcessingResult& primitive_processing_result,
+    Shader::HostVertexShaderType host_vertex_shader_type, bool tessellated,
+    DrawIndexBuffer& index_buffer_out) {
+  index_buffer_out = DrawIndexBuffer();
+  // A tessellated draw feeds patches to the tessellator, so its host primitive
+  // type is not one of the rasterizer topologies below.
+  switch (tessellated ? xenos::PrimitiveType::kTriangleList
+                      : primitive_processing_result.host_primitive_type) {
+    case xenos::PrimitiveType::kPointList:
+      index_buffer_out.primitive_type = MTL::PrimitiveTypePoint;
+      break;
+    case xenos::PrimitiveType::kLineList:
+      index_buffer_out.primitive_type = MTL::PrimitiveTypeLine;
+      break;
+    case xenos::PrimitiveType::kLineStrip:
+      index_buffer_out.primitive_type = MTL::PrimitiveTypeLineStrip;
+      break;
+    case xenos::PrimitiveType::kTriangleList:
+    case xenos::PrimitiveType::kRectangleList:
+      index_buffer_out.primitive_type = MTL::PrimitiveTypeTriangle;
+      break;
+    case xenos::PrimitiveType::kTriangleStrip:
+      index_buffer_out.primitive_type = MTL::PrimitiveTypeTriangleStrip;
+      break;
+    default:
+      XELOGE("Metal: Unsupported host primitive type {}",
+             uint32_t(primitive_processing_result.host_primitive_type));
+      return false;
   }
 
   auto request_guest_index_range = [&](uint64_t index_base,
@@ -2895,314 +3463,1679 @@ bool MetalCommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
     uint64_t index_length = uint64_t(index_count) * index_stride;
     if (index_base > SharedMemory::kBufferSize ||
         SharedMemory::kBufferSize - index_base < index_length) {
-      XELOGW(
-          "Index buffer range out of bounds (base=0x{:08X} size={} count={})",
-          static_cast<uint32_t>(index_base), index_length, index_count);
       return false;
     }
     return shared_memory_->RequestRange(static_cast<uint32_t>(index_base),
                                         static_cast<uint32_t>(index_length));
   };
 
-  if (use_tessellation_emulation) {
-    IRRuntimePrimitiveType tess_primitive = IRRuntimePrimitiveTypeTriangle;
-    switch (primitive_processing_result.host_primitive_type) {
-      case xenos::PrimitiveType::kTriangleList:
-        tess_primitive = IRRuntimePrimitiveType3ControlPointPatchlist;
+  bool use_expansion_triangle_list_fallback = false;
+  index_buffer_out.index_count =
+      primitive_processing_result.host_draw_vertex_count;
+  if ((host_vertex_shader_type ==
+           Shader::HostVertexShaderType::kPointListAsTriangleStrip ||
+       host_vertex_shader_type ==
+           Shader::HostVertexShaderType::kRectangleListAsTriangleStrip) &&
+      (primitive_processing_result.index_buffer_type ==
+           PrimitiveProcessor::ProcessedIndexBufferType::kHostBuiltinForAuto ||
+       primitive_processing_result.index_buffer_type ==
+           PrimitiveProcessor::ProcessedIndexBufferType::kHostBuiltinForDMA)) {
+    // Expansion strips normally rely on primitive restart separators. Keep a
+    // Metal-local triangle-list fallback to avoid dependence on strip restart
+    // behavior.
+    uint32_t strip_index_count = index_buffer_out.index_count;
+    uint32_t expanded_primitive_count =
+        strip_index_count ? (strip_index_count + 1u) / 5u : 0u;
+    index_buffer_out.index_count = expanded_primitive_count * 6u;
+    index_buffer_out.primitive_type = MTL::PrimitiveTypeTriangle;
+    use_expansion_triangle_list_fallback = true;
+    static bool logged_expansion_triangle_list_fallback = false;
+    if (!logged_expansion_triangle_list_fallback) {
+      logged_expansion_triangle_list_fallback = true;
+      XELOGW(
+          "Metal: Using triangle-list fallback for VS primitive expansion "
+          "draws to avoid strip-restart dependency");
+    }
+  }
+
+  if (primitive_processing_result.index_buffer_type ==
+      PrimitiveProcessor::ProcessedIndexBufferType::kNone) {
+    return true;
+  }
+
+  index_buffer_out.indexed = true;
+  index_buffer_out.index_type =
+      (primitive_processing_result.host_index_format ==
+       xenos::IndexFormat::kInt16)
+          ? MTL::IndexTypeUInt16
+          : MTL::IndexTypeUInt32;
+  switch (primitive_processing_result.index_buffer_type) {
+    case PrimitiveProcessor::ProcessedIndexBufferType::kGuestDMA:
+      index_buffer_out.buffer =
+          shared_memory_ ? shared_memory_->GetBuffer() : nullptr;
+      index_buffer_out.offset = primitive_processing_result.guest_index_base;
+      if (!request_guest_index_range(index_buffer_out.offset,
+                                     index_buffer_out.index_count,
+                                     index_buffer_out.index_type)) {
+        XELOGE("Metal: Failed to validate guest index buffer range");
+        return false;
+      }
+      break;
+    case PrimitiveProcessor::ProcessedIndexBufferType::kHostConverted:
+      if (primitive_processor_) {
+        index_buffer_out.buffer = primitive_processor_->GetConvertedIndexBuffer(
+            primitive_processing_result.host_index_buffer_handle,
+            index_buffer_out.offset);
+      }
+      break;
+    case PrimitiveProcessor::ProcessedIndexBufferType::kHostBuiltinForAuto:
+    case PrimitiveProcessor::ProcessedIndexBufferType::kHostBuiltinForDMA:
+      if (primitive_processor_) {
+        if (use_expansion_triangle_list_fallback) {
+          index_buffer_out.buffer =
+              primitive_processor_->GetExpansionTriangleListIndexBuffer();
+          index_buffer_out.offset = 0;
+          index_buffer_out.index_type = MTL::IndexTypeUInt32;
+        } else {
+          index_buffer_out.buffer =
+              primitive_processor_->GetBuiltinIndexBuffer();
+          index_buffer_out.offset =
+              primitive_processing_result.host_index_buffer_handle;
+        }
+      }
+      break;
+    default:
+      XELOGE("Metal: Unsupported index buffer type {}",
+             uint32_t(primitive_processing_result.index_buffer_type));
+      return false;
+  }
+  if (!index_buffer_out.buffer) {
+    XELOGE("Metal: Index buffer is null");
+    return false;
+  }
+  return true;
+}
+
+// ==========================================================================
+// SPIRV-Cross (MSL) draw path
+// ==========================================================================
+bool MetalCommandProcessor::IssueDrawMsl(
+    Shader* vertex_shader, Shader* pixel_shader,
+    const PrimitiveProcessor::ProcessingResult& primitive_processing_result,
+    bool primitive_polygonal, bool is_rasterization_done, bool memexport_used,
+    uint32_t normalized_color_mask, const RegisterFile& regs) {
+  SCOPE_profile_cpu_f("gpu");
+  assert_not_null(vertex_shader);
+  // Cast to MslShader for the SPIRV-Cross path.
+  auto* msl_vertex_shader = static_cast<MslShader*>(vertex_shader);
+  auto* msl_pixel_shader = static_cast<MslShader*>(pixel_shader);
+
+  // Tessellation draws use Metal's native tessellation: tessellation factors
+  // are computed on the CPU and the domain shader (TES) runs as the
+  // post-tessellation vertex function.
+  const bool is_tessellated = primitive_processing_result.IsTessellated();
+
+  // Determine the host vertex shader type for geometry expansion.
+  // The primitive processor has already set kPointListAsTriangleStrip or
+  // kRectangleListAsTriangleStrip when VS expansion is needed (enabled by
+  // setting point_sprites_supported_without_vs_expansion = false in the
+  // primitive processor init when spirvcross is active).
+  Shader::HostVertexShaderType host_vertex_shader_type =
+      primitive_processing_result.host_vertex_shader_type;
+
+  // Compute interpolator mask for shader modifications.
+  uint32_t ps_param_gen_pos = UINT32_MAX;
+  uint32_t interpolator_mask = 0;
+  if (msl_pixel_shader) {
+    interpolator_mask = msl_vertex_shader->writes_interpolators() &
+                        msl_pixel_shader->GetInterpolatorInputMask(
+                            regs.Get<reg::SQ_PROGRAM_CNTL>(),
+                            regs.Get<reg::SQ_CONTEXT_MISC>(), ps_param_gen_pos);
+  }
+
+  auto normalized_depth_control = draw_util::GetNormalizedDepthControl(regs);
+
+  // Compute SPIRV shader modifications.
+  SpirvShaderTranslator::Modification vertex_shader_modification =
+      GetCurrentSpirvVertexShaderModification(
+          *msl_vertex_shader, host_vertex_shader_type, interpolator_mask);
+  SpirvShaderTranslator::Modification pixel_shader_modification =
+      msl_pixel_shader
+          ? GetCurrentSpirvPixelShaderModification(
+                *msl_pixel_shader, interpolator_mask, ps_param_gen_pos,
+                normalized_depth_control, normalized_color_mask)
+          : SpirvShaderTranslator::Modification(0);
+
+  // Sanity: if a pixel shader writes color targets and any RT is enabled,
+  // color_targets_used must be non-zero or fragments will produce no output.
+  if (msl_pixel_shader && msl_pixel_shader->writes_color_targets() &&
+      normalized_color_mask) {
+    assert_not_zero(pixel_shader_modification.pixel.color_targets_used);
+  }
+
+  // A counted draw needs the guest's own shaders. The placeholder has no pixel
+  // kills or alpha test and overcounts, and a skipped draw counts nothing.
+  const bool exact_shaders_required =
+      GetZPDMode() != ZPDMode::kFake && !zpd_force_fake_fallback_ &&
+      zpd_current_report_.handle != kInvalidReportHandle;
+
+  // Get or create shader translations. Both are asked for before either is
+  // waited on, so their compiles overlap instead of taking a frame each.
+  ShaderCompileStatus vertex_status = ShaderCompileStatus::kReady;
+  ShaderCompileStatus pixel_status = ShaderCompileStatus::kReady;
+  auto* vertex_translation =
+      static_cast<MslShader::MslTranslation*>(GetOrCreateHostTranslation(
+          *msl_vertex_shader, vertex_shader_modification.value,
+          !exact_shaders_required && cvars::async_shader_skip_draws,
+          &vertex_status));
+  MslShader::MslTranslation* pixel_translation = nullptr;
+  if (msl_pixel_shader) {
+    pixel_translation =
+        static_cast<MslShader::MslTranslation*>(GetOrCreateHostTranslation(
+            *msl_pixel_shader, pixel_shader_modification.value,
+            !exact_shaders_required &&
+                (!is_tessellated || cvars::async_shader_skip_draws),
+            &pixel_status));
+  }
+  if (vertex_status == ShaderCompileStatus::kFailed ||
+      pixel_status == ShaderCompileStatus::kFailed) {
+    return false;
+  }
+  // Nothing can stand in for the vertex shader, so its draws wait.
+  if (vertex_status != ShaderCompileStatus::kReady) {
+    LogShaderCompilePending(vertex_translation, "vertex");
+    return true;
+  }
+
+  // Create or retrieve pipeline state.
+  MTL::RenderPipelineState* pipeline = nullptr;
+  bool bound_placeholder = false;
+  PipelineCompileStatus pipeline_compile_status = PipelineCompileStatus::kReady;
+  if (is_tessellated) {
+    if (pixel_status != ShaderCompileStatus::kReady) {
+      LogShaderCompilePending(pixel_translation, "pixel");
+      return true;
+    }
+    pipeline = GetOrCreateMslTessPipelineState(
+        vertex_translation, pixel_translation, host_vertex_shader_type, regs,
+        &pipeline_compile_status);
+  } else if (pixel_status == ShaderCompileStatus::kReady) {
+    pipeline = GetOrCreatePipelineState(vertex_translation, pixel_translation,
+                                        regs, &pipeline_compile_status);
+  }
+  if (!pipeline && exact_shaders_required &&
+      pipeline_compile_status == PipelineCompileStatus::kPending) {
+    AwaitAsyncCompiles();
+    pipeline =
+        is_tessellated
+            ? GetOrCreateMslTessPipelineState(
+                  vertex_translation, pixel_translation,
+                  host_vertex_shader_type, regs, &pipeline_compile_status)
+            : GetOrCreatePipelineState(vertex_translation, pixel_translation,
+                                       regs, &pipeline_compile_status);
+  }
+  if (!pipeline && !is_tessellated && !exact_shaders_required &&
+      (pixel_status != ShaderCompileStatus::kReady ||
+       pipeline_compile_status == PipelineCompileStatus::kPending)) {
+    pipeline = GetOrCreatePlaceholderPipelineState(vertex_translation, regs);
+    bound_placeholder = pipeline != nullptr;
+  }
+  if (!pipeline) {
+    if (pipeline_compile_status == PipelineCompileStatus::kPending ||
+        pixel_status != ShaderCompileStatus::kReady) {
+      LogPipelineCompilePending(vertex_translation, pixel_translation);
+      return true;
+    }
+    return false;
+  }
+  // The placeholder has no fragment function, so the pixel stage's resources
+  // must not be bound to it.
+  MslShader* bind_pixel_shader = bound_placeholder ? nullptr : msl_pixel_shader;
+  MslShader::MslTranslation* bind_pixel_translation =
+      bound_placeholder ? nullptr : pixel_translation;
+  if (bound_placeholder) {
+    LogPlaceholderDraw(vertex_translation, pixel_translation);
+  }
+
+  // Request textures used by the shaders. A placeholder samples none of the
+  // pixel shader's, and their binding list may still be being filled.
+  uint32_t used_texture_mask =
+      msl_vertex_shader->GetUsedTextureMaskAfterTranslation();
+  if (bind_pixel_shader) {
+    used_texture_mask |=
+        bind_pixel_shader->GetUsedTextureMaskAfterTranslation();
+  }
+
+  if (!PrepareDrawTextures(used_texture_mask, regs)) {
+    return true;
+  }
+
+  if (!RequestDrawSharedMemoryRanges(*msl_vertex_shader, regs)) {
+    return false;
+  }
+
+  draw_util::ViewportInfo viewport_info;
+  ComputeDrawViewportInfo(regs, msl_pixel_shader, normalized_depth_control,
+                          viewport_info);
+  ApplyViewportAndScissor(regs, viewport_info);
+
+  // Apply fixed-function state.
+  if (msl_bound_pipeline_state_ != pipeline) {
+    current_render_encoder_->setRenderPipelineState(pipeline);
+    msl_bound_pipeline_state_ = pipeline;
+  }
+  ApplyRasterizerState(primitive_polygonal);
+  ApplyDepthStencilState(primitive_polygonal, normalized_depth_control);
+
+  // Update SPIRV system constants.
+  UpdateSpirvSystemConstantValues(
+      primitive_processing_result, primitive_polygonal,
+      primitive_processing_result.line_loop_closing_index,
+      primitive_processing_result.host_shader_index_endian, viewport_info,
+      used_texture_mask, normalized_depth_control, normalized_color_mask);
+
+  // Blend constants (fixed-function, same as MSC path).
+  float blend_constants[] = {
+      regs.Get<float>(XE_GPU_REG_RB_BLEND_RED),
+      regs.Get<float>(XE_GPU_REG_RB_BLEND_GREEN),
+      regs.Get<float>(XE_GPU_REG_RB_BLEND_BLUE),
+      regs.Get<float>(XE_GPU_REG_RB_BLEND_ALPHA),
+  };
+  if (!ff_blend_factor_valid_ ||
+      std::memcmp(ff_blend_factor_, blend_constants, sizeof(float) * 4) != 0) {
+    std::memcpy(ff_blend_factor_, blend_constants, sizeof(float) * 4);
+    ff_blend_factor_valid_ = true;
+    current_render_encoder_->setBlendColor(
+        blend_constants[0], blend_constants[1], blend_constants[2],
+        blend_constants[3]);
+  }
+
+  // =====================================================================
+  // Resource binding — direct Metal encoder calls, no IRDescriptorTable.
+  // =====================================================================
+  constexpr uint32_t kCBVSize = MslBufferIndex::kCbvSizeBytes;
+  uint32_t ring_index = current_draw_index_ % uint32_t(draw_ring_count_);
+  constexpr size_t kStageVertex = 0;
+  constexpr size_t kStagePixel = 1;
+  size_t table_index_vertex = size_t(ring_index) * kStageCount + kStageVertex;
+  size_t table_index_pixel = size_t(ring_index) * kStageCount + kStagePixel;
+
+  uint8_t* uniforms_base = static_cast<uint8_t*>(uniforms_buffer_->contents());
+  uint8_t* uniforms_vertex =
+      uniforms_base + table_index_vertex * kUniformsBytesPerTable;
+  uint8_t* uniforms_pixel =
+      uniforms_base + table_index_pixel * kUniformsBytesPerTable;
+  if (msl_constants_versioned_uniform_buffer_ != uniforms_buffer_) {
+    msl_constants_versioned_uniform_buffer_ = uniforms_buffer_;
+    std::fill(msl_system_constants_written_vertex_versions_.begin(),
+              msl_system_constants_written_vertex_versions_.end(), uint64_t(0));
+    std::fill(msl_system_constants_written_pixel_versions_.begin(),
+              msl_system_constants_written_pixel_versions_.end(), uint64_t(0));
+  }
+  auto ensure_uniform_versions_size = [&](std::vector<uint64_t>& versions) {
+    if (versions.size() != draw_ring_count_) {
+      versions.assign(draw_ring_count_, 0);
+    }
+  };
+  ensure_uniform_versions_size(msl_system_constants_written_vertex_versions_);
+  ensure_uniform_versions_size(msl_system_constants_written_pixel_versions_);
+  const size_t ring_index_size = size_t(ring_index);
+  auto copy_uniform_block_if_stale =
+      [&](uint8_t* dst, const void* src, size_t size,
+          std::vector<uint64_t>& written_versions, uint64_t source_version) {
+        if (ring_index_size >= written_versions.size()) {
+          return;
+        }
+        if (written_versions[ring_index_size] != source_version) {
+          std::memcpy(dst, src, size);
+          written_versions[ring_index_size] = source_version;
+        }
+      };
+
+  // b0 (msl_buffer 1): System constants.
+  copy_uniform_block_if_stale(uniforms_vertex, &spirv_system_constants_,
+                              sizeof(SpirvShaderTranslator::SystemConstants),
+                              msl_system_constants_written_vertex_versions_,
+                              msl_system_constants_version_);
+  copy_uniform_block_if_stale(uniforms_pixel, &spirv_system_constants_,
+                              sizeof(SpirvShaderTranslator::SystemConstants),
+                              msl_system_constants_written_pixel_versions_,
+                              msl_system_constants_version_);
+
+  UpdateGuestConstantCaches(msl_vertex_shader, msl_pixel_shader, regs);
+
+  // b1 (msl_buffer 2/3): Float constants.
+  const size_t kFloatConstantOffset = 1 * kCBVSize;
+  std::memcpy(uniforms_vertex + kFloatConstantOffset,
+              msl_cached_float_constants_vertex_.data(), kCBVSize);
+  std::memcpy(uniforms_pixel + kFloatConstantOffset,
+              msl_cached_float_constants_pixel_.data(), kCBVSize);
+
+  // b2 (msl_buffer 4): Bool/loop constants.
+  const size_t kBoolLoopConstantOffset = 2 * kCBVSize;
+  std::memcpy(uniforms_vertex + kBoolLoopConstantOffset,
+              msl_cached_bool_loop_constants_.data(), kBoolLoopConstantsSize);
+  std::memcpy(uniforms_pixel + kBoolLoopConstantOffset,
+              msl_cached_bool_loop_constants_.data(), kBoolLoopConstantsSize);
+
+  // b3 (msl_buffer 5): Fetch constants.
+  const size_t kFetchConstantOffset = 3 * kCBVSize;
+  std::memcpy(uniforms_vertex + kFetchConstantOffset,
+              msl_cached_fetch_constants_.data(), kFetchConstantsSize);
+  std::memcpy(uniforms_pixel + kFetchConstantOffset,
+              msl_cached_fetch_constants_.data(), kFetchConstantsSize);
+
+  // Keep binding behavior conservative while using per-encoder dedupe caches.
+  const bool msl_bind_dedupe = true;
+
+  // Bind shared memory buffer at msl_buffer 0.
+  MTL::Buffer* shared_mem_buffer =
+      shared_memory_ ? shared_memory_->GetBuffer() : nullptr;
+  MTL::ResourceUsage shared_memory_usage = MTL::ResourceUsageRead;
+  if (memexport_used) {
+    shared_memory_usage |= MTL::ResourceUsageWrite;
+  }
+  if (!msl_bind_dedupe ||
+      msl_bound_shared_memory_buffer_ != shared_mem_buffer) {
+    current_render_encoder_->setVertexBuffer(shared_mem_buffer, 0,
+                                             MslBufferIndex::kSharedMemory);
+    current_render_encoder_->setFragmentBuffer(shared_mem_buffer, 0,
+                                               MslBufferIndex::kSharedMemory);
+    msl_bound_shared_memory_buffer_ = shared_mem_buffer;
+  }
+  if (shared_mem_buffer) {
+    UseRenderEncoderResource(shared_mem_buffer, shared_memory_usage);
+  }
+
+  // Bind a null buffer at the EDRAM slot (msl_buffer 30) as a safety measure.
+  // FSI/EDRAM is disabled on this path (fragment_shader_sample_interlock =
+  // false), so no shader should reference it, but binding a dummy prevents
+  // GPU faults if any code path unexpectedly accesses buffer(30).
+  if (!msl_bind_dedupe || msl_bound_null_buffer_ != null_buffer_) {
+    current_render_encoder_->setFragmentBuffer(null_buffer_, 0, 30);
+    msl_bound_null_buffer_ = null_buffer_;
+  }
+
+  // Bind uniforms buffer at the appropriate indices.
+  NS::UInteger vs_base_offset = table_index_vertex * kUniformsBytesPerTable;
+  NS::UInteger ps_base_offset = table_index_pixel * kUniformsBytesPerTable;
+  if (!msl_bind_dedupe || !msl_bound_uniforms_offsets_valid_ ||
+      msl_bound_uniforms_buffer_ != uniforms_buffer_ ||
+      msl_bound_uniforms_vs_base_offset_ != vs_base_offset ||
+      msl_bound_uniforms_ps_base_offset_ != ps_base_offset) {
+    // System constants (msl_buffer 1).
+    current_render_encoder_->setVertexBuffer(uniforms_buffer_,
+                                             vs_base_offset + 0 * kCBVSize,
+                                             MslBufferIndex::kSystemConstants);
+    current_render_encoder_->setFragmentBuffer(
+        uniforms_buffer_, ps_base_offset + 0 * kCBVSize,
+        MslBufferIndex::kSystemConstants);
+
+    // Float constants vertex (msl_buffer 2).
+    current_render_encoder_->setVertexBuffer(
+        uniforms_buffer_, vs_base_offset + 1 * kCBVSize,
+        MslBufferIndex::kFloatConstantsVertex);
+    // Float constants pixel (msl_buffer 3).
+    current_render_encoder_->setFragmentBuffer(
+        uniforms_buffer_, ps_base_offset + 1 * kCBVSize,
+        MslBufferIndex::kFloatConstantsPixel);
+
+    // Bool/loop constants (msl_buffer 4).
+    current_render_encoder_->setVertexBuffer(
+        uniforms_buffer_, vs_base_offset + 2 * kCBVSize,
+        MslBufferIndex::kBoolLoopConstants);
+    current_render_encoder_->setFragmentBuffer(
+        uniforms_buffer_, ps_base_offset + 2 * kCBVSize,
+        MslBufferIndex::kBoolLoopConstants);
+
+    // Fetch constants (msl_buffer 5).
+    current_render_encoder_->setVertexBuffer(uniforms_buffer_,
+                                             vs_base_offset + 3 * kCBVSize,
+                                             MslBufferIndex::kFetchConstants);
+    current_render_encoder_->setFragmentBuffer(uniforms_buffer_,
+                                               ps_base_offset + 3 * kCBVSize,
+                                               MslBufferIndex::kFetchConstants);
+
+    msl_bound_uniforms_buffer_ = uniforms_buffer_;
+    msl_bound_uniforms_vs_base_offset_ = vs_base_offset;
+    msl_bound_uniforms_ps_base_offset_ = ps_base_offset;
+    msl_bound_uniforms_offsets_valid_ = true;
+  }
+
+  UseRenderEncoderResource(uniforms_buffer_, MTL::ResourceUsageRead);
+
+  const bool vertex_uses_argbuf =
+      vertex_translation && vertex_translation->uses_argument_buffers();
+  const bool pixel_uses_argbuf =
+      bind_pixel_translation && bind_pixel_translation->uses_argument_buffers();
+  auto get_msl_binding_layout_uid =
+      [](const MslShader::MslTranslation* translation) -> uint64_t {
+    if (!translation) {
+      return 0;
+    }
+    const auto& texture_binding_indices =
+        translation->texture_binding_indices_for_msl_slots();
+    const auto& sampler_binding_indices =
+        translation->sampler_binding_indices_for_msl_slots();
+    uint64_t uid = XXH3_64bits(
+        texture_binding_indices.data(),
+        texture_binding_indices.size() * sizeof(texture_binding_indices[0]));
+    uid = XXH3_64bits_withSeed(
+        sampler_binding_indices.data(),
+        sampler_binding_indices.size() * sizeof(sampler_binding_indices[0]),
+        uid);
+    return uid;
+  };
+
+  auto bind_msl_argument_buffer = [&](MslShader* shader,
+                                      MslShader::MslTranslation* translation,
+                                      bool is_pixel_stage) -> bool {
+    if (!shader || !translation || !translation->uses_argument_buffers() ||
+        !texture_cache_) {
+      return true;
+    }
+
+    MTL::ArgumentEncoder* arg_encoder = translation->argument_encoder();
+    uint32_t encoded_length = translation->argument_encoder_encoded_length();
+    if (!arg_encoder || encoded_length == 0) {
+      return true;
+    }
+
+    const auto& texture_bindings = shader->GetTextureBindingsAfterTranslation();
+    const auto& texture_binding_indices =
+        translation->texture_binding_indices_for_msl_slots();
+    uint32_t texture_count = std::min(uint32_t(texture_binding_indices.size()),
+                                      MslTextureIndex::kMaxPerStage);
+    std::array<const MTL::Texture*, MslTextureIndex::kMaxPerStage> textures =
+        {};
+
+    MetalTextureCache* metal_texture_cache = texture_cache_.get();
+    for (uint32_t slot = 0; slot < texture_count; ++slot) {
+      MTL::Texture* texture = nullptr;
+      int32_t texture_binding_index = texture_binding_indices[slot];
+      if (texture_binding_index >= 0 &&
+          size_t(texture_binding_index) < texture_bindings.size()) {
+        const auto& binding = texture_bindings[size_t(texture_binding_index)];
+        texture = texture_cache_->GetTextureForBinding(
+            binding.fetch_constant, binding.dimension, binding.is_signed);
+        if (!texture) {
+          switch (binding.dimension) {
+            case xenos::FetchOpDimension::k3DOrStacked:
+              texture = metal_texture_cache->GetNullTexture3D();
+              break;
+            case xenos::FetchOpDimension::kCube:
+              texture = metal_texture_cache->GetNullTextureCube();
+              break;
+            default:
+              texture = metal_texture_cache->GetNullTexture2D();
+              break;
+          }
+        }
+      } else {
+        texture = metal_texture_cache->GetNullTexture2D();
+      }
+      textures[slot] = texture;
+      // UseRenderEncoderResource must always be called for hazard tracking,
+      // even when we skip re-encoding. The dedup map handles per-encoder
+      // deduplication.
+      if (texture) {
+        UseRenderEncoderResource(texture, MTL::ResourceUsageRead);
+      }
+    }
+
+    const auto& sampler_bindings = shader->GetSamplerBindingsAfterTranslation();
+    const auto& sampler_binding_indices =
+        translation->sampler_binding_indices_for_msl_slots();
+    uint32_t sampler_count = std::min(uint32_t(sampler_binding_indices.size()),
+                                      MslSamplerIndex::kMaxPerStage);
+    std::array<const MTL::SamplerState*, MslSamplerIndex::kMaxPerStage>
+        samplers = {};
+    for (uint32_t smp_index = 0; smp_index < sampler_count; ++smp_index) {
+      MTL::SamplerState* sampler_state = null_sampler_;
+      uint32_t sampler_binding_index = sampler_binding_indices[smp_index];
+      if (sampler_binding_index < sampler_bindings.size()) {
+        auto parameters = texture_cache_->GetSamplerParameters(
+            sampler_bindings[sampler_binding_index]);
+        sampler_state = texture_cache_->GetOrCreateSampler(parameters);
+        if (!sampler_state) {
+          sampler_state = null_sampler_;
+        }
+      }
+      samplers[smp_index] = sampler_state;
+    }
+
+    // Check if textures and samplers match the cached content from the last
+    // encoding. If so, skip the expensive acquire+encode and reuse the previous
+    // argument buffer slice.
+    auto& cached_textures = is_pixel_stage ? msl_last_argbuf_pixel_textures_
+                                           : msl_last_argbuf_vertex_textures_;
+    auto& cached_texture_count = is_pixel_stage
+                                     ? msl_last_argbuf_pixel_texture_count_
+                                     : msl_last_argbuf_vertex_texture_count_;
+    auto& cached_samplers = is_pixel_stage ? msl_last_argbuf_pixel_samplers_
+                                           : msl_last_argbuf_vertex_samplers_;
+    auto& cached_sampler_count = is_pixel_stage
+                                     ? msl_last_argbuf_pixel_sampler_count_
+                                     : msl_last_argbuf_vertex_sampler_count_;
+    auto& cached_argbuf_buffer = is_pixel_stage
+                                     ? msl_last_argbuf_pixel_buffer_
+                                     : msl_last_argbuf_vertex_buffer_;
+    auto& cached_argbuf_offset = is_pixel_stage
+                                     ? msl_last_argbuf_pixel_offset_
+                                     : msl_last_argbuf_vertex_offset_;
+    auto& cached_translation = is_pixel_stage
+                                   ? msl_last_argbuf_pixel_translation_
+                                   : msl_last_argbuf_vertex_translation_;
+    auto& cached_encoded_length = is_pixel_stage
+                                      ? msl_last_argbuf_pixel_encoded_length_
+                                      : msl_last_argbuf_vertex_encoded_length_;
+    auto& cached_layout_uid = is_pixel_stage
+                                  ? msl_last_argbuf_pixel_layout_uid_
+                                  : msl_last_argbuf_vertex_layout_uid_;
+    const uint64_t layout_uid = get_msl_binding_layout_uid(translation);
+
+    bool content_changed = cached_translation != translation ||
+                           cached_encoded_length != encoded_length ||
+                           layout_uid != cached_layout_uid ||
+                           texture_count != cached_texture_count ||
+                           sampler_count != cached_sampler_count ||
+                           !cached_argbuf_buffer;
+    if (!content_changed && texture_count > 0) {
+      content_changed = std::memcmp(textures.data(), cached_textures.data(),
+                                    texture_count * sizeof(textures[0])) != 0;
+    }
+    if (!content_changed && sampler_count > 0) {
+      content_changed = std::memcmp(samplers.data(), cached_samplers.data(),
+                                    sampler_count * sizeof(samplers[0])) != 0;
+    }
+
+    MTL::Buffer* argbuf_buffer;
+    NS::UInteger argbuf_offset;
+
+    if (content_changed) {
+      // Content changed — acquire a new slice and re-encode.
+      argbuf_buffer = nullptr;
+      argbuf_offset = 0;
+      if (!AcquireSpirvArgumentBufferSlice(
+              encoded_length, translation->argument_encoder_alignment(),
+              &argbuf_buffer, &argbuf_offset)) {
+        XELOGE(
+            "SPIRV-Cross: Failed to allocate argument buffer slice ({} bytes)",
+            encoded_length);
+        return false;
+      }
+
+      arg_encoder->setArgumentBuffer(argbuf_buffer, argbuf_offset);
+      if (texture_count) {
+        arg_encoder->setTextures(
+            textures.data(),
+            NS::Range::Make(MslTextureIndex::kBase, texture_count));
+      }
+      if (sampler_count) {
+        arg_encoder->setSamplerStates(
+            samplers.data(),
+            NS::Range::Make(MslArgumentBufferId::kSamplerBase, sampler_count));
+      }
+
+      // Update the cache.
+      std::memcpy(cached_textures.data(), textures.data(),
+                  texture_count * sizeof(textures[0]));
+      if (texture_count < cached_texture_count) {
+        std::memset(&cached_textures[texture_count], 0,
+                    (cached_texture_count - texture_count) *
+                        sizeof(cached_textures[0]));
+      }
+      cached_texture_count = texture_count;
+      std::memcpy(cached_samplers.data(), samplers.data(),
+                  sampler_count * sizeof(samplers[0]));
+      if (sampler_count < cached_sampler_count) {
+        std::memset(&cached_samplers[sampler_count], 0,
+                    (cached_sampler_count - sampler_count) *
+                        sizeof(cached_samplers[0]));
+      }
+      cached_sampler_count = sampler_count;
+      cached_argbuf_buffer = argbuf_buffer;
+      cached_argbuf_offset = argbuf_offset;
+      cached_translation = translation;
+      cached_encoded_length = encoded_length;
+      cached_layout_uid = layout_uid;
+    } else {
+      // Content unchanged — reuse the previous argument buffer slice.
+      argbuf_buffer = cached_argbuf_buffer;
+      argbuf_offset = cached_argbuf_offset;
+    }
+
+    if (is_pixel_stage) {
+      if (argbuf_buffer != msl_bound_pixel_argument_buffer_) {
+        current_render_encoder_->setFragmentBuffer(
+            argbuf_buffer, 0, MslBufferIndex::kArgumentBufferTexturesSamplers);
+        msl_bound_pixel_argument_buffer_ = argbuf_buffer;
+        msl_bound_pixel_argument_buffer_offset_valid_ = false;
+      }
+      if (!msl_bound_pixel_argument_buffer_offset_valid_ ||
+          msl_bound_pixel_argument_buffer_offset_ != argbuf_offset) {
+        current_render_encoder_->setFragmentBufferOffset(
+            argbuf_offset, MslBufferIndex::kArgumentBufferTexturesSamplers);
+        msl_bound_pixel_argument_buffer_offset_ = argbuf_offset;
+        msl_bound_pixel_argument_buffer_offset_valid_ = true;
+      }
+    } else {
+      if (argbuf_buffer != msl_bound_vertex_argument_buffer_) {
+        current_render_encoder_->setVertexBuffer(
+            argbuf_buffer, 0, MslBufferIndex::kArgumentBufferTexturesSamplers);
+        msl_bound_vertex_argument_buffer_ = argbuf_buffer;
+        msl_bound_vertex_argument_buffer_offset_valid_ = false;
+      }
+      if (!msl_bound_vertex_argument_buffer_offset_valid_ ||
+          msl_bound_vertex_argument_buffer_offset_ != argbuf_offset) {
+        current_render_encoder_->setVertexBufferOffset(
+            argbuf_offset, MslBufferIndex::kArgumentBufferTexturesSamplers);
+        msl_bound_vertex_argument_buffer_offset_ = argbuf_offset;
+        msl_bound_vertex_argument_buffer_offset_valid_ = true;
+      }
+    }
+
+    UseRenderEncoderResource(argbuf_buffer, MTL::ResourceUsageRead);
+    return true;
+  };
+  if (vertex_uses_argbuf &&
+      !bind_msl_argument_buffer(msl_vertex_shader, vertex_translation, false)) {
+    return false;
+  }
+  if (pixel_uses_argbuf &&
+      !bind_msl_argument_buffer(bind_pixel_shader, bind_pixel_translation,
+                                true)) {
+    return false;
+  }
+
+  // Bind textures and samplers directly.
+  auto bind_msl_textures = [&](MslShader* shader,
+                               MslShader::MslTranslation* translation,
+                               bool is_pixel_stage) {
+    auto bind_texture_slot = [&](uint32_t slot, MTL::Texture* texture) {
+      if (is_pixel_stage) {
+        current_render_encoder_->setFragmentTexture(texture, slot);
+      } else {
+        current_render_encoder_->setVertexTexture(texture, slot);
+      }
+    };
+    uint32_t* previous_bound_count = is_pixel_stage
+                                         ? &msl_bound_pixel_texture_count_
+                                         : &msl_bound_vertex_texture_count_;
+    uint64_t* cached_binding_uid = is_pixel_stage
+                                       ? &msl_bound_pixel_texture_binding_uid_
+                                       : &msl_bound_vertex_texture_binding_uid_;
+    auto* bound_textures = is_pixel_stage ? &msl_bound_pixel_textures_
+                                          : &msl_bound_vertex_textures_;
+    const uint64_t layout_uid = get_msl_binding_layout_uid(translation);
+    const uint64_t binding_uid =
+        (shader && translation && texture_cache_)
+            ? (uint64_t(reinterpret_cast<uintptr_t>(pipeline)) *
+                   UINT64_C(11400714819323198485) ^
+               layout_uid)
+            : 0;
+    const bool force_rebind = *cached_binding_uid != binding_uid;
+    auto clear_slots_from = [&](uint32_t start, uint32_t end_exclusive) {
+      for (uint32_t slot = start; slot < end_exclusive; ++slot) {
+        if (force_rebind || (*bound_textures)[slot] != nullptr) {
+          bind_texture_slot(slot, nullptr);
+          (*bound_textures)[slot] = nullptr;
+        }
+      }
+    };
+
+    if (!shader || !translation || !texture_cache_) {
+      clear_slots_from(0, *previous_bound_count);
+      *previous_bound_count = 0;
+      *cached_binding_uid = binding_uid;
+      return;
+    }
+
+    const auto& texture_bindings = shader->GetTextureBindingsAfterTranslation();
+    const auto& texture_binding_indices =
+        translation->texture_binding_indices_for_msl_slots();
+    uint32_t bound_count = std::min(uint32_t(texture_binding_indices.size()),
+                                    MslTextureIndex::kMaxPerStage);
+    if (*previous_bound_count > bound_count) {
+      clear_slots_from(bound_count, *previous_bound_count);
+    }
+
+    MetalTextureCache* metal_texture_cache = texture_cache_.get();
+    for (uint32_t slot = 0; slot < bound_count; ++slot) {
+      uint32_t tex_index = MslTextureIndex::kBase + slot;
+      MTL::Texture* texture = nullptr;
+      int32_t texture_binding_index = texture_binding_indices[slot];
+      if (texture_binding_index >= 0 &&
+          size_t(texture_binding_index) < texture_bindings.size()) {
+        const auto& binding = texture_bindings[size_t(texture_binding_index)];
+        texture = texture_cache_->GetTextureForBinding(
+            binding.fetch_constant, binding.dimension, binding.is_signed);
+        if (!texture) {
+          switch (binding.dimension) {
+            case xenos::FetchOpDimension::k3DOrStacked:
+              texture = metal_texture_cache->GetNullTexture3D();
+              break;
+            case xenos::FetchOpDimension::kCube:
+              texture = metal_texture_cache->GetNullTextureCube();
+              break;
+            default:
+              texture = metal_texture_cache->GetNullTexture2D();
+              break;
+          }
+        }
+      } else {
+        texture = metal_texture_cache->GetNullTexture2D();
+      }
+      if (force_rebind || (*bound_textures)[tex_index] != texture) {
+        bind_texture_slot(tex_index, texture);
+        (*bound_textures)[tex_index] = texture;
+      }
+      if (texture) {
+        UseRenderEncoderResource(texture, MTL::ResourceUsageRead);
+      }
+    }
+    *previous_bound_count = bound_count;
+    *cached_binding_uid = binding_uid;
+  };
+
+  auto bind_msl_samplers = [&](MslShader* shader,
+                               MslShader::MslTranslation* translation,
+                               bool is_pixel_stage) {
+    auto bind_sampler_slot = [&](uint32_t slot, MTL::SamplerState* sampler) {
+      if (is_pixel_stage) {
+        current_render_encoder_->setFragmentSamplerState(sampler, slot);
+      } else {
+        current_render_encoder_->setVertexSamplerState(sampler, slot);
+      }
+    };
+
+    uint32_t* previous_bound_count = is_pixel_stage
+                                         ? &msl_bound_pixel_sampler_count_
+                                         : &msl_bound_vertex_sampler_count_;
+    uint64_t* cached_binding_uid = is_pixel_stage
+                                       ? &msl_bound_pixel_sampler_binding_uid_
+                                       : &msl_bound_vertex_sampler_binding_uid_;
+    auto* bound_samplers = is_pixel_stage ? &msl_bound_pixel_samplers_
+                                          : &msl_bound_vertex_samplers_;
+    const uint64_t layout_uid = get_msl_binding_layout_uid(translation);
+    const uint64_t binding_uid =
+        (shader && translation && texture_cache_)
+            ? (uint64_t(reinterpret_cast<uintptr_t>(pipeline)) *
+                   UINT64_C(11400714819323198485) ^
+               layout_uid)
+            : 0;
+    const bool force_rebind = *cached_binding_uid != binding_uid;
+
+    if (!shader || !translation || !texture_cache_) {
+      for (uint32_t slot = 0; slot < *previous_bound_count; ++slot) {
+        if (force_rebind || (*bound_samplers)[slot] != null_sampler_) {
+          bind_sampler_slot(slot, null_sampler_);
+          (*bound_samplers)[slot] = null_sampler_;
+        }
+      }
+      *previous_bound_count = 0;
+      *cached_binding_uid = binding_uid;
+      return;
+    }
+    // Samplers are remapped to compact Metal indices 0..M-1 in
+    // MslShader::AddResourceBindings. Use the reflected SPIR-V remap order
+    // captured in the translation, not the raw translator array order, because
+    // SPIRV-Cross may drop/reorder separate samplers.
+    const auto& sampler_bindings = shader->GetSamplerBindingsAfterTranslation();
+    const auto& sampler_binding_indices =
+        translation->sampler_binding_indices_for_msl_slots();
+    uint32_t bound_count = std::min(uint32_t(sampler_binding_indices.size()),
+                                    MslSamplerIndex::kMaxPerStage);
+    if (*previous_bound_count > bound_count) {
+      for (uint32_t slot = bound_count; slot < *previous_bound_count; ++slot) {
+        if (force_rebind || (*bound_samplers)[slot] != null_sampler_) {
+          bind_sampler_slot(slot, null_sampler_);
+          (*bound_samplers)[slot] = null_sampler_;
+        }
+      }
+    }
+
+    for (uint32_t smp_index = 0; smp_index < bound_count; ++smp_index) {
+      MTL::SamplerState* sampler_state = null_sampler_;
+      uint32_t sampler_binding_index = sampler_binding_indices[smp_index];
+      if (sampler_binding_index < sampler_bindings.size()) {
+        auto parameters = texture_cache_->GetSamplerParameters(
+            sampler_bindings[sampler_binding_index]);
+        sampler_state = texture_cache_->GetOrCreateSampler(parameters);
+        if (!sampler_state) {
+          sampler_state = null_sampler_;
+        }
+      }
+      if (force_rebind || (*bound_samplers)[smp_index] != sampler_state) {
+        bind_sampler_slot(smp_index, sampler_state);
+        (*bound_samplers)[smp_index] = sampler_state;
+      }
+    }
+    *previous_bound_count = bound_count;
+    *cached_binding_uid = binding_uid;
+  };
+
+  if (!vertex_uses_argbuf) {
+    bind_msl_textures(msl_vertex_shader, vertex_translation, false);
+    bind_msl_samplers(msl_vertex_shader, vertex_translation, false);
+  }
+  if (!pixel_uses_argbuf) {
+    bind_msl_textures(bind_pixel_shader, bind_pixel_translation, true);
+    bind_msl_samplers(bind_pixel_shader, bind_pixel_translation, true);
+  }
+
+  // Resume a ZPD segment waiting on a render encoder so this draw is counted.
+  OpenQuerySegment(false);
+
+  // =====================================================================
+  // Draw dispatch — native Metal encoder calls (no IRRuntime).
+  // =====================================================================
+  if (is_tessellated) {
+    // ---------------------------------------------------------------
+    // Tessellated draw: fill tessellation factor buffer, then drawPatches.
+    // ---------------------------------------------------------------
+    // Xenos tess levels are 0-based; add 1 to match other backends.
+    float max_tess = std::max(
+        1.0f, regs.Get<float>(XE_GPU_REG_VGT_HOS_MAX_TESS_LEVEL) + 1.0f);
+
+    // Determine control points per patch and patch count from the draw.
+    // The primitive processor passes patch count in host_draw_vertex_count
+    // for tessellated draws (vertex count = cp_per_patch * patch_count).
+    uint32_t cp_per_patch = 1;
+    bool is_quad_domain = false;
+    switch (host_vertex_shader_type) {
+      case Shader::HostVertexShaderType::kTriangleDomainCPIndexed:
+      case Shader::HostVertexShaderType::kTriangleDomainPatchIndexed:
+        cp_per_patch = 3;
         break;
-      case xenos::PrimitiveType::kQuadList:
-        tess_primitive = IRRuntimePrimitiveType4ControlPointPatchlist;
+      case Shader::HostVertexShaderType::kQuadDomainCPIndexed:
+      case Shader::HostVertexShaderType::kQuadDomainPatchIndexed:
+        cp_per_patch = 4;
+        is_quad_domain = true;
         break;
-      case xenos::PrimitiveType::kTrianglePatch:
-        tess_primitive = (primitive_processing_result.tessellation_mode ==
-                          xenos::TessellationMode::kAdaptive)
-                             ? IRRuntimePrimitiveType3ControlPointPatchlist
-                             : IRRuntimePrimitiveType1ControlPointPatchlist;
-        break;
-      case xenos::PrimitiveType::kQuadPatch:
-        tess_primitive = (primitive_processing_result.tessellation_mode ==
-                          xenos::TessellationMode::kAdaptive)
-                             ? IRRuntimePrimitiveType4ControlPointPatchlist
-                             : IRRuntimePrimitiveType1ControlPointPatchlist;
+      case Shader::HostVertexShaderType::kLineDomainCPIndexed:
+      case Shader::HostVertexShaderType::kLineDomainPatchIndexed:
+        cp_per_patch = 2;
         break;
       default:
-        XELOGE(
-            "Host tessellated primitive type {} returned by the primitive "
-            "processor is not supported by the Metal tessellation path",
-            uint32_t(primitive_processing_result.host_primitive_type));
-        return false;
+        break;
+    }
+    uint32_t vertex_count = primitive_processing_result.host_draw_vertex_count;
+    uint32_t patch_count = cp_per_patch > 0 ? vertex_count / cp_per_patch : 0;
+    if (patch_count == 0) {
+      return true;  // Nothing to draw.
     }
 
-    const IRRuntimeTessellationPipelineConfig& tess_config =
-        tessellation_pipeline_state->config;
+    // Ensure tessellation factor buffer is large enough.
+    if (!EnsureTessFactorBuffer(patch_count)) {
+      XELOGE(
+          "SPIRV-Cross: Failed to allocate tess factor buffer for {} "
+          "patches",
+          patch_count);
+      return false;
+    }
 
-    if (primitive_processing_result.index_buffer_type ==
-        PrimitiveProcessor::ProcessedIndexBufferType::kNone) {
-      IRRuntimeDrawPatchesTessellationEmulation(
-          current_render_encoder_, tess_primitive, tess_config, 1,
-          primitive_processing_result.host_draw_vertex_count, 0, 0);
+    // IEEE 754 float32 → float16 conversion for tessellation factors.
+    // Uses round-to-nearest-even and handles subnormals for accuracy
+    // near tessellation factor boundaries.
+    auto f32_to_f16 = [](float v) -> uint16_t {
+      uint32_t b;
+      std::memcpy(&b, &v, 4);
+      uint16_t s = (b >> 16) & 0x8000u;
+      int e = int((b >> 23) & 0xFFu) - 127 + 15;
+      uint32_t m = b & 0x7FFFFFu;
+      if (e <= 0) {
+        // Subnormal or zero in half precision.
+        if (e < -10) {
+          return s;  // Too small, flush to signed zero.
+        }
+        // Subnormal half: shift mantissa (with implicit leading 1) right.
+        m = (m | 0x800000u) >> (1 - e);
+        // Round to nearest even.
+        if ((m & 0x1FFFu) > 0x1000u ||
+            ((m & 0x1FFFu) == 0x1000u && (m & 0x2000u))) {
+          m += 0x2000u;
+        }
+        return uint16_t(s | (m >> 13));
+      }
+      if (e >= 31) {
+        // Overflow → infinity (or NaN passthrough).
+        if (e == 31 && m != 0) {
+          // NaN: preserve at least one mantissa bit.
+          return uint16_t(s | 0x7C00u | std::max(m >> 13, uint32_t(1)));
+        }
+        return uint16_t(s | 0x7C00u);
+      }
+      // Round to nearest even: check the 13 bits being truncated.
+      if ((m & 0x1FFFu) > 0x1000u ||
+          ((m & 0x1FFFu) == 0x1000u && (m & 0x2000u))) {
+        m += 0x2000u;
+        if (m & 0x800000u) {
+          m = 0;
+          e++;
+          if (e >= 31) {
+            return uint16_t(s | 0x7C00u);
+          }
+        }
+      }
+      return uint16_t(s | (e << 10) | (m >> 13));
+    };
+
+    // Determine tessellation mode from the register file.
+    auto tess_mode = regs.Get<reg::VGT_HOS_CNTL>().tess_mode;
+
+    uint8_t* factor_data =
+        static_cast<uint8_t*>(tess_factor_buffer_->contents());
+
+    if (tess_mode == xenos::TessellationMode::kAdaptive && shared_memory_) {
+      // ------------------------------------------------------------------
+      // Adaptive tessellation: per-edge factors from shared memory.
+      // The guest "index buffer" is repurposed as a factor buffer
+      // containing big-endian float32 edge factors.
+      // ------------------------------------------------------------------
+      xenos::Endian index_endian =
+          primitive_processing_result.host_shader_index_endian;
+      uint32_t factor_base = primitive_processing_result.guest_index_base;
+      const uint8_t* xbox_ram = shared_memory_->GetXboxRamBase();
+      // Minimum factor from VGT_HOS_MIN_TESS_LEVEL + 1.0 (Xbox 360
+      // convention). For fractional_even partitioning, must be >= 2.0.
+      float factor_min = std::max(
+          2.0f, regs.Get<float>(XE_GPU_REG_VGT_HOS_MIN_TESS_LEVEL) + 1.0f);
+      float factor_max = max_tess;
+
+      if (is_quad_domain) {
+        // Quad: 4 edge factors per patch.
+        struct QuadFactors {
+          uint16_t edge[4];
+          uint16_t inside[2];
+        };
+        static_assert(sizeof(QuadFactors) == 12);
+        auto* factors = reinterpret_cast<QuadFactors*>(factor_data);
+        for (uint32_t i = 0; i < patch_count; ++i) {
+          // Read 4 edge factors from guest memory.
+          float ef[4];
+          for (uint32_t j = 0; j < 4; ++j) {
+            uint32_t addr = factor_base + (i * 4 + j) * sizeof(float);
+            float raw;
+            std::memcpy(&raw, xbox_ram + addr, sizeof(float));
+            // Endian-swap per the index endian mode.
+            raw = xenos::GpuSwap(raw, index_endian);
+            // Add 1.0 per Xbox 360 convention, clamp.
+            ef[j] = std::clamp(raw + 1.0f, factor_min, factor_max);
+          }
+          // Map Xbox 360 edge order to Metal:
+          //   edge[i] = input[(i+3) & 3]
+          //   (from adaptive_quad.hs.glsl)
+          factors[i].edge[0] = f32_to_f16(ef[3]);
+          factors[i].edge[1] = f32_to_f16(ef[0]);
+          factors[i].edge[2] = f32_to_f16(ef[1]);
+          factors[i].edge[3] = f32_to_f16(ef[2]);
+          // Inside factors: minimum of opposing edges.
+          // inside[0] along U = min(mapped_edge[1], mapped_edge[3])
+          // inside[1] along V = min(mapped_edge[0], mapped_edge[2])
+          factors[i].inside[0] = f32_to_f16(std::min(ef[0], ef[2]));
+          factors[i].inside[1] = f32_to_f16(std::min(ef[3], ef[1]));
+        }
+      } else {
+        // Triangle: 3 edge factors per patch.
+        struct TriFactors {
+          uint16_t edge[3];
+          uint16_t inside;
+        };
+        static_assert(sizeof(TriFactors) == 8);
+        auto* factors = reinterpret_cast<TriFactors*>(factor_data);
+        for (uint32_t i = 0; i < patch_count; ++i) {
+          // Read 3 edge factors from guest memory.
+          float ef[3];
+          for (uint32_t j = 0; j < 3; ++j) {
+            uint32_t addr = factor_base + (i * 3 + j) * sizeof(float);
+            float raw;
+            std::memcpy(&raw, xbox_ram + addr, sizeof(float));
+            raw = xenos::GpuSwap(raw, index_endian);
+            ef[j] = std::clamp(raw + 1.0f, factor_min, factor_max);
+          }
+          // Map Xbox 360 edge order to Metal:
+          //   Metal edge[0] = U0 (v1->v2) = ef[1]
+          //   Metal edge[1] = V0 (v2->v0) = ef[2]
+          //   Metal edge[2] = W0 (v0->v1) = ef[0]
+          //   (from adaptive_triangle.hs.glsl)
+          factors[i].edge[0] = f32_to_f16(ef[1]);
+          factors[i].edge[1] = f32_to_f16(ef[2]);
+          factors[i].edge[2] = f32_to_f16(ef[0]);
+          // Inside factor = minimum of all edge factors.
+          factors[i].inside =
+              f32_to_f16(std::min(std::min(ef[0], ef[1]), ef[2]));
+        }
+      }
     } else {
-      MTL::IndexType index_type =
-          (primitive_processing_result.host_index_format ==
-           xenos::IndexFormat::kInt16)
-              ? MTL::IndexTypeUInt16
-              : MTL::IndexTypeUInt32;
-      MTL::Buffer* index_buffer = nullptr;
-      uint64_t index_offset = 0;
-      switch (primitive_processing_result.index_buffer_type) {
-        case PrimitiveProcessor::ProcessedIndexBufferType::kGuestDMA:
-          index_buffer = shared_memory_ ? shared_memory_->GetBuffer() : nullptr;
-          index_offset = primitive_processing_result.guest_index_base;
-          if (!request_guest_index_range(
-                  index_offset,
-                  primitive_processing_result.host_draw_vertex_count,
-                  index_type)) {
-            XELOGE(
-                "IssueDraw: failed to validate guest index buffer range for "
-                "tessellation");
-            return false;
-          }
-          break;
-        case PrimitiveProcessor::ProcessedIndexBufferType::kHostConverted:
-          if (primitive_processor_) {
-            index_buffer = primitive_processor_->GetConvertedIndexBuffer(
-                primitive_processing_result.host_index_buffer_handle,
-                index_offset);
-          }
-          break;
-        case PrimitiveProcessor::ProcessedIndexBufferType::kHostBuiltinForAuto:
-        case PrimitiveProcessor::ProcessedIndexBufferType::kHostBuiltinForDMA:
-          if (primitive_processor_) {
-            index_buffer = primitive_processor_->GetBuiltinIndexBuffer();
-            index_offset = primitive_processing_result.host_index_buffer_handle;
-          }
-          break;
-        default:
-          XELOGE("Unsupported index buffer type {} for tessellation",
-                 uint32_t(primitive_processing_result.index_buffer_type));
-          return false;
+      // ------------------------------------------------------------------
+      // Uniform tessellation (discrete / continuous modes).
+      // All patches get the same factor from VGT_HOS_MAX_TESS_LEVEL.
+      // ------------------------------------------------------------------
+      uint16_t ef = f32_to_f16(max_tess);
+      if (is_quad_domain) {
+        struct QuadFactors {
+          uint16_t edge[4];
+          uint16_t inside[2];
+        };
+        static_assert(sizeof(QuadFactors) == 12);
+        auto* factors = reinterpret_cast<QuadFactors*>(factor_data);
+        for (uint32_t i = 0; i < patch_count; ++i) {
+          factors[i].edge[0] = ef;
+          factors[i].edge[1] = ef;
+          factors[i].edge[2] = ef;
+          factors[i].edge[3] = ef;
+          factors[i].inside[0] = ef;
+          factors[i].inside[1] = ef;
+        }
+      } else {
+        struct TriFactors {
+          uint16_t edge[3];
+          uint16_t inside;
+        };
+        static_assert(sizeof(TriFactors) == 8);
+        auto* factors = reinterpret_cast<TriFactors*>(factor_data);
+        for (uint32_t i = 0; i < patch_count; ++i) {
+          factors[i].edge[0] = ef;
+          factors[i].edge[1] = ef;
+          factors[i].edge[2] = ef;
+          factors[i].inside = ef;
+        }
       }
-      if (!index_buffer) {
-        XELOGE("IssueDraw: index buffer is null for tessellation");
-        return false;
-      }
-      UseRenderEncoderResource(index_buffer, MTL::ResourceUsageRead);
-      uint32_t index_stride = (index_type == MTL::IndexTypeUInt16)
-                                  ? sizeof(uint16_t)
-                                  : sizeof(uint32_t);
-      uint32_t start_index =
-          index_stride ? uint32_t(index_offset / index_stride) : 0;
-      IRRuntimeDrawIndexedPatchesTessellationEmulation(
-          current_render_encoder_, tess_primitive, index_type, index_buffer,
-          tess_config, 1, primitive_processing_result.host_draw_vertex_count, 0,
-          0, start_index);
-    }
-  } else if (use_geometry_emulation) {
-    IRRuntimePrimitiveType geometry_primitive = IRRuntimePrimitiveTypeTriangle;
-    switch (primitive_processing_result.host_primitive_type) {
-      case xenos::PrimitiveType::kPointList:
-        geometry_primitive = IRRuntimePrimitiveTypePoint;
-        break;
-      case xenos::PrimitiveType::kRectangleList:
-        geometry_primitive = IRRuntimePrimitiveTypeTriangle;
-        break;
-      case xenos::PrimitiveType::kQuadList:
-        geometry_primitive = IRRuntimePrimitiveTypeLineWithAdj;
-        break;
-      default:
-        XELOGE(
-            "Host primitive type {} returned by the primitive processor is not "
-            "supported by the Metal geometry path",
-            uint32_t(primitive_processing_result.host_primitive_type));
-        return false;
     }
 
-    IRRuntimeGeometryPipelineConfig geometry_config = {};
-    geometry_config.gsVertexSizeInBytes =
-        geometry_pipeline_state->gs_vertex_size_in_bytes;
-    geometry_config.gsMaxInputPrimitivesPerMeshThreadgroup =
-        geometry_pipeline_state->gs_max_input_primitives_per_mesh_threadgroup;
-
-    if (primitive_processing_result.index_buffer_type ==
-        PrimitiveProcessor::ProcessedIndexBufferType::kNone) {
-      IRRuntimeDrawPrimitivesGeometryEmulation(
-          current_render_encoder_, geometry_primitive, geometry_config, 1,
-          primitive_processing_result.host_draw_vertex_count, 0, 0);
+    // Draw with tessellation.
+    assert_not_null(tess_factor_buffer_);
+    UseRenderEncoderResource(tess_factor_buffer_, MTL::ResourceUsageRead);
+    current_render_encoder_->setTessellationFactorBuffer(tess_factor_buffer_, 0,
+                                                         0);
+    // drawPatches signature:
+    //   numberOfPatchControlPoints, patchStart, patchCount,
+    //   patchIndexBuffer, patchIndexBufferOffset,
+    //   instanceCount, baseInstance
+    // patchIndexBuffer = nullptr since patches are not indexed (the domain
+    // shader reads control points from shared memory via vertex ID).
+    current_render_encoder_->drawPatches(
+        NS::UInteger(cp_per_patch), NS::UInteger(0), NS::UInteger(patch_count),
+        nullptr,           // patchIndexBuffer (non-indexed patches)
+        0,                 // patchIndexBufferOffset
+        NS::UInteger(1),   // instanceCount
+        NS::UInteger(0));  // baseInstance
+  } else {
+    DrawIndexBuffer draw_index_buffer;
+    if (!ResolveDrawIndexBuffer(primitive_processing_result,
+                                host_vertex_shader_type,
+                                /*tessellated=*/false, draw_index_buffer)) {
+      return false;
+    }
+    if (draw_index_buffer.indexed) {
+      UseRenderEncoderResource(draw_index_buffer.buffer,
+                               MTL::ResourceUsageRead);
+      current_render_encoder_->drawIndexedPrimitives(
+          draw_index_buffer.primitive_type,
+          NS::UInteger(draw_index_buffer.index_count),
+          draw_index_buffer.index_type, draw_index_buffer.buffer,
+          NS::UInteger(draw_index_buffer.offset));
     } else {
-      MTL::IndexType index_type =
-          (primitive_processing_result.host_index_format ==
-           xenos::IndexFormat::kInt16)
-              ? MTL::IndexTypeUInt16
-              : MTL::IndexTypeUInt32;
-      MTL::Buffer* index_buffer = nullptr;
-      uint64_t index_offset = 0;
-      switch (primitive_processing_result.index_buffer_type) {
-        case PrimitiveProcessor::ProcessedIndexBufferType::kGuestDMA:
-          index_buffer = shared_memory_ ? shared_memory_->GetBuffer() : nullptr;
-          index_offset = primitive_processing_result.guest_index_base;
-          if (!request_guest_index_range(
-                  index_offset,
-                  primitive_processing_result.host_draw_vertex_count,
-                  index_type)) {
-            XELOGE("IssueDraw: failed to validate guest index buffer range");
-            return false;
-          }
-          break;
-        case PrimitiveProcessor::ProcessedIndexBufferType::kHostConverted:
-          if (primitive_processor_) {
-            index_buffer = primitive_processor_->GetConvertedIndexBuffer(
-                primitive_processing_result.host_index_buffer_handle,
-                index_offset);
-          }
-          break;
-        case PrimitiveProcessor::ProcessedIndexBufferType::kHostBuiltinForAuto:
-        case PrimitiveProcessor::ProcessedIndexBufferType::kHostBuiltinForDMA:
-          if (primitive_processor_) {
-            index_buffer = primitive_processor_->GetBuiltinIndexBuffer();
-            index_offset = primitive_processing_result.host_index_buffer_handle;
-          }
-          break;
-        default:
-          XELOGE("Unsupported index buffer type {}",
-                 uint32_t(primitive_processing_result.index_buffer_type));
-          return false;
+      current_render_encoder_->drawPrimitives(
+          draw_index_buffer.primitive_type, NS::UInteger(0),
+          NS::UInteger(draw_index_buffer.index_count));
+    }
+  }
+
+  if (memexport_used) {
+    NoteMemexportRangesWritten();
+  }
+
+  ++current_draw_index_;
+  return true;
+}
+
+// ==========================================================================
+// SPIR-V -> DXIL -> AIR draw path
+// ==========================================================================
+
+bool MetalCommandProcessor::EnsureTessellatorTablesBuffer() {
+  if (tessellator_tables_buffer_) {
+    return true;
+  }
+  uint64_t size = IRRuntimeTessellatorTablesSize();
+  tessellator_tables_buffer_ =
+      device_->newBuffer(size, MTL::ResourceStorageModeShared);
+  if (!tessellator_tables_buffer_) {
+    XELOGE("DXIL: failed to allocate the tessellator tables buffer ({} bytes)",
+           size);
+    return false;
+  }
+  tessellator_tables_buffer_->setLabel(
+      NS::String::string("XeniaTessellatorTables", NS::UTF8StringEncoding));
+  IRRuntimeLoadTessellatorTables(tessellator_tables_buffer_);
+  return true;
+}
+
+bool MetalCommandProcessor::BuildDxilTessellationShaders(
+    const std::vector<uint8_t>& domain_spirv, uint64_t domain_ucode_hash,
+    xenos::TessellationMode tessellation_mode,
+    Shader::HostVertexShaderType host_vertex_shader_type,
+    DxilTessellationShaders& shaders_out) {
+  MetalTessellationHostShaders host_shaders;
+  if (!GetMetalTessellationHostShaders(tessellation_mode,
+                                       host_vertex_shader_type, host_shaders)) {
+    XELOGE("DXIL: no host tessellation shaders for mode {} domain type {}",
+           uint32_t(tessellation_mode), uint32_t(host_vertex_shader_type));
+    return false;
+  }
+  if (domain_spirv.empty() || (domain_spirv.size() % sizeof(uint32_t)) != 0) {
+    XELOGE("DXIL: domain shader {:016X} has no usable SPIR-V",
+           domain_ucode_hash);
+    return false;
+  }
+
+  // Linked so the hull and domain signatures agree on control point counts and
+  // patch constants, which MSC checks before building the pipeline.
+  std::vector<SpirvToDxilCompiler::LinkedStage> stages = {
+      {host_shaders.vertex_spirv, host_shaders.vertex_word_count,
+       SpirvToDxilCompiler::Stage::kVertex},
+      {host_shaders.hull_spirv, host_shaders.hull_word_count,
+       SpirvToDxilCompiler::Stage::kTessellationControl},
+      {reinterpret_cast<const uint32_t*>(domain_spirv.data()),
+       domain_spirv.size() / sizeof(uint32_t),
+       SpirvToDxilCompiler::Stage::kTessellationEvaluation},
+  };
+  std::vector<std::vector<uint8_t>> dxil =
+      SpirvToDxilCompiler::TranslateLinked(stages, /*lower_to_bindless=*/true);
+  if (dxil.size() != 3 || dxil[0].empty() || dxil[1].empty() ||
+      dxil[2].empty()) {
+    XELOGE("DXIL: linked tessellation translation failed (domain {:016X})",
+           domain_ucode_hash);
+    return false;
+  }
+
+  const MetalShaderStage kStages[] = {MetalShaderStage::kVertex,
+                                      MetalShaderStage::kHull,
+                                      MetalShaderStage::kDomain};
+  DxilTessellationStage* stage_out[] = {&shaders_out.vertex, &shaders_out.hull,
+                                        &shaders_out.domain};
+  auto release_stages = [&]() {
+    for (DxilTessellationStage* stage : stage_out) {
+      if (stage->function) {
+        stage->function->release();
+        stage->function = nullptr;
       }
-      if (!index_buffer) {
-        XELOGE("IssueDraw: index buffer is null for type {}",
-               uint32_t(primitive_processing_result.index_buffer_type));
-        return false;
+      if (stage->library) {
+        stage->library->release();
+        stage->library = nullptr;
       }
-      UseRenderEncoderResource(index_buffer, MTL::ResourceUsageRead);
-      uint32_t index_stride = (index_type == MTL::IndexTypeUInt16)
-                                  ? sizeof(uint16_t)
-                                  : sizeof(uint32_t);
-      uint32_t start_index =
-          index_stride ? uint32_t(index_offset / index_stride) : 0;
-      IRRuntimeDrawIndexedPrimitivesGeometryEmulation(
-          current_render_encoder_, geometry_primitive, index_type, index_buffer,
-          geometry_config, 1,
-          primitive_processing_result.host_draw_vertex_count, start_index, 0,
-          0);
+    }
+  };
+  for (size_t i = 0; i < 3; ++i) {
+    const char* stage_name = StageNameOf(kStages[i]);
+    MetalShaderConversionResult conversion = metal_shader_converter_.Convert(
+        kStages[i], dxil[i], /*tessellation_emulation=*/true);
+    if (!conversion.success) {
+      XELOGE("DXIL: DXIL to AIR failed for the {} stage of domain {:016X}: {}",
+             stage_name, domain_ucode_hash, conversion.error_message);
+      release_stages();
+      return false;
+    }
+    if (!CreateMetalFunction(device_, conversion, stage_out[i]->library,
+                             stage_out[i]->function)) {
+      XELOGE("DXIL: could not create the {} function of domain {:016X}",
+             stage_name, domain_ucode_hash);
+      release_stages();
+      return false;
+    }
+    stage_out[i]->function_name = std::move(conversion.entry_point_name);
+    stage_out[i]->reflection = conversion.reflection;
+  }
+
+  XELOGI(
+      "DxilShader: compiled tessellation for domain {:016X} (mode {}, {} "
+      "control points)",
+      domain_ucode_hash, uint32_t(tessellation_mode),
+      shaders_out.hull.reflection.hs_input_control_point_count);
+  return true;
+}
+
+MetalCommandProcessor::DxilTessellationShaders*
+MetalCommandProcessor::GetDxilTessellationShaders(
+    DxilShader& domain_shader, uint64_t domain_modification,
+    xenos::TessellationMode tessellation_mode,
+    Shader::HostVertexShaderType host_vertex_shader_type, bool allow_async,
+    ShaderCompileStatus* compile_status_out) {
+  *compile_status_out = ShaderCompileStatus::kFailed;
+  struct {
+    uint64_t ucode_hash;
+    uint64_t modification;
+    uint32_t tessellation_mode;
+    uint32_t host_vertex_shader_type;
+  } key_data = {domain_shader.ucode_data_hash(), domain_modification,
+                uint32_t(tessellation_mode), uint32_t(host_vertex_shader_type)};
+  uint64_t key = XXH3_64bits(&key_data, sizeof(key_data));
+  {
+    std::lock_guard<std::mutex> lock(async_compile_mutex_);
+    auto it = dxil_tessellation_cache_.find(key);
+    if (it != dxil_tessellation_cache_.end()) {
+      *compile_status_out = ShaderCompileStatus::kReady;
+      return it->second.get();
+    }
+    if (async_tess_shaders_failed_.find(key) !=
+        async_tess_shaders_failed_.end()) {
+      return nullptr;
+    }
+    if (async_tess_shaders_pending_.find(key) !=
+        async_tess_shaders_pending_.end()) {
+      *compile_status_out = ShaderCompileStatus::kPending;
+      return nullptr;
+    }
+  }
+
+  // Only this path uses domain modifications, so the claim is uncontended and
+  // the SPIR-V is produced here. What is queued is the three stages behind it.
+  auto* domain_translation = static_cast<DxilShader::DxilTranslation*>(
+      domain_shader.GetOrCreateTranslation(domain_modification));
+  ShaderCompileStatus spirv_status =
+      EnsureTranslationSpirv(domain_translation, *spirv_shader_translator_);
+  if (spirv_status != ShaderCompileStatus::kReady) {
+    if (spirv_status == ShaderCompileStatus::kFailed) {
+      std::lock_guard<std::mutex> lock(async_compile_mutex_);
+      async_tess_shaders_failed_.insert(key);
+    }
+    *compile_status_out = spirv_status;
+    return nullptr;
+  }
+
+  TessellationShadersCompileRequest request;
+  request.key = key;
+  request.domain_spirv = &domain_translation->translated_binary();
+  request.domain_ucode_hash = domain_shader.ucode_data_hash();
+  request.tessellation_mode = tessellation_mode;
+  request.host_vertex_shader_type = host_vertex_shader_type;
+  if (allow_async && cvars::async_shader_compilation &&
+      !async_compile_threads_.empty()) {
+    {
+      std::lock_guard<std::mutex> lock(async_compile_mutex_);
+      async_tess_shaders_pending_.insert(key);
+      async_tess_shaders_queue_.push(request);
+    }
+    async_compile_cv_.notify_one();
+    *compile_status_out = ShaderCompileStatus::kPending;
+    return nullptr;
+  }
+
+  auto shaders = std::make_unique<DxilTessellationShaders>();
+  if (!BuildDxilTessellationShaders(
+          *request.domain_spirv, request.domain_ucode_hash, tessellation_mode,
+          host_vertex_shader_type, *shaders)) {
+    std::lock_guard<std::mutex> lock(async_compile_mutex_);
+    async_tess_shaders_failed_.insert(key);
+    return nullptr;
+  }
+  std::lock_guard<std::mutex> lock(async_compile_mutex_);
+  auto [it, inserted] =
+      dxil_tessellation_cache_.emplace(key, std::move(shaders));
+  *compile_status_out = ShaderCompileStatus::kReady;
+  return it->second.get();
+}
+
+MTL::RenderPipelineState*
+MetalCommandProcessor::GetOrCreateDxilTessellationPipelineState(
+    const DxilTessellationShaders& shaders,
+    const Shader::Translation* domain_translation,
+    xenos::TessellationMode tessellation_mode,
+    Shader::HostVertexShaderType host_vertex_shader_type,
+    DxilShader::DxilTranslation* pixel_translation, const RegisterFile& regs,
+    PipelineCompileStatus* compile_status_out) {
+  PipelineCompileRequest request = {};
+  PopulatePipelineCompileRequest(regs, domain_translation, pixel_translation,
+                                 request);
+  // The linked stage set is identified by the domain shader plus these two, so
+  // the description covers it without naming the stages themselves.
+  request.description.kind = PipelineKind::kDxilTessellation;
+  request.description.tessellation_mode = tessellation_mode;
+  request.description.host_vertex_shader_type = host_vertex_shader_type;
+  request.pipeline_key = request.description.GetHash();
+  request.tessellation_shaders = &shaders;
+  if (pixel_translation) {
+    request.fragment_library = pixel_translation->metal_library();
+    request.fragment_function_name = pixel_translation->entry_point_name();
+  }
+  return AcquirePipelineState(request, /*allow_async=*/true,
+                              compile_status_out);
+}
+
+bool MetalCommandProcessor::IssueDrawDxil(
+    Shader* vertex_shader, Shader* pixel_shader,
+    const PrimitiveProcessor::ProcessingResult& primitive_processing_result,
+    bool primitive_polygonal, bool memexport_used,
+    uint32_t normalized_color_mask, const RegisterFile& regs) {
+  SCOPE_profile_cpu_f("gpu");
+  assert_not_null(vertex_shader);
+  if (!metal_shader_converter_.is_available()) {
+    static bool converter_unavailable_logged = false;
+    if (!converter_unavailable_logged) {
+      converter_unavailable_logged = true;
+      XELOGE(
+          "DXIL: the Metal Shader Converter is unavailable, no draws can be "
+          "issued");
+    }
+    return false;
+  }
+  auto* dxil_vertex_shader = static_cast<DxilShader*>(vertex_shader);
+  auto* dxil_pixel_shader = static_cast<DxilShader*>(pixel_shader);
+
+  Shader::HostVertexShaderType host_vertex_shader_type =
+      primitive_processing_result.host_vertex_shader_type;
+
+  uint32_t ps_param_gen_pos = UINT32_MAX;
+  uint32_t interpolator_mask = 0;
+  if (dxil_pixel_shader) {
+    interpolator_mask = dxil_vertex_shader->writes_interpolators() &
+                        dxil_pixel_shader->GetInterpolatorInputMask(
+                            regs.Get<reg::SQ_PROGRAM_CNTL>(),
+                            regs.Get<reg::SQ_CONTEXT_MISC>(), ps_param_gen_pos);
+  }
+
+  auto normalized_depth_control = draw_util::GetNormalizedDepthControl(regs);
+
+  SpirvShaderTranslator::Modification vertex_shader_modification =
+      GetCurrentSpirvVertexShaderModification(
+          *dxil_vertex_shader, host_vertex_shader_type, interpolator_mask);
+  SpirvShaderTranslator::Modification pixel_shader_modification =
+      dxil_pixel_shader
+          ? GetCurrentSpirvPixelShaderModification(
+                *dxil_pixel_shader, interpolator_mask, ps_param_gen_pos,
+                normalized_depth_control, normalized_color_mask)
+          : SpirvShaderTranslator::Modification(0);
+
+  const bool is_tessellated = primitive_processing_result.IsTessellated();
+
+  // A counted draw needs the guest's own shaders. The placeholder has no pixel
+  // kills or alpha test and overcounts, and a skipped draw counts nothing.
+  const bool exact_shaders_required =
+      GetZPDMode() != ZPDMode::kFake && !zpd_force_fake_fallback_ &&
+      zpd_current_report_.handle != kInvalidReportHandle;
+
+  ShaderCompileStatus compile_status = ShaderCompileStatus::kReady;
+  ShaderCompileStatus pixel_status = ShaderCompileStatus::kReady;
+  DxilShader::DxilTranslation* pixel_translation = nullptr;
+  if (dxil_pixel_shader) {
+    pixel_translation =
+        static_cast<DxilShader::DxilTranslation*>(GetOrCreateHostTranslation(
+            *dxil_pixel_shader, pixel_shader_modification.value,
+            !exact_shaders_required &&
+                (!is_tessellated || cvars::async_shader_skip_draws),
+            &pixel_status));
+    if (pixel_status == ShaderCompileStatus::kFailed) {
+      return false;
+    }
+  }
+
+  // The guest vertex shader becomes the domain shader of a tessellated draw,
+  // linked with the host vertex and hull shaders. Those three stages are linked
+  // together and built here rather than on the compile threads.
+  MTL::RenderPipelineState* pipeline = nullptr;
+  DxilTessellationShaders* tessellation_shaders = nullptr;
+  bool bound_placeholder = false;
+  if (is_tessellated) {
+    if (!EnsureTessellatorTablesBuffer()) {
+      return false;
+    }
+    // GetDxilTessellationShaders owns this translation. Kept here for the logs.
+    Shader::Translation* domain_translation =
+        dxil_vertex_shader->GetOrCreateTranslation(
+            vertex_shader_modification.value);
+    // A tessellated draw links all three stages into its pipeline, so the
+    // vertex-only placeholder can't stand in for its pixel shader.
+    if (pixel_status != ShaderCompileStatus::kReady) {
+      LogShaderCompilePending(pixel_translation, "pixel");
+      return true;
+    }
+    tessellation_shaders = GetDxilTessellationShaders(
+        *dxil_vertex_shader, vertex_shader_modification.value,
+        primitive_processing_result.tessellation_mode, host_vertex_shader_type,
+        !exact_shaders_required && cvars::async_shader_skip_draws,
+        &compile_status);
+    if (!tessellation_shaders && exact_shaders_required &&
+        compile_status == ShaderCompileStatus::kPending) {
+      AwaitAsyncCompiles();
+      tessellation_shaders = GetDxilTessellationShaders(
+          *dxil_vertex_shader, vertex_shader_modification.value,
+          primitive_processing_result.tessellation_mode,
+          host_vertex_shader_type, /*allow_async=*/false, &compile_status);
+    }
+    if (!tessellation_shaders) {
+      if (compile_status == ShaderCompileStatus::kPending) {
+        LogShaderCompilePending(domain_translation, "tessellation");
+        return true;
+      }
+      return false;
+    }
+    PipelineCompileStatus tess_pipeline_status = PipelineCompileStatus::kReady;
+    pipeline = GetOrCreateDxilTessellationPipelineState(
+        *tessellation_shaders, domain_translation,
+        primitive_processing_result.tessellation_mode, host_vertex_shader_type,
+        pixel_translation, regs, &tess_pipeline_status);
+    if (!pipeline && exact_shaders_required &&
+        tess_pipeline_status == PipelineCompileStatus::kPending) {
+      AwaitAsyncCompiles();
+      pipeline = GetOrCreateDxilTessellationPipelineState(
+          *tessellation_shaders, domain_translation,
+          primitive_processing_result.tessellation_mode,
+          host_vertex_shader_type, pixel_translation, regs,
+          &tess_pipeline_status);
+    }
+    if (!pipeline) {
+      if (tess_pipeline_status == PipelineCompileStatus::kPending) {
+        LogPipelineCompilePending(domain_translation, pixel_translation);
+        return true;
+      }
+      return false;
+    }
+    // A sibling modification translating on a compile thread may still be
+    // filling the shader's bindings, which the draw below reads.
+    if (!dxil_vertex_shader->bindings_ready() && exact_shaders_required) {
+      AwaitAsyncCompiles();
+    }
+    if (!dxil_vertex_shader->bindings_ready()) {
+      LogShaderCompilePending(domain_translation, "domain");
+      return true;
     }
   } else {
-    // Primitive topology - from primitive processor, like D3D12.
-    MTL::PrimitiveType mtl_primitive = MTL::PrimitiveTypeTriangle;
-    switch (primitive_processing_result.host_primitive_type) {
-      case xenos::PrimitiveType::kPointList:
-        mtl_primitive = MTL::PrimitiveTypePoint;
-        break;
-      case xenos::PrimitiveType::kLineList:
-        mtl_primitive = MTL::PrimitiveTypeLine;
-        break;
-      case xenos::PrimitiveType::kLineStrip:
-        mtl_primitive = MTL::PrimitiveTypeLineStrip;
-        break;
-      case xenos::PrimitiveType::kTriangleList:
-      case xenos::PrimitiveType::kRectangleList:
-        mtl_primitive = MTL::PrimitiveTypeTriangle;
-        break;
-      case xenos::PrimitiveType::kTriangleStrip:
-        mtl_primitive = MTL::PrimitiveTypeTriangleStrip;
-        break;
-      default:
-        XELOGE(
-            "Host primitive type {} returned by the primitive processor is not "
-            "supported by the Metal command processor",
-            uint32_t(primitive_processing_result.host_primitive_type));
-        return false;
+    auto* vertex_translation =
+        static_cast<DxilShader::DxilTranslation*>(GetOrCreateHostTranslation(
+            *dxil_vertex_shader, vertex_shader_modification.value,
+            !exact_shaders_required && cvars::async_shader_skip_draws,
+            &compile_status));
+    // Nothing can stand in for the vertex shader, so its draws wait.
+    if (compile_status == ShaderCompileStatus::kPending) {
+      LogShaderCompilePending(vertex_translation, "vertex");
+      return true;
     }
+    if (compile_status != ShaderCompileStatus::kReady) {
+      return false;
+    }
+    PipelineCompileStatus pipeline_compile_status =
+        PipelineCompileStatus::kReady;
+    if (pixel_status == ShaderCompileStatus::kReady) {
+      pipeline = GetOrCreatePipelineState(vertex_translation, pixel_translation,
+                                          regs, &pipeline_compile_status);
+      if (!pipeline && exact_shaders_required &&
+          pipeline_compile_status == PipelineCompileStatus::kPending) {
+        AwaitAsyncCompiles();
+        pipeline =
+            GetOrCreatePipelineState(vertex_translation, pixel_translation,
+                                     regs, &pipeline_compile_status);
+      }
+    }
+    if (!pipeline && !exact_shaders_required &&
+        (pixel_status != ShaderCompileStatus::kReady ||
+         pipeline_compile_status == PipelineCompileStatus::kPending)) {
+      pipeline = GetOrCreatePlaceholderPipelineState(vertex_translation, regs);
+      bound_placeholder = pipeline != nullptr;
+      if (bound_placeholder) {
+        LogPlaceholderDraw(vertex_translation, pixel_translation);
+      }
+    }
+    if (!pipeline) {
+      if (pipeline_compile_status == PipelineCompileStatus::kPending ||
+          pixel_status != ShaderCompileStatus::kReady) {
+        LogPipelineCompilePending(vertex_translation, pixel_translation);
+        return true;
+      }
+      return false;
+    }
+  }
+  // The placeholder has no fragment function, so the pixel stage's resources
+  // must not be bound to it.
+  DxilShader* bind_pixel_shader =
+      bound_placeholder ? nullptr : dxil_pixel_shader;
 
-    // Draw using primitive processor output.
-    if (primitive_processing_result.index_buffer_type ==
-        PrimitiveProcessor::ProcessedIndexBufferType::kNone) {
-      IRRuntimeDrawPrimitives(
-          current_render_encoder_, mtl_primitive, NS::UInteger(0),
-          NS::UInteger(primitive_processing_result.host_draw_vertex_count));
+  // A placeholder samples none of the pixel shader's textures, and their
+  // binding list may still be being filled.
+  uint32_t used_texture_mask =
+      dxil_vertex_shader->GetUsedTextureMaskAfterTranslation();
+  if (bind_pixel_shader) {
+    used_texture_mask |=
+        bind_pixel_shader->GetUsedTextureMaskAfterTranslation();
+  }
+  if (!PrepareDrawTextures(used_texture_mask, regs)) {
+    return true;
+  }
+
+  if (!RequestDrawSharedMemoryRanges(*dxil_vertex_shader, regs)) {
+    return false;
+  }
+
+  draw_util::ViewportInfo viewport_info;
+  ComputeDrawViewportInfo(regs, dxil_pixel_shader, normalized_depth_control,
+                          viewport_info);
+  ApplyViewportAndScissor(regs, viewport_info);
+
+  if (msl_bound_pipeline_state_ != pipeline) {
+    current_render_encoder_->setRenderPipelineState(pipeline);
+    msl_bound_pipeline_state_ = pipeline;
+  }
+  ApplyRasterizerState(primitive_polygonal);
+  ApplyDepthStencilState(primitive_polygonal, normalized_depth_control);
+
+  UpdateSpirvSystemConstantValues(
+      primitive_processing_result, primitive_polygonal,
+      primitive_processing_result.line_loop_closing_index,
+      primitive_processing_result.host_shader_index_endian, viewport_info,
+      used_texture_mask, normalized_depth_control, normalized_color_mask);
+
+  float blend_constants[] = {
+      regs.Get<float>(XE_GPU_REG_RB_BLEND_RED),
+      regs.Get<float>(XE_GPU_REG_RB_BLEND_GREEN),
+      regs.Get<float>(XE_GPU_REG_RB_BLEND_BLUE),
+      regs.Get<float>(XE_GPU_REG_RB_BLEND_ALPHA),
+  };
+  if (!ff_blend_factor_valid_ ||
+      std::memcmp(ff_blend_factor_, blend_constants, sizeof(float) * 4) != 0) {
+    std::memcpy(ff_blend_factor_, blend_constants, sizeof(float) * 4);
+    ff_blend_factor_valid_ = true;
+    current_render_encoder_->setBlendColor(
+        blend_constants[0], blend_constants[1], blend_constants[2],
+        blend_constants[3]);
+  }
+
+  UpdateGuestConstantCaches(dxil_vertex_shader, dxil_pixel_shader, regs);
+  MetalDxilBinder::Constants constants;
+  constants.system = {&spirv_system_constants_,
+                      uint32_t(sizeof(spirv_system_constants_))};
+  // The uniform block is declared as float_count vec4s (256 with
+  // float_dynamic_addressing), so nothing past that is addressable.
+  auto declared_float_bytes = [](const Shader* shader) -> uint32_t {
+    if (!shader) {
+      return 0;
+    }
+    return std::min(uint32_t(shader->constant_register_map().float_count) * 16u,
+                    uint32_t(kCbvSizeBytes));
+  };
+  constants.float_vertex = {msl_cached_float_constants_vertex_.data(),
+                            declared_float_bytes(dxil_vertex_shader)};
+  // The placeholder binds no pixel stage, so it declares no float constants.
+  constants.float_pixel = {msl_cached_float_constants_pixel_.data(),
+                           declared_float_bytes(bind_pixel_shader)};
+  constants.bool_loop = {msl_cached_bool_loop_constants_.data(),
+                         uint32_t(kBoolLoopConstantsSize)};
+  constants.fetch = {msl_cached_fetch_constants_.data(),
+                     uint32_t(kFetchConstantsSize)};
+  if (!dxil_binder_.Bind(current_render_encoder_, dxil_vertex_shader,
+                         bind_pixel_shader, constants, memexport_used,
+                         is_tessellated)) {
+    return false;
+  }
+
+  DrawIndexBuffer draw_index_buffer;
+  if (!ResolveDrawIndexBuffer(primitive_processing_result,
+                              host_vertex_shader_type, is_tessellated,
+                              draw_index_buffer)) {
+    return false;
+  }
+
+  // Resume a ZPD segment waiting on a render encoder so this draw is counted.
+  OpenQuerySegment(false);
+
+  if (is_tessellated) {
+    UseRenderEncoderResource(tessellator_tables_buffer_,
+                             MTL::ResourceUsageRead);
+    IRRuntimeTessellationPipelineConfig config =
+        BuildTessellationPipelineConfig(
+            tessellation_shaders->vertex.reflection,
+            tessellation_shaders->hull.reflection,
+            tessellation_shaders->domain.reflection);
+    // Every patch list lowers to the same runtime primitive type; the control
+    // point count comes from the hull reflection in the config.
+    if (draw_index_buffer.indexed) {
+      UseRenderEncoderResource(draw_index_buffer.buffer,
+                               MTL::ResourceUsageRead);
+      uint32_t index_stride =
+          draw_index_buffer.index_type == MTL::IndexTypeUInt16
+              ? sizeof(uint16_t)
+              : sizeof(uint32_t);
+      IRRuntimeDrawIndexedPatchesTessellationEmulation(
+          current_render_encoder_, IRRuntimePrimitiveTypeTriangle,
+          draw_index_buffer.index_type, draw_index_buffer.buffer, config, 1,
+          draw_index_buffer.index_count, 0, 0,
+          uint32_t(draw_index_buffer.offset / index_stride));
     } else {
-      MTL::IndexType index_type =
-          (primitive_processing_result.host_index_format ==
-           xenos::IndexFormat::kInt16)
-              ? MTL::IndexTypeUInt16
-              : MTL::IndexTypeUInt32;
-      MTL::Buffer* index_buffer = nullptr;
-      uint64_t index_offset = 0;
-      switch (primitive_processing_result.index_buffer_type) {
-        case PrimitiveProcessor::ProcessedIndexBufferType::kGuestDMA:
-          index_buffer = shared_memory_ ? shared_memory_->GetBuffer() : nullptr;
-          index_offset = primitive_processing_result.guest_index_base;
-          if (!request_guest_index_range(
-                  index_offset,
-                  primitive_processing_result.host_draw_vertex_count,
-                  index_type)) {
-            XELOGE("IssueDraw: failed to validate guest index buffer range");
-            return false;
-          }
-          break;
-        case PrimitiveProcessor::ProcessedIndexBufferType::kHostConverted:
-          if (primitive_processor_) {
-            index_buffer = primitive_processor_->GetConvertedIndexBuffer(
-                primitive_processing_result.host_index_buffer_handle,
-                index_offset);
-          }
-          break;
-        case PrimitiveProcessor::ProcessedIndexBufferType::kHostBuiltinForAuto:
-        case PrimitiveProcessor::ProcessedIndexBufferType::kHostBuiltinForDMA:
-          if (primitive_processor_) {
-            index_buffer = primitive_processor_->GetBuiltinIndexBuffer();
-            index_offset = primitive_processing_result.host_index_buffer_handle;
-          }
-          break;
-        default:
-          XELOGE("Unsupported index buffer type {}",
-                 uint32_t(primitive_processing_result.index_buffer_type));
-          return false;
-      }
-      if (!index_buffer) {
-        XELOGE("IssueDraw: index buffer is null for type {}",
-               uint32_t(primitive_processing_result.index_buffer_type));
-        return false;
-      }
-      IRRuntimeDrawIndexedPrimitives(
-          current_render_encoder_, mtl_primitive,
-          NS::UInteger(primitive_processing_result.host_draw_vertex_count),
-          index_type, index_buffer, index_offset, NS::UInteger(1), 0, 0);
+      IRRuntimeDrawPatchesTessellationEmulation(
+          current_render_encoder_, IRRuntimePrimitiveTypeTriangle, config, 1,
+          draw_index_buffer.index_count, 0, 0);
     }
+  } else if (draw_index_buffer.indexed) {
+    // The converter's draw helpers also push the draw arguments the compiled
+    // vertex function reads for SV_VertexID and SV_InstanceID.
+    UseRenderEncoderResource(draw_index_buffer.buffer, MTL::ResourceUsageRead);
+    IRRuntimeDrawIndexedPrimitives(
+        current_render_encoder_, draw_index_buffer.primitive_type,
+        draw_index_buffer.index_count, draw_index_buffer.index_type,
+        draw_index_buffer.buffer, draw_index_buffer.offset);
+  } else {
+    IRRuntimeDrawPrimitives(current_render_encoder_,
+                            draw_index_buffer.primitive_type, uint64_t(0),
+                            uint64_t(draw_index_buffer.index_count));
   }
 
-  if (memexport_used && shared_memory_) {
-    for (const draw_util::MemExportRange& memexport_range : memexport_ranges_) {
-      shared_memory_->RangeWrittenByGpu(
-          memexport_range.base_address_dwords << 2, memexport_range.size_bytes);
-    }
+  if (memexport_used) {
+    NoteMemexportRangesWritten();
   }
 
-  // Advance ring-buffer indices for descriptor and argument buffers.
   ++current_draw_index_;
-
   return true;
 }
 
 bool MetalCommandProcessor::IssueCopy() {
-  if (!BeginSubmission(true)) {
+  SCOPE_profile_cpu_f("gpu");
+  // Finish any in-flight rendering so render target contents are visible to
+  // resolve logic.
+  EndRenderEncoder();
+  MTL::CommandBuffer* copy_command_buffer = EnsureCommandBuffer();
+  if (!copy_command_buffer) {
+    XELOGE("MetalCommandProcessor::IssueCopy: failed to get command buffer");
     return false;
-  }
-
-  // Finish any in-flight rendering so the render target contents are
-  // available to the render target cache, similar to D3D12's
-  // D3D12CommandProcessor::IssueCopy.
-  if (current_render_encoder_) {
-    current_render_encoder_->endEncoding();
-    current_render_encoder_->release();
-    current_render_encoder_ = nullptr;
-  }
-
-  if (!current_command_buffer_) {
-    if (!EnsureCommandBuffer()) {
-      XELOGE("MetalCommandProcessor::IssueCopy: no command buffer");
-      return false;
-    }
-    current_command_buffer_->setLabel(
-        NS::String::string("XeniaCopyCommandBuffer", NS::UTF8StringEncoding));
   }
 
   if (!render_target_cache_) {
@@ -3214,383 +5147,39 @@ bool MetalCommandProcessor::IssueCopy() {
   uint32_t written_length = 0;
 
   if (!render_target_cache_->Resolve(*memory_, written_address, written_length,
-                                     current_command_buffer_)) {
+                                     copy_command_buffer)) {
     XELOGE("MetalCommandProcessor::IssueCopy - Resolve failed");
     return false;
   }
 
-  ReadbackResolveMode readback_mode = GetReadbackResolveMode();
-  bool do_readback = (readback_mode != ReadbackResolveMode::kDisabled);
-  bool readback_scaled = false;
-  bool readback_scaled_gpu = false;
-  bool use_gpu_downscale = false;
-  bool readback_scheduled = false;
-  ReadbackBuffer* readback_buffer = nullptr;
-  uint32_t write_index = 0;
-  uint32_t read_index = 0;
-  bool use_delayed_sync = false;
-  bool wait_for_completion = false;
-  bool should_copy = false;
-  bool is_cache_miss = false;
-  uint32_t source_length = 0;
-  uint32_t readback_length = 0;
-  uint32_t tile_count = 0;
-  uint32_t pixel_size_log2 = 0;
-  uint32_t scale_x = 1;
-  uint32_t scale_y = 1;
-  bool half_pixel_offset = false;
-  uint32_t source_offset_bytes = 0;
-  uint64_t scaled_range_offset_bytes = 0;
-  uint64_t readback_base_offset_bytes = 0;
-  uint64_t scaled_copy_length = 0;
-  size_t source_buffer_binding_offset = 0;
-  uint64_t source_offset_bytes_log = 0;
-
-  if (do_readback) {
-    // Early check: if destination memory is not accessible, skip readback.
-    VirtualHeap* physical_heap = memory_->GetPhysicalHeap();
-    bool memory_accessible = false;
-    if (physical_heap) {
-      HeapAllocationInfo alloc_info;
-      if (physical_heap->QueryRegionInfo(written_address, &alloc_info) &&
-          (alloc_info.state & kMemoryAllocationCommit) &&
-          IsWritableProtect(alloc_info.protect)) {
-        uint32_t end_address = written_address + written_length;
-        uint32_t region_end = alloc_info.base_address + alloc_info.region_size;
-        if (end_address <= region_end) {
-          memory_accessible = true;
-        }
-      }
-    }
-    if (!memory_accessible) {
-      do_readback = false;
-    }
-  }
-
   if (!written_length) {
-    // Commit any in-flight work so ordering matches D3D12 submission behavior.
-    EndSubmission(false);
+    // Keep the submission open for no-op copies and let primary-buffer end,
+    // swap, or explicit sync points choose the commit boundary.
     return true;
   }
 
-  // Track this resolved region so the trace player can avoid overwriting it
-  // with stale MemoryRead commands from the trace file.
+  // Track this region so a later draw sampling it as a texture is split off the
+  // command buffer that wrote it.
   MarkResolvedMemory(written_address, written_length);
+  // The resolve overwrote any export output here, so no fence need await it.
+  ClearMemexportPages(written_address, written_length);
 
-  if (do_readback) {
-    MTL::Buffer* source_buffer = nullptr;
-    size_t source_offset = 0;
-    size_t source_length_size_t = 0;
-
-    if (texture_cache_ && texture_cache_->IsDrawResolutionScaled()) {
-      readback_scaled = true;
-      auto* metal_texture_cache =
-          static_cast<MetalTextureCache*>(texture_cache_.get());
-      if (!metal_texture_cache ||
-          !metal_texture_cache->GetCurrentScaledResolveBuffer(
-              source_buffer, source_offset, source_length_size_t)) {
-        XELOGE("MetalResolveReadback: failed to get scaled resolve buffer");
-        do_readback = false;
-      } else {
-        scale_x = texture_cache_->draw_resolution_scale_x();
-        scale_y = texture_cache_->draw_resolution_scale_y();
-        uint64_t scale_area = uint64_t(scale_x) * uint64_t(scale_y);
-        uint64_t range_start_scaled =
-            metal_texture_cache->GetCurrentScaledResolveRangeStartScaled();
-        if (scale_area && (range_start_scaled % scale_area) == 0) {
-          uint64_t range_start_unscaled = range_start_scaled / scale_area;
-          if (written_address >= range_start_unscaled) {
-            scaled_range_offset_bytes =
-                (uint64_t(written_address) - range_start_unscaled) * scale_area;
-          }
-        }
-        if (scaled_range_offset_bytes > source_length_size_t) {
-          XELOGE("MetalResolveReadback: scaled range offset out of bounds");
-          do_readback = false;
-        } else {
-          readback_base_offset_bytes = scaled_range_offset_bytes;
-        }
-      }
-    } else {
-      source_buffer = shared_memory_ ? shared_memory_->GetBuffer() : nullptr;
-      source_offset = written_address;
-      source_length_size_t = written_length;
-      source_offset_bytes_log = source_offset;
-    }
-
-    if (do_readback) {
-      if (!source_buffer || source_length_size_t == 0) {
-        do_readback = false;
-      } else if (source_length_size_t > std::numeric_limits<uint32_t>::max()) {
-        XELOGE("MetalResolveReadback: source length too large ({})",
-               source_length_size_t);
-        do_readback = false;
-      } else if (source_offset + source_length_size_t >
-                 size_t(source_buffer->length())) {
-        XELOGE("MetalResolveReadback: source range out of bounds");
-        do_readback = false;
-      }
-    }
-
-    if (do_readback) {
-      source_length = uint32_t(source_length_size_t);
-      uint64_t scaled_available_bytes = source_length_size_t;
-      if (readback_scaled) {
-        if (scaled_range_offset_bytes >= source_length_size_t) {
-          XELOGE("MetalResolveReadback: scaled range offset exceeds length");
-          do_readback = false;
-        } else {
-          scaled_available_bytes =
-              source_length_size_t - scaled_range_offset_bytes;
-        }
-      }
-      uint64_t resolve_key =
-          MakeReadbackResolveKey(written_address, written_length);
-      ReadbackBuffer& rb = readback_buffers_[resolve_key];
-      rb.last_used_frame = frame_current_;
-      readback_buffer = &rb;
-      write_index = rb.current_index;
-      use_delayed_sync = (readback_mode == ReadbackResolveMode::kFast ||
-                          readback_mode == ReadbackResolveMode::kSome);
-      read_index = use_delayed_sync ? (1u - write_index) : write_index;
-
-      readback_length = source_length;
-      if (readback_scaled) {
-        auto copy_dest_info = register_file_->Get<reg::RB_COPY_DEST_INFO>();
-        const FormatInfo* format_info =
-            FormatInfo::Get(uint32_t(copy_dest_info.copy_dest_format));
-        uint32_t bits_per_pixel = format_info->bits_per_pixel;
-        xe::bit_scan_forward(bits_per_pixel >> 3, &pixel_size_log2);
-        uint32_t bytes_per_pixel = 1u << pixel_size_log2;
-        uint32_t tile_size_1x = 32u * 32u * bytes_per_pixel;
-        tile_count = written_length / tile_size_1x;
-        half_pixel_offset = cvars::readback_resolve_half_pixel_offset &&
-                            (scale_x > 1 || scale_y > 1);
-        uint64_t tile_size_scaled =
-            uint64_t(tile_size_1x) * uint64_t(scale_x) * uint64_t(scale_y);
-        uint64_t required_scaled = uint64_t(tile_count) * tile_size_scaled;
-        if (required_scaled > scaled_available_bytes) {
-          tile_count = uint32_t(scaled_available_bytes / tile_size_scaled);
-          required_scaled = uint64_t(tile_count) * tile_size_scaled;
-        }
-        if (tile_count == 0) {
-          do_readback = false;
-        }
-
-        uint64_t source_offset_bytes_64 =
-            uint64_t(source_offset) + scaled_range_offset_bytes;
-        source_offset_bytes_log = source_offset_bytes_64;
-        if (do_readback && tile_count != 0 && resolve_downscale_pipeline_) {
-          uint32_t downscale_buffer_size =
-              AlignReadbackBufferSize(written_length);
-          if (downscale_buffer_size > resolve_downscale_buffer_size_) {
-            if (resolve_downscale_buffer_) {
-              resolve_downscale_buffer_->release();
-              resolve_downscale_buffer_ = nullptr;
-              resolve_downscale_buffer_size_ = 0;
-            }
-            if (device_) {
-              resolve_downscale_buffer_ = device_->newBuffer(
-                  downscale_buffer_size, MTL::ResourceStorageModePrivate);
-              if (resolve_downscale_buffer_) {
-                resolve_downscale_buffer_size_ = downscale_buffer_size;
-              }
-            }
-          }
-          if (resolve_downscale_buffer_) {
-            use_gpu_downscale = true;
-            readback_length = written_length;
-            source_buffer_binding_offset =
-                size_t(source_offset_bytes_64 & ~uint64_t(3));
-            source_offset_bytes =
-                uint32_t(source_offset_bytes_64 -
-                         uint64_t(source_buffer_binding_offset));
-          }
-        }
-        if (do_readback && !use_gpu_downscale) {
-          scaled_copy_length = required_scaled;
-          if (scaled_copy_length > std::numeric_limits<uint32_t>::max()) {
-            XELOGE("MetalResolveReadback: scaled copy length too large ({})",
-                   scaled_copy_length);
-            do_readback = false;
-          } else {
-            readback_length = uint32_t(scaled_copy_length);
-            source_offset = size_t(source_offset_bytes_64);
-            readback_base_offset_bytes = 0;
-          }
-        }
-      }
-
-      uint32_t aligned_size = AlignReadbackBufferSize(readback_length);
-      if (aligned_size > rb.sizes[write_index]) {
-        if (!device_) {
-          XELOGE("MetalResolveReadback: missing Metal device");
-          do_readback = false;
-        }
-      }
-      if (do_readback && aligned_size > rb.sizes[write_index]) {
-        if (rb.buffers[write_index]) {
-          rb.buffers[write_index]->release();
-          rb.buffers[write_index] = nullptr;
-        }
-        rb.buffers[write_index] =
-            device_->newBuffer(aligned_size, MTL::ResourceStorageModeShared);
-        rb.sizes[write_index] = aligned_size;
-        rb.submission_ids[write_index] = 0;
-      }
-      if (do_readback && !rb.buffers[write_index]) {
-        XELOGE("MetalResolveReadback: failed to allocate readback buffer");
-        do_readback = false;
-      } else if (do_readback) {
-        if (readback_scaled && use_gpu_downscale) {
-          MTL::ComputeCommandEncoder* compute =
-              current_command_buffer_->computeCommandEncoder();
-          if (!compute) {
-            XELOGE("MetalResolveReadback: failed to create compute encoder");
-            do_readback = false;
-          } else {
-            struct ResolveDownscaleConstants {
-              uint32_t scale_x;
-              uint32_t scale_y;
-              uint32_t pixel_size_log2;
-              uint32_t tile_count;
-              uint32_t source_offset_bytes;
-              uint32_t half_pixel_offset;
-            } constants;
-            constants.scale_x = scale_x;
-            constants.scale_y = scale_y;
-            constants.pixel_size_log2 = pixel_size_log2;
-            constants.tile_count = tile_count;
-            constants.source_offset_bytes = source_offset_bytes;
-            constants.half_pixel_offset = half_pixel_offset ? 1u : 0u;
-
-            compute->setComputePipelineState(resolve_downscale_pipeline_);
-            compute->setBytes(&constants, sizeof(constants), 0);
-            compute->setBuffer(source_buffer, source_buffer_binding_offset, 1);
-            compute->setBuffer(resolve_downscale_buffer_, 0, 2);
-            compute->useResource(source_buffer, MTL::ResourceUsageRead);
-            compute->useResource(resolve_downscale_buffer_,
-                                 MTL::ResourceUsageWrite);
-            compute->dispatchThreadgroups(MTL::Size::Make(tile_count, 1, 1),
-                                          MTL::Size::Make(32, 32, 1));
-            compute->endEncoding();
-
-            MTL::BlitCommandEncoder* blit =
-                current_command_buffer_->blitCommandEncoder();
-            if (!blit) {
-              XELOGE("MetalResolveReadback: failed to create blit encoder");
-              do_readback = false;
-            } else {
-              blit->copyFromBuffer(resolve_downscale_buffer_, 0,
-                                   rb.buffers[write_index], 0, readback_length);
-              blit->endEncoding();
-              rb.submission_ids[write_index] = GetCurrentSubmission();
-              readback_scheduled = true;
-              readback_scaled_gpu = true;
-            }
-          }
-        } else {
-          MTL::BlitCommandEncoder* blit =
-              current_command_buffer_->blitCommandEncoder();
-          if (!blit) {
-            XELOGE("MetalResolveReadback: failed to create blit encoder");
-            do_readback = false;
-          } else {
-            blit->copyFromBuffer(source_buffer, source_offset,
-                                 rb.buffers[write_index], 0, readback_length);
-            blit->endEncoding();
-            rb.submission_ids[write_index] = GetCurrentSubmission();
-            readback_scheduled = true;
-          }
-        }
-      }
-
-      ProcessCompletedSubmissions();
-      if (readback_scheduled && use_delayed_sync) {
-        if (rb.buffers[read_index] == nullptr ||
-            readback_length > rb.sizes[read_index] ||
-            rb.submission_ids[read_index] == 0 ||
-            rb.submission_ids[read_index] > submission_completed_processed_) {
-          is_cache_miss = true;
-          read_index = write_index;
-        }
-      }
-
-      wait_for_completion = !use_delayed_sync || is_cache_miss;
-      should_copy =
-          (readback_mode == ReadbackResolveMode::kSome) ? is_cache_miss : true;
-      if (readback_scaled && tile_count == 0) {
-        should_copy = false;
-        wait_for_completion = false;
-      }
-    }
+  // Keep copy-only resolve bursts open so multiple resolves can be coalesced,
+  // but commit draw-containing submissions so subsequent work observes the
+  // resolved guest memory immediately.
+  if (current_draw_index_ == 0) {
+    copy_resolve_writes_pending_ = true;
+    return true;
   }
 
-  // Submit the command buffer without waiting - the resolve writes are now
-  // ordered in the same submission as the preceding draws.
-  uint64_t submission_to_wait = 0;
-  bool defer_submission =
-      readback_scheduled && use_delayed_sync && !wait_for_completion;
-  if (readback_scheduled && wait_for_completion) {
-    submission_to_wait = GetCurrentSubmission();
-  }
-  if (!defer_submission) {
-    EndSubmission(false);
-    if (submission_to_wait) {
-      CheckSubmissionCompletion(submission_to_wait);
-    }
-  }
-
-  if (readback_scheduled && should_copy && readback_buffer &&
-      readback_buffer->buffers[read_index]) {
-    static uint32_t readback_log_count = 0;
-    if (readback_log_count < 8) {
-      ++readback_log_count;
-      XELOGI(
-          "MetalResolveReadback: addr=0x{:08X} len={} scaled={} gpu={} "
-          "scale={}x{} pix_log2={} tiles={} src_off={} "
-          "scaled_off={} src_len={}",
-          written_address, written_length, readback_scaled ? 1 : 0,
-          readback_scaled_gpu ? 1 : 0, scale_x, scale_y, pixel_size_log2,
-          tile_count, source_offset_bytes_log, scaled_range_offset_bytes,
-          source_length);
-    }
-    const uint8_t* readback_bytes = static_cast<const uint8_t*>(
-        readback_buffer->buffers[read_index]->contents());
-    uint8_t* dest_ptr = memory_->TranslatePhysical(written_address);
-    if (readback_bytes && dest_ptr) {
-      if (readback_scaled) {
-        if (readback_scaled_gpu) {
-          memory::vastcpy(dest_ptr, const_cast<uint8_t*>(readback_bytes),
-                          written_length);
-        } else {
-          const uint8_t* readback_base = readback_bytes;
-          if (readback_base_offset_bytes < readback_length) {
-            readback_base += readback_base_offset_bytes;
-          }
-          DownscaleResolveTileData(readback_base, dest_ptr, tile_count,
-                                   pixel_size_log2, scale_x, scale_y,
-                                   half_pixel_offset);
-        }
-        // Scaled resolve data isn't in shared memory; invalidate so CPU memory
-        // becomes authoritative and shared memory uploads on demand.
-        if (shared_memory_) {
-          shared_memory_->MemoryInvalidationCallback(written_address,
-                                                     written_length, true);
-        }
-        if (primitive_processor_) {
-          primitive_processor_->MemoryInvalidationCallback(
-              written_address, written_length, true);
-        }
-      } else {
-        memory::vastcpy(dest_ptr, const_cast<uint8_t*>(readback_bytes),
-                        written_length);
-      }
-    }
-  }
-  if (readback_scheduled && readback_buffer) {
-    readback_buffer->current_index = 1u - readback_buffer->current_index;
-  }
+  // Resolve touched guest memory in a draw-containing submission; commit now
+  // so following packets don't observe stale resolve results.
+  ScheduleSpirvUniformBufferRelease(copy_command_buffer);
+  copy_command_buffer->commit();
+  copy_command_buffer->release();
+  current_command_buffer_ = nullptr;
+  current_draw_index_ = 0;
+  copy_resolve_writes_pending_ = false;
 
   return true;
 }
@@ -3606,8 +5195,28 @@ void MetalCommandProcessor::OnGammaRampPWLValueWritten() {
 void MetalCommandProcessor::WriteRegister(uint32_t index, uint32_t value) {
   CommandProcessor::WriteRegister(index, value);
 
-  if (index >= XE_GPU_REG_SHADER_CONSTANT_FETCH_00_0 &&
-      index <= XE_GPU_REG_SHADER_CONSTANT_FETCH_31_5) {
+  if (index >= XE_GPU_REG_SHADER_CONSTANT_000_X &&
+      index <= XE_GPU_REG_SHADER_CONSTANT_511_W) {
+    const uint32_t float_constant_index =
+        (index - XE_GPU_REG_SHADER_CONSTANT_000_X) >> 2;
+    const uint32_t stage_constant_index = float_constant_index & 0xFF;
+    const uint32_t map_index = stage_constant_index >> 6;
+    const uint64_t map_bit = uint64_t(1) << (stage_constant_index & 63);
+    if (float_constant_index >= 256) {
+      if (msl_current_float_constant_map_pixel_[map_index] & map_bit) {
+        msl_float_constants_dirty_pixel_ = true;
+      }
+    } else {
+      if (msl_current_float_constant_map_vertex_[map_index] & map_bit) {
+        msl_float_constants_dirty_vertex_ = true;
+      }
+    }
+  } else if (index >= XE_GPU_REG_SHADER_CONSTANT_BOOL_000_031 &&
+             index <= XE_GPU_REG_SHADER_CONSTANT_LOOP_31) {
+    msl_bool_loop_constants_dirty_ = true;
+  } else if (index >= XE_GPU_REG_SHADER_CONSTANT_FETCH_00_0 &&
+             index <= XE_GPU_REG_SHADER_CONSTANT_FETCH_31_5) {
+    msl_fetch_constants_dirty_ = true;
     if (texture_cache_) {
       texture_cache_->TextureFetchConstantWritten(
           (index - XE_GPU_REG_SHADER_CONSTANT_FETCH_00_0) / 6);
@@ -3616,12 +5225,10 @@ void MetalCommandProcessor::WriteRegister(uint32_t index, uint32_t value) {
 }
 
 MTL::CommandBuffer* MetalCommandProcessor::EnsureCommandBuffer() {
+  SCOPE_profile_cpu_f("gpu");
+  ProcessCompletedSubmissions();
   if (current_command_buffer_) {
     return current_command_buffer_;
-  }
-  if (!submission_open_) {
-    XELOGE("EnsureCommandBuffer: no open submission");
-    return nullptr;
   }
   if (!command_queue_) {
     XELOGE("EnsureCommandBuffer: no command queue");
@@ -3631,34 +5238,75 @@ MTL::CommandBuffer* MetalCommandProcessor::EnsureCommandBuffer() {
   EnsureCommandBufferAutoreleasePool();
 
   // Note: commandBuffer() returns an autoreleased object, we must retain it.
-  current_command_buffer_ = command_queue_->commandBuffer();
+  {
+    SCOPE_profile_cpu_i("gpu", "MetalCommandProcessor::QueueCommandBuffer");
+    current_command_buffer_ = command_queue_->commandBuffer();
+  }
   if (!current_command_buffer_) {
     XELOGE("EnsureCommandBuffer: failed to create command buffer");
+    DrainCommandBufferAutoreleasePool();
     return nullptr;
   }
   current_command_buffer_->retain();
   current_command_buffer_->setLabel(
       NS::String::string("XeniaCommandBuffer", NS::UTF8StringEncoding));
 
+  if (!UseDxilPath() && !EnsureSpirvUniformBuffer()) {
+    static auto last_ensure_uniforms_fail_log =
+        std::chrono::steady_clock::time_point{};
+    const auto now = std::chrono::steady_clock::now();
+    if (now - last_ensure_uniforms_fail_log >= std::chrono::seconds(1)) {
+      last_ensure_uniforms_fail_log = now;
+      XELOGE(
+          "EnsureCommandBuffer: failed to prepare SPIRV-Cross uniforms "
+          "buffer");
+    }
+    current_command_buffer_->release();
+    current_command_buffer_ = nullptr;
+    DrainCommandBufferAutoreleasePool();
+    return nullptr;
+  }
+
+  ++submission_current_;
+  ++command_buffer_kind_counts_[size_t(next_submission_kind_)];
+  next_submission_kind_ = CommandBufferKind::kSubmissionOther;
+  AddGpuTimeHandler(current_command_buffer_);
+  pending_completion_handlers_.fetch_add(1, std::memory_order_relaxed);
+  current_command_buffer_->addCompletedHandler(
+      [this](MTL::CommandBuffer* command_buffer) {
+        std::lock_guard<std::mutex> lock(completion_mutex_);
+        completed_command_buffers_.fetch_add(1, std::memory_order_release);
+        pending_completion_handlers_.fetch_sub(1, std::memory_order_release);
+        // Notify under the lock: a waiter that evaluated the predicate before
+        // the increment would otherwise miss the wakeup, and
+        // WaitForPendingCompletionHandlers can see the counter reach zero and
+        // let the object be destroyed out from under notify_all().
+        completion_cond_.notify_all();
+      });
+
+  if (primitive_processor_) {
+    primitive_processor_->BeginSubmission();
+  }
+  if (texture_cache_) {
+    texture_cache_->BeginSubmission(submission_current_);
+  }
+  if (primitive_processor_ && !frame_open_) {
+    primitive_processor_->BeginFrame();
+    if (render_target_cache_) {
+      render_target_cache_->BeginFrame();
+    }
+    if (texture_cache_) {
+      texture_cache_->BeginFrame();
+    }
+    frame_open_ = true;
+  }
+
   return current_command_buffer_;
 }
 
 void MetalCommandProcessor::ProcessCompletedSubmissions() {
-  CheckSubmissionCompletion(0);
-}
-
-void MetalCommandProcessor::CheckSubmissionCompletion(
-    uint64_t await_submission) {
-  if (!completion_timeline_) {
-    return;
-  }
-  if (await_submission) {
-    completion_timeline_->AwaitSubmissionAndUpdateCompleted(await_submission);
-  } else {
-    completion_timeline_->UpdateCompletedSubmission();
-  }
   const uint64_t completed =
-      completion_timeline_->GetCompletedSubmissionFromLastUpdate();
+      completed_command_buffers_.load(std::memory_order_relaxed);
   if (completed <= submission_completed_processed_) {
     return;
   }
@@ -3670,108 +5318,6 @@ void MetalCommandProcessor::CheckSubmissionCompletion(
     texture_cache_->CompletedSubmissionUpdated(completed);
   }
 }
-
-bool MetalCommandProcessor::BeginSubmission(bool is_guest_command) {
-  bool is_opening_frame = is_guest_command && !frame_open_;
-  if (submission_open_ && !is_opening_frame) {
-    return true;
-  }
-
-  MaybeStartCapture();
-
-  uint64_t await_submission = 0;
-  if (is_opening_frame) {
-    await_submission = closed_frame_submissions_[frame_current_ % kQueueFrames];
-  }
-  CheckSubmissionCompletion(await_submission);
-
-  if (is_opening_frame) {
-    frame_completed_ =
-        std::max(frame_current_, uint64_t(kQueueFrames)) - kQueueFrames;
-    for (uint64_t frame = frame_completed_ + 1; frame < frame_current_;
-         ++frame) {
-      if (closed_frame_submissions_[frame % kQueueFrames] >
-          GetCompletedSubmission()) {
-        break;
-      }
-      frame_completed_ = frame;
-    }
-  }
-
-  if (!submission_open_) {
-    submission_open_ = true;
-    if (!EnsureCommandBuffer()) {
-      submission_open_ = false;
-      return false;
-    }
-    if (primitive_processor_) {
-      primitive_processor_->BeginSubmission();
-    }
-    if (texture_cache_) {
-      texture_cache_->BeginSubmission(GetCurrentSubmission());
-    }
-  }
-
-  if (is_opening_frame) {
-    frame_open_ = true;
-    if (primitive_processor_) {
-      primitive_processor_->BeginFrame();
-    }
-    if (texture_cache_) {
-      texture_cache_->BeginFrame();
-    }
-    if (render_target_cache_) {
-      render_target_cache_->BeginFrame();
-    }
-  }
-
-  return true;
-}
-
-bool MetalCommandProcessor::EndSubmission(bool is_swap) {
-  bool is_closing_frame = is_swap && frame_open_;
-
-  if (is_closing_frame) {
-    if (primitive_processor_) {
-      primitive_processor_->EndFrame();
-    }
-  }
-
-  if (submission_open_) {
-    EndRenderEncoder();
-
-    if (!current_command_buffer_) {
-      XELOGW("MetalCommandProcessor::EndSubmission: missing command buffer");
-    } else {
-      if (completion_timeline_) {
-        completion_timeline_->SignalAndAdvance(current_command_buffer_);
-      }
-      ScheduleDrawRingRelease(current_command_buffer_);
-      current_command_buffer_->commit();
-      current_command_buffer_->release();
-      current_command_buffer_ = nullptr;
-    }
-    SetActiveDrawRing(nullptr);
-    current_draw_index_ = 0;
-
-    submission_open_ = false;
-    DrainCommandBufferAutoreleasePool();
-  }
-
-  if (is_closing_frame) {
-    if (shared_memory_ && ::cvars::clear_memory_page_state) {
-      shared_memory_->SetSystemPageBlocksValidWithGpuDataWritten();
-    }
-    frame_open_ = false;
-    closed_frame_submissions_[frame_current_++ % kQueueFrames] =
-        GetCurrentSubmission() - 1;
-    EvictOldReadbackBuffers(readback_buffers_);
-  }
-
-  return true;
-}
-
-bool MetalCommandProcessor::CanEndSubmissionImmediately() const { return true; }
 
 void MetalCommandProcessor::EnsureCommandBufferAutoreleasePool() {
   if (command_buffer_autorelease_pool_) {
@@ -3788,20 +5334,128 @@ void MetalCommandProcessor::DrainCommandBufferAutoreleasePool() {
   command_buffer_autorelease_pool_ = nullptr;
 }
 
-void MetalCommandProcessor::EndRenderEncoder() {
-  if (!current_render_encoder_) {
+void MetalCommandProcessor::ResetMslRenderEncoderStateCache() {
+  msl_bound_vertex_texture_count_ = 0;
+  msl_bound_pixel_texture_count_ = 0;
+  msl_bound_vertex_sampler_count_ = 0;
+  msl_bound_pixel_sampler_count_ = 0;
+  msl_bound_vertex_texture_binding_uid_ = 0;
+  msl_bound_pixel_texture_binding_uid_ = 0;
+  msl_bound_vertex_sampler_binding_uid_ = 0;
+  msl_bound_pixel_sampler_binding_uid_ = 0;
+  msl_bound_vertex_textures_.fill(nullptr);
+  msl_bound_pixel_textures_.fill(nullptr);
+  msl_bound_vertex_samplers_.fill(nullptr);
+  msl_bound_pixel_samplers_.fill(nullptr);
+  msl_bound_shared_memory_buffer_ = nullptr;
+  msl_bound_vertex_argument_buffer_ = nullptr;
+  msl_bound_pixel_argument_buffer_ = nullptr;
+  msl_bound_vertex_argument_buffer_offset_ = 0;
+  msl_bound_pixel_argument_buffer_offset_ = 0;
+  msl_bound_vertex_argument_buffer_offset_valid_ = false;
+  msl_bound_pixel_argument_buffer_offset_valid_ = false;
+  msl_bound_null_buffer_ = nullptr;
+  msl_bound_uniforms_buffer_ = nullptr;
+  msl_bound_uniforms_vs_base_offset_ = 0;
+  msl_bound_uniforms_ps_base_offset_ = 0;
+  msl_bound_uniforms_offsets_valid_ = false;
+  msl_bound_pipeline_state_ = nullptr;
+  msl_viewport_valid_ = false;
+  msl_scissor_valid_ = false;
+  msl_rasterizer_state_valid_ = false;
+  msl_depth_stencil_state_ = nullptr;
+  msl_stencil_reference_valid_ = false;
+  msl_stencil_reference_ = 0;
+  ff_blend_factor_valid_ = false;
+  ResetRenderEncoderResourceUsage();
+}
+
+void MetalCommandProcessor::InvalidateRenderEncoderStateAfterDrawPassTransfers(
+    MetalRenderTargetCache::DrawPassTransferEncoderMutationMask mutations) {
+  if (!mutations) {
     return;
+  }
+  using RTC = MetalRenderTargetCache;
+  if (mutations & RTC::kDrawPassTransferEncoderMutationPipeline) {
+    msl_bound_pipeline_state_ = nullptr;
+  }
+  if (mutations & RTC::kDrawPassTransferEncoderMutationDepthStencil) {
+    msl_depth_stencil_state_ = nullptr;
+  }
+  if (mutations & RTC::kDrawPassTransferEncoderMutationStencilReference) {
+    msl_stencil_reference_valid_ = false;
+  }
+  if (mutations & RTC::kDrawPassTransferEncoderMutationViewport) {
+    msl_viewport_valid_ = false;
+  }
+  if (mutations & RTC::kDrawPassTransferEncoderMutationScissor) {
+    msl_scissor_valid_ = false;
+  }
+  if (mutations & RTC::kDrawPassTransferEncoderMutationRasterizer) {
+    msl_rasterizer_state_valid_ = false;
+  }
+  // The DXIL binder rebinds its own buffer slots on every draw, so only the
+  // MSL path's bindings need dropping: shared memory sits at buffer slot 0 and
+  // the constant buffers from slot 1, both stages, and its textures start at
+  // fragment texture 0.
+  if (mutations & (RTC::kDrawPassTransferEncoderMutationVertexSlot0 |
+                   RTC::kDrawPassTransferEncoderMutationFragmentSlot0)) {
+    msl_bound_shared_memory_buffer_ = nullptr;
+  }
+  if (mutations & (RTC::kDrawPassTransferEncoderMutationVertexSlot1 |
+                   RTC::kDrawPassTransferEncoderMutationFragmentSlot1)) {
+    msl_bound_uniforms_offsets_valid_ = false;
+  }
+  if (mutations & RTC::kDrawPassTransferEncoderMutationFragmentTextures) {
+    msl_bound_pixel_textures_.fill(nullptr);
+    msl_bound_pixel_texture_count_ = 0;
+    msl_bound_pixel_texture_binding_uid_ = 0;
+  }
+}
+
+void MetalCommandProcessor::ResetMslCrossEncoderReuseCaches() {
+  msl_last_argbuf_vertex_textures_.fill(nullptr);
+  msl_last_argbuf_vertex_texture_count_ = 0;
+  msl_last_argbuf_vertex_samplers_.fill(nullptr);
+  msl_last_argbuf_vertex_sampler_count_ = 0;
+  msl_last_argbuf_vertex_buffer_ = nullptr;
+  msl_last_argbuf_vertex_offset_ = 0;
+  msl_last_argbuf_vertex_translation_ = nullptr;
+  msl_last_argbuf_vertex_encoded_length_ = 0;
+  msl_last_argbuf_vertex_layout_uid_ = 0;
+  msl_last_argbuf_pixel_textures_.fill(nullptr);
+  msl_last_argbuf_pixel_texture_count_ = 0;
+  msl_last_argbuf_pixel_samplers_.fill(nullptr);
+  msl_last_argbuf_pixel_sampler_count_ = 0;
+  msl_last_argbuf_pixel_buffer_ = nullptr;
+  msl_last_argbuf_pixel_offset_ = 0;
+  msl_last_argbuf_pixel_translation_ = nullptr;
+  msl_last_argbuf_pixel_encoded_length_ = 0;
+  msl_last_argbuf_pixel_layout_uid_ = 0;
+}
+
+void MetalCommandProcessor::EndRenderEncoder() {
+  SCOPE_profile_cpu_f("gpu");
+  if (!current_render_encoder_) {
+    render_encoder_has_zpd_visibility_ = false;
+    return;
+  }
+  // Visibility results are scoped to the render encoder and an offset can't be
+  // selected again after it ends, so the segment closes here. The logical
+  // report stays open and resumes on the next encoder.
+  if (GetZPDMode() != ZPDMode::kFake) {
+    CloseQuerySegment();
   }
   current_render_encoder_->endEncoding();
   current_render_encoder_->release();
   current_render_encoder_ = nullptr;
   current_render_pass_descriptor_ = nullptr;
-  ResetRenderEncoderResourceUsage();
+  render_encoder_has_zpd_visibility_ = false;
+  ResetMslRenderEncoderStateCache();
 }
 
 void MetalCommandProcessor::ResetRenderEncoderResourceUsage() {
   render_encoder_resource_usage_.clear();
-  render_encoder_heap_usage_.clear();
 }
 
 void MetalCommandProcessor::UseRenderEncoderResource(MTL::Resource* resource,
@@ -3809,7 +5463,8 @@ void MetalCommandProcessor::UseRenderEncoderResource(MTL::Resource* resource,
   if (!current_render_encoder_ || !resource) {
     return;
   }
-  UseRenderEncoderHeap(resource->heap());
+  // No useHeap: tracking on a tracked heap is heap-granular, so declaring the
+  // heap would make this encoder depend on every write to anything in it.
   uint32_t usage_bits = static_cast<uint32_t>(usage);
   auto it = render_encoder_resource_usage_.find(resource);
   if (it != render_encoder_resource_usage_.end()) {
@@ -3823,53 +5478,32 @@ void MetalCommandProcessor::UseRenderEncoderResource(MTL::Resource* resource,
   current_render_encoder_->useResource(resource, usage);
 }
 
-void MetalCommandProcessor::UseRenderEncoderHeap(MTL::Heap* heap) {
-  if (!current_render_encoder_ || !heap) {
-    return;
-  }
-  if (!render_encoder_heap_usage_.insert(heap).second) {
-    return;
-  }
-  current_render_encoder_->useHeap(heap);
-}
-
-void MetalCommandProcessor::UseRenderEncoderAttachmentHeaps(
-    MTL::RenderPassDescriptor* descriptor) {
-  if (!current_render_encoder_ || !descriptor) {
-    return;
-  }
-  auto* color_attachments = descriptor->colorAttachments();
-  for (uint32_t i = 0; i < 8; ++i) {
-    auto* attachment = color_attachments->object(i);
-    if (!attachment) {
-      continue;
-    }
-    MTL::Texture* texture = attachment->texture();
-    if (texture) {
-      UseRenderEncoderHeap(texture->heap());
-    }
-  }
-  auto* depth_attachment = descriptor->depthAttachment();
-  if (depth_attachment && depth_attachment->texture()) {
-    UseRenderEncoderHeap(depth_attachment->texture()->heap());
-  }
-  auto* stencil_attachment = descriptor->stencilAttachment();
-  if (stencil_attachment && stencil_attachment->texture()) {
-    UseRenderEncoderHeap(stencil_attachment->texture()->heap());
-  }
-}
-
 void MetalCommandProcessor::BeginCommandBuffer() {
+  SCOPE_profile_cpu_f("gpu");
   if (!EnsureCommandBuffer()) {
     return;
   }
 
-  if (!current_render_encoder_ && (!render_encoder_resource_usage_.empty() ||
-                                   !render_encoder_heap_usage_.empty())) {
+  // The visibility result buffer has to be on the descriptor before the encoder
+  // is created, so a segment waiting to open needs the pool allocated now.
+  const bool zpd_segment_pending =
+      GetZPDMode() != ZPDMode::kFake &&
+      zpd_current_report_.handle != kInvalidReportHandle &&
+      active_segment_.segment_pending_begin;
+  if (zpd_segment_pending) {
+    EnsureQueryResources();
+  }
+
+  if (!current_render_encoder_ && !render_encoder_resource_usage_.empty()) {
     ResetRenderEncoderResourceUsage();
   }
 
-  EnsureActiveDrawRing();
+  // An encoder created before the pool existed can never host a query, so
+  // restart it rather than leave the segment pending indefinitely.
+  if (current_render_encoder_ && zpd_segment_pending && IsQueryPoolReady() &&
+      !render_encoder_has_zpd_visibility_) {
+    EndRenderEncoder();
+  }
 
   // Obtain the render pass descriptor. Prefer the one provided by
   // MetalRenderTargetCache (host render-target path), falling back to the
@@ -3877,13 +5511,42 @@ void MetalCommandProcessor::BeginCommandBuffer() {
   MTL::RenderPassDescriptor* pass_descriptor = render_pass_descriptor_;
   if (render_target_cache_) {
     if (MTL::RenderPassDescriptor* cache_desc =
-            render_target_cache_->GetRenderPassDescriptor(1)) {
+            render_target_cache_->GetRenderPassDescriptor(
+                1, !current_render_encoder_)) {
       pass_descriptor = cache_desc;
     }
   }
   if (!pass_descriptor) {
     XELOGE("BeginCommandBuffer: No render pass descriptor available");
     return;
+  }
+
+  // Ownership transfers queued for this pass have to be encoded into it ahead
+  // of the guest's draws. Resolve what it cannot take here, while no encoder
+  // exists yet and the descriptor can still be rebuilt.
+  if (render_target_cache_ &&
+      render_target_cache_->HasPendingDrawPassTransfers() &&
+      !render_target_cache_->PreflightPendingDrawPassTransfers(
+          pass_descriptor)) {
+    if (!render_target_cache_->FlushPendingDrawPassTransfers()) {
+      XELOGE(
+          "BeginCommandBuffer: failed to perform the queued render target "
+          "ownership transfers");
+    }
+    if (MTL::RenderPassDescriptor* cache_desc =
+            render_target_cache_->GetRenderPassDescriptor(
+                1, !current_render_encoder_)) {
+      pass_descriptor = cache_desc;
+    }
+  }
+
+  // Only passes that host a query need the buffer. A segment pending later
+  // restarts the encoder above to pick it up.
+  if (zpd_segment_pending && IsQueryPoolReady()) {
+    pass_descriptor->setVisibilityResultBuffer(
+        zpd_visibility_pool_->visibility_buffer());
+  } else {
+    pass_descriptor->setVisibilityResultBuffer(nullptr);
   }
 
   // Detect Reverse-Z usage and update clear depth.
@@ -3902,19 +5565,18 @@ void MetalCommandProcessor::BeginCommandBuffer() {
     }
   }
 
-  bool render_pass_dirty = render_target_cache_ &&
-                           render_target_cache_->IsRenderPassDescriptorDirty();
-
   // If the render pass configuration has changed since the current render
   // encoder was created (e.g. dummy RT0 -> real RTs, depth/stencil binding),
   // restart the render encoder with the updated descriptor.
   if (current_render_encoder_ &&
-      (current_render_pass_descriptor_ != pass_descriptor ||
-       render_pass_dirty)) {
+      current_render_pass_descriptor_ != pass_descriptor) {
     EndRenderEncoder();
   }
 
   if (!current_render_encoder_) {
+    // If some path cleared the encoder without going through EndRenderEncoder,
+    // avoid leaking cached binding state into the new encoder.
+    ResetMslRenderEncoderStateCache();
     // Note: renderCommandEncoder() returns an autoreleased object, we must
     // retain it.
     current_render_encoder_ =
@@ -3924,79 +5586,568 @@ void MetalCommandProcessor::BeginCommandBuffer() {
       return;
     }
     current_render_encoder_->retain();
+    ++render_passes_total_;
     current_render_encoder_->setLabel(
         NS::String::string("XeniaRenderEncoder", NS::UTF8StringEncoding));
+    render_encoder_has_zpd_visibility_ =
+        IsQueryPoolReady() && (pass_descriptor->visibilityResultBuffer() ==
+                               zpd_visibility_pool_->visibility_buffer());
     ff_blend_factor_valid_ = false;
     current_render_pass_descriptor_ = pass_descriptor;
-    UseRenderEncoderAttachmentHeaps(pass_descriptor);
+
+    // Start the encoder off covering the whole bound render target rather than
+    // a hard-coded 1280x720. Prefer color RT 0 from the MetalRenderTargetCache,
+    // falling back to depth (depth-only passes) and then legacy
+    // render_target_width_/height_ when needed. Every draw applies the guest's
+    // own viewport and scissor over this before it runs.
+    uint32_t rt_width = 1;
+    uint32_t rt_height = 1;
+    GetBoundRenderTargetSize(render_target_cache_.get(), render_target_width_,
+                             render_target_height_, rt_width, rt_height);
+    MTL::Viewport viewport = {
+        0.0, 0.0, static_cast<double>(rt_width), static_cast<double>(rt_height),
+        0.0, 1.0};
+    current_render_encoder_->setViewport(viewport);
+    // Must not exceed the render pass dimensions.
+    MTL::ScissorRect scissor = {0, 0, rt_width, rt_height};
+    current_render_encoder_->setScissorRect(scissor);
   }
 
-  // Derive viewport/scissor from the actual bound render pass attachments.
-  uint32_t rt_width = render_target_width_;
-  uint32_t rt_height = render_target_height_;
-  MTL::Texture* pass_size_texture = nullptr;
-  if (pass_descriptor) {
-    if (auto* color_attachments = pass_descriptor->colorAttachments()) {
-      if (auto* attachment = color_attachments->object(0)) {
-        pass_size_texture = attachment->texture();
+  if (render_target_cache_ &&
+      render_target_cache_->HasPendingDrawPassTransfers()) {
+    // An occlusion query already counting on this encoder would count the
+    // transfer draws too. Closing the segment makes the next draw reopen it on
+    // a fresh pool slot, the only legal way to resume counting mid-encoder.
+    CloseQuerySegment();
+    MetalRenderTargetCache::DrawPassTransferEncoderMutationMask mutations =
+        MetalRenderTargetCache::kDrawPassTransferEncoderMutationNone;
+    bool transfers_encoded =
+        render_target_cache_->EncodePendingDrawPassTransfers(
+            current_render_encoder_, pass_descriptor, &mutations);
+    InvalidateRenderEncoderStateAfterDrawPassTransfers(mutations);
+    if (!transfers_encoded) {
+      // Preflight passed, so this is a resource failure part way in. Drop the
+      // pass and run the queue standalone: every attachment loaded DontCare is
+      // one the transfers rewrite in full, so the flush restores it.
+      static bool draw_pass_transfer_encode_failed_logged = false;
+      if (!draw_pass_transfer_encode_failed_logged) {
+        draw_pass_transfer_encode_failed_logged = true;
+        XELOGE(
+            "BeginCommandBuffer: failed to encode the queued render target "
+            "ownership transfers into the draw pass");
       }
-    }
-    if (!pass_size_texture) {
-      if (auto* depth_attachment = pass_descriptor->depthAttachment()) {
-        pass_size_texture = depth_attachment->texture();
+      EndRenderEncoder();
+      if (!render_target_cache_->FlushPendingDrawPassTransfers()) {
+        XELOGE(
+            "BeginCommandBuffer: failed to perform the queued render target "
+            "ownership transfers");
       }
-    }
-    if (!pass_size_texture) {
-      if (auto* stencil_attachment = pass_descriptor->stencilAttachment()) {
-        pass_size_texture = stencil_attachment->texture();
-      }
+      return;
     }
   }
-  if (!pass_size_texture && render_target_cache_) {
-    pass_size_texture = render_target_cache_->GetColorTarget(0);
-    if (!pass_size_texture) {
-      pass_size_texture = render_target_cache_->GetDepthTarget();
-    }
-    if (!pass_size_texture) {
-      pass_size_texture = render_target_cache_->GetDummyColorTarget();
-    }
-  }
-  if (pass_size_texture) {
-    rt_width = static_cast<uint32_t>(pass_size_texture->width());
-    rt_height = static_cast<uint32_t>(pass_size_texture->height());
-  }
-
-  // Set viewport
-  MTL::Viewport viewport = {
-      0.0, 0.0, static_cast<double>(rt_width), static_cast<double>(rt_height),
-      0.0, 1.0};
-  current_render_encoder_->setViewport(viewport);
-
-  // Set scissor (must not exceed render pass dimensions)
-  MTL::ScissorRect scissor = {0, 0, rt_width, rt_height};
-  current_render_encoder_->setScissorRect(scissor);
 }
 
-void MetalCommandProcessor::EnsureDrawRingCapacity() {
-  if (current_draw_index_ < draw_ring_count_) {
+bool MetalCommandProcessor::EnsureSpirvUniformBuffer() {
+  if (uniforms_buffer_) {
+    return true;
+  }
+  if (!device_) {
+    XELOGE("EnsureSpirvUniformBuffer: Metal device is null");
+    return false;
+  }
+
+  // Keep this aligned with the SPIRV-Cross descriptor table layout used by
+  // IssueDrawMsl (6 x 4KB CBVs + texture/sampler descriptor blocks).
+  constexpr size_t kUniformsBytesPerTable = 24576;
+  constexpr size_t kStageCount = 2;
+
+  if (!draw_ring_count_) {
+    XELOGW("SPIRV-Cross: draw ring count was zero, forcing to 1");
+    draw_ring_count_ = 1;
+  }
+
+  // Keep a slightly larger initial pool on iOS to reduce early-frame pressure.
+#if XE_PLATFORM_IOS
+  constexpr size_t kUniformsBuffersInFlightInitial = 6;
+  // iOS commonly needs extra headroom to avoid command-buffer churn when
+  // submissions retire later than the CPU draw cadence.
+  constexpr size_t kUniformsBuffersInFlightMax = 24;
+#else
+  constexpr size_t kUniformsBuffersInFlightInitial = 4;
+  constexpr size_t kUniformsBuffersInFlightMax = 12;
+#endif
+
+  if (!spirv_uniforms_pool_initialized_) {
+    size_t requested_ring_count = std::max<size_t>(1, draw_ring_count_);
+    while (requested_ring_count >= 1) {
+      const size_t descriptor_table_count = kStageCount * requested_ring_count;
+      const size_t uniforms_buffer_size =
+          kUniformsBytesPerTable * descriptor_table_count;
+
+      std::vector<MTL::Buffer*> new_pool;
+      new_pool.reserve(kUniformsBuffersInFlightInitial);
+      bool allocation_failed = false;
+      for (size_t i = 0; i < kUniformsBuffersInFlightInitial; ++i) {
+        MTL::Buffer* buffer = device_->newBuffer(
+            uniforms_buffer_size, MTL::ResourceStorageModeShared);
+        if (!buffer) {
+          allocation_failed = true;
+          break;
+        }
+        buffer->setLabel(
+            NS::String::string("MslUniformsBuffer", NS::UTF8StringEncoding));
+        std::memset(buffer->contents(), 0, uniforms_buffer_size);
+        new_pool.push_back(buffer);
+      }
+
+      if (!allocation_failed &&
+          new_pool.size() == kUniformsBuffersInFlightInitial) {
+        {
+          std::lock_guard<std::mutex> lock(spirv_uniforms_mutex_);
+          for (MTL::Buffer* old_buffer : spirv_uniforms_pool_) {
+            if (old_buffer) {
+              old_buffer->release();
+            }
+          }
+          spirv_uniforms_pool_ = std::move(new_pool);
+          spirv_uniforms_available_.clear();
+          spirv_uniforms_available_.insert(spirv_uniforms_available_.end(),
+                                           spirv_uniforms_pool_.begin(),
+                                           spirv_uniforms_pool_.end());
+        }
+
+        if (spirv_uniforms_available_semaphore_) {
+#if !OS_OBJECT_USE_OBJC
+          dispatch_release(spirv_uniforms_available_semaphore_);
+#endif
+          spirv_uniforms_available_semaphore_ = nullptr;
+        }
+        spirv_uniforms_available_semaphore_ = dispatch_semaphore_create(
+            static_cast<long>(kUniformsBuffersInFlightInitial));
+        if (!spirv_uniforms_available_semaphore_) {
+          XELOGE(
+              "SPIRV-Cross: failed to create uniforms availability semaphore");
+          return false;
+        }
+
+        if (requested_ring_count != draw_ring_count_) {
+          XELOGW(
+              "SPIRV-Cross: reduced uniforms ring from {} to {} pages after "
+              "allocation pressure",
+              draw_ring_count_, requested_ring_count);
+          draw_ring_count_ = requested_ring_count;
+        }
+        spirv_uniforms_pool_initialized_ = true;
+        break;
+      }
+
+      for (MTL::Buffer* buffer : new_pool) {
+        if (buffer) {
+          buffer->release();
+        }
+      }
+      if (requested_ring_count == 1) {
+        break;
+      }
+      const size_t fallback_ring_count =
+          std::max<size_t>(1, requested_ring_count / 2);
+      XELOGW(
+          "SPIRV-Cross: failed to allocate uniforms pool with {} ring pages, "
+          "retrying with {}",
+          requested_ring_count, fallback_ring_count);
+      requested_ring_count = fallback_ring_count;
+    }
+
+    if (!spirv_uniforms_pool_initialized_) {
+      XELOGE(
+          "Failed to create uniforms buffer pool for SPIRV-Cross path (ring "
+          "pages={}, bytes per table={})",
+          draw_ring_count_, kUniformsBytesPerTable);
+      return false;
+    }
+  }
+
+  if (!spirv_uniforms_available_semaphore_) {
+    XELOGE("SPIRV-Cross: uniforms pool semaphore is not initialized");
+    return false;
+  }
+
+  const auto try_grow_uniforms_pool = [&]() -> bool {
+    size_t pool_size = 0;
+    {
+      std::lock_guard<std::mutex> lock(spirv_uniforms_mutex_);
+      pool_size = spirv_uniforms_pool_.size();
+      if (pool_size >= kUniformsBuffersInFlightMax) {
+        return false;
+      }
+    }
+    const size_t descriptor_table_count =
+        kStageCount * std::max<size_t>(size_t(1), draw_ring_count_);
+    const size_t uniforms_buffer_size =
+        kUniformsBytesPerTable * descriptor_table_count;
+    MTL::Buffer* buffer = device_->newBuffer(uniforms_buffer_size,
+                                             MTL::ResourceStorageModeShared);
+    if (!buffer) {
+      return false;
+    }
+    buffer->setLabel(
+        NS::String::string("MslUniformsBufferGrow", NS::UTF8StringEncoding));
+    std::memset(buffer->contents(), 0, uniforms_buffer_size);
+    size_t new_pool_size = 0;
+    {
+      std::lock_guard<std::mutex> lock(spirv_uniforms_mutex_);
+      spirv_uniforms_pool_.push_back(buffer);
+      spirv_uniforms_available_.push_back(buffer);
+      new_pool_size = spirv_uniforms_pool_.size();
+    }
+    dispatch_semaphore_signal(spirv_uniforms_available_semaphore_);
+    XELOGW("SPIRV-Cross: grew uniforms pool to {} buffers under load",
+           new_pool_size);
+    return true;
+  };
+
+  if (dispatch_semaphore_wait(spirv_uniforms_available_semaphore_,
+                              DISPATCH_TIME_NOW) != 0) {
+    bool acquired_after_grow = false;
+    if (try_grow_uniforms_pool()) {
+      acquired_after_grow =
+          dispatch_semaphore_wait(spirv_uniforms_available_semaphore_,
+                                  DISPATCH_TIME_NOW) == 0;
+    }
+    if (!acquired_after_grow) {
+      // Last resort: block until one in-flight command buffer retires.
+      // D3D12-style behavior is to avoid this in common paths by growing first.
+      static auto last_wait_log = std::chrono::steady_clock::time_point{};
+      static uint32_t suppressed_wait_logs = 0;
+      const auto now = std::chrono::steady_clock::now();
+      if (now - last_wait_log >= std::chrono::seconds(10)) {
+        last_wait_log = now;
+        size_t pool_size = 0;
+        size_t available_size = 0;
+        {
+          std::lock_guard<std::mutex> lock(spirv_uniforms_mutex_);
+          pool_size = spirv_uniforms_pool_.size();
+          available_size = spirv_uniforms_available_.size();
+        }
+        XELOGW(
+            "SPIRV-Cross: uniforms pool busy; waiting for an in-flight command "
+            "buffer to retire (in-use={}, total={}, available={}, ring "
+            "pages={}, suppressed_wait_logs={})",
+            pool_size - available_size, pool_size, available_size,
+            draw_ring_count_, suppressed_wait_logs);
+        suppressed_wait_logs = 0;
+      } else {
+        ++suppressed_wait_logs;
+      }
+      dispatch_semaphore_wait(spirv_uniforms_available_semaphore_,
+                              DISPATCH_TIME_FOREVER);
+    }
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(spirv_uniforms_mutex_);
+    if (spirv_uniforms_available_.empty()) {
+      XELOGE(
+          "SPIRV-Cross: uniforms semaphore signaled but no reusable buffer is "
+          "available");
+      return false;
+    }
+    uniforms_buffer_ = spirv_uniforms_available_.back();
+    spirv_uniforms_available_.pop_back();
+  }
+  if (uniforms_buffer_) {
+    command_buffer_spirv_uniform_buffers_.push_back(uniforms_buffer_);
+  }
+
+  return uniforms_buffer_ != nullptr;
+}
+
+bool MetalCommandProcessor::EnsureSpirvUniformBufferCapacity() {
+  if (!draw_ring_count_) {
+    draw_ring_count_ = 1;
+  }
+  if (!uniforms_buffer_) {
+    return EnsureSpirvUniformBuffer();
+  }
+  if (current_draw_index_ == 0) {
+    return true;
+  }
+  const uint32_t ring_index =
+      current_draw_index_ % uint32_t(std::max<size_t>(1, draw_ring_count_));
+  if (ring_index != 0) {
+    return true;
+  }
+
+  // Try to rotate to another uniforms buffer in the current command buffer to
+  // avoid forcing a split at every ring wrap.
+  uniforms_buffer_ = nullptr;
+  const auto try_acquire_uniforms_buffer = [&]() -> bool {
+    if (!spirv_uniforms_available_semaphore_ ||
+        dispatch_semaphore_wait(spirv_uniforms_available_semaphore_,
+                                DISPATCH_TIME_NOW) != 0) {
+      return false;
+    }
+    std::lock_guard<std::mutex> lock(spirv_uniforms_mutex_);
+    if (!spirv_uniforms_available_.empty()) {
+      uniforms_buffer_ = spirv_uniforms_available_.back();
+      spirv_uniforms_available_.pop_back();
+      command_buffer_spirv_uniform_buffers_.push_back(uniforms_buffer_);
+      return true;
+    }
+    // Keep semaphore state consistent if availability changed concurrently.
+    dispatch_semaphore_signal(spirv_uniforms_available_semaphore_);
+    return false;
+  };
+
+#if XE_PLATFORM_IOS
+  constexpr size_t kUniformsBuffersInFlightMax = 24;
+#else
+  constexpr size_t kUniformsBuffersInFlightMax = 12;
+#endif
+  const auto try_grow_uniforms_pool = [&]() -> bool {
+    if (!device_) {
+      return false;
+    }
+    size_t pool_size = 0;
+    {
+      std::lock_guard<std::mutex> lock(spirv_uniforms_mutex_);
+      pool_size = spirv_uniforms_pool_.size();
+      if (pool_size >= kUniformsBuffersInFlightMax) {
+        return false;
+      }
+    }
+    const size_t descriptor_table_count =
+        kStageCount * std::max<size_t>(size_t(1), draw_ring_count_);
+    const size_t uniforms_buffer_size =
+        kUniformsBytesPerTable * descriptor_table_count;
+    MTL::Buffer* buffer = device_->newBuffer(uniforms_buffer_size,
+                                             MTL::ResourceStorageModeShared);
+    if (!buffer) {
+      return false;
+    }
+    buffer->setLabel(
+        NS::String::string("MslUniformsBufferGrow", NS::UTF8StringEncoding));
+    std::memset(buffer->contents(), 0, uniforms_buffer_size);
+    size_t new_pool_size = 0;
+    {
+      std::lock_guard<std::mutex> lock(spirv_uniforms_mutex_);
+      spirv_uniforms_pool_.push_back(buffer);
+      spirv_uniforms_available_.push_back(buffer);
+      new_pool_size = spirv_uniforms_pool_.size();
+    }
+    dispatch_semaphore_signal(spirv_uniforms_available_semaphore_);
+    XELOGW(
+        "SPIRV-Cross: grew uniforms pool to {} buffers at ring-wrap pressure",
+        new_pool_size);
+    return true;
+  };
+
+  if (try_acquire_uniforms_buffer()) {
+    return true;
+  }
+  if (try_grow_uniforms_pool() && try_acquire_uniforms_buffer()) {
+    return true;
+  }
+
+  static bool rollover_logged = false;
+  if (!rollover_logged) {
+    rollover_logged = true;
+    XELOGW(
+        "SPIRV-Cross: uniforms ring exhausted; rotating Metal command buffer");
+  }
+
+  EndCommandBuffer(CommandBufferKind::kSubmissionUniformsRollover);
+  BeginCommandBuffer();
+  if (!current_command_buffer_ || !current_render_encoder_ ||
+      !uniforms_buffer_) {
+    XELOGE(
+        "SPIRV-Cross: failed to restart command buffer after uniforms ring "
+        "rollover");
+    return false;
+  }
+  return true;
+}
+
+void MetalCommandProcessor::ScheduleSpirvUniformBufferRelease(
+    MTL::CommandBuffer* command_buffer) {
+  if (!command_buffer) {
     return;
   }
 
-  auto ring = AcquireDrawRingBuffers();
-  if (!ring) {
-    XELOGE("Metal draw ring exhausted but failed to allocate a new ring");
+  std::vector<MTL::Buffer*> submitted_uniforms;
+  if (!command_buffer_spirv_uniform_buffers_.empty()) {
+    submitted_uniforms.swap(command_buffer_spirv_uniform_buffers_);
+  } else if (uniforms_buffer_) {
+    submitted_uniforms.reserve(1);
+    submitted_uniforms.push_back(uniforms_buffer_);
+  }
+  uniforms_buffer_ = nullptr;
+
+  if (submitted_uniforms.empty()) {
     return;
   }
 
-  SetActiveDrawRing(ring);
-  command_buffer_draw_rings_.push_back(ring);
-  current_draw_index_ = 0;
+  pending_completion_handlers_.fetch_add(1, std::memory_order_relaxed);
+  command_buffer->addCompletedHandler(
+      [this, submitted_uniforms =
+                 std::move(submitted_uniforms)](MTL::CommandBuffer*) mutable {
+        size_t returned_count = 0;
+        {
+          std::lock_guard<std::mutex> lock(spirv_uniforms_mutex_);
+          for (MTL::Buffer* uniforms : submitted_uniforms) {
+            if (!uniforms) {
+              continue;
+            }
+            spirv_uniforms_available_.push_back(uniforms);
+            ++returned_count;
+          }
+        }
+        if (spirv_uniforms_available_semaphore_) {
+          for (size_t i = 0; i < returned_count; ++i) {
+            dispatch_semaphore_signal(spirv_uniforms_available_semaphore_);
+          }
+        }
+        pending_completion_handlers_.fetch_sub(1, std::memory_order_relaxed);
+      });
 }
 
-void MetalCommandProcessor::EndCommandBuffer() { EndSubmission(false); }
+bool MetalCommandProcessor::AcquireSpirvArgumentBufferSlice(
+    uint32_t bytes, uint32_t alignment, MTL::Buffer** buffer_out,
+    NS::UInteger* offset_out) {
+  if (!buffer_out || !offset_out) {
+    return false;
+  }
+  *buffer_out = nullptr;
+  *offset_out = 0;
+  if (!device_ || !current_command_buffer_ || bytes == 0) {
+    return false;
+  }
+
+  const size_t align = std::max<size_t>(1, size_t(alignment));
+  auto align_up = [](size_t value, size_t alignment) -> size_t {
+    return ((value + alignment - 1) / alignment) * alignment;
+  };
+
+  if (!command_buffer_spirv_argbuf_pages_.empty()) {
+    auto& page = command_buffer_spirv_argbuf_pages_.back();
+    const size_t aligned_offset = align_up(page->offset, align);
+    if (aligned_offset + bytes <= page->bytes) {
+      page->offset = aligned_offset + bytes;
+      *buffer_out = page->buffer;
+      *offset_out = NS::UInteger(aligned_offset);
+      return *buffer_out != nullptr;
+    }
+  }
+
+  constexpr size_t kDefaultSpirvArgumentBufferPageBytes = 1024 * 1024;
+  const size_t required_page_bytes = align_up(bytes, align);
+  const size_t page_bytes =
+      std::max(kDefaultSpirvArgumentBufferPageBytes, required_page_bytes);
+
+  std::shared_ptr<SpirvArgumentBufferPage> page;
+  {
+    std::lock_guard<std::mutex> lock(spirv_argbuf_mutex_);
+    for (auto it = spirv_argbuf_pool_.begin(); it != spirv_argbuf_pool_.end();
+         ++it) {
+      if ((*it) && (*it)->bytes >= page_bytes) {
+        page = *it;
+        spirv_argbuf_pool_.erase(it);
+        break;
+      }
+    }
+  }
+  if (!page) {
+    page = std::make_shared<SpirvArgumentBufferPage>();
+    page->bytes = page_bytes;
+    page->buffer =
+        device_->newBuffer(page_bytes, MTL::ResourceStorageModeShared);
+    if (!page->buffer) {
+      return false;
+    }
+  }
+  page->offset = 0;
+  command_buffer_spirv_argbuf_pages_.push_back(page);
+
+  const size_t aligned_offset = align_up(page->offset, align);
+  if (aligned_offset + bytes > page->bytes) {
+    return false;
+  }
+  page->offset = aligned_offset + bytes;
+  *buffer_out = page->buffer;
+  *offset_out = NS::UInteger(aligned_offset);
+  return *buffer_out != nullptr;
+}
+
+void MetalCommandProcessor::ScheduleSpirvArgumentBufferRelease(
+    MTL::CommandBuffer* command_buffer) {
+  if (!command_buffer || command_buffer_spirv_argbuf_pages_.empty()) {
+    return;
+  }
+
+  std::vector<std::shared_ptr<SpirvArgumentBufferPage>> pages;
+  pages.swap(command_buffer_spirv_argbuf_pages_);
+
+  bool add_handler = false;
+  {
+    std::lock_guard<std::mutex> lock(spirv_argbuf_mutex_);
+    auto& pending = pending_spirv_argbuf_releases_[command_buffer];
+    add_handler = pending.empty();
+    pending.reserve(pending.size() + pages.size());
+    for (auto& page : pages) {
+      pending.push_back(std::move(page));
+    }
+  }
+
+  if (add_handler) {
+    pending_completion_handlers_.fetch_add(1, std::memory_order_relaxed);
+    command_buffer->addCompletedHandler(
+        [this](MTL::CommandBuffer* completed_cmd) {
+          {
+            std::lock_guard<std::mutex> lock(spirv_argbuf_mutex_);
+            auto it = pending_spirv_argbuf_releases_.find(completed_cmd);
+            if (it != pending_spirv_argbuf_releases_.end()) {
+              for (auto& page : it->second) {
+                if (page) {
+                  page->offset = 0;
+                  spirv_argbuf_pool_.push_back(std::move(page));
+                }
+              }
+              pending_spirv_argbuf_releases_.erase(it);
+            }
+          }
+          pending_completion_handlers_.fetch_sub(1, std::memory_order_relaxed);
+        });
+  }
+}
+
+void MetalCommandProcessor::EndCommandBuffer(CommandBufferKind next_kind) {
+  if (shader_storage_flush_needed_ || pipeline_storage_flush_needed_) {
+    storage_writer_.RequestFlush(shader_storage_flush_needed_,
+                                 pipeline_storage_flush_needed_);
+    shader_storage_flush_needed_ = false;
+    pipeline_storage_flush_needed_ = false;
+  }
+  if (current_command_buffer_) {
+    next_submission_kind_ = next_kind;
+  }
+  EndRenderEncoder();
+  ResetMslCrossEncoderReuseCaches();
+
+  if (current_command_buffer_) {
+    ScheduleSpirvUniformBufferRelease(current_command_buffer_);
+    ScheduleSpirvArgumentBufferRelease(current_command_buffer_);
+    current_command_buffer_->commit();
+    current_command_buffer_->release();
+    current_command_buffer_ = nullptr;
+    current_draw_index_ = 0;
+  }
+  copy_resolve_writes_pending_ = false;
+  DrainCommandBufferAutoreleasePool();
+}
 
 void MetalCommandProcessor::ApplyDepthStencilState(
     bool primitive_polygonal, reg::RB_DEPTHCONTROL normalized_depth_control) {
+  SCOPE_profile_cpu_f("gpu");
   if (!current_render_encoder_ || !device_) {
     return;
   }
@@ -4005,14 +6156,44 @@ void MetalCommandProcessor::ApplyDepthStencilState(
   auto stencil_ref_mask_front = regs.Get<reg::RB_STENCILREFMASK>();
   auto stencil_ref_mask_back =
       regs.Get<reg::RB_STENCILREFMASK>(XE_GPU_REG_RB_STENCILREFMASK_BF);
+  auto depth_control = normalized_depth_control;
+
+  bool has_stencil_attachment = false;
+  if (current_render_pass_descriptor_) {
+    if (auto* stencil_attachment =
+            current_render_pass_descriptor_->stencilAttachment()) {
+      has_stencil_attachment = stencil_attachment->texture() != nullptr;
+    }
+  }
+
+  if (!has_stencil_attachment && depth_control.stencil_enable) {
+    static bool no_stencil_logged = false;
+    if (!no_stencil_logged) {
+      no_stencil_logged = true;
+      XELOGW(
+          "Metal: stencil enabled but no stencil attachment bound; disabling "
+          "stencil for this pass");
+    }
+    depth_control.stencil_enable = 0;
+    depth_control.backface_enable = 0;
+    depth_control.stencilfunc = xenos::CompareFunction::kAlways;
+    depth_control.stencilfail = xenos::StencilOp::kKeep;
+    depth_control.stencilzpass = xenos::StencilOp::kKeep;
+    depth_control.stencilzfail = xenos::StencilOp::kKeep;
+    depth_control.stencilfunc_bf = xenos::CompareFunction::kAlways;
+    depth_control.stencilfail_bf = xenos::StencilOp::kKeep;
+    depth_control.stencilzpass_bf = xenos::StencilOp::kKeep;
+    depth_control.stencilzfail_bf = xenos::StencilOp::kKeep;
+    stencil_ref_mask_front.value = 0;
+    stencil_ref_mask_back.value = 0;
+  }
 
   DepthStencilStateKey key;
-  key.depth_control = normalized_depth_control.value;
+  key.depth_control = depth_control.value;
   key.stencil_ref_mask_front = stencil_ref_mask_front.value;
   key.stencil_ref_mask_back = stencil_ref_mask_back.value;
-  key.polygonal_and_backface =
-      (primitive_polygonal ? 1u : 0u) |
-      (normalized_depth_control.backface_enable ? 2u : 0u);
+  key.polygonal_and_backface = (primitive_polygonal ? 1u : 0u) |
+                               (depth_control.backface_enable ? 2u : 0u);
 
   MTL::DepthStencilState* state = nullptr;
   auto it = depth_stencil_state_cache_.find(key);
@@ -4021,41 +6202,40 @@ void MetalCommandProcessor::ApplyDepthStencilState(
   } else {
     MTL::DepthStencilDescriptor* ds_desc =
         MTL::DepthStencilDescriptor::alloc()->init();
-    if (normalized_depth_control.z_enable) {
+    if (depth_control.z_enable) {
       ds_desc->setDepthCompareFunction(
-          ToMetalCompareFunction(normalized_depth_control.zfunc));
-      ds_desc->setDepthWriteEnabled(normalized_depth_control.z_write_enable !=
-                                    0);
+          ToMetalCompareFunction(depth_control.zfunc));
+      ds_desc->setDepthWriteEnabled(depth_control.z_write_enable != 0);
     } else {
       ds_desc->setDepthCompareFunction(MTL::CompareFunctionAlways);
       ds_desc->setDepthWriteEnabled(false);
     }
 
-    if (normalized_depth_control.stencil_enable) {
+    if (depth_control.stencil_enable) {
       auto* front = MTL::StencilDescriptor::alloc()->init();
       front->setStencilCompareFunction(
-          ToMetalCompareFunction(normalized_depth_control.stencilfunc));
+          ToMetalCompareFunction(depth_control.stencilfunc));
       front->setStencilFailureOperation(
-          ToMetalStencilOperation(normalized_depth_control.stencilfail));
+          ToMetalStencilOperation(depth_control.stencilfail));
       front->setDepthFailureOperation(
-          ToMetalStencilOperation(normalized_depth_control.stencilzfail));
+          ToMetalStencilOperation(depth_control.stencilzfail));
       front->setDepthStencilPassOperation(
-          ToMetalStencilOperation(normalized_depth_control.stencilzpass));
+          ToMetalStencilOperation(depth_control.stencilzpass));
       front->setReadMask(stencil_ref_mask_front.stencilmask);
       front->setWriteMask(stencil_ref_mask_front.stencilwritemask);
 
       ds_desc->setFrontFaceStencil(front);
 
-      if (primitive_polygonal && normalized_depth_control.backface_enable) {
+      if (primitive_polygonal && depth_control.backface_enable) {
         auto* back = MTL::StencilDescriptor::alloc()->init();
         back->setStencilCompareFunction(
-            ToMetalCompareFunction(normalized_depth_control.stencilfunc_bf));
+            ToMetalCompareFunction(depth_control.stencilfunc_bf));
         back->setStencilFailureOperation(
-            ToMetalStencilOperation(normalized_depth_control.stencilfail_bf));
+            ToMetalStencilOperation(depth_control.stencilfail_bf));
         back->setDepthFailureOperation(
-            ToMetalStencilOperation(normalized_depth_control.stencilzfail_bf));
+            ToMetalStencilOperation(depth_control.stencilzfail_bf));
         back->setDepthStencilPassOperation(
-            ToMetalStencilOperation(normalized_depth_control.stencilzpass_bf));
+            ToMetalStencilOperation(depth_control.stencilzpass_bf));
         back->setReadMask(stencil_ref_mask_back.stencilmask);
         back->setWriteMask(stencil_ref_mask_back.stencilwritemask);
         ds_desc->setBackFaceStencil(back);
@@ -4079,16 +6259,15 @@ void MetalCommandProcessor::ApplyDepthStencilState(
 
   current_render_encoder_->setDepthStencilState(state);
 
-  if (normalized_depth_control.stencil_enable) {
+  if (depth_control.stencil_enable) {
     uint32_t ref_front = stencil_ref_mask_front.stencilref;
     uint32_t ref_back = stencil_ref_mask_back.stencilref;
     auto pa_su_sc_mode_cntl = regs.Get<reg::PA_SU_SC_MODE_CNTL>();
     uint32_t ref = ref_front;
-    if (primitive_polygonal && normalized_depth_control.backface_enable &&
+    if (primitive_polygonal && depth_control.backface_enable &&
         pa_su_sc_mode_cntl.cull_front && !pa_su_sc_mode_cntl.cull_back) {
       ref = ref_back;
-    } else if (primitive_polygonal &&
-               normalized_depth_control.backface_enable &&
+    } else if (primitive_polygonal && depth_control.backface_enable &&
                ref_front != ref_back) {
       static bool mismatch_logged = false;
       if (!mismatch_logged) {
@@ -4104,6 +6283,7 @@ void MetalCommandProcessor::ApplyDepthStencilState(
 }
 
 void MetalCommandProcessor::ApplyRasterizerState(bool primitive_polygonal) {
+  SCOPE_profile_cpu_f("gpu");
   if (!current_render_encoder_ || !render_target_cache_) {
     return;
   }
@@ -4162,9 +6342,12 @@ void MetalCommandProcessor::ApplyRasterizerState(bool primitive_polygonal) {
   current_render_encoder_->setDepthBias(depth_bias_constant, depth_bias_slope,
                                         0.0f);
 
-  current_render_encoder_->setDepthClipMode(pa_cl_clip_cntl.clip_disable
-                                                ? MTL::DepthClipModeClamp
-                                                : MTL::DepthClipModeClip);
+  // With force_depth_clamp, use the host viewport clamp instead of near and far
+  // Z plane clipping. X/Y/W clipping is unchanged.
+  current_render_encoder_->setDepthClipMode(
+      (pa_cl_clip_cntl.clip_disable || cvars::force_depth_clamp)
+          ? MTL::DepthClipModeClamp
+          : MTL::DepthClipModeClip);
 }
 
 MTL::RenderPassDescriptor*
@@ -4172,2051 +6355,183 @@ MetalCommandProcessor::GetCurrentRenderPassDescriptor() {
   return render_pass_descriptor_;
 }
 
-MTL::RenderPipelineState* MetalCommandProcessor::GetOrCreatePipelineState(
-    MetalShader::MetalTranslation* vertex_translation,
-    MetalShader::MetalTranslation* pixel_translation,
-    const RegisterFile& regs) {
-  if (!vertex_translation || !vertex_translation->metal_function()) {
-    XELOGE("No valid vertex shader function");
-    return nullptr;
+// ==========================================================================
+// SPIRV-Cross tessellation support.
+// ==========================================================================
+
+// Tessellation factor compute kernels are defined in msl_tess_factor_kernels.h.
+#include "xenia/gpu/metal/msl_tess_factor_kernels.h"
+
+bool MetalCommandProcessor::InitializeMslTessellation() {
+  if (!device_) {
+    return false;
   }
 
-  // Determine attachment formats and sample count from the render target cache
-  // so the pipeline matches the actual render pass. If no real RT is bound,
-  // fall back to the dummy RT0 format used by the cache.
-  uint32_t sample_count = 1;
-  MTL::PixelFormat color_formats[4] = {
-      MTL::PixelFormatInvalid, MTL::PixelFormatInvalid, MTL::PixelFormatInvalid,
-      MTL::PixelFormatInvalid};
-  MTL::PixelFormat depth_format = MTL::PixelFormatInvalid;
-  MTL::PixelFormat stencil_format = MTL::PixelFormatInvalid;
-  if (render_target_cache_) {
-    for (uint32_t i = 0; i < 4; ++i) {
-      if (MTL::Texture* rt = render_target_cache_->GetColorTargetForDraw(i)) {
-        color_formats[i] = rt->pixelFormat();
-        if (rt->sampleCount() > 0) {
-          sample_count = std::max<uint32_t>(
-              sample_count, static_cast<uint32_t>(rt->sampleCount()));
-        }
+  auto compile_kernel =
+      [&](const char* source,
+          const char* function_name) -> MTL::ComputePipelineState* {
+    NS::Error* error = nullptr;
+    auto* src = NS::String::string(source, NS::UTF8StringEncoding);
+    auto* opts = MTL::CompileOptions::alloc()->init();
+    opts->setFastMathEnabled(true);
+    MTL::Library* lib = device_->newLibrary(src, opts, &error);
+    opts->release();
+    if (!lib) {
+      if (error) {
+        XELOGE("Tessellation kernel compile error: {}",
+               error->localizedDescription()->utf8String());
       }
+      return nullptr;
     }
-    if (color_formats[0] == MTL::PixelFormatInvalid) {
-      if (MTL::Texture* dummy =
-              render_target_cache_->GetDummyColorTargetForDraw()) {
-        color_formats[0] = dummy->pixelFormat();
-        if (dummy->sampleCount() > 0) {
-          sample_count = std::max<uint32_t>(
-              sample_count, static_cast<uint32_t>(dummy->sampleCount()));
-        }
-      }
+    auto* fn_name = NS::String::string(function_name, NS::UTF8StringEncoding);
+    MTL::Function* fn = lib->newFunction(fn_name);
+    lib->release();
+    if (!fn) {
+      XELOGE("Tessellation kernel: function '{}' not found", function_name);
+      return nullptr;
     }
-    if (MTL::Texture* depth_tex =
-            render_target_cache_->GetDepthTargetForDraw()) {
-      depth_format = depth_tex->pixelFormat();
-      switch (depth_format) {
-        case MTL::PixelFormatDepth32Float_Stencil8:
-        case MTL::PixelFormatDepth24Unorm_Stencil8:
-        case MTL::PixelFormatX32_Stencil8:
-          stencil_format = depth_format;
-          break;
-        default:
-          stencil_format = MTL::PixelFormatInvalid;
-          break;
-      }
-      if (depth_tex->sampleCount() > 0) {
-        sample_count = std::max<uint32_t>(
-            sample_count, static_cast<uint32_t>(depth_tex->sampleCount()));
-      }
-    }
-  }
-
-  struct PipelineKey {
-    const void* vs;
-    const void* ps;
-    uint32_t sample_count;
-    uint32_t depth_format;
-    uint32_t stencil_format;
-    uint32_t color_formats[4];
-    uint32_t normalized_color_mask;
-    uint32_t alpha_to_mask_enable;
-    uint32_t blendcontrol[4];
-  } key_data = {};
-  key_data.vs = vertex_translation;
-  key_data.ps = pixel_translation;
-  key_data.sample_count = sample_count;
-  key_data.depth_format = uint32_t(depth_format);
-  key_data.stencil_format = uint32_t(stencil_format);
-  for (uint32_t i = 0; i < 4; ++i) {
-    key_data.color_formats[i] = uint32_t(color_formats[i]);
-  }
-  uint32_t pixel_shader_writes_color_targets =
-      pixel_translation ? pixel_translation->shader().writes_color_targets()
-                        : 0;
-  key_data.normalized_color_mask = 0;
-  if (pixel_shader_writes_color_targets) {
-    key_data.normalized_color_mask = draw_util::GetNormalizedColorMask(
-        regs, pixel_shader_writes_color_targets);
-  }
-  auto rb_colorcontrol = regs.Get<reg::RB_COLORCONTROL>();
-  key_data.alpha_to_mask_enable = rb_colorcontrol.alpha_to_mask_enable ? 1 : 0;
-  for (uint32_t i = 0; i < 4; ++i) {
-    key_data.blendcontrol[i] =
-        regs.Get<reg::RB_BLENDCONTROL>(
-                reg::RB_BLENDCONTROL::rt_register_indices[i])
-            .value;
-  }
-  uint64_t key = XXH3_64bits(&key_data, sizeof(key_data));
-
-  PipelineDiskCacheEntry disk_entry;
-  bool record_disk_entry =
-      ::cvars::metal_pipeline_disk_cache && pipeline_disk_cache_file_;
-  if (record_disk_entry) {
-    disk_entry.pipeline_key = key;
-    disk_entry.vertex_shader_cache_key = MetalShaderCache::GetCacheKey(
-        vertex_translation->shader().ucode_data_hash(),
-        vertex_translation->modification(),
-        static_cast<uint32_t>(vertex_translation->shader().type()));
-    if (pixel_translation) {
-      disk_entry.pixel_shader_cache_key = MetalShaderCache::GetCacheKey(
-          pixel_translation->shader().ucode_data_hash(),
-          pixel_translation->modification(),
-          static_cast<uint32_t>(pixel_translation->shader().type()));
-    }
-    disk_entry.sample_count = key_data.sample_count;
-    disk_entry.depth_format = key_data.depth_format;
-    disk_entry.stencil_format = key_data.stencil_format;
-    std::memcpy(disk_entry.color_formats, key_data.color_formats,
-                sizeof(key_data.color_formats));
-    disk_entry.normalized_color_mask = key_data.normalized_color_mask;
-    disk_entry.alpha_to_mask_enable = key_data.alpha_to_mask_enable;
-    std::memcpy(disk_entry.blendcontrol, key_data.blendcontrol,
-                sizeof(key_data.blendcontrol));
-  }
-
-  // Check cache
-  auto it = pipeline_cache_.find(key);
-  if (it != pipeline_cache_.end()) {
-    return it->second;
-  }
-
-  // Create pipeline descriptor
-  MTL::RenderPipelineDescriptor* desc =
-      MTL::RenderPipelineDescriptor::alloc()->init();
-
-  desc->setVertexFunction(vertex_translation->metal_function());
-
-  if (pixel_translation && pixel_translation->metal_function()) {
-    desc->setFragmentFunction(pixel_translation->metal_function());
-  }
-
-  // Set render target formats and sample count to match bound RTs.
-  for (uint32_t i = 0; i < 4; ++i) {
-    desc->colorAttachments()->object(i)->setPixelFormat(color_formats[i]);
-  }
-  desc->setDepthAttachmentPixelFormat(depth_format);
-  desc->setStencilAttachmentPixelFormat(stencil_format);
-  desc->setSampleCount(sample_count);
-  desc->setAlphaToCoverageEnabled(key_data.alpha_to_mask_enable != 0);
-
-  // Fixed-function blending and color write masks.
-  // These are part of the render pipeline state, so the cache key must include
-  // the relevant register-derived values (mask, RB_BLENDCONTROL, A2C).
-  for (uint32_t i = 0; i < 4; ++i) {
-    auto* color_attachment = desc->colorAttachments()->object(i);
-    if (color_formats[i] == MTL::PixelFormatInvalid) {
-      color_attachment->setWriteMask(MTL::ColorWriteMaskNone);
-      color_attachment->setBlendingEnabled(false);
-      continue;
-    }
-
-    uint32_t rt_write_mask = (key_data.normalized_color_mask >> (i * 4)) & 0xF;
-    color_attachment->setWriteMask(ToMetalColorWriteMask(rt_write_mask));
-    if (!rt_write_mask) {
-      color_attachment->setBlendingEnabled(false);
-      continue;
-    }
-
-    auto blendcontrol = regs.Get<reg::RB_BLENDCONTROL>(
-        reg::RB_BLENDCONTROL::rt_register_indices[i]);
-    MTL::BlendFactor src_rgb =
-        ToMetalBlendFactorRgb(blendcontrol.color_srcblend);
-    MTL::BlendFactor dst_rgb =
-        ToMetalBlendFactorRgb(blendcontrol.color_destblend);
-    MTL::BlendOperation op_rgb =
-        ToMetalBlendOperation(blendcontrol.color_comb_fcn);
-    MTL::BlendFactor src_alpha =
-        ToMetalBlendFactorAlpha(blendcontrol.alpha_srcblend);
-    MTL::BlendFactor dst_alpha =
-        ToMetalBlendFactorAlpha(blendcontrol.alpha_destblend);
-    MTL::BlendOperation op_alpha =
-        ToMetalBlendOperation(blendcontrol.alpha_comb_fcn);
-
-    bool blending_enabled =
-        src_rgb != MTL::BlendFactorOne || dst_rgb != MTL::BlendFactorZero ||
-        op_rgb != MTL::BlendOperationAdd || src_alpha != MTL::BlendFactorOne ||
-        dst_alpha != MTL::BlendFactorZero || op_alpha != MTL::BlendOperationAdd;
-    color_attachment->setBlendingEnabled(blending_enabled);
-    if (blending_enabled) {
-      color_attachment->setSourceRGBBlendFactor(src_rgb);
-      color_attachment->setDestinationRGBBlendFactor(dst_rgb);
-      color_attachment->setRgbBlendOperation(op_rgb);
-      color_attachment->setSourceAlphaBlendFactor(src_alpha);
-      color_attachment->setDestinationAlphaBlendFactor(dst_alpha);
-      color_attachment->setAlphaBlendOperation(op_alpha);
-    }
-  }
-
-  // Configure vertex fetch layout for MSC stage-in.
-  // NOTE: The translated shaders use vfetch (buffer load) to read vertices
-  // directly from shared memory via SRV descriptors, NOT stage-in attributes.
-  // This vertex descriptor may be unnecessary.
-  const Shader& vertex_shader_ref = vertex_translation->shader();
-  const auto& vertex_bindings = vertex_shader_ref.vertex_bindings();
-  if (!ShaderUsesVertexFetch(vertex_shader_ref) && !vertex_bindings.empty()) {
-    auto map_vertex_format =
-        [](const ParsedVertexFetchInstruction::Attributes& attrs)
-        -> MTL::VertexFormat {
-      using xenos::VertexFormat;
-      switch (attrs.data_format) {
-        case VertexFormat::k_8_8_8_8:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? MTL::VertexFormatChar4
-                                   : MTL::VertexFormatUChar4;
-          }
-          return attrs.is_signed ? MTL::VertexFormatChar4Normalized
-                                 : MTL::VertexFormatUChar4Normalized;
-        case VertexFormat::k_2_10_10_10:
-          // Metal only supports normalized variants of 10:10:10:2.
-          return attrs.is_signed ? MTL::VertexFormatInt1010102Normalized
-                                 : MTL::VertexFormatUInt1010102Normalized;
-        case VertexFormat::k_10_11_11:
-        case VertexFormat::k_11_11_10:
-          return MTL::VertexFormatFloatRG11B10;
-        case VertexFormat::k_16_16:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? MTL::VertexFormatShort2
-                                   : MTL::VertexFormatUShort2;
-          }
-          return attrs.is_signed ? MTL::VertexFormatShort2Normalized
-                                 : MTL::VertexFormatUShort2Normalized;
-        case VertexFormat::k_16_16_16_16:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? MTL::VertexFormatShort4
-                                   : MTL::VertexFormatUShort4;
-          }
-          return attrs.is_signed ? MTL::VertexFormatShort4Normalized
-                                 : MTL::VertexFormatUShort4Normalized;
-        case VertexFormat::k_16_16_FLOAT:
-          return MTL::VertexFormatHalf2;
-        case VertexFormat::k_16_16_16_16_FLOAT:
-          return MTL::VertexFormatHalf4;
-        case VertexFormat::k_32:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? MTL::VertexFormatInt
-                                   : MTL::VertexFormatUInt;
-          }
-          return MTL::VertexFormatFloat;
-        case VertexFormat::k_32_32:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? MTL::VertexFormatInt2
-                                   : MTL::VertexFormatUInt2;
-          }
-          return MTL::VertexFormatFloat2;
-        case VertexFormat::k_32_32_32_FLOAT:
-          return MTL::VertexFormatFloat3;
-        case VertexFormat::k_32_32_32_32:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? MTL::VertexFormatInt4
-                                   : MTL::VertexFormatUInt4;
-          }
-          return MTL::VertexFormatFloat4;
-        case VertexFormat::k_32_32_32_32_FLOAT:
-          return MTL::VertexFormatFloat4;
-        default:
-          return MTL::VertexFormatInvalid;
-      }
-    };
-
-    MTL::VertexDescriptor* vertex_desc = MTL::VertexDescriptor::alloc()->init();
-    if (record_disk_entry) {
-      disk_entry.vertex_attributes.clear();
-      disk_entry.vertex_layouts.clear();
-    }
-
-    uint32_t attr_index = static_cast<uint32_t>(kIRStageInAttributeStartIndex);
-    for (const auto& binding : vertex_bindings) {
-      uint64_t buffer_index =
-          kIRVertexBufferBindPoint + uint64_t(binding.binding_index);
-      bool used_any_attribute = false;
-
-      for (const auto& attr : binding.attributes) {
-        MTL::VertexFormat fmt = map_vertex_format(attr.fetch_instr.attributes);
-        if (fmt == MTL::VertexFormatInvalid) {
-          ++attr_index;
-          continue;
-        }
-        auto attr_desc = vertex_desc->attributes()->object(attr_index);
-        attr_desc->setFormat(fmt);
-        attr_desc->setOffset(
-            static_cast<NS::UInteger>(attr.fetch_instr.attributes.offset * 4));
-        attr_desc->setBufferIndex(static_cast<NS::UInteger>(buffer_index));
-        if (record_disk_entry) {
-          PipelineDiskCacheVertexAttribute cached_attr = {};
-          cached_attr.attribute_index = attr_index;
-          cached_attr.format = static_cast<uint32_t>(fmt);
-          cached_attr.offset = attr.fetch_instr.attributes.offset * 4;
-          cached_attr.buffer_index = static_cast<uint32_t>(buffer_index);
-          disk_entry.vertex_attributes.push_back(cached_attr);
-        }
-        used_any_attribute = true;
-        ++attr_index;
-      }
-
-      if (used_any_attribute) {
-        auto layout = vertex_desc->layouts()->object(buffer_index);
-        layout->setStride(binding.stride_words * 4);
-        layout->setStepFunction(MTL::VertexStepFunctionPerVertex);
-        layout->setStepRate(1);
-        if (record_disk_entry) {
-          PipelineDiskCacheVertexLayout cached_layout = {};
-          cached_layout.buffer_index = static_cast<uint32_t>(buffer_index);
-          cached_layout.stride = binding.stride_words * 4;
-          cached_layout.step_function =
-              static_cast<uint32_t>(MTL::VertexStepFunctionPerVertex);
-          cached_layout.step_rate = 1;
-          disk_entry.vertex_layouts.push_back(cached_layout);
-        }
-      }
-    }
-
-    desc->setVertexDescriptor(vertex_desc);
-    vertex_desc->release();
-  }
-
-  if (pipeline_binary_archive_) {
-    NS::Array* archives = NS::Array::array(pipeline_binary_archive_);
-    desc->setBinaryArchives(archives);
-    NS::Error* archive_error = nullptr;
-    if (pipeline_binary_archive_->addRenderPipelineFunctions(desc,
-                                                             &archive_error)) {
-      pipeline_binary_archive_dirty_ = true;
-    }
-  }
-
-  // Create pipeline state
-  NS::Error* error = nullptr;
-  MTL::RenderPipelineState* pipeline = nullptr;
-  pipeline = device_->newRenderPipelineState(desc, &error);
-  desc->release();
-
-  if (!pipeline) {
-    if (error) {
-      XELOGE("Failed to create pipeline state: {}",
+    MTL::ComputePipelineState* pso =
+        device_->newComputePipelineState(fn, &error);
+    fn->release();
+    if (!pso && error) {
+      XELOGE("Tessellation kernel PSO error: {}",
              error->localizedDescription()->utf8String());
-    } else {
-      XELOGE("Failed to create pipeline state (unknown error)");
     }
-    return nullptr;
-  }
-
-  pipeline_cache_[key] = pipeline;
-  if (record_disk_entry) {
-    AppendPipelineDiskCacheEntry(disk_entry);
-  }
-
-  return pipeline;
-}
-
-MetalCommandProcessor::GeometryPipelineState*
-MetalCommandProcessor::GetOrCreateGeometryPipelineState(
-    MetalShader::MetalTranslation* vertex_translation,
-    MetalShader::MetalTranslation* pixel_translation,
-    GeometryShaderKey geometry_shader_key, const RegisterFile& regs) {
-  if (!vertex_translation) {
-    XELOGE("No valid vertex shader translation for geometry pipeline");
-    return nullptr;
-  }
-  bool use_fallback_pixel_shader = (pixel_translation == nullptr);
-  MTL::Library* pixel_library =
-      use_fallback_pixel_shader ? nullptr : pixel_translation->metal_library();
-  const char* pixel_function = use_fallback_pixel_shader
-                                   ? nullptr
-                                   : pixel_translation->function_name().c_str();
-  if (use_fallback_pixel_shader) {
-    if (!EnsureDepthOnlyPixelShader()) {
-      XELOGE("Geometry pipeline: failed to create depth-only PS");
-      return nullptr;
-    }
-    pixel_library = depth_only_pixel_library_;
-    pixel_function = depth_only_pixel_function_name_.c_str();
-  } else if (!pixel_library) {
-    XELOGE("No valid pixel shader translation for geometry pipeline");
-    return nullptr;
-  }
-
-  uint32_t sample_count = 1;
-  MTL::PixelFormat color_formats[4] = {
-      MTL::PixelFormatInvalid, MTL::PixelFormatInvalid, MTL::PixelFormatInvalid,
-      MTL::PixelFormatInvalid};
-  MTL::PixelFormat depth_format = MTL::PixelFormatInvalid;
-  MTL::PixelFormat stencil_format = MTL::PixelFormatInvalid;
-  if (render_target_cache_) {
-    for (uint32_t i = 0; i < 4; ++i) {
-      if (MTL::Texture* rt = render_target_cache_->GetColorTargetForDraw(i)) {
-        color_formats[i] = rt->pixelFormat();
-        if (rt->sampleCount() > 0) {
-          sample_count = std::max<uint32_t>(
-              sample_count, static_cast<uint32_t>(rt->sampleCount()));
-        }
-      }
-    }
-    if (color_formats[0] == MTL::PixelFormatInvalid) {
-      if (MTL::Texture* dummy =
-              render_target_cache_->GetDummyColorTargetForDraw()) {
-        color_formats[0] = dummy->pixelFormat();
-        if (dummy->sampleCount() > 0) {
-          sample_count = std::max<uint32_t>(
-              sample_count, static_cast<uint32_t>(dummy->sampleCount()));
-        }
-      }
-    }
-    if (MTL::Texture* depth_tex =
-            render_target_cache_->GetDepthTargetForDraw()) {
-      depth_format = depth_tex->pixelFormat();
-      switch (depth_format) {
-        case MTL::PixelFormatDepth32Float_Stencil8:
-        case MTL::PixelFormatDepth24Unorm_Stencil8:
-        case MTL::PixelFormatX32_Stencil8:
-          stencil_format = depth_format;
-          break;
-        default:
-          stencil_format = MTL::PixelFormatInvalid;
-          break;
-      }
-      if (depth_tex->sampleCount() > 0) {
-        sample_count = std::max<uint32_t>(
-            sample_count, static_cast<uint32_t>(depth_tex->sampleCount()));
-      }
-    }
-  }
-
-  struct GeometryPipelineKey {
-    const void* vs;
-    const void* ps;
-    uint32_t geometry_key;
-    uint32_t sample_count;
-    uint32_t depth_format;
-    uint32_t stencil_format;
-    uint32_t color_formats[4];
-    uint32_t normalized_color_mask;
-    uint32_t alpha_to_mask_enable;
-    uint32_t blendcontrol[4];
-  } key_data = {};
-
-  key_data.vs = vertex_translation;
-  key_data.ps = use_fallback_pixel_shader
-                    ? static_cast<const void*>(pixel_library)
-                    : static_cast<const void*>(pixel_translation);
-  key_data.geometry_key = geometry_shader_key.key;
-  key_data.sample_count = sample_count;
-  key_data.depth_format = uint32_t(depth_format);
-  key_data.stencil_format = uint32_t(stencil_format);
-  for (uint32_t i = 0; i < 4; ++i) {
-    key_data.color_formats[i] = uint32_t(color_formats[i]);
-  }
-  uint32_t pixel_shader_writes_color_targets =
-      use_fallback_pixel_shader
-          ? 0
-          : (pixel_translation
-                 ? pixel_translation->shader().writes_color_targets()
-                 : 0);
-  key_data.normalized_color_mask =
-      pixel_shader_writes_color_targets
-          ? draw_util::GetNormalizedColorMask(regs,
-                                              pixel_shader_writes_color_targets)
-          : 0;
-  auto rb_colorcontrol = regs.Get<reg::RB_COLORCONTROL>();
-  key_data.alpha_to_mask_enable = rb_colorcontrol.alpha_to_mask_enable ? 1 : 0;
-  for (uint32_t i = 0; i < 4; ++i) {
-    key_data.blendcontrol[i] =
-        regs.Get<reg::RB_BLENDCONTROL>(
-                reg::RB_BLENDCONTROL::rt_register_indices[i])
-            .value;
-  }
-  uint64_t key = XXH3_64bits(&key_data, sizeof(key_data));
-
-  auto it = geometry_pipeline_cache_.find(key);
-  if (it != geometry_pipeline_cache_.end()) {
-    return &it->second;
-  }
-
-  auto get_vertex_stage = [&]() -> GeometryVertexStageState* {
-    auto vertex_it = geometry_vertex_stage_cache_.find(vertex_translation);
-    if (vertex_it != geometry_vertex_stage_cache_.end()) {
-      return &vertex_it->second;
-    }
-
-    std::vector<uint8_t> dxil_data = vertex_translation->dxil_data();
-    if (dxil_data.empty()) {
-      std::string dxil_error;
-      if (!dxbc_to_dxil_converter_->Convert(
-              vertex_translation->translated_binary(), dxil_data,
-              &dxil_error)) {
-        XELOGE("Geometry VS: DXBC to DXIL conversion failed: {}", dxil_error);
-        return nullptr;
-      }
-    }
-
-    struct InputAttribute {
-      uint32_t input_slot = 0;
-      uint32_t offset = 0;
-      IRFormat format = IRFormatUnknown;
-    };
-    std::vector<InputAttribute> attribute_map;
-    attribute_map.reserve(32);
-
-    auto map_ir_format =
-        [](const ParsedVertexFetchInstruction::Attributes& attrs) -> IRFormat {
-      using xenos::VertexFormat;
-      switch (attrs.data_format) {
-        case VertexFormat::k_8_8_8_8:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? IRFormatR8G8B8A8Sint
-                                   : IRFormatR8G8B8A8Uint;
-          }
-          return attrs.is_signed ? IRFormatR8G8B8A8Snorm
-                                 : IRFormatR8G8B8A8Unorm;
-        case VertexFormat::k_2_10_10_10:
-          if (attrs.is_integer) {
-            return IRFormatR10G10B10A2Uint;
-          }
-          return IRFormatR10G10B10A2Unorm;
-        case VertexFormat::k_10_11_11:
-        case VertexFormat::k_11_11_10:
-          return IRFormatR11G11B10Float;
-        case VertexFormat::k_16_16:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? IRFormatR16G16Sint : IRFormatR16G16Uint;
-          }
-          return attrs.is_signed ? IRFormatR16G16Snorm : IRFormatR16G16Unorm;
-        case VertexFormat::k_16_16_16_16:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? IRFormatR16G16B16A16Sint
-                                   : IRFormatR16G16B16A16Uint;
-          }
-          return attrs.is_signed ? IRFormatR16G16B16A16Snorm
-                                 : IRFormatR16G16B16A16Unorm;
-        case VertexFormat::k_16_16_FLOAT:
-          return IRFormatR16G16Float;
-        case VertexFormat::k_16_16_16_16_FLOAT:
-          return IRFormatR16G16B16A16Float;
-        case VertexFormat::k_32:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? IRFormatR32Sint : IRFormatR32Uint;
-          }
-          return IRFormatR32Float;
-        case VertexFormat::k_32_32:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? IRFormatR32G32Sint : IRFormatR32G32Uint;
-          }
-          return IRFormatR32G32Float;
-        case VertexFormat::k_32_32_32_FLOAT:
-          return IRFormatR32G32B32Float;
-        case VertexFormat::k_32_32_32_32:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? IRFormatR32G32B32A32Sint
-                                   : IRFormatR32G32B32A32Uint;
-          }
-          return IRFormatR32G32B32A32Float;
-        case VertexFormat::k_32_32_32_32_FLOAT:
-          return IRFormatR32G32B32A32Float;
-        default:
-          return IRFormatUnknown;
-      }
-    };
-
-    const Shader& vertex_shader_ref = vertex_translation->shader();
-    const auto& vertex_bindings = vertex_shader_ref.vertex_bindings();
-    uint32_t attr_index = 0;
-    for (const auto& binding : vertex_bindings) {
-      for (const auto& attr : binding.attributes) {
-        if (attr_index >= 31) {
-          break;
-        }
-        InputAttribute mapped = {};
-        mapped.input_slot = static_cast<uint32_t>(binding.binding_index);
-        mapped.offset =
-            static_cast<uint32_t>(attr.fetch_instr.attributes.offset * 4);
-        mapped.format = map_ir_format(attr.fetch_instr.attributes);
-        attribute_map.push_back(mapped);
-        ++attr_index;
-      }
-      if (attr_index >= 31) {
-        break;
-      }
-    }
-
-    IRInputTopology input_topology = IRInputTopologyUndefined;
-    switch (geometry_shader_key.type) {
-      case PipelineGeometryShader::kPointList:
-        input_topology = IRInputTopologyPoint;
-        break;
-      case PipelineGeometryShader::kRectangleList:
-        input_topology = IRInputTopologyTriangle;
-        break;
-      case PipelineGeometryShader::kQuadList:
-        // Quad lists use LineWithAdjacency in DXBC; MSC input topology doesn't
-        // model adjacency, so leave undefined to avoid mismatches.
-        input_topology = IRInputTopologyUndefined;
-        break;
-      default:
-        input_topology = IRInputTopologyUndefined;
-        break;
-    }
-    MetalShaderConversionResult vertex_result;
-    MetalShaderReflectionInfo vertex_reflection;
-
-    // First pass: get reflection for vertex inputs.
-    if (!metal_shader_converter_->ConvertWithStageEx(
-            MetalShaderStage::kVertex, dxil_data, vertex_result,
-            &vertex_reflection, nullptr, nullptr, true,
-            static_cast<int>(input_topology))) {
-      XELOGE("Geometry VS: DXIL to Metal conversion failed: {}",
-             vertex_result.error_message);
-      return nullptr;
-    }
-
-    IRVersionedInputLayoutDescriptor input_layout = {};
-    input_layout.version = IRInputLayoutDescriptorVersion_1;
-    input_layout.desc_1_0.numElements = 0;
-    std::vector<std::string> semantic_names_storage;
-    if (!vertex_reflection.vertex_inputs.empty()) {
-      semantic_names_storage.reserve(vertex_reflection.vertex_inputs.size());
-      uint32_t element_count = 0;
-      for (const auto& input : vertex_reflection.vertex_inputs) {
-        if (element_count >= 31) {
-          break;
-        }
-        if (input.attribute_index >= attribute_map.size()) {
-          XELOGW("Geometry VS: vertex input {} out of range (max {})",
-                 input.attribute_index, attribute_map.size());
-          continue;
-        }
-        const InputAttribute& mapped = attribute_map[input.attribute_index];
-        if (mapped.format == IRFormatUnknown) {
-          XELOGW("Geometry VS: unknown IRFormat for vertex input {}",
-                 input.attribute_index);
-          continue;
-        }
-        std::string semantic_base = input.name;
-        uint32_t semantic_index = 0;
-        if (!semantic_base.empty()) {
-          size_t digit_pos = semantic_base.size();
-          while (digit_pos > 0 && std::isdigit(static_cast<unsigned char>(
-                                      semantic_base[digit_pos - 1]))) {
-            --digit_pos;
-          }
-          if (digit_pos < semantic_base.size()) {
-            semantic_index = static_cast<uint32_t>(
-                std::strtoul(semantic_base.c_str() + digit_pos, nullptr, 10));
-            semantic_base.resize(digit_pos);
-          }
-        }
-        if (semantic_base.empty()) {
-          semantic_base = "TEXCOORD";
-        }
-        semantic_names_storage.push_back(std::move(semantic_base));
-        input_layout.desc_1_0.semanticNames[element_count] =
-            semantic_names_storage.back().c_str();
-        IRInputElementDescriptor1& element =
-            input_layout.desc_1_0.inputElementDescs[element_count];
-        element.semanticIndex = semantic_index;
-        element.format = mapped.format;
-        element.inputSlot = mapped.input_slot;
-        element.alignedByteOffset = mapped.offset;
-        element.instanceDataStepRate = 0;
-        element.inputSlotClass = IRInputClassificationPerVertexData;
-        ++element_count;
-      }
-      input_layout.desc_1_0.numElements = element_count;
-    }
-
-    // Second pass: synthesize stage-in using the input layout.
-    std::vector<uint8_t> stage_in_metallib;
-    if (!metal_shader_converter_->ConvertWithStageEx(
-            MetalShaderStage::kVertex, dxil_data, vertex_result,
-            &vertex_reflection, &input_layout, &stage_in_metallib, true,
-            static_cast<int>(input_topology))) {
-      XELOGE("Geometry VS: DXIL to Metal conversion failed: {}",
-             vertex_result.error_message);
-      return nullptr;
-    }
-    if (stage_in_metallib.empty()) {
-      XELOGE(
-          "Geometry VS: Failed to synthesize stage-in function "
-          "(vertex_inputs={}, output_size={})",
-          vertex_reflection.vertex_input_count,
-          vertex_reflection.vertex_output_size_in_bytes);
-      return nullptr;
-    }
-
-    NS::Error* error = nullptr;
-    dispatch_data_t vertex_data = dispatch_data_create(
-        vertex_result.metallib_data.data(), vertex_result.metallib_data.size(),
-        nullptr, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
-    MTL::Library* vertex_library = device_->newLibrary(vertex_data, &error);
-    dispatch_release(vertex_data);
-    if (!vertex_library) {
-      XELOGE("Geometry VS: Failed to create Metal library: {}",
-             error ? error->localizedDescription()->utf8String()
-                   : "unknown error");
-      return nullptr;
-    }
-
-    NS::Error* stage_in_error = nullptr;
-    dispatch_data_t stage_in_data =
-        dispatch_data_create(stage_in_metallib.data(), stage_in_metallib.size(),
-                             nullptr, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
-    MTL::Library* stage_in_library =
-        device_->newLibrary(stage_in_data, &stage_in_error);
-    dispatch_release(stage_in_data);
-    if (!stage_in_library) {
-      XELOGE("Geometry VS: Failed to create stage-in library: {}",
-             stage_in_error
-                 ? stage_in_error->localizedDescription()->utf8String()
-                 : "unknown error");
-      vertex_library->release();
-      return nullptr;
-    }
-
-    GeometryVertexStageState state;
-    state.library = vertex_library;
-    state.stage_in_library = stage_in_library;
-    state.function_name = vertex_result.function_name;
-    state.vertex_output_size_in_bytes =
-        vertex_reflection.vertex_output_size_in_bytes;
-    if (state.vertex_output_size_in_bytes == 0) {
-      XELOGE(
-          "Geometry VS: reflection returned zero output size "
-          "(vertex_inputs={})",
-          vertex_reflection.vertex_input_count);
-    }
-
-    auto [inserted_it, inserted] = geometry_vertex_stage_cache_.emplace(
-        vertex_translation, std::move(state));
-    return &inserted_it->second;
+    return pso;
   };
 
-  auto get_geometry_stage = [&]() -> GeometryShaderStageState* {
-    auto geom_it = geometry_shader_stage_cache_.find(geometry_shader_key);
-    if (geom_it != geometry_shader_stage_cache_.end()) {
-      return &geom_it->second;
-    }
+  // Uniform factor kernels (discrete / continuous modes).
+  tess_factor_pipeline_tri_ =
+      compile_kernel(kMslTessFactorUniformTriangle, "tess_factor_triangle");
+  tess_factor_pipeline_quad_ =
+      compile_kernel(kMslTessFactorUniformQuad, "tess_factor_quad");
 
-    const std::vector<uint32_t>& dxbc_dwords =
-        GetGeometryShader(geometry_shader_key);
-    std::vector<uint8_t> dxbc_bytes(dxbc_dwords.size() * sizeof(uint32_t));
-    std::memcpy(dxbc_bytes.data(), dxbc_dwords.data(), dxbc_bytes.size());
-
-    std::vector<uint8_t> dxil_data;
-    std::string dxil_error;
-    if (!dxbc_to_dxil_converter_->Convert(dxbc_bytes, dxil_data, &dxil_error)) {
-      XELOGE("Geometry GS: DXBC to DXIL conversion failed: {}", dxil_error);
-      return nullptr;
-    }
-
-    IRInputTopology input_topology = IRInputTopologyUndefined;
-    switch (geometry_shader_key.type) {
-      case PipelineGeometryShader::kPointList:
-        input_topology = IRInputTopologyPoint;
-        break;
-      case PipelineGeometryShader::kRectangleList:
-        input_topology = IRInputTopologyTriangle;
-        break;
-      case PipelineGeometryShader::kQuadList:
-        // Quad lists use LineWithAdjacency in DXBC; MSC input topology doesn't
-        // model adjacency, so leave undefined to avoid mismatches.
-        input_topology = IRInputTopologyUndefined;
-        break;
-      default:
-        input_topology = IRInputTopologyUndefined;
-        break;
-    }
-    MetalShaderConversionResult geometry_result;
-    MetalShaderReflectionInfo geometry_reflection;
-    if (!metal_shader_converter_->ConvertWithStageEx(
-            MetalShaderStage::kGeometry, dxil_data, geometry_result,
-            &geometry_reflection, nullptr, nullptr, true,
-            static_cast<int>(input_topology))) {
-      XELOGE("Geometry GS: DXIL to Metal conversion failed: {}",
-             geometry_result.error_message);
-      return nullptr;
-    }
-    if (!geometry_result.has_mesh_stage &&
-        !geometry_result.has_geometry_stage) {
-      XELOGE(
-          "Geometry GS: MSC did not emit mesh or geometry stage (mesh={}, "
-          "geometry={})",
-          geometry_result.has_mesh_stage, geometry_result.has_geometry_stage);
-      return nullptr;
-    }
-    if (!geometry_result.has_mesh_stage) {
-      static bool mesh_missing_logged = false;
-      if (!mesh_missing_logged) {
-        mesh_missing_logged = true;
-        XELOGW(
-            "Geometry GS: MSC did not emit mesh stage; using geometry stage "
-            "library");
-      }
-    }
-
-    NS::Error* error = nullptr;
-    dispatch_data_t geometry_data =
-        dispatch_data_create(geometry_result.metallib_data.data(),
-                             geometry_result.metallib_data.size(), nullptr,
-                             DISPATCH_DATA_DESTRUCTOR_DEFAULT);
-    MTL::Library* geometry_library = device_->newLibrary(geometry_data, &error);
-    dispatch_release(geometry_data);
-    if (!geometry_library) {
-      XELOGE("Geometry GS: Failed to create Metal library: {}",
-             error ? error->localizedDescription()->utf8String()
-                   : "unknown error");
-      return nullptr;
-    }
-
-    GeometryShaderStageState state;
-    state.library = geometry_library;
-    state.function_name = geometry_result.function_name;
-    state.max_input_primitives_per_mesh_threadgroup =
-        geometry_reflection.gs_max_input_primitives_per_mesh_threadgroup;
-    state.function_constants = geometry_reflection.function_constants;
-    if (state.max_input_primitives_per_mesh_threadgroup == 0) {
-      XELOGE("Geometry GS: reflection returned zero max input primitives");
-    }
-
-    auto [inserted_it, inserted] = geometry_shader_stage_cache_.emplace(
-        geometry_shader_key, std::move(state));
-    return &inserted_it->second;
-  };
-
-  GeometryVertexStageState* vertex_stage = get_vertex_stage();
-  if (!vertex_stage || !vertex_stage->library ||
-      !vertex_stage->stage_in_library) {
-    return nullptr;
-  }
-  GeometryShaderStageState* geometry_stage = get_geometry_stage();
-  if (!geometry_stage || !geometry_stage->library) {
-    return nullptr;
-  }
-
-  MTL::MeshRenderPipelineDescriptor* desc =
-      MTL::MeshRenderPipelineDescriptor::alloc()->init();
-
-  for (uint32_t i = 0; i < 4; ++i) {
-    desc->colorAttachments()->object(i)->setPixelFormat(color_formats[i]);
-  }
-  desc->setDepthAttachmentPixelFormat(depth_format);
-  desc->setStencilAttachmentPixelFormat(stencil_format);
-  desc->setRasterSampleCount(sample_count);
-  desc->setAlphaToCoverageEnabled(key_data.alpha_to_mask_enable != 0);
-
-  for (uint32_t i = 0; i < 4; ++i) {
-    auto* color_attachment = desc->colorAttachments()->object(i);
-    if (color_formats[i] == MTL::PixelFormatInvalid) {
-      color_attachment->setWriteMask(MTL::ColorWriteMaskNone);
-      color_attachment->setBlendingEnabled(false);
-      continue;
-    }
-
-    uint32_t rt_write_mask = (key_data.normalized_color_mask >> (i * 4)) & 0xF;
-    color_attachment->setWriteMask(ToMetalColorWriteMask(rt_write_mask));
-    if (!rt_write_mask) {
-      color_attachment->setBlendingEnabled(false);
-      continue;
-    }
-
-    auto blendcontrol = regs.Get<reg::RB_BLENDCONTROL>(
-        reg::RB_BLENDCONTROL::rt_register_indices[i]);
-    MTL::BlendFactor src_rgb =
-        ToMetalBlendFactorRgb(blendcontrol.color_srcblend);
-    MTL::BlendFactor dst_rgb =
-        ToMetalBlendFactorRgb(blendcontrol.color_destblend);
-    MTL::BlendOperation op_rgb =
-        ToMetalBlendOperation(blendcontrol.color_comb_fcn);
-    MTL::BlendFactor src_alpha =
-        ToMetalBlendFactorAlpha(blendcontrol.alpha_srcblend);
-    MTL::BlendFactor dst_alpha =
-        ToMetalBlendFactorAlpha(blendcontrol.alpha_destblend);
-    MTL::BlendOperation op_alpha =
-        ToMetalBlendOperation(blendcontrol.alpha_comb_fcn);
-
-    bool blending_enabled =
-        src_rgb != MTL::BlendFactorOne || dst_rgb != MTL::BlendFactorZero ||
-        op_rgb != MTL::BlendOperationAdd || src_alpha != MTL::BlendFactorOne ||
-        dst_alpha != MTL::BlendFactorZero || op_alpha != MTL::BlendOperationAdd;
-    color_attachment->setBlendingEnabled(blending_enabled);
-    if (blending_enabled) {
-      color_attachment->setSourceRGBBlendFactor(src_rgb);
-      color_attachment->setDestinationRGBBlendFactor(dst_rgb);
-      color_attachment->setRgbBlendOperation(op_rgb);
-      color_attachment->setSourceAlphaBlendFactor(src_alpha);
-      color_attachment->setDestinationAlphaBlendFactor(dst_alpha);
-      color_attachment->setAlphaBlendOperation(op_alpha);
-    }
-  }
-  if (!vertex_stage->vertex_output_size_in_bytes ||
-      !geometry_stage->max_input_primitives_per_mesh_threadgroup) {
-    XELOGE(
-        "Geometry pipeline: invalid reflection (vs_output={}, gs_max_input={})",
-        vertex_stage->vertex_output_size_in_bytes,
-        geometry_stage->max_input_primitives_per_mesh_threadgroup);
-    return nullptr;
-  }
-
-  IRGeometryEmulationPipelineDescriptor ir_desc = {};
-  ir_desc.stageInLibrary = vertex_stage->stage_in_library;
-  ir_desc.vertexLibrary = vertex_stage->library;
-  ir_desc.vertexFunctionName = vertex_stage->function_name.c_str();
-  ir_desc.geometryLibrary = geometry_stage->library;
-  ir_desc.geometryFunctionName = geometry_stage->function_name.c_str();
-  ir_desc.fragmentLibrary = pixel_library;
-  ir_desc.fragmentFunctionName = pixel_function;
-  ir_desc.basePipelineDescriptor = desc;
-  ir_desc.pipelineConfig.gsVertexSizeInBytes =
-      vertex_stage->vertex_output_size_in_bytes;
-  ir_desc.pipelineConfig.gsMaxInputPrimitivesPerMeshThreadgroup =
-      geometry_stage->max_input_primitives_per_mesh_threadgroup;
-
-  NS::Error* error = nullptr;
-  MTL::RenderPipelineState* pipeline =
-      IRRuntimeNewGeometryEmulationPipeline(device_, &ir_desc, &error);
-  desc->release();
-
-  if (!pipeline) {
-    XELOGE(
-        "Failed to create geometry pipeline state: {}",
-        error ? error->localizedDescription()->utf8String() : "unknown error");
-    LogMetalErrorDetails("Geometry pipeline error", error);
-    return nullptr;
-  }
-
-  GeometryPipelineState state;
-  state.pipeline = pipeline;
-  state.gs_vertex_size_in_bytes = ir_desc.pipelineConfig.gsVertexSizeInBytes;
-  state.gs_max_input_primitives_per_mesh_threadgroup =
-      ir_desc.pipelineConfig.gsMaxInputPrimitivesPerMeshThreadgroup;
-
-  auto [inserted_it, inserted] =
-      geometry_pipeline_cache_.emplace(key, std::move(state));
-  return &inserted_it->second;
-}
-
-MetalCommandProcessor::TessellationPipelineState*
-MetalCommandProcessor::GetOrCreateTessellationPipelineState(
-    MetalShader::MetalTranslation* domain_translation,
-    MetalShader::MetalTranslation* pixel_translation,
-    const PrimitiveProcessor::ProcessingResult& primitive_processing_result,
-    const RegisterFile& regs) {
-  if (!domain_translation) {
-    XELOGE("No valid domain shader translation for tessellation pipeline");
-    return nullptr;
-  }
-  bool use_fallback_pixel_shader = (pixel_translation == nullptr);
-  MTL::Library* pixel_library =
-      use_fallback_pixel_shader ? nullptr : pixel_translation->metal_library();
-  const char* pixel_function = use_fallback_pixel_shader
-                                   ? nullptr
-                                   : pixel_translation->function_name().c_str();
-  if (use_fallback_pixel_shader) {
-    if (!EnsureDepthOnlyPixelShader()) {
-      XELOGE("Tessellation pipeline: failed to create depth-only PS");
-      return nullptr;
-    }
-    pixel_library = depth_only_pixel_library_;
-    pixel_function = depth_only_pixel_function_name_.c_str();
-  } else if (!pixel_library) {
-    XELOGE("No valid pixel shader translation for tessellation pipeline");
-    return nullptr;
-  }
-
-  uint32_t sample_count = 1;
-  MTL::PixelFormat color_formats[4] = {
-      MTL::PixelFormatInvalid, MTL::PixelFormatInvalid, MTL::PixelFormatInvalid,
-      MTL::PixelFormatInvalid};
-  MTL::PixelFormat depth_format = MTL::PixelFormatInvalid;
-  MTL::PixelFormat stencil_format = MTL::PixelFormatInvalid;
-  if (render_target_cache_) {
-    for (uint32_t i = 0; i < 4; ++i) {
-      if (MTL::Texture* rt = render_target_cache_->GetColorTargetForDraw(i)) {
-        color_formats[i] = rt->pixelFormat();
-        if (rt->sampleCount() > 0) {
-          sample_count = std::max<uint32_t>(
-              sample_count, static_cast<uint32_t>(rt->sampleCount()));
-        }
-      }
-    }
-    if (color_formats[0] == MTL::PixelFormatInvalid) {
-      if (MTL::Texture* dummy =
-              render_target_cache_->GetDummyColorTargetForDraw()) {
-        color_formats[0] = dummy->pixelFormat();
-        if (dummy->sampleCount() > 0) {
-          sample_count = std::max<uint32_t>(
-              sample_count, static_cast<uint32_t>(dummy->sampleCount()));
-        }
-      }
-    }
-    if (MTL::Texture* depth_tex =
-            render_target_cache_->GetDepthTargetForDraw()) {
-      depth_format = depth_tex->pixelFormat();
-      switch (depth_format) {
-        case MTL::PixelFormatDepth32Float_Stencil8:
-        case MTL::PixelFormatDepth24Unorm_Stencil8:
-        case MTL::PixelFormatX32_Stencil8:
-          stencil_format = depth_format;
-          break;
-        default:
-          stencil_format = MTL::PixelFormatInvalid;
-          break;
-      }
-      if (depth_tex->sampleCount() > 0) {
-        sample_count = std::max<uint32_t>(
-            sample_count, static_cast<uint32_t>(depth_tex->sampleCount()));
-      }
-    }
-  }
-
-  struct TessellationPipelineKey {
-    const void* ds;
-    const void* ps;
-    uint32_t host_vs_type;
-    uint32_t tessellation_mode;
-    uint32_t host_prim;
-    uint32_t sample_count;
-    uint32_t depth_format;
-    uint32_t stencil_format;
-    uint32_t color_formats[4];
-    uint32_t normalized_color_mask;
-    uint32_t alpha_to_mask_enable;
-    uint32_t blendcontrol[4];
-  } key_data = {};
-
-  key_data.ds = domain_translation;
-  key_data.ps = use_fallback_pixel_shader
-                    ? static_cast<const void*>(pixel_library)
-                    : static_cast<const void*>(pixel_translation);
-  key_data.host_vs_type =
-      uint32_t(primitive_processing_result.host_vertex_shader_type);
-  key_data.tessellation_mode =
-      uint32_t(primitive_processing_result.tessellation_mode);
-  key_data.host_prim =
-      uint32_t(primitive_processing_result.host_primitive_type);
-  key_data.sample_count = sample_count;
-  key_data.depth_format = uint32_t(depth_format);
-  key_data.stencil_format = uint32_t(stencil_format);
-  for (uint32_t i = 0; i < 4; ++i) {
-    key_data.color_formats[i] = uint32_t(color_formats[i]);
-  }
-  uint32_t pixel_shader_writes_color_targets =
-      use_fallback_pixel_shader
-          ? 0
-          : (pixel_translation
-                 ? pixel_translation->shader().writes_color_targets()
-                 : 0);
-  key_data.normalized_color_mask =
-      pixel_shader_writes_color_targets
-          ? draw_util::GetNormalizedColorMask(regs,
-                                              pixel_shader_writes_color_targets)
-          : 0;
-  auto rb_colorcontrol = regs.Get<reg::RB_COLORCONTROL>();
-  key_data.alpha_to_mask_enable = rb_colorcontrol.alpha_to_mask_enable ? 1 : 0;
-  for (uint32_t i = 0; i < 4; ++i) {
-    key_data.blendcontrol[i] =
-        regs.Get<reg::RB_BLENDCONTROL>(
-                reg::RB_BLENDCONTROL::rt_register_indices[i])
-            .value;
-  }
-  uint64_t key = XXH3_64bits(&key_data, sizeof(key_data));
-
-  auto it = tessellation_pipeline_cache_.find(key);
-  if (it != tessellation_pipeline_cache_.end()) {
-    return &it->second;
-  }
-
-  xenos::TessellationMode tessellation_mode =
-      primitive_processing_result.tessellation_mode;
-
-  auto get_vertex_stage = [&]() -> TessellationVertexStageState* {
-    struct VertexStageKey {
-      const void* shader;
-      uint32_t tessellation_mode;
-    } vertex_key = {domain_translation, uint32_t(tessellation_mode)};
-    uint32_t vertex_key_hash =
-        uint32_t(XXH3_64bits(&vertex_key, sizeof(vertex_key)));
-    auto vertex_it = tessellation_vertex_stage_cache_.find(vertex_key_hash);
-    if (vertex_it != tessellation_vertex_stage_cache_.end()) {
-      return &vertex_it->second;
-    }
-
-    const uint8_t* vs_bytes = nullptr;
-    size_t vs_size = 0;
-    if (tessellation_mode == xenos::TessellationMode::kAdaptive) {
-      vs_bytes = ::tessellation_adaptive_vs;
-      vs_size = sizeof(::tessellation_adaptive_vs);
-    } else {
-      vs_bytes = ::tessellation_indexed_vs;
-      vs_size = sizeof(::tessellation_indexed_vs);
-    }
-    std::vector<uint8_t> dxbc_bytes(vs_bytes, vs_bytes + vs_size);
-    std::vector<uint8_t> dxil_data;
-    std::string dxil_error;
-    if (!dxbc_to_dxil_converter_->Convert(dxbc_bytes, dxil_data, &dxil_error)) {
-      XELOGE("Tessellation VS: DXBC to DXIL conversion failed: {}", dxil_error);
-      return nullptr;
-    }
-
-    struct InputAttribute {
-      uint32_t input_slot = 0;
-      uint32_t offset = 0;
-      IRFormat format = IRFormatUnknown;
-    };
-    std::vector<InputAttribute> attribute_map;
-    attribute_map.reserve(32);
-
-    auto map_ir_format =
-        [](const ParsedVertexFetchInstruction::Attributes& attrs) -> IRFormat {
-      using xenos::VertexFormat;
-      switch (attrs.data_format) {
-        case VertexFormat::k_8_8_8_8:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? IRFormatR8G8B8A8Sint
-                                   : IRFormatR8G8B8A8Uint;
-          }
-          return attrs.is_signed ? IRFormatR8G8B8A8Snorm
-                                 : IRFormatR8G8B8A8Unorm;
-        case VertexFormat::k_2_10_10_10:
-          if (attrs.is_integer) {
-            return IRFormatR10G10B10A2Uint;
-          }
-          return IRFormatR10G10B10A2Unorm;
-        case VertexFormat::k_10_11_11:
-        case VertexFormat::k_11_11_10:
-          return IRFormatR11G11B10Float;
-        case VertexFormat::k_16_16:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? IRFormatR16G16Sint : IRFormatR16G16Uint;
-          }
-          return attrs.is_signed ? IRFormatR16G16Snorm : IRFormatR16G16Unorm;
-        case VertexFormat::k_16_16_16_16:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? IRFormatR16G16B16A16Sint
-                                   : IRFormatR16G16B16A16Uint;
-          }
-          return attrs.is_signed ? IRFormatR16G16B16A16Snorm
-                                 : IRFormatR16G16B16A16Unorm;
-        case VertexFormat::k_16_16_FLOAT:
-          return IRFormatR16G16Float;
-        case VertexFormat::k_16_16_16_16_FLOAT:
-          return IRFormatR16G16B16A16Float;
-        case VertexFormat::k_32:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? IRFormatR32Sint : IRFormatR32Uint;
-          }
-          return IRFormatR32Float;
-        case VertexFormat::k_32_32:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? IRFormatR32G32Sint : IRFormatR32G32Uint;
-          }
-          return IRFormatR32G32Float;
-        case VertexFormat::k_32_32_32_FLOAT:
-          return IRFormatR32G32B32Float;
-        case VertexFormat::k_32_32_32_32:
-          if (attrs.is_integer) {
-            return attrs.is_signed ? IRFormatR32G32B32A32Sint
-                                   : IRFormatR32G32B32A32Uint;
-          }
-          return IRFormatR32G32B32A32Float;
-        case VertexFormat::k_32_32_32_32_FLOAT:
-          return IRFormatR32G32B32A32Float;
-        default:
-          return IRFormatUnknown;
-      }
-    };
-
-    const Shader& vertex_shader_ref = domain_translation->shader();
-    const auto& vertex_bindings = vertex_shader_ref.vertex_bindings();
-    uint32_t attr_index = 0;
-    for (const auto& binding : vertex_bindings) {
-      for (const auto& attr : binding.attributes) {
-        if (attr_index >= 31) {
-          break;
-        }
-        InputAttribute mapped = {};
-        mapped.input_slot = static_cast<uint32_t>(binding.binding_index);
-        mapped.offset =
-            static_cast<uint32_t>(attr.fetch_instr.attributes.offset * 4);
-        mapped.format = map_ir_format(attr.fetch_instr.attributes);
-        attribute_map.push_back(mapped);
-        ++attr_index;
-      }
-      if (attr_index >= 31) {
-        break;
-      }
-    }
-
-    IRInputTopology input_topology = IRInputTopologyUndefined;
-
-    MetalShaderConversionResult vertex_result;
-    MetalShaderReflectionInfo vertex_reflection;
-    if (!metal_shader_converter_->ConvertWithStageEx(
-            MetalShaderStage::kVertex, dxil_data, vertex_result,
-            &vertex_reflection, nullptr, nullptr, true,
-            static_cast<int>(input_topology))) {
-      XELOGE("Tessellation VS: DXIL to Metal conversion failed: {}",
-             vertex_result.error_message);
-      return nullptr;
-    }
-
-    IRVersionedInputLayoutDescriptor input_layout = {};
-    input_layout.version = IRInputLayoutDescriptorVersion_1;
-    input_layout.desc_1_0.numElements = 0;
-    std::vector<std::string> semantic_names_storage;
-    if (!vertex_reflection.vertex_inputs.empty()) {
-      semantic_names_storage.reserve(vertex_reflection.vertex_inputs.size());
-      uint32_t element_count = 0;
-      for (const auto& input : vertex_reflection.vertex_inputs) {
-        if (element_count >= 31) {
-          break;
-        }
-        if (input.attribute_index >= attribute_map.size()) {
-          XELOGW("Tessellation VS: vertex input {} out of range (max {})",
-                 input.attribute_index, attribute_map.size());
-          continue;
-        }
-        const InputAttribute& mapped = attribute_map[input.attribute_index];
-        if (mapped.format == IRFormatUnknown) {
-          XELOGW("Tessellation VS: unknown IRFormat for vertex input {}",
-                 input.attribute_index);
-          continue;
-        }
-        std::string semantic_base = input.name;
-        uint32_t semantic_index = 0;
-        if (!semantic_base.empty()) {
-          size_t digit_pos = semantic_base.size();
-          while (digit_pos > 0 && std::isdigit(static_cast<unsigned char>(
-                                      semantic_base[digit_pos - 1]))) {
-            --digit_pos;
-          }
-          if (digit_pos < semantic_base.size()) {
-            semantic_index = static_cast<uint32_t>(
-                std::strtoul(semantic_base.c_str() + digit_pos, nullptr, 10));
-            semantic_base.resize(digit_pos);
-          }
-        }
-        if (semantic_base.empty()) {
-          semantic_base = "TEXCOORD";
-        }
-        semantic_names_storage.push_back(std::move(semantic_base));
-        input_layout.desc_1_0.semanticNames[element_count] =
-            semantic_names_storage.back().c_str();
-        IRInputElementDescriptor1& element =
-            input_layout.desc_1_0.inputElementDescs[element_count];
-        element.semanticIndex = semantic_index;
-        element.format = mapped.format;
-        element.inputSlot = mapped.input_slot;
-        element.alignedByteOffset = mapped.offset;
-        element.instanceDataStepRate = 0;
-        element.inputSlotClass = IRInputClassificationPerVertexData;
-        ++element_count;
-      }
-      input_layout.desc_1_0.numElements = element_count;
-    }
-
-    std::vector<uint8_t> stage_in_metallib;
-    if (!metal_shader_converter_->ConvertWithStageEx(
-            MetalShaderStage::kVertex, dxil_data, vertex_result,
-            &vertex_reflection, &input_layout, &stage_in_metallib, true,
-            static_cast<int>(input_topology))) {
-      XELOGE("Tessellation VS: DXIL to Metal conversion failed: {}",
-             vertex_result.error_message);
-      return nullptr;
-    }
-    if (stage_in_metallib.empty()) {
-      XELOGE("Tessellation VS: Failed to synthesize stage-in function");
-      return nullptr;
-    }
-
-    NS::Error* error = nullptr;
-    dispatch_data_t vertex_data = dispatch_data_create(
-        vertex_result.metallib_data.data(), vertex_result.metallib_data.size(),
-        nullptr, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
-    MTL::Library* vertex_library = device_->newLibrary(vertex_data, &error);
-    dispatch_release(vertex_data);
-    if (!vertex_library) {
-      XELOGE("Tessellation VS: Failed to create Metal library: {}",
-             error ? error->localizedDescription()->utf8String()
-                   : "unknown error");
-      return nullptr;
-    }
-
-    NS::Error* stage_in_error = nullptr;
-    dispatch_data_t stage_in_data =
-        dispatch_data_create(stage_in_metallib.data(), stage_in_metallib.size(),
-                             nullptr, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
-    MTL::Library* stage_in_library =
-        device_->newLibrary(stage_in_data, &stage_in_error);
-    dispatch_release(stage_in_data);
-    if (!stage_in_library) {
-      XELOGE("Tessellation VS: Failed to create stage-in library: {}",
-             stage_in_error
-                 ? stage_in_error->localizedDescription()->utf8String()
-                 : "unknown error");
-      vertex_library->release();
-      return nullptr;
-    }
-
-    TessellationVertexStageState state;
-    state.library = vertex_library;
-    state.stage_in_library = stage_in_library;
-    state.function_name = vertex_result.function_name;
-    state.vertex_output_size_in_bytes =
-        vertex_reflection.vertex_output_size_in_bytes;
-    if (state.vertex_output_size_in_bytes == 0) {
-      XELOGE("Tessellation VS: reflection returned zero output size");
-    }
-
-    auto [inserted_it, inserted] = tessellation_vertex_stage_cache_.emplace(
-        vertex_key_hash, std::move(state));
-    return &inserted_it->second;
-  };
-
-  auto get_hull_stage = [&]() -> TessellationHullStageState* {
-    struct HullStageKey {
-      uint32_t host_vs_type;
-      uint32_t tessellation_mode;
-    } hull_key = {uint32_t(primitive_processing_result.host_vertex_shader_type),
-                  uint32_t(tessellation_mode)};
-    uint64_t hull_key_hash = XXH3_64bits(&hull_key, sizeof(hull_key));
-    auto hull_it = tessellation_hull_stage_cache_.find(hull_key_hash);
-    if (hull_it != tessellation_hull_stage_cache_.end()) {
-      return &hull_it->second;
-    }
-
-    const uint8_t* hs_bytes = nullptr;
-    size_t hs_size = 0;
-    switch (tessellation_mode) {
-      case xenos::TessellationMode::kDiscrete:
-        switch (primitive_processing_result.host_vertex_shader_type) {
-          case Shader::HostVertexShaderType::kTriangleDomainCPIndexed:
-            hs_bytes = ::discrete_triangle_3cp_hs;
-            hs_size = sizeof(::discrete_triangle_3cp_hs);
-            break;
-          case Shader::HostVertexShaderType::kTriangleDomainPatchIndexed:
-            hs_bytes = ::discrete_triangle_1cp_hs;
-            hs_size = sizeof(::discrete_triangle_1cp_hs);
-            break;
-          case Shader::HostVertexShaderType::kQuadDomainCPIndexed:
-            hs_bytes = ::discrete_quad_4cp_hs;
-            hs_size = sizeof(::discrete_quad_4cp_hs);
-            break;
-          case Shader::HostVertexShaderType::kQuadDomainPatchIndexed:
-            hs_bytes = ::discrete_quad_1cp_hs;
-            hs_size = sizeof(::discrete_quad_1cp_hs);
-            break;
-          default:
-            XELOGE(
-                "Tessellation HS: unsupported host vertex shader type {}",
-                uint32_t(primitive_processing_result.host_vertex_shader_type));
-            return nullptr;
-        }
-        break;
-      case xenos::TessellationMode::kContinuous:
-        switch (primitive_processing_result.host_vertex_shader_type) {
-          case Shader::HostVertexShaderType::kTriangleDomainCPIndexed:
-            hs_bytes = ::continuous_triangle_3cp_hs;
-            hs_size = sizeof(::continuous_triangle_3cp_hs);
-            break;
-          case Shader::HostVertexShaderType::kTriangleDomainPatchIndexed:
-            hs_bytes = ::continuous_triangle_1cp_hs;
-            hs_size = sizeof(::continuous_triangle_1cp_hs);
-            break;
-          case Shader::HostVertexShaderType::kQuadDomainCPIndexed:
-            hs_bytes = ::continuous_quad_4cp_hs;
-            hs_size = sizeof(::continuous_quad_4cp_hs);
-            break;
-          case Shader::HostVertexShaderType::kQuadDomainPatchIndexed:
-            hs_bytes = ::continuous_quad_1cp_hs;
-            hs_size = sizeof(::continuous_quad_1cp_hs);
-            break;
-          default:
-            XELOGE(
-                "Tessellation HS: unsupported host vertex shader type {}",
-                uint32_t(primitive_processing_result.host_vertex_shader_type));
-            return nullptr;
-        }
-        break;
-      case xenos::TessellationMode::kAdaptive:
-        switch (primitive_processing_result.host_vertex_shader_type) {
-          case Shader::HostVertexShaderType::kTriangleDomainPatchIndexed:
-            hs_bytes = ::adaptive_triangle_hs;
-            hs_size = sizeof(::adaptive_triangle_hs);
-            break;
-          case Shader::HostVertexShaderType::kQuadDomainPatchIndexed:
-            hs_bytes = ::adaptive_quad_hs;
-            hs_size = sizeof(::adaptive_quad_hs);
-            break;
-          default:
-            XELOGE(
-                "Tessellation HS: unsupported host vertex shader type {}",
-                uint32_t(primitive_processing_result.host_vertex_shader_type));
-            return nullptr;
-        }
-        break;
-      default:
-        XELOGE("Tessellation HS: unsupported tessellation mode {}",
-               uint32_t(tessellation_mode));
-        return nullptr;
-    }
-
-    std::vector<uint8_t> dxbc_bytes(hs_bytes, hs_bytes + hs_size);
-    std::vector<uint8_t> dxil_data;
-    std::string dxil_error;
-    if (!dxbc_to_dxil_converter_->Convert(dxbc_bytes, dxil_data, &dxil_error)) {
-      XELOGE("Tessellation HS: DXBC to DXIL conversion failed: {}", dxil_error);
-      return nullptr;
-    }
-
-    MetalShaderConversionResult hull_result;
-    MetalShaderReflectionInfo hull_reflection;
-    if (!metal_shader_converter_->ConvertWithStageEx(
-            MetalShaderStage::kHull, dxil_data, hull_result, &hull_reflection,
-            nullptr, nullptr, true,
-            static_cast<int>(IRInputTopologyUndefined))) {
-      XELOGE("Tessellation HS: DXIL to Metal conversion failed: {}",
-             hull_result.error_message);
-      return nullptr;
-    }
-
-    NS::Error* error = nullptr;
-    dispatch_data_t hull_data = dispatch_data_create(
-        hull_result.metallib_data.data(), hull_result.metallib_data.size(),
-        nullptr, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
-    MTL::Library* hull_library = device_->newLibrary(hull_data, &error);
-    dispatch_release(hull_data);
-    if (!hull_library) {
-      XELOGE("Tessellation HS: Failed to create Metal library: {}",
-             error ? error->localizedDescription()->utf8String()
-                   : "unknown error");
-      return nullptr;
-    }
-
-    TessellationHullStageState state;
-    state.library = hull_library;
-    state.function_name = hull_result.function_name;
-    state.reflection = hull_reflection;
-    if (!state.reflection.has_hull_info) {
-      XELOGE("Tessellation HS: reflection missing hull info");
-    }
-
-    auto [inserted_it, inserted] =
-        tessellation_hull_stage_cache_.emplace(hull_key_hash, std::move(state));
-    return &inserted_it->second;
-  };
-
-  auto get_domain_stage = [&]() -> TessellationDomainStageState* {
-    uint64_t domain_key =
-        XXH3_64bits(&domain_translation, sizeof(domain_translation));
-    auto domain_it = tessellation_domain_stage_cache_.find(domain_key);
-    if (domain_it != tessellation_domain_stage_cache_.end()) {
-      return &domain_it->second;
-    }
-
-    std::vector<uint8_t> dxil_data = domain_translation->dxil_data();
-    if (dxil_data.empty()) {
-      std::string dxil_error;
-      if (!dxbc_to_dxil_converter_->Convert(
-              domain_translation->translated_binary(), dxil_data,
-              &dxil_error)) {
-        XELOGE("Tessellation DS: DXBC to DXIL conversion failed: {}",
-               dxil_error);
-        return nullptr;
-      }
-    }
-
-    MetalShaderConversionResult domain_result;
-    MetalShaderReflectionInfo domain_reflection;
-    if (!metal_shader_converter_->ConvertWithStageEx(
-            MetalShaderStage::kDomain, dxil_data, domain_result,
-            &domain_reflection, nullptr, nullptr, true,
-            static_cast<int>(IRInputTopologyUndefined))) {
-      XELOGE("Tessellation DS: DXIL to Metal conversion failed: {}",
-             domain_result.error_message);
-      return nullptr;
-    }
-
-    NS::Error* error = nullptr;
-    dispatch_data_t domain_data = dispatch_data_create(
-        domain_result.metallib_data.data(), domain_result.metallib_data.size(),
-        nullptr, DISPATCH_DATA_DESTRUCTOR_DEFAULT);
-    MTL::Library* domain_library = device_->newLibrary(domain_data, &error);
-    dispatch_release(domain_data);
-    if (!domain_library) {
-      XELOGE("Tessellation DS: Failed to create Metal library: {}",
-             error ? error->localizedDescription()->utf8String()
-                   : "unknown error");
-      return nullptr;
-    }
-
-    TessellationDomainStageState state;
-    state.library = domain_library;
-    state.function_name = domain_result.function_name;
-    state.reflection = domain_reflection;
-    if (!state.reflection.has_domain_info) {
-      XELOGE("Tessellation DS: reflection missing domain info");
-    }
-
-    auto [inserted_it, inserted] =
-        tessellation_domain_stage_cache_.emplace(domain_key, std::move(state));
-    return &inserted_it->second;
-  };
-
-  TessellationVertexStageState* vertex_stage = get_vertex_stage();
-  if (!vertex_stage || !vertex_stage->library ||
-      !vertex_stage->stage_in_library) {
-    return nullptr;
-  }
-  TessellationHullStageState* hull_stage = get_hull_stage();
-  if (!hull_stage || !hull_stage->library) {
-    return nullptr;
-  }
-  TessellationDomainStageState* domain_stage = get_domain_stage();
-  if (!domain_stage || !domain_stage->library) {
-    return nullptr;
-  }
-
-  IRRuntimeTessellatorOutputPrimitive output_primitive =
-      IRRuntimeTessellatorOutputUndefined;
-  switch (hull_stage->reflection.hs_tessellator_output_primitive) {
-    case IRRuntimeTessellatorOutputPoint:
-      output_primitive = IRRuntimeTessellatorOutputPoint;
-      break;
-    case IRRuntimeTessellatorOutputLine:
-      output_primitive = IRRuntimeTessellatorOutputLine;
-      break;
-    case IRRuntimeTessellatorOutputTriangleCW:
-      output_primitive = IRRuntimeTessellatorOutputTriangleCW;
-      break;
-    case IRRuntimeTessellatorOutputTriangleCCW:
-      output_primitive = IRRuntimeTessellatorOutputTriangleCCW;
-      break;
-    default:
-      XELOGE("Tessellation pipeline: unsupported tessellator output {}",
-             hull_stage->reflection.hs_tessellator_output_primitive);
-      return nullptr;
-  }
-
-  IRRuntimePrimitiveType geometry_primitive = IRRuntimePrimitiveTypeTriangle;
-  const char* geometry_function = kIRTrianglePassthroughGeometryShader;
-  switch (output_primitive) {
-    case IRRuntimeTessellatorOutputPoint:
-      geometry_primitive = IRRuntimePrimitiveTypePoint;
-      geometry_function = kIRPointPassthroughGeometryShader;
-      break;
-    case IRRuntimeTessellatorOutputLine:
-      geometry_primitive = IRRuntimePrimitiveTypeLine;
-      geometry_function = kIRLinePassthroughGeometryShader;
-      break;
-    case IRRuntimeTessellatorOutputTriangleCW:
-    case IRRuntimeTessellatorOutputTriangleCCW:
-      geometry_primitive = IRRuntimePrimitiveTypeTriangle;
-      geometry_function = kIRTrianglePassthroughGeometryShader;
-      break;
-    default:
-      break;
-  }
-
-  if (!IRRuntimeValidateTessellationPipeline(
-          output_primitive, geometry_primitive,
-          hull_stage->reflection.hs_output_control_point_size,
-          domain_stage->reflection.ds_input_control_point_size,
-          hull_stage->reflection.hs_patch_constants_size,
-          domain_stage->reflection.ds_patch_constants_size,
-          hull_stage->reflection.hs_output_control_point_count,
-          domain_stage->reflection.ds_input_control_point_count)) {
-    XELOGE("Tessellation pipeline: validation failed for HS/DS pairing");
-    return nullptr;
-  }
-
-  MTL::MeshRenderPipelineDescriptor* desc =
-      MTL::MeshRenderPipelineDescriptor::alloc()->init();
-  for (uint32_t i = 0; i < 4; ++i) {
-    desc->colorAttachments()->object(i)->setPixelFormat(color_formats[i]);
-  }
-  desc->setDepthAttachmentPixelFormat(depth_format);
-  desc->setStencilAttachmentPixelFormat(stencil_format);
-  desc->setRasterSampleCount(sample_count);
-  desc->setAlphaToCoverageEnabled(key_data.alpha_to_mask_enable != 0);
-
-  for (uint32_t i = 0; i < 4; ++i) {
-    auto* color_attachment = desc->colorAttachments()->object(i);
-    if (color_formats[i] == MTL::PixelFormatInvalid) {
-      color_attachment->setWriteMask(MTL::ColorWriteMaskNone);
-      color_attachment->setBlendingEnabled(false);
-      continue;
-    }
-    uint32_t rt_write_mask = (key_data.normalized_color_mask >> (i * 4)) & 0xF;
-    color_attachment->setWriteMask(ToMetalColorWriteMask(rt_write_mask));
-    if (!rt_write_mask) {
-      color_attachment->setBlendingEnabled(false);
-      continue;
-    }
-
-    auto blendcontrol = regs.Get<reg::RB_BLENDCONTROL>(
-        reg::RB_BLENDCONTROL::rt_register_indices[i]);
-    MTL::BlendFactor src_rgb =
-        ToMetalBlendFactorRgb(blendcontrol.color_srcblend);
-    MTL::BlendFactor dst_rgb =
-        ToMetalBlendFactorRgb(blendcontrol.color_destblend);
-    MTL::BlendOperation op_rgb =
-        ToMetalBlendOperation(blendcontrol.color_comb_fcn);
-    MTL::BlendFactor src_alpha =
-        ToMetalBlendFactorAlpha(blendcontrol.alpha_srcblend);
-    MTL::BlendFactor dst_alpha =
-        ToMetalBlendFactorAlpha(blendcontrol.alpha_destblend);
-    MTL::BlendOperation op_alpha =
-        ToMetalBlendOperation(blendcontrol.alpha_comb_fcn);
-
-    bool blending_enabled =
-        src_rgb != MTL::BlendFactorOne || dst_rgb != MTL::BlendFactorZero ||
-        op_rgb != MTL::BlendOperationAdd || src_alpha != MTL::BlendFactorOne ||
-        dst_alpha != MTL::BlendFactorZero || op_alpha != MTL::BlendOperationAdd;
-    color_attachment->setBlendingEnabled(blending_enabled);
-    if (blending_enabled) {
-      color_attachment->setSourceRGBBlendFactor(src_rgb);
-      color_attachment->setDestinationRGBBlendFactor(dst_rgb);
-      color_attachment->setRgbBlendOperation(op_rgb);
-      color_attachment->setSourceAlphaBlendFactor(src_alpha);
-      color_attachment->setDestinationAlphaBlendFactor(dst_alpha);
-      color_attachment->setAlphaBlendOperation(op_alpha);
-    }
-  }
-  IRGeometryTessellationEmulationPipelineDescriptor ir_desc = {};
-  ir_desc.stageInLibrary = vertex_stage->stage_in_library;
-  ir_desc.vertexLibrary = vertex_stage->library;
-  ir_desc.vertexFunctionName = vertex_stage->function_name.c_str();
-  ir_desc.hullLibrary = hull_stage->library;
-  ir_desc.hullFunctionName = hull_stage->function_name.c_str();
-  ir_desc.domainLibrary = domain_stage->library;
-  ir_desc.domainFunctionName = domain_stage->function_name.c_str();
-  ir_desc.geometryLibrary = nullptr;
-  ir_desc.geometryFunctionName = geometry_function;
-  ir_desc.fragmentLibrary = pixel_library;
-  ir_desc.fragmentFunctionName = pixel_function;
-  ir_desc.basePipelineDescriptor = desc;
-  ir_desc.pipelineConfig.outputPrimitiveType = output_primitive;
-  ir_desc.pipelineConfig.vsOutputSizeInBytes =
-      vertex_stage->vertex_output_size_in_bytes;
-  ir_desc.pipelineConfig.gsMaxInputPrimitivesPerMeshThreadgroup =
-      domain_stage->reflection.ds_max_input_prims_per_mesh_threadgroup;
-  ir_desc.pipelineConfig.hsMaxPatchesPerObjectThreadgroup =
-      hull_stage->reflection.hs_max_patches_per_object_threadgroup;
-  ir_desc.pipelineConfig.hsInputControlPointCount =
-      hull_stage->reflection.hs_input_control_point_count;
-  ir_desc.pipelineConfig.hsMaxObjectThreadsPerThreadgroup =
-      hull_stage->reflection.hs_max_object_threads_per_patch;
-  ir_desc.pipelineConfig.hsMaxTessellationFactor =
-      hull_stage->reflection.hs_max_tessellation_factor;
-  ir_desc.pipelineConfig.gsInstanceCount = 1;
-
-  if (!ir_desc.pipelineConfig.vsOutputSizeInBytes ||
-      !ir_desc.pipelineConfig.gsMaxInputPrimitivesPerMeshThreadgroup ||
-      !ir_desc.pipelineConfig.hsMaxPatchesPerObjectThreadgroup ||
-      !ir_desc.pipelineConfig.hsInputControlPointCount ||
-      !ir_desc.pipelineConfig.hsMaxObjectThreadsPerThreadgroup) {
-    XELOGE(
-        "Tessellation pipeline: invalid reflection values (vs_output={}, "
-        "gs_max_input={}, hs_patches={}, hs_cp_count={}, hs_threads={})",
-        ir_desc.pipelineConfig.vsOutputSizeInBytes,
-        ir_desc.pipelineConfig.gsMaxInputPrimitivesPerMeshThreadgroup,
-        ir_desc.pipelineConfig.hsMaxPatchesPerObjectThreadgroup,
-        ir_desc.pipelineConfig.hsInputControlPointCount,
-        ir_desc.pipelineConfig.hsMaxObjectThreadsPerThreadgroup);
-    desc->release();
-    return nullptr;
-  }
-
-  NS::Error* error = nullptr;
-  MTL::RenderPipelineState* pipeline =
-      IRRuntimeNewGeometryTessellationEmulationPipeline(device_, &ir_desc,
-                                                        &error);
-  desc->release();
-  if (!pipeline) {
-    XELOGE(
-        "Failed to create tessellation pipeline state: {}",
-        error ? error->localizedDescription()->utf8String() : "unknown error");
-    return nullptr;
-  }
-
-  TessellationPipelineState state;
-  state.pipeline = pipeline;
-  state.config = ir_desc.pipelineConfig;
-  state.primitive = geometry_primitive;
-
-  auto [inserted_it, inserted] =
-      tessellation_pipeline_cache_.emplace(key, std::move(state));
-  return &inserted_it->second;
-}
-
-bool MetalCommandProcessor::EnsureDepthOnlyPixelShader() {
-  if (depth_only_pixel_library_) {
-    return true;
-  }
-  if (!shader_translator_ || !dxbc_to_dxil_converter_ ||
-      !metal_shader_converter_) {
-    XELOGE("Depth-only PS: shader translation not initialized");
+  if (!tess_factor_pipeline_tri_ || !tess_factor_pipeline_quad_) {
+    XELOGW(
+        "SPIRV-Cross: Failed to create uniform tessellation factor "
+        "pipelines");
     return false;
   }
 
-  std::vector<uint8_t> dxbc_data =
-      shader_translator_->CreateDepthOnlyPixelShader();
-  if (dxbc_data.empty()) {
-    XELOGE("Depth-only PS: failed to create DXBC");
-    return false;
+  // Adaptive factor kernels (per-edge factors from shared memory).
+  tess_factor_pipeline_adaptive_tri_ = compile_kernel(
+      kMslTessFactorAdaptiveTriangle, "tess_factor_adaptive_triangle");
+  tess_factor_pipeline_adaptive_quad_ =
+      compile_kernel(kMslTessFactorAdaptiveQuad, "tess_factor_adaptive_quad");
+
+  if (!tess_factor_pipeline_adaptive_tri_ ||
+      !tess_factor_pipeline_adaptive_quad_) {
+    XELOGW(
+        "SPIRV-Cross: Failed to create adaptive tessellation factor "
+        "pipelines (adaptive tessellation will fall back to uniform)");
+    // Non-fatal — adaptive tessellation will degrade to uniform factors.
   }
 
-  std::vector<uint8_t> dxil_data;
-  std::string dxil_error;
-  if (!dxbc_to_dxil_converter_->Convert(dxbc_data, dxil_data, &dxil_error)) {
-    XELOGE("Depth-only PS: DXBC to DXIL conversion failed: {}", dxil_error);
-    return false;
-  }
-
-  MetalShaderConversionResult result;
-  if (!metal_shader_converter_->ConvertWithStage(MetalShaderStage::kFragment,
-                                                 dxil_data, result)) {
-    XELOGE("Depth-only PS: DXIL to Metal conversion failed: {}",
-           result.error_message);
-    return false;
-  }
-
-  NS::Error* error = nullptr;
-  dispatch_data_t lib_data = dispatch_data_create(
-      result.metallib_data.data(), result.metallib_data.size(), nullptr,
-      DISPATCH_DATA_DESTRUCTOR_DEFAULT);
-  depth_only_pixel_library_ = device_->newLibrary(lib_data, &error);
-  dispatch_release(lib_data);
-  if (!depth_only_pixel_library_) {
-    XELOGE("Depth-only PS: Failed to create Metal library: {}",
-           error ? error->localizedDescription()->utf8String() : "unknown");
-    return false;
-  }
-  depth_only_pixel_function_name_ = result.function_name;
-  if (depth_only_pixel_function_name_.empty()) {
-    XELOGE("Depth-only PS: missing function name");
-    return false;
-  }
+  XELOGI("SPIRV-Cross: Tessellation factor pipelines initialized");
   return true;
 }
 
-bool MetalCommandProcessor::CreateIRConverterBuffers() {
-  // Buffer creation is now done inline in SetupContext
-  // This function exists for header compatibility
-  return res_heap_ab_ && smp_heap_ab_ && uniforms_buffer_;
-}
-
-std::shared_ptr<MetalCommandProcessor::DrawRingBuffers>
-MetalCommandProcessor::CreateDrawRingBuffers() {
-  if (!device_) {
-    XELOGE("CreateDrawRingBuffers: Metal device is null");
-    return nullptr;
+void MetalCommandProcessor::ShutdownMslTessellation() {
+  if (tess_factor_buffer_) {
+    tess_factor_buffer_->release();
+    tess_factor_buffer_ = nullptr;
+    tess_factor_buffer_patch_capacity_ = 0;
   }
-  if (!null_buffer_ || !null_texture_ || !null_sampler_) {
-    XELOGE("CreateDrawRingBuffers: Null resources not initialized");
-    return nullptr;
+  if (tess_factor_pipeline_tri_) {
+    tess_factor_pipeline_tri_->release();
+    tess_factor_pipeline_tri_ = nullptr;
   }
-
-  static uint32_t ring_id = 0;
-  auto ring = std::make_shared<DrawRingBuffers>();
-
-  const size_t kDescriptorTableCount = kStageCount * draw_ring_count_;
-  const size_t kResourceHeapSlots =
-      kResourceHeapSlotsPerTable * kDescriptorTableCount;
-  const size_t kUavTableBaseIndex = kResourceHeapSlots;
-  const size_t kResourceHeapSlotsTotal = kResourceHeapSlots * 2;
-  const size_t kResourceHeapBytes =
-      kResourceHeapSlotsTotal * sizeof(IRDescriptorTableEntry);
-  const size_t kSamplerHeapSlots =
-      kSamplerHeapSlotsPerTable * kDescriptorTableCount;
-  const size_t kSamplerHeapBytes =
-      kSamplerHeapSlots * sizeof(IRDescriptorTableEntry);
-  const size_t kUniformsBufferSize =
-      kUniformsBytesPerTable * kDescriptorTableCount;
-  const size_t kTopLevelABTotalBytes =
-      kTopLevelABBytesPerTable * kDescriptorTableCount;
-  const size_t kDrawArgsSize = 64;  // Enough for draw arguments struct
-  const size_t kCBVHeapSlots = kCbvHeapSlotsPerTable * kDescriptorTableCount;
-  const size_t kCBVHeapBytes = kCBVHeapSlots * sizeof(IRDescriptorTableEntry);
-
-  ring->res_heap_ab =
-      device_->newBuffer(kResourceHeapBytes, MTL::ResourceStorageModeShared);
-  if (!ring->res_heap_ab) {
-    XELOGE("Failed to create resource descriptor heap buffer");
-    return nullptr;
+  if (tess_factor_pipeline_quad_) {
+    tess_factor_pipeline_quad_->release();
+    tess_factor_pipeline_quad_ = nullptr;
   }
-  std::string ring_label_suffix = std::to_string(ring_id);
-  ring->res_heap_ab->setLabel(NS::String::string(
-      ("ResourceDescriptorHeap_" + ring_label_suffix).c_str(),
-      NS::UTF8StringEncoding));
-
-  // Initialize all tables:
-  // - Slot 0: null buffer (will be replaced with shared memory per draw).
-  // - Slots 1+: null texture (safe default for any accidental access).
-  auto* res_entries =
-      reinterpret_cast<IRDescriptorTableEntry*>(ring->res_heap_ab->contents());
-  auto* uav_entries = res_entries + kUavTableBaseIndex;
-  for (size_t table = 0; table < kDescriptorTableCount; ++table) {
-    IRDescriptorTableEntry* table_entries =
-        res_entries + table * kResourceHeapSlotsPerTable;
-    IRDescriptorTableSetBuffer(&table_entries[0], null_buffer_->gpuAddress(),
-                               kNullBufferSize);
-    for (size_t i = 1; i < kResourceHeapSlotsPerTable; ++i) {
-      IRDescriptorTableSetTexture(&table_entries[i], null_texture_, 0.0f, 0);
-    }
-    IRDescriptorTableEntry* uav_table_entries =
-        uav_entries + table * kResourceHeapSlotsPerTable;
-    for (size_t i = 0; i < kResourceHeapSlotsPerTable; ++i) {
-      IRDescriptorTableSetBuffer(&uav_table_entries[i],
-                                 null_buffer_->gpuAddress(), kNullBufferSize);
-    }
+  if (tess_factor_pipeline_adaptive_tri_) {
+    tess_factor_pipeline_adaptive_tri_->release();
+    tess_factor_pipeline_adaptive_tri_ = nullptr;
   }
-
-  ring->smp_heap_ab =
-      device_->newBuffer(kSamplerHeapBytes, MTL::ResourceStorageModeShared);
-  if (!ring->smp_heap_ab) {
-    XELOGE("Failed to create sampler descriptor heap buffer");
-    return nullptr;
-  }
-  ring->smp_heap_ab->setLabel(
-      NS::String::string(("SamplerDescriptorHeap_" + ring_label_suffix).c_str(),
-                         NS::UTF8StringEncoding));
-  auto* smp_entries =
-      reinterpret_cast<IRDescriptorTableEntry*>(ring->smp_heap_ab->contents());
-  for (size_t i = 0; i < kSamplerHeapSlots; ++i) {
-    IRDescriptorTableSetSampler(&smp_entries[i], null_sampler_, 0.0f);
-  }
-
-  ring->uniforms_buffer =
-      device_->newBuffer(kUniformsBufferSize, MTL::ResourceStorageModeShared);
-  if (!ring->uniforms_buffer) {
-    XELOGE("Failed to create uniforms buffer");
-    return nullptr;
-  }
-  ring->uniforms_buffer->setLabel(NS::String::string(
-      ("UniformsBuffer_" + ring_label_suffix).c_str(), NS::UTF8StringEncoding));
-  std::memset(ring->uniforms_buffer->contents(), 0, kUniformsBufferSize);
-
-  ring->top_level_ab =
-      device_->newBuffer(kTopLevelABTotalBytes, MTL::ResourceStorageModeShared);
-  if (!ring->top_level_ab) {
-    XELOGE("Failed to create top-level argument buffer");
-    return nullptr;
-  }
-  ring->top_level_ab->setLabel(NS::String::string(
-      ("TopLevelArgumentBuffer_" + ring_label_suffix).c_str(),
-      NS::UTF8StringEncoding));
-  std::memset(ring->top_level_ab->contents(), 0, kTopLevelABTotalBytes);
-
-  ring->draw_args_buffer =
-      device_->newBuffer(kDrawArgsSize, MTL::ResourceStorageModeShared);
-  if (!ring->draw_args_buffer) {
-    XELOGE("Failed to create draw arguments buffer");
-    return nullptr;
-  }
-  ring->draw_args_buffer->setLabel(
-      NS::String::string(("DrawArgumentsBuffer_" + ring_label_suffix).c_str(),
-                         NS::UTF8StringEncoding));
-  std::memset(ring->draw_args_buffer->contents(), 0, kDrawArgsSize);
-
-  ring->cbv_heap_ab =
-      device_->newBuffer(kCBVHeapBytes, MTL::ResourceStorageModeShared);
-  if (!ring->cbv_heap_ab) {
-    XELOGE("Failed to create CBV descriptor heap buffer");
-    return nullptr;
-  }
-  ring->cbv_heap_ab->setLabel(
-      NS::String::string(("CBVDescriptorHeap_" + ring_label_suffix).c_str(),
-                         NS::UTF8StringEncoding));
-  std::memset(ring->cbv_heap_ab->contents(), 0, kCBVHeapBytes);
-
-  ++ring_id;
-
-  return ring;
-}
-
-std::shared_ptr<MetalCommandProcessor::DrawRingBuffers>
-MetalCommandProcessor::AcquireDrawRingBuffers() {
-  std::lock_guard<std::mutex> lock(draw_ring_mutex_);
-  if (!draw_ring_pool_.empty()) {
-    auto ring = draw_ring_pool_.back();
-    draw_ring_pool_.pop_back();
-    return ring;
-  }
-  return CreateDrawRingBuffers();
-}
-
-void MetalCommandProcessor::SetActiveDrawRing(
-    const std::shared_ptr<DrawRingBuffers>& ring) {
-  active_draw_ring_ = ring;
-  res_heap_ab_ = ring ? ring->res_heap_ab : nullptr;
-  smp_heap_ab_ = ring ? ring->smp_heap_ab : nullptr;
-  cbv_heap_ab_ = ring ? ring->cbv_heap_ab : nullptr;
-  uniforms_buffer_ = ring ? ring->uniforms_buffer : nullptr;
-  top_level_ab_ = ring ? ring->top_level_ab : nullptr;
-  draw_args_buffer_ = ring ? ring->draw_args_buffer : nullptr;
-}
-
-void MetalCommandProcessor::EnsureActiveDrawRing() {
-  if (!active_draw_ring_) {
-    auto ring = AcquireDrawRingBuffers();
-    if (!ring) {
-      return;
-    }
-    SetActiveDrawRing(ring);
-  }
-  if (command_buffer_draw_rings_.empty()) {
-    command_buffer_draw_rings_.push_back(active_draw_ring_);
-    current_draw_index_ = 0;
+  if (tess_factor_pipeline_adaptive_quad_) {
+    tess_factor_pipeline_adaptive_quad_->release();
+    tess_factor_pipeline_adaptive_quad_ = nullptr;
   }
 }
 
-void MetalCommandProcessor::ScheduleDrawRingRelease(
-    MTL::CommandBuffer* command_buffer) {
-  if (!command_buffer || command_buffer_draw_rings_.empty()) {
-    return;
+bool MetalCommandProcessor::EnsureTessFactorBuffer(uint32_t patch_count) {
+  // MTLQuadTessellationFactorsHalf is the larger of the two (12 bytes vs 8).
+  constexpr size_t kMaxFactorSize = 12;
+  size_t needed = size_t(patch_count) * kMaxFactorSize;
+  if (tess_factor_buffer_ && tess_factor_buffer_->length() >= needed) {
+    // Buffer already large enough; don't reduce the tracked capacity.
+    return true;
   }
-  auto rings = std::move(command_buffer_draw_rings_);
-  command_buffer->addCompletedHandler(
-      [this, rings](MTL::CommandBuffer*) mutable {
-        std::lock_guard<std::mutex> lock(draw_ring_mutex_);
-        for (auto& ring : rings) {
-          draw_ring_pool_.push_back(ring);
-        }
-      });
+  if (tess_factor_buffer_) {
+    tess_factor_buffer_->release();
+  }
+  // Round up and over-allocate for future growth.
+  size_t alloc_size = std::max(needed, size_t(4096));
+  alloc_size = (alloc_size + 4095) & ~size_t(4095);
+  // Use Shared storage so the CPU can fill tessellation factors directly
+  // (avoids needing a separate compute encoder for uniform factors).
+  tess_factor_buffer_ =
+      device_->newBuffer(alloc_size, MTL::ResourceStorageModeShared);
+  if (!tess_factor_buffer_) {
+    XELOGE("Failed to allocate tessellation factor buffer ({} bytes)",
+           alloc_size);
+    return false;
+  }
+  tess_factor_buffer_->setLabel(
+      NS::String::string("Xenia Tess Factor Buffer", NS::UTF8StringEncoding));
+  tess_factor_buffer_patch_capacity_ = uint32_t(alloc_size / kMaxFactorSize);
+  return true;
 }
 
-void MetalCommandProcessor::PopulateIRConverterBuffers() {
-  if (!res_heap_ab_ || !smp_heap_ab_ || !uniforms_buffer_ || !shared_memory_) {
-    return;
+MTL::RenderPipelineState*
+MetalCommandProcessor::GetOrCreateMslTessPipelineState(
+    MslShader::MslTranslation* domain_translation,
+    MslShader::MslTranslation* pixel_translation,
+    Shader::HostVertexShaderType host_vertex_shader_type,
+    const RegisterFile& regs, PipelineCompileStatus* compile_status_out) {
+  if (compile_status_out) {
+    *compile_status_out = PipelineCompileStatus::kFailed;
+  }
+  MTL::Function* domain_function = GetHostShaderFunction(domain_translation);
+  if (!domain_function) {
+    XELOGE("SPIRV-Cross tess: no domain shader function");
+    return nullptr;
   }
 
-  // Get shared memory buffer for vertex data fetching
-  MTL::Buffer* shared_mem_buffer = shared_memory_->GetBuffer();
-  if (!shared_mem_buffer) {
-    XELOGW("PopulateIRConverterBuffers: No shared memory buffer available");
-    return;
-  }
-
-  // Populate resource descriptor heap slot 0 with shared memory buffer
-  // Xbox 360 shaders use vfetch instructions that read from this buffer
-  IRDescriptorTableEntry* res_heap =
-      static_cast<IRDescriptorTableEntry*>(res_heap_ab_->contents());
-
-  // Set slot 0 (t0) to shared memory for vertex buffer fetching
-  // The metadata encodes buffer size for bounds checking
-  uint64_t shared_mem_gpu_addr = shared_mem_buffer->gpuAddress();
-  uint64_t shared_mem_size = shared_mem_buffer->length();
-
-  // Use IRDescriptorTableSetBuffer to properly encode the descriptor
-  // metadata = buffer size in low 32 bits for bounds checking
-  IRDescriptorTableSetBuffer(&res_heap[0], shared_mem_gpu_addr,
-                             shared_mem_size);
-
-  // Populate uniforms buffer with system constants and fetch constants
-  // Layout matches DxbcShaderTranslator::SystemConstants (b0)
-  uint8_t* uniforms = static_cast<uint8_t*>(uniforms_buffer_->contents());
-
-  // For now, populate minimal system constants for passthrough rendering
-  // This structure needs to match what the translated shaders expect
-  struct MinimalSystemConstants {
-    uint32_t flags;                      // 0x00
-    float tessellation_factor_range[2];  // 0x04
-    uint32_t line_loop_closing_index;    // 0x0C
-
-    uint32_t vertex_index_endian;  // 0x10
-    uint32_t vertex_index_offset;  // 0x14
-    uint32_t vertex_index_min;     // 0x18
-    uint32_t vertex_index_max;     // 0x1C
-
-    float user_clip_planes[6][4];  // 0x20 - 6 clip planes * 4 floats = 96 bytes
-
-    float ndc_scale[3];               // 0x80
-    float point_vertex_diameter_min;  // 0x8C
-
-    float ndc_offset[3];              // 0x90
-    float point_vertex_diameter_max;  // 0x9C
-  };
-
-  MinimalSystemConstants* sys_const =
-      reinterpret_cast<MinimalSystemConstants*>(uniforms);
-
-  // Initialize to zero
-  std::memset(sys_const, 0, sizeof(MinimalSystemConstants));
-
-  // Set passthrough NDC transform (identity)
-  sys_const->ndc_scale[0] = 1.0f;
-  sys_const->ndc_scale[1] = 1.0f;
-  sys_const->ndc_scale[2] = 1.0f;
-  sys_const->ndc_offset[0] = 0.0f;
-  sys_const->ndc_offset[1] = 0.0f;
-  sys_const->ndc_offset[2] = 0.0f;
-
-  // Set reasonable vertex index bounds
-  sys_const->vertex_index_min = 0;
-  sys_const->vertex_index_max = 0xFFFFFFFF;
-
-  // Copy fetch constants from register file (b3 in DXBC)
-  // Fetch constants start at register XE_GPU_REG_SHADER_CONSTANT_FETCH_00_0
-  // There are 32 fetch constants, each 6 DWORDs = 192 DWORDs total = 768 bytes
-  const uint32_t* regs = register_file_->values;
-  const size_t kFetchConstantOffset = 512;    // After system constants (b0)
-  const size_t kFetchConstantCount = 32 * 6;  // 32 fetch constants * 6 DWORDs
-
-  std::memcpy(uniforms + kFetchConstantOffset,
-              &regs[XE_GPU_REG_SHADER_CONSTANT_FETCH_00_0],
-              kFetchConstantCount * sizeof(uint32_t));
-
-  // Bind IR Converter runtime buffers to render encoder
-  if (current_render_encoder_) {
-    // Bind resource descriptor heap at index 0 (kIRDescriptorHeapBindPoint)
-    current_render_encoder_->setVertexBuffer(res_heap_ab_, 0,
-                                             kIRDescriptorHeapBindPoint);
-    current_render_encoder_->setFragmentBuffer(res_heap_ab_, 0,
-                                               kIRDescriptorHeapBindPoint);
-
-    // Bind sampler heap at index 1 (kIRSamplerHeapBindPoint)
-    current_render_encoder_->setVertexBuffer(smp_heap_ab_, 0,
-                                             kIRSamplerHeapBindPoint);
-    current_render_encoder_->setFragmentBuffer(smp_heap_ab_, 0,
-                                               kIRSamplerHeapBindPoint);
-
-    // Bind uniforms at index 5 (kIRArgumentBufferUniformsBindPoint)
-    current_render_encoder_->setVertexBuffer(
-        uniforms_buffer_, 0, kIRArgumentBufferUniformsBindPoint);
-    current_render_encoder_->setFragmentBuffer(
-        uniforms_buffer_, 0, kIRArgumentBufferUniformsBindPoint);
-
-    // Make shared memory resident for GPU access
-    UseRenderEncoderResource(shared_mem_buffer, MTL::ResourceUsageRead);
-  }
+  PipelineCompileRequest request = {};
+  PopulatePipelineCompileRequest(regs, domain_translation, pixel_translation,
+                                 request);
+  request.description.kind = PipelineKind::kMslTessellation;
+  request.description.tessellation_mode =
+      regs.Get<reg::VGT_HOS_CNTL>().tess_mode;
+  request.description.host_vertex_shader_type = host_vertex_shader_type;
+  request.vertex_function = domain_function;
+  request.fragment_function = GetHostShaderFunction(pixel_translation);
+  // The depth-only fragment fallback writes depth, so a pass without a depth
+  // target still needs a pipeline depth format.
+  bool fragment_writes_depth =
+      (pixel_translation && pixel_translation->shader().writes_depth()) ||
+      (!pixel_translation && depth_only_pixel_library_ &&
+       !depth_only_pixel_function_name_.empty());
+  MTL::PixelFormat depth_format =
+      MTL::PixelFormat(request.description.depth_format);
+  EnsureDepthFormatForDepthWritingFragment(
+      "SPIRV-Cross tess pipeline", fragment_writes_depth, &depth_format);
+  request.description.depth_format = uint32_t(depth_format);
+  request.pipeline_key = request.description.GetHash();
+  return AcquirePipelineState(request, /*allow_async=*/true,
+                              compile_status_out);
 }
 
-DxbcShaderTranslator::Modification
-MetalCommandProcessor::GetCurrentVertexShaderModification(
+SpirvShaderTranslator::Modification
+MetalCommandProcessor::GetCurrentSpirvVertexShaderModification(
     const Shader& shader, Shader::HostVertexShaderType host_vertex_shader_type,
     uint32_t interpolator_mask) const {
   const auto& regs = *register_file_;
 
-  DxbcShaderTranslator::Modification modification(
-      shader_translator_->GetDefaultVertexShaderModification(
+  SpirvShaderTranslator::Modification modification(
+      spirv_shader_translator_->GetDefaultVertexShaderModification(
           shader.GetDynamicAddressableRegisterCount(
               regs.Get<reg::SQ_PROGRAM_CNTL>().vs_num_reg),
           host_vertex_shader_type));
@@ -6229,11 +6544,8 @@ MetalCommandProcessor::GetCurrentVertexShaderModification(
   modification.vertex.user_clip_plane_count = xe::bit_count(user_clip_planes);
   modification.vertex.user_clip_plane_cull =
       uint32_t(user_clip_planes && pa_cl_clip_cntl.ucp_cull_only_ena);
-  modification.vertex.vertex_kill_and =
-      uint32_t((shader.writes_point_size_edge_flag_kill_vertex() & 0b100) &&
-               !pa_cl_clip_cntl.vtx_kill_or);
 
-  modification.vertex.output_point_size =
+  modification.vertex.output_point_parameters =
       uint32_t((shader.writes_point_size_edge_flag_kill_vertex() & 0b001) &&
                regs.Get<reg::VGT_DRAW_INITIATOR>().prim_type ==
                    xenos::PrimitiveType::kPointList);
@@ -6241,14 +6553,15 @@ MetalCommandProcessor::GetCurrentVertexShaderModification(
   return modification;
 }
 
-DxbcShaderTranslator::Modification
-MetalCommandProcessor::GetCurrentPixelShaderModification(
+SpirvShaderTranslator::Modification
+MetalCommandProcessor::GetCurrentSpirvPixelShaderModification(
     const Shader& shader, uint32_t interpolator_mask, uint32_t param_gen_pos,
-    reg::RB_DEPTHCONTROL normalized_depth_control) const {
+    reg::RB_DEPTHCONTROL normalized_depth_control,
+    uint32_t normalized_color_mask) const {
   const auto& regs = *register_file_;
 
-  DxbcShaderTranslator::Modification modification(
-      shader_translator_->GetDefaultPixelShaderModification(
+  SpirvShaderTranslator::Modification modification(
+      spirv_shader_translator_->GetDefaultPixelShaderModification(
           shader.GetDynamicAddressableRegisterCount(
               regs.Get<reg::SQ_PROGRAM_CNTL>().ps_num_reg)));
 
@@ -6272,7 +6585,8 @@ MetalCommandProcessor::GetCurrentPixelShaderModification(
     modification.pixel.param_gen_point = 0;
   }
 
-  using DepthStencilMode = DxbcShaderTranslator::Modification::DepthStencilMode;
+  using DepthStencilMode =
+      SpirvShaderTranslator::Modification::DepthStencilMode;
   if (shader.implicit_early_z_write_allowed() &&
       (!shader.writes_color_target(0) ||
        !draw_util::DoesCoverageDependOnAlpha(
@@ -6283,240 +6597,565 @@ MetalCommandProcessor::GetCurrentPixelShaderModification(
   }
 
   // Initialize MIN/MAX blend pre-multiply factors to kOne (no pre-multiply).
-  // These must be explicitly set, as zero-initialized bits would be kZero
-  // which causes the shader to multiply output color by zero (black).
   modification.pixel.rt0_blend_rgb_factor_for_premult =
       xenos::BlendFactor::kOne;
   modification.pixel.rt0_blend_a_factor_for_premult = xenos::BlendFactor::kOne;
 
+  bool rt0_minmax_premult_rgb_expected = false;
+  bool rt0_minmax_premult_a_expected = false;
+  if (shader.writes_color_target(0)) {
+    auto blend_control = regs.Get<reg::RB_BLENDCONTROL>(
+        reg::RB_BLENDCONTROL::rt_register_indices[0]);
+    rt0_minmax_premult_rgb_expected =
+        (blend_control.color_comb_fcn == xenos::BlendOp::kMin ||
+         blend_control.color_comb_fcn == xenos::BlendOp::kMax) &&
+        blend_control.color_srcblend == xenos::BlendFactor::kSrcAlpha &&
+        blend_control.color_destblend == xenos::BlendFactor::kOne;
+    rt0_minmax_premult_a_expected =
+        (blend_control.alpha_comb_fcn == xenos::BlendOp::kMin ||
+         blend_control.alpha_comb_fcn == xenos::BlendOp::kMax) &&
+        blend_control.alpha_srcblend == xenos::BlendFactor::kSrcAlpha &&
+        blend_control.alpha_destblend == xenos::BlendFactor::kOne;
+    if (rt0_minmax_premult_rgb_expected) {
+      modification.pixel.rt0_blend_rgb_factor_for_premult =
+          xenos::BlendFactor::kSrcAlpha;
+    }
+    if (rt0_minmax_premult_a_expected) {
+      modification.pixel.rt0_blend_a_factor_for_premult =
+          xenos::BlendFactor::kSrcAlpha;
+    }
+  }
+  if (rt0_minmax_premult_rgb_expected || rt0_minmax_premult_a_expected) {
+    XELOGD(
+        "SPIRV-Cross PS mod diagnostic: shader={:016X} expected_premult(rgb={},"
+        "a={}) selected(rgb={},a={})",
+        shader.ucode_data_hash(), rt0_minmax_premult_rgb_expected ? 1 : 0,
+        rt0_minmax_premult_a_expected ? 1 : 0,
+        uint32_t(modification.pixel.rt0_blend_rgb_factor_for_premult),
+        uint32_t(modification.pixel.rt0_blend_a_factor_for_premult));
+  }
+
+  // Extract 1 bit per RT from the 4-bits-per-RT normalized_color_mask.
+  // Without this, color_targets_used defaults to 0 and the SPIR-V translator
+  // declares NO fragment color outputs, producing black/transparent rendering.
+  modification.pixel.color_targets_used =
+      (((normalized_color_mask >> 0) & 0xF) ? 1 : 0) |
+      (((normalized_color_mask >> 4) & 0xF) ? 2 : 0) |
+      (((normalized_color_mask >> 8) & 0xF) ? 4 : 0) |
+      (((normalized_color_mask >> 12) & 0xF) ? 8 : 0);
+
   return modification;
 }
 
-void MetalCommandProcessor::UpdateSystemConstantValues(
-    bool shared_memory_is_uav, bool primitive_polygonal,
-    uint32_t line_loop_closing_index, xenos::Endian index_endian,
-    const draw_util::ViewportInfo& viewport_info, uint32_t used_texture_mask,
-    reg::RB_DEPTHCONTROL normalized_depth_control,
+uint64_t MetalCommandProcessor::PopulatePipelineCompileRequest(
+    const RegisterFile& regs, const Shader::Translation* vertex_translation,
+    const Shader::Translation* pixel_translation,
+    PipelineCompileRequest& request) {
+  // Determine attachment formats from render target cache.
+  uint32_t sample_count = 1;
+  MTL::PixelFormat color_formats[4] = {
+      MTL::PixelFormatInvalid, MTL::PixelFormatInvalid, MTL::PixelFormatInvalid,
+      MTL::PixelFormatInvalid};
+  MTL::PixelFormat depth_format = MTL::PixelFormatInvalid;
+  MTL::PixelFormat stencil_format = MTL::PixelFormatInvalid;
+  if (render_target_cache_) {
+    for (uint32_t i = 0; i < 4; ++i) {
+      if (MTL::Texture* rt = render_target_cache_->GetColorTargetForDraw(i)) {
+        color_formats[i] = rt->pixelFormat();
+        if (rt->sampleCount() > 0) {
+          sample_count = std::max<uint32_t>(
+              sample_count, static_cast<uint32_t>(rt->sampleCount()));
+        }
+      }
+    }
+    if (color_formats[0] == MTL::PixelFormatInvalid) {
+      if (MTL::Texture* dummy =
+              render_target_cache_->GetDummyColorTargetForDraw()) {
+        color_formats[0] = dummy->pixelFormat();
+        if (dummy->sampleCount() > 0) {
+          sample_count = std::max<uint32_t>(
+              sample_count, static_cast<uint32_t>(dummy->sampleCount()));
+        }
+      }
+    }
+    if (MTL::Texture* depth_tex =
+            render_target_cache_->GetDepthTargetForDraw()) {
+      depth_format = depth_tex->pixelFormat();
+      switch (depth_format) {
+        case MTL::PixelFormatDepth32Float_Stencil8:
+        case MTL::PixelFormatDepth24Unorm_Stencil8:
+        case MTL::PixelFormatX32_Stencil8:
+          stencil_format = depth_format;
+          break;
+        default:
+          stencil_format = MTL::PixelFormatInvalid;
+          break;
+      }
+      if (depth_tex->sampleCount() > 0) {
+        sample_count = std::max<uint32_t>(
+            sample_count, static_cast<uint32_t>(depth_tex->sampleCount()));
+      }
+    }
+  }
+
+  // Match the active render pass attachments exactly to avoid
+  // setRenderPipelineState validation failures when the pass descriptor differs
+  // from the cache snapshot (for instance, after attachment reconfiguration).
+  MTL::RenderPassDescriptor* pass_descriptor = current_render_pass_descriptor_;
+  if (!pass_descriptor) {
+    pass_descriptor = render_pass_descriptor_;
+  }
+  if (pass_descriptor) {
+    sample_count = 1;
+    for (uint32_t i = 0; i < 4; ++i) {
+      color_formats[i] = MTL::PixelFormatInvalid;
+    }
+    depth_format = MTL::PixelFormatInvalid;
+    stencil_format = MTL::PixelFormatInvalid;
+    PopulatePipelineFormatsFromRenderPassDescriptor(
+        pass_descriptor, color_formats, 4, &depth_format, &stencil_format,
+        &sample_count);
+  }
+  bool pixel_shader_writes_depth =
+      pixel_translation && pixel_translation->shader().writes_depth();
+  EnsureDepthFormatForDepthWritingFragment(
+      "Metal pipeline", pixel_shader_writes_depth, &depth_format);
+
+  // Record the guest ucode alongside the pipeline that uses it, so the next run
+  // has something to rebuild from.
+  if (storage_writer_.is_active()) {
+    for (const Shader::Translation* translation :
+         {vertex_translation, pixel_translation}) {
+      if (!translation) {
+        continue;
+      }
+      Shader& shader = translation->shader();
+      if (shader.try_set_ucode_storage_index(storage_writer_.storage_index())) {
+        storage_writer_.QueueShaderWrite(&shader);
+        shader_storage_flush_needed_ = true;
+      }
+    }
+  }
+
+  PipelineDescription& description = request.description;
+  if (vertex_translation) {
+    description.vertex_shader_hash =
+        vertex_translation->shader().ucode_data_hash();
+    description.vertex_shader_modification = vertex_translation->modification();
+  }
+  if (pixel_translation) {
+    description.pixel_shader_hash =
+        pixel_translation->shader().ucode_data_hash();
+    description.pixel_shader_modification = pixel_translation->modification();
+  }
+  description.sample_count = sample_count;
+  description.depth_format = uint32_t(depth_format);
+  description.stencil_format = uint32_t(stencil_format);
+  for (uint32_t i = 0; i < 4; ++i) {
+    description.color_formats[i] = uint32_t(color_formats[i]);
+  }
+  uint32_t pixel_shader_writes_color_targets =
+      pixel_translation ? pixel_translation->shader().writes_color_targets()
+                        : 0;
+  description.normalized_color_mask =
+      pixel_shader_writes_color_targets
+          ? draw_util::GetNormalizedColorMask(regs,
+                                              pixel_shader_writes_color_targets)
+          : 0;
+  description.alpha_to_mask_enable =
+      regs.Get<reg::RB_COLORCONTROL>().alpha_to_mask_enable ? 1 : 0;
+  for (uint32_t i = 0; i < 4; ++i) {
+    // ApplyColorAttachmentState only reads the blend register for a bound RT
+    // with a non-zero write mask; zeroing it elsewhere lets those draws share
+    // one pipeline.
+    uint32_t rt_write_mask =
+        (description.normalized_color_mask >> (i * 4)) & 0xF;
+    description.blendcontrol[i] =
+        (rt_write_mask && color_formats[i] != MTL::PixelFormatInvalid)
+            ? regs.Get<reg::RB_BLENDCONTROL>(
+                      reg::RB_BLENDCONTROL::rt_register_indices[i])
+                  .value
+            : 0u;
+  }
+  request.priority = pixel_translation ? 2 : 1;
+  request.pipeline_key = description.GetHash();
+  return request.pipeline_key;
+}
+
+MTL::RenderPipelineState* MetalCommandProcessor::GetOrCreatePipelineState(
+    const Shader::Translation* vertex_translation,
+    const Shader::Translation* pixel_translation, const RegisterFile& regs,
+    PipelineCompileStatus* compile_status_out) {
+  if (compile_status_out) {
+    *compile_status_out = PipelineCompileStatus::kFailed;
+  }
+  MTL::Function* vertex_function = GetHostShaderFunction(vertex_translation);
+  if (!vertex_function) {
+    XELOGE("Metal: no valid vertex shader function");
+    return nullptr;
+  }
+
+  PipelineCompileRequest request = {};
+  PopulatePipelineCompileRequest(regs, vertex_translation, pixel_translation,
+                                 request);
+  request.vertex_function = vertex_function;
+  request.fragment_function = GetHostShaderFunction(pixel_translation);
+  // A pipeline with no pixel shader is quick to link and is what a placeholder
+  // draw waits on, so it is built here rather than queued.
+  return AcquirePipelineState(request, pixel_translation != nullptr,
+                              compile_status_out);
+}
+
+MTL::RenderPipelineState* MetalCommandProcessor::AcquirePipelineState(
+    const PipelineCompileRequest& request, bool allow_async,
+    PipelineCompileStatus* compile_status_out) {
+  SCOPE_profile_cpu_f("gpu");
+  if (compile_status_out) {
+    *compile_status_out = PipelineCompileStatus::kFailed;
+  }
+  const uint64_t key = request.pipeline_key;
+
+  {
+    std::lock_guard<std::mutex> lock(async_compile_mutex_);
+    auto it = async_pipeline_cache_.find(key);
+    if (it == async_pipeline_cache_.end() && !replaying_stored_pipelines_ &&
+        async_pipeline_pending_.find(key) == async_pipeline_pending_.end() &&
+        async_pipeline_failed_.find(key) == async_pipeline_failed_.end() &&
+        storage_writer_.is_active()) {
+      // Recorded before creation, so one that fails on this driver is still
+      // described for another. Replay would re-record what it just read.
+      PipelineStoredDescription stored;
+      stored.description = request.description;
+      stored.description_hash = key;
+      storage_writer_.QueuePipelineWrite(stored);
+      pipeline_storage_flush_needed_ = true;
+    }
+    if (it != async_pipeline_cache_.end()) {
+      if (compile_status_out) {
+        *compile_status_out = PipelineCompileStatus::kReady;
+      }
+      return it->second;
+    }
+    if (async_pipeline_pending_.find(key) != async_pipeline_pending_.end()) {
+      if (compile_status_out) {
+        *compile_status_out = PipelineCompileStatus::kPending;
+      }
+      return nullptr;
+    }
+    if (async_pipeline_failed_.find(key) != async_pipeline_failed_.end()) {
+      return nullptr;
+    }
+  }
+
+  if (allow_async) {
+    if (EnqueuePipelineCompilation(request)) {
+      std::lock_guard<std::mutex> lock(async_compile_mutex_);
+      auto it = async_pipeline_cache_.find(key);
+      if (it != async_pipeline_cache_.end()) {
+        if (compile_status_out) {
+          *compile_status_out = PipelineCompileStatus::kReady;
+        }
+        return it->second;
+      }
+      if (async_pipeline_failed_.find(key) != async_pipeline_failed_.end()) {
+        return nullptr;
+      }
+      if (compile_status_out) {
+        *compile_status_out = PipelineCompileStatus::kPending;
+      }
+      return nullptr;
+    }
+    std::lock_guard<std::mutex> lock(async_compile_mutex_);
+    if (async_pipeline_failed_.find(key) != async_pipeline_failed_.end()) {
+      return nullptr;
+    }
+  }
+
+  std::string error_message;
+  MTL::RenderPipelineState* pipeline =
+      CreatePipelineState(request, &error_message);
+  if (!pipeline) {
+    if (!error_message.empty()) {
+      XELOGE("Metal: failed to create pipeline: {}", error_message);
+    } else {
+      XELOGE("Metal: failed to create pipeline (unknown error)");
+    }
+    std::lock_guard<std::mutex> lock(async_compile_mutex_);
+    async_pipeline_failed_.insert(key);
+    return nullptr;
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(async_compile_mutex_);
+    auto [it, inserted] = async_pipeline_cache_.emplace(key, pipeline);
+    if (!inserted) {
+      pipeline->release();
+      pipeline = it->second;
+    }
+    async_pipeline_failed_.erase(key);
+  }
+  if (compile_status_out) {
+    *compile_status_out = PipelineCompileStatus::kReady;
+  }
+  return pipeline;
+}
+
+MTL::RenderPipelineState*
+MetalCommandProcessor::GetOrCreatePlaceholderPipelineState(
+    const Shader::Translation* vertex_translation, const RegisterFile& regs) {
+  // A null pixel translation yields no fragment function and a zero color mask,
+  // which is both the placeholder and what a depth-only draw builds.
+  return GetOrCreatePipelineState(vertex_translation, nullptr, regs);
+}
+
+void MetalCommandProcessor::UpdateSpirvSystemConstantValues(
+    const PrimitiveProcessor::ProcessingResult& primitive_processing_result,
+    bool primitive_polygonal, uint32_t line_loop_closing_index,
+    xenos::Endian index_endian, const draw_util::ViewportInfo& viewport_info,
+    uint32_t used_texture_mask, reg::RB_DEPTHCONTROL normalized_depth_control,
     uint32_t normalized_color_mask) {
+  SCOPE_profile_cpu_f("gpu");
+  const SpirvShaderTranslator::SystemConstants previous_system_constants =
+      spirv_system_constants_;
+
   const RegisterFile& regs = *register_file_;
-  auto pa_cl_clip_cntl = regs.Get<reg::PA_CL_CLIP_CNTL>();
   auto pa_cl_vte_cntl = regs.Get<reg::PA_CL_VTE_CNTL>();
   auto rb_alpha_ref = regs.Get<float>(XE_GPU_REG_RB_ALPHA_REF);
   auto rb_colorcontrol = regs.Get<reg::RB_COLORCONTROL>();
   auto rb_depth_info = regs.Get<reg::RB_DEPTH_INFO>();
   auto rb_surface_info = regs.Get<reg::RB_SURFACE_INFO>();
   auto vgt_draw_initiator = regs.Get<reg::VGT_DRAW_INITIATOR>();
-  uint32_t vgt_indx_offset = regs.Get<reg::VGT_INDX_OFFSET>().indx_offset;
-  uint32_t vgt_max_vtx_indx = regs.Get<reg::VGT_MAX_VTX_INDX>().max_indx;
-  uint32_t vgt_min_vtx_indx = regs.Get<reg::VGT_MIN_VTX_INDX>().min_indx;
 
-  // Get color info for each render target
+  auto& consts = spirv_system_constants_;
+  std::memset(&consts, 0, sizeof(consts));
+
+  // Build flags (matching Vulkan backend's SpirvShaderTranslator kSysFlag_*).
+  uint32_t flags = 0;
+
+  // Coordinate format.
+  if (pa_cl_vte_cntl.vtx_xy_fmt) {
+    flags |= SpirvShaderTranslator::kSysFlag_XYDividedByW;
+  }
+  if (pa_cl_vte_cntl.vtx_z_fmt) {
+    flags |= SpirvShaderTranslator::kSysFlag_ZDividedByW;
+  }
+  if (pa_cl_vte_cntl.vtx_w0_fmt) {
+    flags |= SpirvShaderTranslator::kSysFlag_WNotReciprocal;
+  }
+
+  // Primitive type.
+  if (primitive_polygonal) {
+    flags |= SpirvShaderTranslator::kSysFlag_PrimitivePolygonal;
+  }
+  if (vgt_draw_initiator.prim_type == xenos::PrimitiveType::kLineList ||
+      vgt_draw_initiator.prim_type == xenos::PrimitiveType::kLineStrip ||
+      vgt_draw_initiator.prim_type == xenos::PrimitiveType::kLineLoop ||
+      vgt_draw_initiator.prim_type == xenos::PrimitiveType::k2DLineStrip) {
+    flags |= SpirvShaderTranslator::kSysFlag_PrimitiveLine;
+  }
+
+  // MSAA sample count.
+  flags |= uint32_t(rb_surface_info.msaa_samples)
+           << SpirvShaderTranslator::kSysFlag_MsaaSamples_Shift;
+
+  // Depth format.
+  if (rb_depth_info.depth_format == xenos::DepthRenderTargetFormat::kD24FS8) {
+    flags |= SpirvShaderTranslator::kSysFlag_DepthFloat24;
+  }
+
+  // Alpha test — pack the CompareFunction value directly into the flag bits
+  // (matching Vulkan backend behavior).
+  xenos::CompareFunction alpha_test_function =
+      rb_colorcontrol.alpha_test_enable ? rb_colorcontrol.alpha_func
+                                        : xenos::CompareFunction::kAlways;
+  flags |= uint32_t(alpha_test_function)
+           << SpirvShaderTranslator::kSysFlag_AlphaPassIfLess_Shift;
+
+  // Gamma correction for render targets.
   reg::RB_COLOR_INFO color_infos[4];
   for (uint32_t i = 0; i < 4; ++i) {
     color_infos[i] = regs.Get<reg::RB_COLOR_INFO>(
         reg::RB_COLOR_INFO::rt_register_indices[i]);
   }
-
-  // Build flags
-  uint32_t flags = 0;
-
-  // Shared memory mode - determines whether shaders read from SRV (T0) or UAV
-  // (U0)
-  if (shared_memory_is_uav) {
-    flags |= DxbcShaderTranslator::kSysFlag_SharedMemoryIsUAV;
-  }
-
-  // W0 division control from PA_CL_VTE_CNTL
-  if (pa_cl_vte_cntl.vtx_xy_fmt) {
-    flags |= DxbcShaderTranslator::kSysFlag_XYDividedByW;
-  }
-  if (pa_cl_vte_cntl.vtx_z_fmt) {
-    flags |= DxbcShaderTranslator::kSysFlag_ZDividedByW;
-  }
-  if (pa_cl_vte_cntl.vtx_w0_fmt) {
-    flags |= DxbcShaderTranslator::kSysFlag_WNotReciprocal;
-  }
-
-  // Primitive type flags
-  if (primitive_polygonal) {
-    flags |= DxbcShaderTranslator::kSysFlag_PrimitivePolygonal;
-  }
-  if (draw_util::IsPrimitiveLine(regs)) {
-    flags |= DxbcShaderTranslator::kSysFlag_PrimitiveLine;
-  }
-
-  // Depth format
-  if (rb_depth_info.depth_format == xenos::DepthRenderTargetFormat::kD24FS8) {
-    flags |= DxbcShaderTranslator::kSysFlag_DepthFloat24;
-  }
-
-  // Alpha test - encode compare function in flags
-  xenos::CompareFunction alpha_test_function =
-      rb_colorcontrol.alpha_test_enable ? rb_colorcontrol.alpha_func
-                                        : xenos::CompareFunction::kAlways;
-  flags |= uint32_t(alpha_test_function)
-           << DxbcShaderTranslator::kSysFlag_AlphaPassIfLess_Shift;
-
-  // Gamma conversion flags for render targets
-  if (!render_target_cache_->gamma_render_target_as_unorm16()) {
-    for (uint32_t i = 0; i < 4; ++i) {
-      if (color_infos[i].color_format ==
-          xenos::ColorRenderTargetFormat::k_8_8_8_8_GAMMA) {
-        flags |= DxbcShaderTranslator::kSysFlag_ConvertColor0ToGamma << i;
-      }
+  for (uint32_t i = 0; i < 4; ++i) {
+    if (color_infos[i].color_format ==
+        xenos::ColorRenderTargetFormat::k_8_8_8_8_GAMMA) {
+      flags |= SpirvShaderTranslator::kSysFlag_ConvertColor0ToGamma << i;
     }
   }
 
-  system_constants_.flags = flags;
-
-  // Tessellation factor range
-  float tessellation_factor_min =
-      regs.Get<float>(XE_GPU_REG_VGT_HOS_MIN_TESS_LEVEL) + 1.0f;
-  float tessellation_factor_max =
-      regs.Get<float>(XE_GPU_REG_VGT_HOS_MAX_TESS_LEVEL) + 1.0f;
-  system_constants_.tessellation_factor_range_min = tessellation_factor_min;
-  system_constants_.tessellation_factor_range_max = tessellation_factor_max;
-
-  // Line loop closing index
-  system_constants_.line_loop_closing_index = line_loop_closing_index;
-
-  // Vertex index configuration
-  system_constants_.vertex_index_endian = index_endian;
-  system_constants_.vertex_index_offset = vgt_indx_offset;
-  system_constants_.vertex_index_min = vgt_min_vtx_indx;
-  system_constants_.vertex_index_max = vgt_max_vtx_indx;
-
-  // User clip planes (when not CLIP_DISABLE)
-  if (!pa_cl_clip_cntl.clip_disable) {
-    float* user_clip_plane_write_ptr = system_constants_.user_clip_planes[0];
-    uint32_t user_clip_planes_remaining = pa_cl_clip_cntl.ucp_ena;
-    uint32_t user_clip_plane_index;
-    while (xe::bit_scan_forward(user_clip_planes_remaining,
-                                &user_clip_plane_index)) {
-      user_clip_planes_remaining &= ~(UINT32_C(1) << user_clip_plane_index);
-      const float* user_clip_plane_regs = reinterpret_cast<const float*>(
-          &regs.values[XE_GPU_REG_PA_CL_UCP_0_X + user_clip_plane_index * 4]);
-      std::memcpy(user_clip_plane_write_ptr, user_clip_plane_regs,
-                  4 * sizeof(float));
-      user_clip_plane_write_ptr += 4;
+  // Vertex index loading for VS-based primitive expansion (point sprites,
+  // rectangle lists).  When the primitive processor builds a host-side
+  // index buffer for DMA-based VS expansion the shader must load the
+  // original guest vertex index from shared memory.
+  if (primitive_processing_result.index_buffer_type ==
+      PrimitiveProcessor::ProcessedIndexBufferType::kHostBuiltinForDMA) {
+    flags |= SpirvShaderTranslator::kSysFlag_ComputeOrPrimitiveVertexIndexLoad;
+    if (vgt_draw_initiator.index_size == xenos::IndexFormat::kInt32) {
+      flags |= SpirvShaderTranslator::
+          kSysFlag_ComputeOrPrimitiveVertexIndexLoad32Bit;
     }
   }
 
-  // NDC scale and offset from viewport info
+  consts.flags = flags;
+
+  // Vertex index.
+  consts.vertex_index_endian = index_endian;
+  consts.vertex_base_index = regs.Get<reg::VGT_INDX_OFFSET>().indx_offset;
+  const bool is_vs_expansion_draw =
+      primitive_processing_result.host_vertex_shader_type ==
+          Shader::HostVertexShaderType::kPointListAsTriangleStrip ||
+      primitive_processing_result.host_vertex_shader_type ==
+          Shader::HostVertexShaderType::kRectangleListAsTriangleStrip;
+  consts.vertex_index_count =
+      is_vs_expansion_draw ? primitive_processing_result.guest_draw_vertex_count
+                           : primitive_processing_result.host_draw_vertex_count;
+
+  // Vertex index load address (for VS-based primitive expansion).
+  if (flags &
+      (SpirvShaderTranslator::kSysFlag_VertexIndexLoad |
+       SpirvShaderTranslator::kSysFlag_ComputeOrPrimitiveVertexIndexLoad)) {
+    consts.vertex_index_load_address =
+        primitive_processing_result.guest_index_base;
+  }
+
+  // NDC scale/offset.
   for (uint32_t i = 0; i < 3; ++i) {
-    system_constants_.ndc_scale[i] = viewport_info.ndc_scale[i];
-    system_constants_.ndc_offset[i] = viewport_info.ndc_offset[i];
+    consts.ndc_scale[i] = viewport_info.ndc_scale[i];
+    consts.ndc_offset[i] = viewport_info.ndc_offset[i];
   }
 
-  // Point size parameters
-  if (vgt_draw_initiator.prim_type == xenos::PrimitiveType::kPointList) {
-    auto pa_su_point_minmax = regs.Get<reg::PA_SU_POINT_MINMAX>();
-    auto pa_su_point_size = regs.Get<reg::PA_SU_POINT_SIZE>();
-    system_constants_.point_vertex_diameter_min =
-        float(pa_su_point_minmax.min_size) * (2.0f / 16.0f);
-    system_constants_.point_vertex_diameter_max =
-        float(pa_su_point_minmax.max_size) * (2.0f / 16.0f);
-    system_constants_.point_constant_diameter[0] =
-        float(pa_su_point_size.width) * (2.0f / 16.0f);
-    system_constants_.point_constant_diameter[1] =
-        float(pa_su_point_size.height) * (2.0f / 16.0f);
-    // Screen to NDC radius conversion.
-    // 2 because 1 in the NDC is half of the viewport's axis, 0.5 for diameter
-    // to radius conversion to avoid multiplying the per-vertex diameter by an
-    // additional constant in the shader. Include draw_resolution_scale to
-    // match D3D12 behavior.
-    uint32_t point_draw_resolution_scale_x =
-        render_target_cache_ ? render_target_cache_->draw_resolution_scale_x()
-                             : 1;
-    uint32_t point_draw_resolution_scale_y =
-        render_target_cache_ ? render_target_cache_->draw_resolution_scale_y()
-                             : 1;
-    system_constants_.point_screen_diameter_to_ndc_radius[0] =
-        (/* 0.5f * 2.0f * */ float(point_draw_resolution_scale_x)) /
-        std::max(viewport_info.xy_extent[0], uint32_t(1));
-    system_constants_.point_screen_diameter_to_ndc_radius[1] =
-        (/* 0.5f * 2.0f * */ float(point_draw_resolution_scale_y)) /
-        std::max(viewport_info.xy_extent[1], uint32_t(1));
+  // Point rendering (matching Vulkan backend).
+  auto pa_su_point_size = regs.Get<reg::PA_SU_POINT_SIZE>();
+  auto pa_su_point_minmax = regs.Get<reg::PA_SU_POINT_MINMAX>();
+  consts.point_vertex_diameter_min =
+      float(pa_su_point_minmax.min_size) * (2.0f / 16.0f);
+  consts.point_vertex_diameter_max =
+      float(pa_su_point_minmax.max_size) * (2.0f / 16.0f);
+  consts.point_constant_diameter[0] =
+      float(pa_su_point_size.width) * (2.0f / 16.0f);
+  consts.point_constant_diameter[1] =
+      float(pa_su_point_size.height) * (2.0f / 16.0f);
+  // 2 because 1 in the NDC is half of the viewport's axis, 0.5 for diameter
+  // to radius conversion — matching the Vulkan backend formula.
+  uint32_t draw_resolution_scale_x =
+      texture_cache_ ? texture_cache_->draw_resolution_scale_x() : 1;
+  uint32_t draw_resolution_scale_y =
+      texture_cache_ ? texture_cache_->draw_resolution_scale_y() : 1;
+  consts.point_screen_diameter_to_ndc_radius[0] =
+      float(draw_resolution_scale_x) /
+      float(std::max(viewport_info.xy_extent[0], uint32_t(1)));
+  consts.point_screen_diameter_to_ndc_radius[1] =
+      float(draw_resolution_scale_y) /
+      float(std::max(viewport_info.xy_extent[1], uint32_t(1)));
+
+  // Texture swizzled signs and swizzles — retrieved from the texture cache
+  // (matching Vulkan backend behavior).
+  if (texture_cache_) {
+    for (uint32_t i = 0; i < 32; ++i) {
+      if (!(used_texture_mask & (uint32_t(1) << i))) {
+        continue;
+      }
+      // Swizzled signs: 8 bits per texture, 4 textures per uint32.
+      uint8_t texture_signs = texture_cache_->GetActiveTextureSwizzledSigns(i);
+      uint32_t signs_shift = 8 * (i & 3);
+      consts.texture_swizzled_signs[i >> 2] |= uint32_t(texture_signs)
+                                               << signs_shift;
+
+      // Host swizzles: 12 bits per texture, 2 textures per uint32.
+      uint32_t texture_swizzle = texture_cache_->GetActiveTextureHostSwizzle(i);
+      uint32_t swizzle_shift = 12 * (i & 1);
+      consts.texture_swizzles[i >> 1] |= (texture_swizzle & 0xFFF)
+                                         << swizzle_shift;
+
+      // Integer num_format scale, plus bit 24 for normalized rounding.
+      consts.texture_integer_scale_bits[i] =
+          texture_cache_->GetActiveIntegerScaleBits(i);
+    }
   }
 
-  // Texture signedness / resolution scaling (mirror D3D12 logic).
-  // Always update textures_resolution_scaled, even when used_texture_mask is 0,
-  // to avoid stale values from previous draws.
-  uint32_t textures_resolution_scaled = 0;
-  uint32_t textures_remaining = used_texture_mask;
-  uint32_t texture_index;
-  while (xe::bit_scan_forward(textures_remaining, &texture_index)) {
-    textures_remaining &= ~(uint32_t(1) << texture_index);
-    if (texture_cache_) {
-      uint32_t& texture_signs_uint =
-          system_constants_.texture_swizzled_signs[texture_index >> 2];
-      uint32_t texture_signs_shift = (texture_index & 3) * 8;
-      uint8_t texture_signs =
-          texture_cache_->GetActiveTextureSwizzledSigns(texture_index);
-      uint32_t texture_signs_shifted = uint32_t(texture_signs)
-                                       << texture_signs_shift;
-      uint32_t texture_signs_mask = uint32_t(0xFF) << texture_signs_shift;
-      texture_signs_uint =
-          (texture_signs_uint & ~texture_signs_mask) | texture_signs_shifted;
-      textures_resolution_scaled |=
+  // Textures resolved — which textures are from scaled resolve operations
+  // (matching Vulkan backend).
+  if (texture_cache_) {
+    uint32_t textures_resolved = 0;
+    uint32_t textures_remaining = used_texture_mask;
+    uint32_t texture_index;
+    while (xe::bit_scan_forward(textures_remaining, &texture_index)) {
+      textures_remaining &= ~(UINT32_C(1) << texture_index);
+      textures_resolved |=
           uint32_t(
               texture_cache_->IsActiveTextureResolutionScaled(texture_index))
           << texture_index;
     }
+    consts.textures_resolved = textures_resolved;
   }
-  system_constants_.textures_resolution_scaled = textures_resolution_scaled;
 
-  // Sample count log2 for alpha to mask
-  uint32_t sample_count_log2_x =
-      rb_surface_info.msaa_samples >= xenos::MsaaSamples::k4X ? 1 : 0;
-  uint32_t sample_count_log2_y =
-      rb_surface_info.msaa_samples >= xenos::MsaaSamples::k2X ? 1 : 0;
-  system_constants_.sample_count_log2[0] = sample_count_log2_x;
-  system_constants_.sample_count_log2[1] = sample_count_log2_y;
+  // Alpha test reference.
+  consts.alpha_test_reference = rb_alpha_ref;
 
-  // Alpha test reference
-  system_constants_.alpha_test_reference = rb_alpha_ref;
+  // Alpha to mask — if enabled, bits 0:7 are sample offsets, bit 8 = 1.
+  // (matching Vulkan backend / MSC path).
+  if (rb_colorcontrol.alpha_to_mask_enable) {
+    consts.alpha_to_mask = (rb_colorcontrol.value >> 24) | (1 << 8);
+  }
 
-  // Alpha to mask
-  uint32_t alpha_to_mask = rb_colorcontrol.alpha_to_mask_enable
-                               ? (rb_colorcontrol.value >> 24) | (1 << 8)
-                               : 0;
-  system_constants_.alpha_to_mask = alpha_to_mask;
-
-  // Color exponent bias
+  // Color exponent bias (matching Vulkan backend).
   for (uint32_t i = 0; i < 4; ++i) {
     int32_t color_exp_bias = color_infos[i].color_exp_bias;
-    // Fixed-point render targets (k_16_16 / k_16_16_16_16) are backed by
-    // *_SNORM in the host render targets path. If full-range emulation is
-    // requested, remap from -32...32 to -1...1 by dividing the output values
-    // by 32.
-    if (color_infos[i].color_format ==
-        xenos::ColorRenderTargetFormat::k_16_16) {
-      if (!render_target_cache_->IsFixedRG16TruncatedToMinus1To1()) {
-        color_exp_bias -= 5;
-      }
-    } else if (color_infos[i].color_format ==
-               xenos::ColorRenderTargetFormat::k_16_16_16_16) {
-      if (!render_target_cache_->IsFixedRGBA16TruncatedToMinus1To1()) {
-        color_exp_bias -= 5;
-      }
+    if (render_target_cache_->GetPath() ==
+            RenderTargetCache::Path::kHostRenderTargets &&
+        ((color_infos[i].color_format ==
+              xenos::ColorRenderTargetFormat::k_16_16 &&
+          !render_target_cache_->IsFixedRG16TruncatedToMinus1To1()) ||
+         (color_infos[i].color_format ==
+              xenos::ColorRenderTargetFormat::k_16_16_16_16 &&
+          !render_target_cache_->IsFixedRGBA16TruncatedToMinus1To1()))) {
+      color_exp_bias -= 5;
     }
-    auto color_exp_bias_scale = xe::memory::Reinterpret<float>(
-        int32_t(0x3F800000 + (color_exp_bias << 23)));
-    system_constants_.color_exp_bias[i] = color_exp_bias_scale;
+    float color_exp_bias_scale;
+    *reinterpret_cast<int32_t*>(&color_exp_bias_scale) =
+        UINT32_C(0x3F800000) + (color_exp_bias << 23);
+    consts.color_exp_bias[i] = color_exp_bias_scale;
   }
 
-  // Blend constants (used by EDRAM and for host blending)
-  system_constants_.edram_blend_constant[0] =
-      regs.Get<float>(XE_GPU_REG_RB_BLEND_RED);
-  system_constants_.edram_blend_constant[1] =
-      regs.Get<float>(XE_GPU_REG_RB_BLEND_GREEN);
-  system_constants_.edram_blend_constant[2] =
-      regs.Get<float>(XE_GPU_REG_RB_BLEND_BLUE);
-  system_constants_.edram_blend_constant[3] =
-      regs.Get<float>(XE_GPU_REG_RB_BLEND_ALPHA);
+  // User clip planes and tessellation constants in the system constants.
+  auto pa_cl_clip_cntl = regs.Get<reg::PA_CL_CLIP_CNTL>();
+  std::memset(spirv_system_constants_.user_clip_planes, 0,
+              sizeof(spirv_system_constants_.user_clip_planes));
+  if (!pa_cl_clip_cntl.clip_disable && pa_cl_clip_cntl.ucp_ena) {
+    float* clip_plane_write_ptr = spirv_system_constants_.user_clip_planes[0];
+    uint32_t clip_planes_remaining = pa_cl_clip_cntl.ucp_ena;
+    uint32_t clip_plane_index;
+    while (xe::bit_scan_forward(clip_planes_remaining, &clip_plane_index)) {
+      clip_planes_remaining &= ~(UINT32_C(1) << clip_plane_index);
+      const float* clip_plane_regs = reinterpret_cast<const float*>(
+          &regs.values[XE_GPU_REG_PA_CL_UCP_0_X + clip_plane_index * 4]);
+      std::memcpy(clip_plane_write_ptr, clip_plane_regs, 4 * sizeof(float));
+      clip_plane_write_ptr += 4;
+    }
+  }
+  spirv_system_constants_.tessellation_factor_range[0] =
+      regs.Get<float>(XE_GPU_REG_VGT_HOS_MIN_TESS_LEVEL) + 1.0f;
+  spirv_system_constants_.tessellation_factor_range[1] =
+      regs.Get<float>(XE_GPU_REG_VGT_HOS_MAX_TESS_LEVEL) + 1.0f;
+  spirv_system_constants_.tessellation_vertex_index_endian =
+      static_cast<uint32_t>(index_endian);
+  spirv_system_constants_.tessellation_vertex_index_offset =
+      regs[XE_GPU_REG_VGT_INDX_OFFSET];
+  spirv_system_constants_.tessellation_vertex_index_min_max[0] =
+      regs[XE_GPU_REG_VGT_MIN_VTX_INDX];
+  spirv_system_constants_.tessellation_vertex_index_min_max[1] =
+      regs[XE_GPU_REG_VGT_MAX_VTX_INDX];
 
-  system_constants_dirty_ = true;
+  // The system constants version bump covers clip planes and tessellation,
+  // which live in the same struct.
+  if (std::memcmp(&previous_system_constants, &spirv_system_constants_,
+                  sizeof(spirv_system_constants_)) != 0) {
+    ++msl_system_constants_version_;
+    if (msl_system_constants_version_ == 0) {
+      msl_system_constants_version_ = 1;
+    }
+  }
 }
 
 #define COMMAND_PROCESSOR MetalCommandProcessor

@@ -2,7 +2,7 @@
  ******************************************************************************
  * Xenia : Xbox 360 Emulator Research Project                                 *
  ******************************************************************************
- * Copyright 2024 Ben Vanik. All rights reserved.                             *
+ * Copyright 2026 Ben Vanik. All rights reserved.                             *
  * Released under the BSD license - see LICENSE in the root for more details. *
  ******************************************************************************
  */
@@ -10,11 +10,10 @@
 #ifndef XENIA_CPU_BACKEND_A64_A64_SEQUENCES_H_
 #define XENIA_CPU_BACKEND_A64_A64_SEQUENCES_H_
 
-#include "xenia/cpu/hir/instr.h"
-
+#include <string>
 #include <unordered_map>
 
-#include "xenia/base/logging.h"
+#include "xenia/cpu/hir/instr.h"
 
 namespace xe {
 namespace cpu {
@@ -23,35 +22,32 @@ namespace a64 {
 
 class A64Emitter;
 
-typedef bool (*SequenceSelectFn)(A64Emitter&, const hir::Instr*);
-
-// Singleton accessor for sequence table.
-inline std::unordered_map<uint32_t, SequenceSelectFn>& GetSequenceTable() {
-  static std::unordered_map<uint32_t, SequenceSelectFn> sequence_table;
-  return sequence_table;
-}
+typedef bool (*SequenceSelectFn)(A64Emitter&, const hir::Instr*, uint32_t ikey);
+std::unordered_map<uint32_t, SequenceSelectFn>& SequenceTable();
 
 template <typename T>
-bool RegisterSingle() {
-  bool inserted = GetSequenceTable().emplace(T::head_key(), T::Select).second;
-  if (!inserted) {
-    XELOGW("A64 sequence registration duplicate key 0x{:08X}", T::head_key());
-  }
-  return inserted;
+bool Register() {
+  SequenceTable().insert({T::head_key(), T::Select});
+  return true;
 }
 
-template <typename... Ts>
-bool RegisterAll() {
-  bool ok = true;
-  ((ok &= RegisterSingle<Ts>()), ...);
-  return ok;
+template <typename T, typename Tn, typename... Ts>
+static bool Register() {
+  bool b = true;
+  b = b && Register<T>();
+  b = b && Register<Tn, Ts...>();
+  return b;
 }
 
 #define EMITTER_OPCODE_TABLE(name, ...) \
-  static const bool A64_INSTR_##name = RegisterAll<__VA_ARGS__>();
+  const auto A64_INSTR_##name = Register<__VA_ARGS__>();
 
 bool SelectSequence(A64Emitter* e, const hir::Instr* i,
                     const hir::Instr** new_tail);
+
+// Renders a selection key as "OPCODE_NAME dest src1 src2 src3". Lives here
+// because the key layout belongs to this file's InstrKey.
+std::string FormatSequenceKey(uint64_t key);
 
 }  // namespace a64
 }  // namespace backend

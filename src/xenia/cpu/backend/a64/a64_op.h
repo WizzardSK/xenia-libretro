@@ -2,15 +2,15 @@
  ******************************************************************************
  * Xenia : Xbox 360 Emulator Research Project                                 *
  ******************************************************************************
- * Copyright 2024 Xenia Developers. All rights reserved.                      *
+ * Copyright 2026 Ben Vanik. All rights reserved.                             *
  * Released under the BSD license - see LICENSE in the root for more details. *
  ******************************************************************************
  */
+
 #ifndef XENIA_CPU_BACKEND_A64_A64_OP_H_
 #define XENIA_CPU_BACKEND_A64_A64_OP_H_
 
 #include "xenia/cpu/backend/a64/a64_emitter.h"
-
 #include "xenia/cpu/hir/instr.h"
 
 namespace xe {
@@ -18,14 +18,12 @@ namespace cpu {
 namespace backend {
 namespace a64 {
 
-// TODO(benvanik): direct usings.
 using namespace xe::cpu;
 using namespace xe::cpu::hir;
-using namespace oaknut;
-using namespace oaknut::util;
+using namespace Xbyak_aarch64;
 
-// Selects the right byte/word/etc from a vector. We need to flip logical
-// indices (0,1,2,3,4,5,6,7,...) = (3,2,1,0,7,6,5,4,...)
+// Selects the right byte/word/etc from a vector. PPC is big-endian so
+// we need to flip logical indices (0,1,2,3,4,5,6,7,...) = (3,2,1,0,7,6,5,4,...)
 #define VEC128_B(n) ((n) ^ 0x3)
 #define VEC128_W(n) ((n) ^ 0x1)
 #define VEC128_D(n) (n)
@@ -36,85 +34,89 @@ enum KeyType {
   KEY_TYPE_L = OPCODE_SIG_TYPE_L,
   KEY_TYPE_O = OPCODE_SIG_TYPE_O,
   KEY_TYPE_S = OPCODE_SIG_TYPE_S,
-  KEY_TYPE_V_I8 =
-      static_cast<int>(OPCODE_SIG_TYPE_V) + static_cast<int>(INT8_TYPE),
-  KEY_TYPE_V_I16 =
-      static_cast<int>(OPCODE_SIG_TYPE_V) + static_cast<int>(INT16_TYPE),
-  KEY_TYPE_V_I32 =
-      static_cast<int>(OPCODE_SIG_TYPE_V) + static_cast<int>(INT32_TYPE),
-  KEY_TYPE_V_I64 =
-      static_cast<int>(OPCODE_SIG_TYPE_V) + static_cast<int>(INT64_TYPE),
-  KEY_TYPE_V_F32 =
-      static_cast<int>(OPCODE_SIG_TYPE_V) + static_cast<int>(FLOAT32_TYPE),
-  KEY_TYPE_V_F64 =
-      static_cast<int>(OPCODE_SIG_TYPE_V) + static_cast<int>(FLOAT64_TYPE),
-  KEY_TYPE_V_V128 =
-      static_cast<int>(OPCODE_SIG_TYPE_V) + static_cast<int>(VEC128_TYPE),
+  KEY_TYPE_V_I8 = OPCODE_SIG_TYPE_V + INT8_TYPE,
+  KEY_TYPE_V_I16 = OPCODE_SIG_TYPE_V + INT16_TYPE,
+  KEY_TYPE_V_I32 = OPCODE_SIG_TYPE_V + INT32_TYPE,
+  KEY_TYPE_V_I64 = OPCODE_SIG_TYPE_V + INT64_TYPE,
+  KEY_TYPE_V_F32 = OPCODE_SIG_TYPE_V + FLOAT32_TYPE,
+  KEY_TYPE_V_F64 = OPCODE_SIG_TYPE_V + FLOAT64_TYPE,
+  KEY_TYPE_V_V128 = OPCODE_SIG_TYPE_V + VEC128_TYPE,
 };
 
+using InstrKeyValue = uint32_t;
 #pragma pack(push, 1)
 union InstrKey {
-  uint32_t value;
+  InstrKeyValue value;
   struct {
-    uint32_t opcode : 8;
-    uint32_t dest : 5;
-    uint32_t src1 : 5;
-    uint32_t src2 : 5;
-    uint32_t src3 : 5;
-    uint32_t reserved : 4;
+    InstrKeyValue opcode : 8;
+    InstrKeyValue dest : 5;
+    InstrKeyValue src1 : 5;
+    InstrKeyValue src2 : 5;
+    InstrKeyValue src3 : 5;
+    InstrKeyValue reserved : 4;
   };
 
-  operator uint32_t() const { return value; }
+  operator InstrKeyValue() const { return value; }
 
   InstrKey() : value(0) { static_assert_size(*this, sizeof(value)); }
-  InstrKey(uint32_t v) : value(v) {}
+  InstrKey(InstrKeyValue v) : value(v) {}
+
   InstrKey(const Instr* i) : value(0) {
-    opcode = i->opcode->num;
-    uint32_t sig = i->opcode->signature;
-    dest = GET_OPCODE_SIG_TYPE_DEST(sig) ? static_cast<int>(OPCODE_SIG_TYPE_V) +
-                                               static_cast<int>(i->dest->type)
-                                         : 0;
-    src1 = GET_OPCODE_SIG_TYPE_SRC1(sig);
-    if (src1 == OPCODE_SIG_TYPE_V) {
-      src1 += static_cast<uint32_t>(i->src1.value->type);
+    const OpcodeInfo* info = i->GetOpcodeInfo();
+    InstrKeyValue sig = info->signature;
+
+    OpcodeSignatureType dest_type, src1_type, src2_type, src3_type;
+    UnpackOpcodeSig(sig, dest_type, src1_type, src2_type, src3_type);
+
+    InstrKeyValue out_desttype = (InstrKeyValue)dest_type;
+    InstrKeyValue out_src1type = (InstrKeyValue)src1_type;
+    InstrKeyValue out_src2type = (InstrKeyValue)src2_type;
+    InstrKeyValue out_src3type = (InstrKeyValue)src3_type;
+
+    Value* destv = i->dest;
+    Value* src1v = i->src1.value;
+    Value* src2v = i->src2.value;
+    Value* src3v = i->src3.value;
+
+    if (out_src1type == OPCODE_SIG_TYPE_V) {
+      out_src1type += src1v->type;
     }
-    src2 = GET_OPCODE_SIG_TYPE_SRC2(sig);
-    if (src2 == OPCODE_SIG_TYPE_V) {
-      src2 += static_cast<uint32_t>(i->src2.value->type);
+    if (out_src2type == OPCODE_SIG_TYPE_V) {
+      out_src2type += src2v->type;
     }
-    src3 = GET_OPCODE_SIG_TYPE_SRC3(sig);
-    if (src3 == OPCODE_SIG_TYPE_V) {
-      src3 += static_cast<uint32_t>(i->src3.value->type);
+    if (out_src3type == OPCODE_SIG_TYPE_V) {
+      out_src3type += src3v->type;
     }
+    opcode = info->num;
+    dest = out_desttype ? OPCODE_SIG_TYPE_V + destv->type : 0;
+    src1 = out_src1type;
+    src2 = out_src2type;
+    src3 = out_src3type;
   }
 
   template <Opcode OPCODE, KeyType DEST = KEY_TYPE_X, KeyType SRC1 = KEY_TYPE_X,
             KeyType SRC2 = KEY_TYPE_X, KeyType SRC3 = KEY_TYPE_X>
   struct Construct {
-    static const uint32_t value =
+    static const InstrKeyValue value =
         (OPCODE) | (DEST << 8) | (SRC1 << 13) | (SRC2 << 18) | (SRC3 << 23);
   };
 };
 #pragma pack(pop)
 static_assert(sizeof(InstrKey) <= 4, "Key must be 4 bytes");
 
-template <typename... Ts>
-struct CombinedStruct;
-template <>
-struct CombinedStruct<> {};
-template <typename T, typename... Ts>
-struct CombinedStruct<T, Ts...> : T, CombinedStruct<Ts...> {};
+// ============================================================================
+// Op types — architecture-independent
+// ============================================================================
 
 struct OpBase {};
 
 template <typename T, KeyType KEY_TYPE>
 struct Op : OpBase {
-  static const KeyType key_type = KEY_TYPE;
+  static constexpr KeyType key_type = KEY_TYPE;
 };
 
 struct VoidOp : Op<VoidOp, KEY_TYPE_X> {
  protected:
-  friend struct Op<VoidOp, KEY_TYPE_X>;
   template <hir::Opcode OPCODE, typename... Ts>
   friend struct I;
   void Load(const Instr::Op& op) {}
@@ -124,7 +126,6 @@ struct OffsetOp : Op<OffsetOp, KEY_TYPE_O> {
   uint64_t value;
 
  protected:
-  friend struct Op<OffsetOp, KEY_TYPE_O>;
   template <hir::Opcode OPCODE, typename... Ts>
   friend struct I;
   void Load(const Instr::Op& op) { this->value = op.offset; }
@@ -134,7 +135,6 @@ struct SymbolOp : Op<SymbolOp, KEY_TYPE_S> {
   Function* value;
 
  protected:
-  friend struct Op<SymbolOp, KEY_TYPE_S>;
   template <hir::Opcode OPCODE, typename... Ts>
   friend struct I;
   bool Load(const Instr::Op& op) {
@@ -147,11 +147,14 @@ struct LabelOp : Op<LabelOp, KEY_TYPE_L> {
   hir::Label* value;
 
  protected:
-  friend struct Op<LabelOp, KEY_TYPE_L>;
   template <hir::Opcode OPCODE, typename... Ts>
   friend struct I;
   void Load(const Instr::Op& op) { this->value = op.label; }
 };
+
+// ============================================================================
+// ValueOp — ARM64 register type specializations
+// ============================================================================
 
 template <typename T, KeyType KEY_TYPE, typename REG_TYPE, typename CONST_TYPE>
 struct ValueOp : Op<ValueOp<T, KEY_TYPE, REG_TYPE, CONST_TYPE>, KEY_TYPE> {
@@ -159,33 +162,24 @@ struct ValueOp : Op<ValueOp<T, KEY_TYPE, REG_TYPE, CONST_TYPE>, KEY_TYPE> {
   const Value* value;
   bool is_constant;
   virtual bool ConstantFitsIn32Reg() const { return true; }
+
   const REG_TYPE& reg() const {
     assert_true(!is_constant);
     return reg_;
   }
   operator const REG_TYPE&() const { return reg(); }
+
   bool IsEqual(const T& b) const {
     if (is_constant && b.is_constant) {
       return reinterpret_cast<const T*>(this)->constant() == b.constant();
     } else if (!is_constant && !b.is_constant) {
-      return reg_.index() == b.reg_.index();
-    } else {
-      return false;
+      return reg_.getIdx() == b.reg_.getIdx();
     }
-  }
-  bool IsEqual(const oaknut::Reg& b) const {
-    if (is_constant) {
-      return false;
-    } else if (!is_constant) {
-      return reg_.index() == b.index();
-    } else {
-      return false;
-    }
+    return false;
   }
   bool operator==(const T& b) const { return IsEqual(b); }
   bool operator!=(const T& b) const { return !IsEqual(b); }
-  bool operator==(const oaknut::Reg& b) const { return IsEqual(b); }
-  bool operator!=(const oaknut::Reg& b) const { return !IsEqual(b); }
+
   void Load(const Instr::Op& op) {
     value = op.value;
     is_constant = value->IsConstant();
@@ -198,6 +192,8 @@ struct ValueOp : Op<ValueOp<T, KEY_TYPE, REG_TYPE, CONST_TYPE>, KEY_TYPE> {
   REG_TYPE reg_ = REG_TYPE(0);
 };
 
+// ARM64 integer operands use WReg (32-bit) and XReg (64-bit).
+// I8 and I16 are handled via WReg with masking/extension as needed.
 struct I8Op : ValueOp<I8Op, KEY_TYPE_V_I8, WReg, int8_t> {
   typedef ValueOp<I8Op, KEY_TYPE_V_I8, WReg, int8_t> BASE;
   int8_t constant() const {
@@ -228,15 +224,15 @@ struct I64Op : ValueOp<I64Op, KEY_TYPE_V_I64, XReg, int64_t> {
   bool ConstantFitsIn32Reg() const override {
     int64_t v = BASE::value->constant.i64;
     if ((v & ~0x7FFFFFFF) == 0) {
-      // Fits under 31 bits, so just load using normal mov.
       return true;
-    } else if ((v & ~0x7FFFFFFF) == ~0x7FFFFFFF) {
-      // Negative number that fits in 32bits.
+    } else if ((v & ~0x7FFFFFFFUL) == ~0x7FFFFFFFUL) {
       return true;
     }
     return false;
   }
 };
+
+// ARM64 float/vector operands use SReg, DReg, QReg.
 struct F32Op : ValueOp<F32Op, KEY_TYPE_V_F32, SReg, float> {
   typedef ValueOp<F32Op, KEY_TYPE_V_F32, SReg, float> BASE;
   float constant() const {
@@ -259,6 +255,10 @@ struct V128Op : ValueOp<V128Op, KEY_TYPE_V_V128, QReg, vec128_t> {
   }
 };
 
+// ============================================================================
+// DestField — handles loading the destination operand
+// ============================================================================
+
 template <typename DEST, typename... Tf>
 struct DestField;
 template <typename DEST>
@@ -279,12 +279,17 @@ struct DestField<VoidOp> {
   bool LoadDest(const Instr* i) { return true; }
 };
 
+// ============================================================================
+// I<> — instruction pattern with 0-3 source operands
+// ============================================================================
+
 template <hir::Opcode OPCODE, typename... Ts>
 struct I;
+
 template <hir::Opcode OPCODE, typename DEST>
 struct I<OPCODE, DEST> : DestField<DEST> {
   typedef DestField<DEST> BASE;
-  static const hir::Opcode opcode = OPCODE;
+  static constexpr hir::Opcode opcode = OPCODE;
   static const uint32_t key =
       InstrKey::Construct<OPCODE, DEST::key_type>::value;
   static const KeyType dest_type = DEST::key_type;
@@ -293,30 +298,31 @@ struct I<OPCODE, DEST> : DestField<DEST> {
  protected:
   template <typename SEQ, typename T>
   friend struct Sequence;
-  bool Load(const Instr* i) {
-    if (InstrKey(i).value == key && BASE::LoadDest(i)) {
+  bool Load(const Instr* i, InstrKeyValue kv) {
+    if (kv == key && BASE::LoadDest(i)) {
       instr = i;
       return true;
     }
     return false;
   }
 };
+
 template <hir::Opcode OPCODE, typename DEST, typename SRC1>
 struct I<OPCODE, DEST, SRC1> : DestField<DEST> {
   typedef DestField<DEST> BASE;
-  static const hir::Opcode opcode = OPCODE;
+  static constexpr hir::Opcode opcode = OPCODE;
   static const uint32_t key =
       InstrKey::Construct<OPCODE, DEST::key_type, SRC1::key_type>::value;
   static const KeyType dest_type = DEST::key_type;
   static const KeyType src1_type = SRC1::key_type;
   const Instr* instr;
-  SRC1 src1 = {};
+  SRC1 src1;
 
  protected:
   template <typename SEQ, typename T>
   friend struct Sequence;
-  bool Load(const Instr* i) {
-    if (InstrKey(i).value == key && BASE::LoadDest(i)) {
+  bool Load(const Instr* i, InstrKeyValue kv) {
+    if (kv == key && BASE::LoadDest(i)) {
       instr = i;
       src1.Load(i->src1);
       return true;
@@ -324,10 +330,11 @@ struct I<OPCODE, DEST, SRC1> : DestField<DEST> {
     return false;
   }
 };
+
 template <hir::Opcode OPCODE, typename DEST, typename SRC1, typename SRC2>
 struct I<OPCODE, DEST, SRC1, SRC2> : DestField<DEST> {
   typedef DestField<DEST> BASE;
-  static const hir::Opcode opcode = OPCODE;
+  static constexpr hir::Opcode opcode = OPCODE;
   static const uint32_t key =
       InstrKey::Construct<OPCODE, DEST::key_type, SRC1::key_type,
                           SRC2::key_type>::value;
@@ -341,8 +348,8 @@ struct I<OPCODE, DEST, SRC1, SRC2> : DestField<DEST> {
  protected:
   template <typename SEQ, typename T>
   friend struct Sequence;
-  bool Load(const Instr* i) {
-    if (InstrKey(i).value == key && BASE::LoadDest(i)) {
+  bool Load(const Instr* i, InstrKeyValue kv) {
+    if (kv == key && BASE::LoadDest(i)) {
       instr = i;
       src1.Load(i->src1);
       src2.Load(i->src2);
@@ -351,11 +358,12 @@ struct I<OPCODE, DEST, SRC1, SRC2> : DestField<DEST> {
     return false;
   }
 };
+
 template <hir::Opcode OPCODE, typename DEST, typename SRC1, typename SRC2,
           typename SRC3>
 struct I<OPCODE, DEST, SRC1, SRC2, SRC3> : DestField<DEST> {
   typedef DestField<DEST> BASE;
-  static const hir::Opcode opcode = OPCODE;
+  static constexpr hir::Opcode opcode = OPCODE;
   static const uint32_t key =
       InstrKey::Construct<OPCODE, DEST::key_type, SRC1::key_type,
                           SRC2::key_type, SRC3::key_type>::value;
@@ -371,8 +379,8 @@ struct I<OPCODE, DEST, SRC1, SRC2, SRC3> : DestField<DEST> {
  protected:
   template <typename SEQ, typename T>
   friend struct Sequence;
-  bool Load(const Instr* i) {
-    if (InstrKey(i).value == key && BASE::LoadDest(i)) {
+  bool Load(const Instr* i, InstrKeyValue ikey) {
+    if (ikey == key && BASE::LoadDest(i)) {
       instr = i;
       src1.Load(i->src1);
       src2.Load(i->src2);
@@ -383,16 +391,9 @@ struct I<OPCODE, DEST, SRC1, SRC2, SRC3> : DestField<DEST> {
   }
 };
 
-template <typename T>
-static const T GetTempReg(A64Emitter& e);
-template <>
-[[maybe_unused]] const WReg GetTempReg<WReg>(A64Emitter& e) {
-  return W0;
-}
-template <>
-[[maybe_unused]] const XReg GetTempReg<XReg>(A64Emitter& e) {
-  return X0;
-}
+// ============================================================================
+// Sequence<> — base for all ARM64 instruction sequences
+// ============================================================================
 
 template <typename SEQ, typename T>
 struct Sequence {
@@ -400,225 +401,13 @@ struct Sequence {
 
   static constexpr uint32_t head_key() { return T::key; }
 
-  static bool Select(A64Emitter& e, const Instr* i) {
+  static bool Select(A64Emitter& e, const Instr* i, InstrKeyValue ikey) {
     T args;
-    if (!args.Load(i)) {
+    if (!args.Load(i, ikey)) {
       return false;
     }
     SEQ::Emit(e, args);
     return true;
-  }
-
-  template <typename REG_FN>
-  static void EmitUnaryOp(A64Emitter& e, const EmitArgType& i,
-                          const REG_FN& reg_fn) {
-    if (i.src1.is_constant) {
-      e.MOV(i.dest, i.src1.constant());
-      reg_fn(e, i.dest);
-    } else {
-      if (i.dest != i.src1) {
-        e.MOV(i.dest, i.src1);
-      }
-      reg_fn(e, i.dest);
-    }
-  }
-
-  template <typename REG_REG_FN, typename REG_CONST_FN>
-  static void EmitCommutativeBinaryOp(A64Emitter& e, const EmitArgType& i,
-                                      const REG_REG_FN& reg_reg_fn,
-                                      const REG_CONST_FN& reg_const_fn) {
-    if (i.src1.is_constant) {
-      if (i.src2.is_constant) {
-        // Both constants.
-        if (i.src1.ConstantFitsIn32Reg()) {
-          e.MOV(i.dest, i.src2.constant());
-          reg_const_fn(e, i.dest, static_cast<int32_t>(i.src1.constant()));
-        } else if (i.src2.ConstantFitsIn32Reg()) {
-          e.MOV(i.dest, i.src1.constant());
-          reg_const_fn(e, i.dest, static_cast<int32_t>(i.src2.constant()));
-        } else {
-          e.MOV(i.dest, i.src1.constant());
-          auto temp = GetTempReg<typename decltype(i.src2)::reg_type>(e);
-          e.MOV(temp, i.src2.constant());
-          reg_reg_fn(e, i.dest, temp);
-        }
-      } else {
-        // src1 constant.
-        if (i.dest == i.src2) {
-          if (i.src1.ConstantFitsIn32Reg()) {
-            reg_const_fn(e, i.dest, static_cast<int32_t>(i.src1.constant()));
-          } else {
-            auto temp = GetTempReg<typename decltype(i.src1)::reg_type>(e);
-            e.MOV(temp, i.src1.constant());
-            reg_reg_fn(e, i.dest, temp);
-          }
-        } else {
-          e.MOV(i.dest, i.src1.constant());
-          reg_reg_fn(e, i.dest, i.src2);
-        }
-      }
-    } else if (i.src2.is_constant) {
-      if (i.dest == i.src1) {
-        if (i.src2.ConstantFitsIn32Reg()) {
-          reg_const_fn(e, i.dest, static_cast<int32_t>(i.src2.constant()));
-        } else {
-          auto temp = GetTempReg<typename decltype(i.src2)::reg_type>(e);
-          e.MOV(temp, i.src2.constant());
-          reg_reg_fn(e, i.dest, temp);
-        }
-      } else {
-        e.MOV(i.dest, i.src2.constant());
-        reg_reg_fn(e, i.dest, i.src1);
-      }
-    } else {
-      if (i.dest == i.src1) {
-        reg_reg_fn(e, i.dest, i.src2);
-      } else if (i.dest == i.src2) {
-        reg_reg_fn(e, i.dest, i.src1);
-      } else {
-        e.MOV(i.dest, i.src1);
-        reg_reg_fn(e, i.dest, i.src2);
-      }
-    }
-  }
-  template <typename REG_REG_FN, typename REG_CONST_FN>
-  static void EmitAssociativeBinaryOp(A64Emitter& e, const EmitArgType& i,
-                                      const REG_REG_FN& reg_reg_fn,
-                                      const REG_CONST_FN& reg_const_fn) {
-    if (i.src1.is_constant) {
-      assert_true(!i.src2.is_constant);
-      if (i.dest == i.src2) {
-        auto temp = GetTempReg<typename decltype(i.src2)::reg_type>(e);
-        e.MOV(temp, i.src2);
-        e.MOV(i.dest, i.src1.constant());
-        reg_reg_fn(e, i.dest, temp);
-      } else {
-        e.MOV(i.dest, i.src1.constant());
-        reg_reg_fn(e, i.dest, i.src2);
-      }
-    } else if (i.src2.is_constant) {
-      if (i.dest == i.src1) {
-        if (i.src2.ConstantFitsIn32Reg()) {
-          reg_const_fn(e, i.dest, static_cast<int32_t>(i.src2.constant()));
-        } else {
-          auto temp = GetTempReg<typename decltype(i.src2)::reg_type>(e);
-          e.MOV(temp, i.src2.constant());
-          reg_reg_fn(e, i.dest, temp);
-        }
-      } else {
-        e.MOV(i.dest, i.src1);
-        if (i.src2.ConstantFitsIn32Reg()) {
-          reg_const_fn(e, i.dest, static_cast<int32_t>(i.src2.constant()));
-        } else {
-          auto temp = GetTempReg<typename decltype(i.src2)::reg_type>(e);
-          e.MOV(temp, i.src2.constant());
-          reg_reg_fn(e, i.dest, temp);
-        }
-      }
-    } else {
-      if (i.dest == i.src1) {
-        reg_reg_fn(e, i.dest, i.src2);
-      } else if (i.dest == i.src2) {
-        auto temp = GetTempReg<typename decltype(i.src2)::reg_type>(e);
-        e.MOV(temp, i.src2);
-        e.MOV(i.dest, i.src1);
-        reg_reg_fn(e, i.dest, temp);
-      } else {
-        e.MOV(i.dest, i.src1);
-        reg_reg_fn(e, i.dest, i.src2);
-      }
-    }
-  }
-
-  template <typename REG = QReg, typename FN>
-  static void EmitCommutativeBinaryVOp(A64Emitter& e, const EmitArgType& i,
-                                       const FN& fn) {
-    if (i.src1.is_constant && i.src2.is_constant) {
-      e.LoadConstantV(Q0, i.src1.constant());
-      e.LoadConstantV(Q1, i.src2.constant());
-      fn(e, i.dest, REG(0), REG(1));
-    } else if (i.src1.is_constant) {
-      e.LoadConstantV(Q0, i.src1.constant());
-      fn(e, i.dest, REG(0), i.src2);
-    } else if (i.src2.is_constant) {
-      e.LoadConstantV(Q0, i.src2.constant());
-      fn(e, i.dest, i.src1, REG(0));
-    } else {
-      fn(e, i.dest, i.src1, i.src2);
-    }
-  }
-
-  template <typename REG = QReg, typename FN>
-  static void EmitAssociativeBinaryVOp(A64Emitter& e, const EmitArgType& i,
-                                       const FN& fn) {
-    if (i.src1.is_constant && i.src2.is_constant) {
-      e.LoadConstantV(Q0, i.src1.constant());
-      e.LoadConstantV(Q1, i.src2.constant());
-      fn(e, i.dest, REG(0), REG(1));
-    } else if (i.src1.is_constant) {
-      e.LoadConstantV(Q0, i.src1.constant());
-      fn(e, i.dest, REG(0), i.src2);
-    } else if (i.src2.is_constant) {
-      e.LoadConstantV(Q0, i.src2.constant());
-      fn(e, i.dest, i.src1, REG(0));
-    } else {
-      fn(e, i.dest, i.src1, i.src2);
-    }
-  }
-
-  template <typename REG_REG_FN, typename REG_CONST_FN>
-  static void EmitCommutativeCompareOp(A64Emitter& e, const EmitArgType& i,
-                                       const REG_REG_FN& reg_reg_fn,
-                                       const REG_CONST_FN& reg_const_fn) {
-    if (i.src1.is_constant) {
-      assert_true(!i.src2.is_constant);
-      if (i.src1.ConstantFitsIn32Reg()) {
-        reg_const_fn(e, i.src2, static_cast<int32_t>(i.src1.constant()));
-      } else {
-        auto temp = GetTempReg<typename decltype(i.src1)::reg_type>(e);
-        e.MOV(temp, i.src1.constant());
-        reg_reg_fn(e, i.src2, temp);
-      }
-    } else if (i.src2.is_constant) {
-      assert_true(!i.src1.is_constant);
-      if (i.src2.ConstantFitsIn32Reg()) {
-        reg_const_fn(e, i.src1, static_cast<int32_t>(i.src2.constant()));
-      } else {
-        auto temp = GetTempReg<typename decltype(i.src2)::reg_type>(e);
-        e.MOV(temp, i.src2.constant());
-        reg_reg_fn(e, i.src1, temp);
-      }
-    } else {
-      reg_reg_fn(e, i.src1, i.src2);
-    }
-  }
-  template <typename REG_REG_FN, typename REG_CONST_FN>
-  static void EmitAssociativeCompareOp(A64Emitter& e, const EmitArgType& i,
-                                       const REG_REG_FN& reg_reg_fn,
-                                       const REG_CONST_FN& reg_const_fn) {
-    if (i.src1.is_constant) {
-      assert_true(!i.src2.is_constant);
-      if (i.src1.ConstantFitsIn32Reg()) {
-        reg_const_fn(e, i.dest, i.src2, static_cast<int32_t>(i.src1.constant()),
-                     true);
-      } else {
-        auto temp = GetTempReg<typename decltype(i.src1)::reg_type>(e);
-        e.MOV(temp, i.src1.constant());
-        reg_reg_fn(e, i.dest, i.src2, temp, true);
-      }
-    } else if (i.src2.is_constant) {
-      assert_true(!i.src1.is_constant);
-      if (i.src2.ConstantFitsIn32Reg()) {
-        reg_const_fn(e, i.dest, i.src1, static_cast<int32_t>(i.src2.constant()),
-                     false);
-      } else {
-        auto temp = GetTempReg<typename decltype(i.src2)::reg_type>(e);
-        e.MOV(temp, i.src2.constant());
-        reg_reg_fn(e, i.dest, i.src1, temp, false);
-      }
-    } else {
-      reg_reg_fn(e, i.dest, i.src1, i.src2, false);
-    }
   }
 };
 

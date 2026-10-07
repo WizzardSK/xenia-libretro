@@ -62,19 +62,27 @@ uint8_t* XStaticUntypedEnumerator::AppendItem() {
 uint32_t XStaticUntypedEnumerator::WriteItems(uint8_t* buffer_data,
                                               uint32_t buffer_size,
                                               uint32_t* written_count) {
-  size_t count = std::min(item_count_ - current_item_, items_per_enumerate());
-  if (!count) {
+  const size_t actual_count =
+      std::min(item_count_ - current_item_, items_per_enumerate());
+  if (!actual_count) {
     return X_ERROR_NO_MORE_FILES;
   }
 
-  size_t size = count * item_size();
-  size_t offset = current_item_ * item_size();
+  assert_false(buffer_size < item_size());
+
+  const size_t available_count = buffer_size / item_size();
+  const size_t size = actual_count * item_size();
+  const size_t offset = current_item_ * item_size();
+
+  // Some enumerators expect buffer_size to be respected for now assert.
+  assert_false(actual_count > available_count);
+
   std::memcpy(buffer_data, buffer_.data() + offset, size);
 
-  current_item_ += count;
+  current_item_ += actual_count;
 
   if (written_count) {
-    *written_count = static_cast<uint32_t>(count);
+    *written_count = static_cast<uint32_t>(actual_count);
   }
 
   return X_ERROR_SUCCESS;
@@ -83,19 +91,24 @@ uint32_t XStaticUntypedEnumerator::WriteItems(uint8_t* buffer_data,
 uint32_t XAchievementEnumerator::WriteItems(uint8_t* buffer_data,
                                             uint32_t buffer_size,
                                             uint32_t* written_count) {
-  if (items_.size() - current_item_ <= 0) {
+  const size_t actual_count =
+      std::min(items_.size() - current_item_, items_per_enumerate());
+  if (!actual_count) {
     return X_ERROR_NO_MORE_FILES;
   }
 
-  const size_t count =
-      std::min(items_.size() - current_item_, items_per_enumerate());
+  const size_t available_count = buffer_size / item_size();
+
+  // Unknown if buffer_size should be respected.
+  assert_false(actual_count > available_count);
+
   auto details = reinterpret_cast<xam::X_ACHIEVEMENT_DETAILS*>(buffer_data);
   size_t string_offset =
       items_per_enumerate() * sizeof(xam::X_ACHIEVEMENT_DETAILS);
-  auto string_buffer =
-      StringBuffer{&buffer_data[string_offset],
-                   count * xam::X_ACHIEVEMENT_DETAILS::kStringBufferSize};
-  for (size_t i = 0; i < count; ++i, ++current_item_) {
+  auto string_buffer = StringBuffer{
+      &buffer_data[string_offset],
+      actual_count * xam::X_ACHIEVEMENT_DETAILS::kStringBufferSize};
+  for (size_t i = 0; i < actual_count; ++i, ++current_item_) {
     const auto& item = items_[current_item_];
     details[i].id = item.id;
     details[i].label_ptr =
@@ -112,7 +125,7 @@ uint32_t XAchievementEnumerator::WriteItems(uint8_t* buffer_data,
   }
 
   if (written_count) {
-    *written_count = static_cast<uint32_t>(count);
+    *written_count = static_cast<uint32_t>(actual_count);
   }
 
   return X_ERROR_SUCCESS;
@@ -121,15 +134,20 @@ uint32_t XAchievementEnumerator::WriteItems(uint8_t* buffer_data,
 uint32_t XTitleEnumerator::WriteItems(uint8_t* buffer_data,
                                       uint32_t buffer_size,
                                       uint32_t* written_count) {
-  size_t count = std::min(items_.size() - current_item_, items_per_enumerate());
-  if (!count) {
+  const size_t actual_count =
+      std::min(items_.size() - current_item_, items_per_enumerate());
+  if (!actual_count) {
     return X_ERROR_NO_MORE_FILES;
   }
 
-  size_t size = count * item_size();
+  const size_t available_count = buffer_size / item_size();
+
+  // Unknown if buffer_size should be respected.
+  assert_false(actual_count > available_count);
+
   auto details = reinterpret_cast<XTITLE_PLAYED*>(buffer_data);
 
-  for (size_t i = 0; i < count; ++i, ++current_item_) {
+  for (size_t i = 0; i < actual_count; ++i, ++current_item_) {
     const auto& item = items_[current_item_];
     details[i].base.title_id = item.id;
     details[i].base.achievements_count = item.achievements_count;
@@ -152,12 +170,13 @@ uint32_t XTitleEnumerator::WriteItems(uint8_t* buffer_data,
 
     // On console if title is played offline this field is set to 0.
     details[i].base.last_played = X_FILETIME((uint64_t)0);
-    string_util::copy_and_swap_truncating((char16_t*)&details[i].title_name,
-                                          item.title_name, 128);
+    string_util::copy_and_swap_truncating(
+        reinterpret_cast<char16_t*>(details[i].title_name), item.title_name,
+        xe::countof(details[i].title_name));
   }
 
   if (written_count) {
-    *written_count = static_cast<uint32_t>(count);
+    *written_count = static_cast<uint32_t>(actual_count);
   }
 
   return X_ERROR_SUCCESS;
@@ -182,18 +201,72 @@ uint32_t XMPCreateUserPlaylistEnumerator::WriteItems(uint8_t* buffer_data,
   // Fixed 545408C0 freezing at main menu.
   std::memset(buffer_data, 0, buffer_size);
 
-  size_t count = std::min(items_.size() - current_item_, items_per_enumerate());
-  if (!count) {
+  const size_t actual_count =
+      std::min(items_.size() - current_item_, items_per_enumerate());
+  if (!actual_count) {
     return X_ERROR_NO_MORE_FILES;
   }
+
+  const size_t available_count = buffer_size / item_size();
+  const size_t valid_count = std::min(actual_count, available_count);
 
   xam::XMP_USER_PLAYLIST_INFO* results =
       reinterpret_cast<xam::XMP_USER_PLAYLIST_INFO*>(buffer_data);
 
-  std::copy_n(items_.begin() + current_item_, count, results);
+  std::copy_n(items_.begin() + current_item_, valid_count, results);
+
+  current_item_ += valid_count;
 
   if (written_count) {
-    *written_count = static_cast<uint32_t>(count);
+    *written_count = static_cast<uint32_t>(valid_count);
+  }
+
+  return X_ERROR_SUCCESS;
+}
+
+uint32_t ProfileEnumerator::WriteItems(uint8_t* buffer_data,
+                                       uint32_t buffer_size,
+                                       uint32_t* written_count) {
+  const size_t actual_count =
+      std::min(items_.size() - current_item_, items_per_enumerate());
+  if (!actual_count) {
+    return X_ERROR_NO_MORE_FILES;
+  }
+
+  // FFFE07D1 provides buffer_size of 0.
+  xam::X_PROFILEENUMRESULT* profiles =
+      reinterpret_cast<xam::X_PROFILEENUMRESULT*>(buffer_data);
+
+  std::copy_n(items_.begin() + current_item_, actual_count, profiles);
+
+  current_item_ += actual_count;
+
+  if (written_count) {
+    *written_count = static_cast<uint32_t>(actual_count);
+  }
+
+  return X_ERROR_SUCCESS;
+}
+
+uint32_t ContentEnumerator::WriteItems(uint8_t* buffer_data,
+                                       uint32_t buffer_size,
+                                       uint32_t* written_count) {
+  const size_t actual_count =
+      std::min(items_.size() - current_item_, items_per_enumerate());
+  if (!actual_count) {
+    return X_ERROR_NO_MORE_FILES;
+  }
+
+  // 4E4D07F0 does not respect buffer_size, possibly bug?
+  xam::XCONTENT_DATA* contents =
+      reinterpret_cast<xam::XCONTENT_DATA*>(buffer_data);
+
+  std::copy_n(items_.begin() + current_item_, actual_count, contents);
+
+  current_item_ += actual_count;
+
+  if (written_count) {
+    *written_count = static_cast<uint32_t>(actual_count);
   }
 
   return X_ERROR_SUCCESS;

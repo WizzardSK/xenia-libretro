@@ -25,8 +25,19 @@ namespace vulkan {
 
 class VulkanGPUCompletionTimeline : public GPUCompletionTimeline {
  public:
-  explicit VulkanGPUCompletionTimeline(VulkanDevice* const vulkan_device)
-      : vulkan_device_(vulkan_device) {}
+  explicit VulkanGPUCompletionTimeline(VulkanDevice* const vulkan_device,
+                                       const char* const name = "")
+      : vulkan_device_(vulkan_device), name_(name) {}
+
+  const char* name() const { return name_; }
+  size_t pending_submission_count() const {
+    return pending_submission_fences_.size();
+  }
+  uint64_t front_pending_submission() const {
+    return pending_submission_fences_.empty()
+               ? 0
+               : pending_submission_fences_.front().first;
+  }
 
   VulkanGPUCompletionTimeline(const VulkanGPUCompletionTimeline&) = delete;
   VulkanGPUCompletionTimeline& operator=(const VulkanGPUCompletionTimeline&) =
@@ -57,19 +68,6 @@ class VulkanGPUCompletionTimeline : public GPUCompletionTimeline {
       other.completion_timeline_ = nullptr;
       other.fence_ = VK_NULL_HANDLE;
       other.submission_successful_.reset();
-    }
-
-    FenceAcquisition& operator==(FenceAcquisition&& other) {
-      if (this == &other) {
-        return *this;
-      }
-      completion_timeline_ = other.completion_timeline_;
-      other.completion_timeline_ = nullptr;
-      fence_ = other.fence_;
-      other.fence_ = VK_NULL_HANDLE;
-      submission_successful_ = other.submission_successful_;
-      other.submission_successful_.reset();
-      return *this;
     }
 
     ~FenceAcquisition() {
@@ -137,6 +135,7 @@ class VulkanGPUCompletionTimeline : public GPUCompletionTimeline {
 
  private:
   VulkanDevice* const vulkan_device_;
+  const char* const name_;
 
   std::vector<VkFence> free_fences_;
 

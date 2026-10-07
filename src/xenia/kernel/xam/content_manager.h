@@ -196,9 +196,12 @@ static_assert_size(XCONTENT_DATA_INTERNAL, 0x200);
 
 class ContentPackage {
  public:
+  // root_path is a directory inside the package to mount at, empty for the
+  // package root.
   ContentPackage(KernelState* kernel_state, const std::string_view root_name,
                  const XCONTENT_AGGREGATE_DATA& data,
-                 const std::filesystem::path& package_path);
+                 const std::filesystem::path& package_path,
+                 const std::string_view root_path = "");
   ~ContentPackage();
 
   void LoadPackageLicenseMask(const std::filesystem::path header_path);
@@ -209,12 +212,18 @@ class ContentPackage {
 
   const uint32_t GetPackageLicense() const { return license_; }
 
+  bool is_mounted() const { return mounted_; }
+
+  // Ends in a separator, so it prefixes only this package's entries.
+  const std::string& device_path() const { return device_path_; }
+
  private:
   KernelState* kernel_state_;
   std::string root_name_;
   std::string device_path_;
   XCONTENT_AGGREGATE_DATA content_data_;
   uint32_t license_;
+  bool mounted_ = false;
 };
 
 class ContentManager {
@@ -259,7 +268,7 @@ class ContentManager {
                          const XCONTENT_AGGREGATE_DATA& data);
   std::filesystem::path ResolveGameUserContentPath(const uint64_t xuid);
   bool IsContentOpen(const XCONTENT_AGGREGATE_DATA& data) const;
-  void CloseOpenedFilesFromContent(const std::string_view root_name);
+  void CloseOpenedFilesFromContent(const ContentPackage& package);
 
   uint64_t GetContentTotalSpace() const;
   uint64_t GetContentFreeSpace() const;
@@ -269,8 +278,7 @@ class ContentManager {
       const uint64_t xuid, const uint32_t title_id,
       const XContentType content_type) const;
   std::filesystem::path ResolvePackagePath(const uint64_t xuid,
-                                           const XCONTENT_AGGREGATE_DATA& data,
-                                           const uint32_t disc_number = -1);
+                                           const XCONTENT_AGGREGATE_DATA& data);
   std::filesystem::path ResolvePackageHeaderPath(
       const std::string_view file_name, uint64_t xuid, uint32_t title_id,
       const XContentType content_type) const;

@@ -29,6 +29,8 @@ class SimplificationPass : public ConditionalGroupSubpass {
   bool CheckTruncate(hir::Instr* i);
   bool CheckByteSwap(hir::Instr* i);
 
+  bool PropagateGuestFPRDenormalProof(hir::HIRBuilder* builder);
+
   bool SimplifyAssignments(hir::HIRBuilder* builder);
   hir::Value* CheckValue(hir::Value* value, bool& result);
   bool SimplifyBitArith(hir::HIRBuilder* builder);
@@ -42,6 +44,7 @@ class SimplificationPass : public ConditionalGroupSubpass {
   bool SimplifyAddWithSHL(hir::Instr* i, hir::HIRBuilder* builder);
   bool SimplifyAddToSelf(hir::Instr* i, hir::HIRBuilder* builder);
   bool SimplifyAddArith(hir::Instr* i, hir::HIRBuilder* builder);
+  bool SimplifyAndNot(hir::Instr* i, hir::HIRBuilder* builder);
   bool SimplifySubArith(hir::Instr* i, hir::HIRBuilder* builder);
   bool SimplifySHLArith(hir::Instr* i, hir::HIRBuilder* builder);
   // handle either or or xor with 0

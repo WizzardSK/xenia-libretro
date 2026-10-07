@@ -11,7 +11,7 @@
 #define XENIA_APU_AUDIO_SYSTEM_H_
 
 #include <atomic>
-#include <queue>
+#include <mutex>
 
 #include "xenia/base/mutex.h"
 #include "xenia/base/threading.h"
@@ -32,7 +32,10 @@ class AudioSystem {
  public:
   // TODO(gibbed): respect XAUDIO2_MAX_QUEUED_BUFFERS somehow (ie min(64,
   // XAUDIO2_MAX_QUEUED_BUFFERS))
+  static constexpr size_t kMinimumQueuedFrames = 4;
   static constexpr size_t kMaximumQueuedFrames = 64;
+  static constexpr uint32_t kAudioPumpInterval = 5333u;
+  static constexpr uint32_t kAudioIntervalSlack = 400u;
 
   virtual ~AudioSystem();
 
@@ -44,6 +47,9 @@ class AudioSystem {
 
   virtual X_STATUS Setup(kernel::KernelState* kernel_state);
   virtual void Shutdown();
+  // Stops the worker that runs the guest audio callbacks. Idempotent, and
+  // Shutdown does it too.
+  void StopWorker();
 
   X_STATUS RegisterClient(uint32_t callback, uint32_t callback_arg,
                           size_t* out_index);
@@ -90,26 +96,32 @@ class AudioSystem {
   std::atomic<bool> worker_running_ = {false};
   kernel::object_ref<kernel::XHostThread> worker_thread_;
 
-  xe::global_critical_region global_critical_region_;
+  // Guards clients_. The global lock is never taken while holding it, so its
+  // holders can't delay the pump.
+  std::mutex clients_mutex_;
   static constexpr size_t kMaximumClientCount = 8;
-  struct {
-    AudioDriver* driver;
-    uint32_t callback;
-    uint32_t callback_arg;
-    uint32_t wrapped_callback_arg;
-    bool in_use;
+  struct ClientSlot {
+    AudioDriver* driver = nullptr;
+    uint32_t callback = 0;
+    uint32_t callback_arg = 0;
+    uint32_t wrapped_callback_arg = 0;
+    bool in_use = false;
+    // Wall-clock deadline for this client's next pump.
+    uint64_t next_pump_us = 0;
     std::atomic<uint32_t> frames_submitted{0};
     std::atomic<uint32_t> frames_processed{0};
     std::atomic<uint32_t> frames_dropped{0};
-  } clients_[kMaximumClientCount];
+    // Held by worker during Execute; UnregisterClient waits on it.
+    std::mutex callback_mutex;
+  };
+  ClientSlot clients_[kMaximumClientCount];
 
   int FindFreeClient();
 
   std::unique_ptr<xe::threading::Semaphore>
       client_semaphores_[kMaximumClientCount];
-  // Event is always there in case we have no clients.
-  std::unique_ptr<xe::threading::Event> shutdown_event_;
-  xe::threading::WaitHandle* wait_handles_[kMaximumClientCount + 1];
+  // Wakes the worker to re-scan clients on register, shutdown, and pause.
+  std::unique_ptr<xe::threading::Event> pending_work_event_;
 
   bool paused_ = false;
   threading::Fence pause_fence_;

@@ -99,6 +99,37 @@ enum class Arm64LoadStoreOffsetFixed : uint32_t {
 constexpr uint32_t kArm64LoadStoreUnsignedOffsetFMask = UINT32_C(0x3B000000);
 constexpr uint32_t kArm64LoadStoreUnsignedOffsetFixed = UINT32_C(0x39000000);
 
+// Load/store exclusive class: LDXR/STXR, LDAXR/STLXR, LDAR/STLR, LDXP/STXP,
+// and the LSE CAS/CASP family. Bit 22 selects load (1) / store (0) for the
+// LDXR/STXR/LDAR/STLR/LDXP/STXP forms; CAS variants read-modify-write and are
+// treated as stores by the caller.
+constexpr uint32_t kArm64LoadStoreExclusiveFMask = UINT32_C(0x3F000000);
+constexpr uint32_t kArm64LoadStoreExclusiveFixed = UINT32_C(0x08000000);
+constexpr uint32_t kArm64LoadStoreExclusiveLoadBit = UINT32_C(1) << 22;
+// CAS/CASP subset within the exclusive class: bit 23 = 1 and bit 21 = 1.
+constexpr uint32_t kArm64CompareAndSwapFMask = UINT32_C(0x3FA00000);
+constexpr uint32_t kArm64CompareAndSwapFixed = UINT32_C(0x08A00000);
+
+// LSE atomic memory ops: LDADD/LDCLR/LDEOR/LDSET/LDSMAX/LDSMIN/LDUMAX/LDUMIN
+// and SWP, all sized and ordered variants. These atomically read and write
+// the target word.
+constexpr uint32_t kArm64AtomicMemoryFMask = UINT32_C(0x3F200C00);
+constexpr uint32_t kArm64AtomicMemoryFixed = UINT32_C(0x38200000);
+
+// Advanced SIMD load/store of multiple or single structures, in both
+// no-offset and post-indexed forms (LD1..LD4 / ST1..ST4). Bit 22 selects
+// load (1) / store (0). Apple Silicon libc memcpy/memset emit these.
+constexpr uint32_t kArm64NeonLoadStoreStructFMask = UINT32_C(0xBE000000);
+constexpr uint32_t kArm64NeonLoadStoreStructFixed = UINT32_C(0x0C000000);
+constexpr uint32_t kArm64NeonLoadStoreStructLoadBit = UINT32_C(1) << 22;
+
+// SYS instruction class (DC, IC, AT, TLBI). The user-mode-faultable variants
+// are the data-cache ops by VA (DC ZVA, DC CVAC, DC CVAU, DC CVAP, DC CIVAC)
+// — all of which write or writeback to the target line, so the caller treats
+// any SYS fault as a store. Apple Silicon libc memset/bzero emits DC ZVA.
+constexpr uint32_t kArm64SystemSysFMask = UINT32_C(0xFFF80000);
+constexpr uint32_t kArm64SystemSysFixed = UINT32_C(0xD5080000);
+
 bool IsArm64LoadPrefetchStore(uint32_t instruction, bool& is_store_out);
 
 class Exception {
@@ -215,6 +246,24 @@ class Exception {
   AccessViolationOperation access_violation_operation_ =
       AccessViolationOperation::kUnknown;
 };
+
+// Puts the calling thread's FPCR or MXCSR in the host ABI default: round to
+// nearest, no flush-to-zero, exceptions masked.
+void SetHostDefaultFpControl();
+
+// Resumes the faulting thread in |thunk|, which must not return, rather than at
+// the faulting instruction. Diverting the pc keeps the fault's rsp, so realign
+// to the rsp%16 == 8 a call leaves, or the thunk's aligned SSE spills fault.
+// The null slot ends a stack walk. AArch64 sp is always aligned.
+inline void DivertToThunk(Exception* ex, void (*thunk)()) {
+#if XE_ARCH_AMD64
+  uint64_t& rsp = ex->ModifyIntRegister(
+      uint32_t(X64Register::kRsp) - uint32_t(X64Register::kIntRegisterFirst));
+  rsp = (rsp & ~uint64_t(15)) - 8;
+  *reinterpret_cast<uint64_t*>(rsp) = 0;
+#endif  // XE_ARCH_AMD64
+  ex->set_resume_pc(reinterpret_cast<uint64_t>(thunk));
+}
 
 class ExceptionHandler {
  public:
