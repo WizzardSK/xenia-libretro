@@ -639,8 +639,13 @@ static void LaunchTitle(std::string path, std::string_view d_drive_path,
         kernel_state()->emulator()->on_launch_new_title();
     if (on_launch_new_title) {
       XELOGI("XamLoaderLaunchTitle: spawning new title process");
+      // The new process has no drive of its own to find the game in.
+      auto* emulator = kernel_state()->emulator();
       on_launch_new_title(xe::path_to_utf8(host_path), launch_path,
-                          loader_data.launch_flags, launch_data_hex);
+                          loader_data.launch_flags, launch_data_hex,
+                          emulator->KeepsXboxGame(host_path)
+                              ? xe::path_to_utf8(emulator->xbox_disc_path())
+                              : std::string());
     }
 
     XELOGI("XamLoaderLaunchTitle: terminating to launch new title");

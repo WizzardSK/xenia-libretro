@@ -951,7 +951,7 @@ dword_result_t XamContentLaunchImageFromFileInternal_entry(
   auto on_launch_new_title = kernel_state()->emulator()->on_launch_new_title();
   if (on_launch_new_title) {
     XELOGI("XamContentLaunchImageFromFileInternal: spawning new title process");
-    on_launch_new_title(xe::path_to_utf8(host_path), xex_name_, 0, "");
+    on_launch_new_title(xe::path_to_utf8(host_path), xex_name_, 0, "", "");
   }
 
   kernel_state()->TerminateTitle();
@@ -1012,7 +1012,8 @@ dword_result_t XamContentLaunchImageInternal_entry(lpvoid_t content_data_ptr,
   auto on_launch_new_title = kernel_state()->emulator()->on_launch_new_title();
   if (on_launch_new_title) {
     XELOGI("XamContentLaunchImageInternal: spawning new title process");
-    on_launch_new_title(xe::path_to_utf8(host_path), xex_path.value(), 0, "");
+    on_launch_new_title(xe::path_to_utf8(host_path), xex_path.value(), 0, "",
+                        "");
   }
 
   kernel_state()->TerminateTitle();

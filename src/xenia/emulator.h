@@ -112,6 +112,8 @@ class Emulator {
   const std::optional<vfs::XbeMetadata>& xbox_game() const {
     return xbox_game_;
   }
+  // Puts an original Xbox game in the drive for XeFu.
+  void InsertXboxGame(const std::filesystem::path& path);
   // Whether the original Xbox game stays in the drive for a launch of path, as
   // it does for the XeFu build xbox.xex picks.
   bool KeepsXboxGame(const std::filesystem::path& path) const;
@@ -454,9 +456,11 @@ class Emulator {
 
   // Called when XamLoaderLaunchTitle requests launching a new title.
   // The callback should spawn a new process with the given parameters.
-  // Parameters: host_path, launch_module, launch_flags, launch_data (hex)
-  using LaunchNewTitleCallback = std::function<void(
-      const std::string&, const std::string&, uint32_t, const std::string&)>;
+  // Parameters: host_path, launch_module, launch_flags, launch_data (hex),
+  // and the original Xbox game left in the drive for it
+  using LaunchNewTitleCallback =
+      std::function<void(const std::string&, const std::string&, uint32_t,
+                         const std::string&, const std::string&)>;
   LaunchNewTitleCallback on_launch_new_title() const {
     return on_launch_new_title_;
   }

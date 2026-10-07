@@ -114,6 +114,7 @@ DECLARE_bool(widescreen);
 
 DECLARE_uint32(launch_flags);
 DECLARE_string(launch_data);
+DECLARE_string(launch_xbox_disc);
 
 #if XE_PLATFORM_WIN32 && XE_ARCH_AMD64 == 1
 DEFINE_bool(enable_rdrand_ntdll_patch, false,
@@ -188,6 +189,14 @@ static void do_ntdll_rdrand_patch() {
 
 namespace xe {
 namespace app {
+
+// The file a launch's per-game config comes from: for a XeFu build, the
+// original Xbox game the launching process left in the drive.
+static std::filesystem::path GameConfigFile(
+    const std::filesystem::path& target) {
+  return cvars::launch_xbox_disc.empty() ? target
+                                         : xe::to_path(cvars::launch_xbox_disc);
+}
 
 class EmulatorApp final : public xe::ui::WindowedApp {
  public:
@@ -551,7 +560,7 @@ bool EmulatorApp::OnInitialize() {
 
   // Load game-specific config if a target is specified.
   if (!cvars::target.empty()) {
-    config::LoadGameConfigForFile(cvars::target);
+    config::LoadGameConfigForFile(GameConfigFile(cvars::target));
   }
 
 #if XE_ARCH_AMD64 == 1
@@ -764,6 +773,11 @@ void EmulatorApp::EmulatorThread() {
     }
   }
 
+  // The original Xbox game the launching process left in the drive.
+  if (!cvars::launch_xbox_disc.empty()) {
+    emulator_->InsertXboxGame(xe::to_path(cvars::launch_xbox_disc));
+  }
+
   if (!path.empty()) {
     // Normalize the path and make absolute.
     auto abs_path = std::filesystem::absolute(path);
@@ -776,7 +790,7 @@ void EmulatorApp::EmulatorThread() {
 
     // Apply per-game cvar overrides before bringing up subsystems so the
     // graphics/audio backends pick up the right values.
-    config::LoadGameConfigForFile(abs_path);
+    config::LoadGameConfigForFile(GameConfigFile(abs_path));
     if (XFAILED(result = emulator_->SetupSubsystems())) {
       xe::FatalError(fmt::format("Failed to setup subsystems: {:08X}", result));
       app_context().RequestDeferredQuit();

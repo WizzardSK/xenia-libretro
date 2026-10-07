@@ -93,6 +93,11 @@ DEFINE_CVar(launch_data, "",
             "Used internally for title-to-title launches.",
             "General", true, std::string);
 
+DEFINE_CVar(launch_xbox_disc, "",
+            "Original Xbox game left in the drive by a title restart request. "
+            "Used internally for title-to-title launches.",
+            "General", true, std::string);
+
 DEFINE_bool(dump_xex, false, "Dump the main XEX to current directory on launch",
             "General");
 
@@ -849,6 +854,11 @@ std::filesystem::path Emulator::xefu_path() const {
   return cvars::xefu_path.empty() ? storage_root_ / "xefu" : cvars::xefu_path;
 }
 
+void Emulator::InsertXboxGame(const std::filesystem::path& path) {
+  xbox_disc_path_ = path;
+  xbox_game_ = vfs::ExtractXbeMetadata(path);
+}
+
 bool Emulator::KeepsXboxGame(const std::filesystem::path& path) const {
   // XeFu launches from its own folder.
   std::error_code error;
@@ -892,8 +902,7 @@ X_STATUS Emulator::LaunchXboxOriginal(const std::filesystem::path& path,
               xbe_path.data(), xbe_path.size());
   loader_data.launch_data_present = true;
 
-  xbox_disc_path_ = path;
-  xbox_game_ = vfs::ExtractXbeMetadata(path);
+  InsertXboxGame(path);
   X_STATUS result = MountPath(launcher, "\\Device\\Package_0");
   return result ? result : LaunchXexFile(launcher);
 }

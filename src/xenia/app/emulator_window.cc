@@ -322,6 +322,19 @@ struct WxToolbarState {
 
 namespace {
 
+// Arguments that describe only the launch they were passed to, which a launch
+// spawned from it doesn't inherit.
+bool IsLaunchOnlyArg(std::string_view arg) {
+  for (const std::string_view name :
+       {"--target=", "--launch_module=", "--launch_flags=", "--launch_data=",
+        "--launch_xbox_disc=", "--slot_bindings_passthrough="}) {
+    if (xe::utf8::starts_with(arg, name)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 #if XE_PLATFORM_MAC
 // execv of a universal binary inherits the parent's arch; arch(1) is the
 // only way to switch (e.g. Rosetta-running game spawning the native arm64
@@ -805,11 +818,13 @@ void EmulatorWindow::OnEmulatorInitialized() {
   emulator_->set_on_launch_new_title([this](const std::string& host_path,
                                             const std::string& launch_module,
                                             uint32_t launch_flags,
-                                            const std::string& launch_data) {
+                                            const std::string& launch_data,
+                                            const std::string& xbox_disc) {
     XELOGI(
         "Launching new title: host_path={}, launch_module={}, flags={}, "
-        "data_len={}",
-        host_path, launch_module, launch_flags, launch_data.length());
+        "data_len={}, xbox_disc={}",
+        host_path, launch_module, launch_flags, launch_data.length(),
+        xbox_disc);
 
     std::filesystem::path executable_path = xe::filesystem::GetExecutablePath();
 
@@ -831,6 +846,9 @@ void EmulatorWindow::OnEmulatorInitialized() {
         std::u16string a(reinterpret_cast<const char16_t*>(parent_argv[i]));
         if (a.empty() || a[0] != u'-') {
           continue;  // positional game file — replaced below
+        }
+        if (IsLaunchOnlyArg(xe::to_utf8(a))) {
+          continue;
         }
         cmd_line += u" \"" + a + u"\"";
       }
@@ -856,6 +874,9 @@ void EmulatorWindow::OnEmulatorInitialized() {
     }
     if (!launch_data.empty()) {
       cmd_line += u" --launch_data=" + xe::to_utf16(launch_data);
+    }
+    if (!xbox_disc.empty()) {
+      cmd_line += u" --launch_xbox_disc=\"" + xe::to_utf16(xbox_disc) + u"\"";
     }
     if (!slot_bindings_arg.empty()) {
       cmd_line += u" --slot_bindings_passthrough=\"" +
@@ -926,6 +947,9 @@ void EmulatorWindow::OnEmulatorInitialized() {
         if (a.empty() || a[0] != '-') {
           continue;  // positional game file — replaced below
         }
+        if (IsLaunchOnlyArg(a)) {
+          continue;
+        }
         arg_storage.emplace_back(a);
       }
 
@@ -947,6 +971,9 @@ void EmulatorWindow::OnEmulatorInitialized() {
       }
       if (!launch_data.empty()) {
         arg_storage.push_back("--launch_data=" + launch_data);
+      }
+      if (!xbox_disc.empty()) {
+        arg_storage.push_back("--launch_xbox_disc=" + xbox_disc);
       }
       if (!slot_bindings_arg.empty()) {
         arg_storage.push_back("--slot_bindings_passthrough=" +
@@ -2033,7 +2060,7 @@ bool EmulatorWindow::StopTitleAndReturnToList() {
   if (!in_process) {
     if (auto cb = emulator_->on_launch_new_title()) {
       cb(/*host_path=*/{}, /*launch_module=*/{}, /*launch_flags=*/0,
-         /*launch_data=*/{});
+         /*launch_data=*/{}, /*xbox_disc=*/{});
     }
     return false;
   }
@@ -3372,6 +3399,9 @@ void EmulatorWindow::LaunchTitleInNewProcess(
       if (a.empty() || a[0] != u'-') {
         continue;  // positional game file — replaced below
       }
+      if (IsLaunchOnlyArg(xe::to_utf8(a))) {
+        continue;
+      }
       cmd_line += u" \"" + a + u"\"";
     }
     LocalFree(parent_argv);
@@ -3463,6 +3493,9 @@ void EmulatorWindow::LaunchTitleInNewProcess(
       std::string_view a = xe::ui::g_argv[i];
       if (a.empty() || a[0] != '-') {
         continue;  // positional game file — replaced below
+      }
+      if (IsLaunchOnlyArg(a)) {
+        continue;
       }
       forwarded_args.emplace_back(a);
     }
@@ -3581,7 +3614,7 @@ xe::X_STATUS EmulatorWindow::RunTitle(
     auto cb = emulator_->on_launch_new_title();
     if (cb) {
       cb(host_path, /*launch_module=*/{}, /*launch_flags=*/0,
-         /*launch_data=*/{});
+         /*launch_data=*/{}, /*xbox_disc=*/{});
     }
     return X_STATUS_UNSUCCESSFUL;
   }
