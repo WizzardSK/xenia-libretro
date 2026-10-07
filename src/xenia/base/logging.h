@@ -80,6 +80,9 @@ void FlushLog();
 // Flushes all log sinks immediately.
 // Useful before quick_exit() to ensure logs are written.
 void FlushLog();
+// Whether the calling thread is the one writing the log out, which would wait
+// on itself to log.
+bool IsLogWriterThread();
 
 namespace logging {
 

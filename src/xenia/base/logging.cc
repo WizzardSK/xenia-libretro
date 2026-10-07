@@ -257,6 +257,11 @@ class Logger {
     }
   }
 
+  bool IsWriteThread() const {
+    return xe::threading::current_thread_system_id() ==
+           write_thread_id_.load(std::memory_order_relaxed);
+  }
+
  private:
   static constexpr size_t kBufferSize = 8_MiB;
   uint8_t buffer_[kBufferSize] = {};
@@ -283,6 +288,7 @@ class Logger {
   std::vector<std::unique_ptr<LogSink>> sinks_;
 
   std::unique_ptr<xe::threading::Thread> write_thread_;
+  std::atomic<uint32_t> write_thread_id_{0};
 
   void Write(const char* buf, size_t size) {
     for (const auto& sink : sinks_) {
@@ -291,6 +297,8 @@ class Logger {
   }
 
   void WriteThread() {
+    write_thread_id_.store(xe::threading::current_thread_system_id(),
+                           std::memory_order_relaxed);
     RingBuffer rb(buffer_, kBufferSize);
 
     size_t idle_loops = 0;
@@ -483,6 +491,8 @@ void FlushLog() {
   // Force flush all sinks
   logger_->FlushAllSinks();
 }
+
+bool IsLogWriterThread() { return logger_ && logger_->IsWriteThread(); }
 
 bool logging::ShouldLog(LogLevel log_level, uint32_t log_mask) {
   return static_cast<int32_t>(log_level) <= cvars::log_level &&
