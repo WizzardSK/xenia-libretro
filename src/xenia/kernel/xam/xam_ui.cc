@@ -85,7 +85,7 @@ X_RESULT xeXamDispatchDialog(T* dialog,
       // default choice
       result = close_callback(dialog);
       kernel_state()->xam_state()->is_xam_dialog_present_.store(false);
-      delete dialog;
+      delete static_cast<xe::ui::ImGuiDialog*>(dialog);
       return result;
     }
     xe::ui::WindowedAppContext& app_context = display_window->app_context();
@@ -138,7 +138,7 @@ X_RESULT xeXamDispatchDialogEx(
       // default choice
       result = close_callback(dialog, extended_error, length);
       kernel_state()->xam_state()->is_xam_dialog_present_.store(false);
-      delete dialog;
+      delete static_cast<xe::ui::ImGuiDialog*>(dialog);
       return result;
     }
     if (display_window->app_context().CallInUIThreadSynchronous(
@@ -202,7 +202,9 @@ X_RESULT xeXamDispatchDialogAsync(T* dialog,
     // No window (the libretro core): dismissed at once
     close_callback(dialog);
     kernel_state()->xam_state()->is_xam_dialog_present_.store(false);
-    delete dialog;
+    // Some dialogs keep their destructor private; the drawer deletes them as
+    // ImGuiDialogs, and so does this
+    delete static_cast<xe::ui::ImGuiDialog*>(dialog);
     kernel_state()->BroadcastNotification(kXNotificationSystemUI, false);
     return X_ERROR_SUCCESS;
   }
