@@ -166,7 +166,7 @@ jobs:
 
       - name: Host shader compiler
         run: |
-          cmake -S . -B build-host -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build-host -G Ninja -DCMAKE_BUILD_TYPE=Release -DXENIA_ENABLE_LTO=OFF
           ninja -C build-host xenia-shader-cc
           echo "HOST_SHADER_CC=$(find $PWD/build-host -name xenia-shader-cc -type f | head -1)" >> $GITHUB_ENV
 

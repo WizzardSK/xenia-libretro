@@ -98,7 +98,6 @@ tools/gpu-trace-diff.py
 tools/ppc-instructions.xml
 tools/ppc-table-gen.py
 tools/shader-playground
-tools/vswhere
 tools/vulkan-copy-bench
 tools/xenosci
 xb
