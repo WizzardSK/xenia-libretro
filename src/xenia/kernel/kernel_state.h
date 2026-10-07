@@ -22,6 +22,7 @@
 #include "xenia/base/bit_map.h"
 #include "xenia/cpu/backend/backend.h"
 #include "xenia/cpu/export_resolver.h"
+#include "xenia/kernel/guest_scheduler.h"
 #include "xenia/kernel/kernel.h"
 #include "xenia/kernel/smc.h"
 #include "xenia/kernel/util/kernel_fwd.h"
@@ -48,8 +49,6 @@ class Processor;
 
 namespace xe {
 namespace kernel {
-
-class GuestScheduler;
 
 constexpr fourcc_t kKernelSaveSignature = make_fourcc("KRNL");
 
@@ -192,6 +191,16 @@ class KernelState {
   xam::XamState* xam_state() const { return xam_state_.get(); }
 
   GuestScheduler* guest_scheduler() const { return guest_scheduler_.get(); }
+
+  // Wake boost for a completed file request, NT's IO_DISK_INCREMENT.
+  static constexpr uint32_t kIoDiskIncrement = 1;
+  // Runs |fn|, a blocking host call such as a file read or open, on an I/O
+  // worker while the calling fiber waits on an event its completion signals.
+  // Off a fiber or under the global lock it runs inline. With |alertable| a
+  // user APC ends one poll of the wait, which still lasts until |fn| is done.
+  void RunBlockingIo(const std::function<void()>& fn,
+                     GuestScheduler::BlockingCallClass call_class,
+                     bool alertable = false);
 
   SystemManagementController* smc() const { return smc_.get(); }
 
@@ -379,6 +388,8 @@ class KernelState {
 
  private:
   void LoadKernelModule(object_ref<KernelModule> kernel_module);
+  object_ref<XEvent> AcquireIoEvent();
+  void ReleaseIoEvent(object_ref<XEvent> event);
   void InitializeProcess(X_KPROCESS* process, uint32_t type,
                          char priority_class, char default_priority,
                          char max_dynamic_priority);
@@ -403,6 +414,10 @@ class KernelState {
   vfs::VirtualFileSystem* file_system_;
   std::unique_ptr<xam::XamState> xam_state_;
   std::unique_ptr<GuestScheduler> guest_scheduler_;
+  // Pooled completion events for RunBlockingIo so a request creates no kernel
+  // object.
+  std::mutex io_event_lock_;
+  std::vector<object_ref<XEvent>> idle_io_events_;
   std::unique_ptr<SystemManagementController> smc_;
   std::unique_ptr<XmpVolumePatch> xmp_volume_patch_;
   std::unique_ptr<XConfig> xconfig_;

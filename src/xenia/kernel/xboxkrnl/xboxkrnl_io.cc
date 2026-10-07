@@ -203,15 +203,21 @@ dword_result_t NtCreateFile_entry(lpdword_t handle_out, dword_t desired_access,
     root_entry = root_file->entry();
   }
 
-  // Attempt open (or create).
+  // Attempt open (or create). The host open can block on a slow drive.
   vfs::File* vfs_file;
   vfs::FileAction file_action;
-  X_STATUS result = kernel_state()->file_system()->OpenFile(
-      root_entry, target_path,
-      vfs::FileDisposition((uint32_t)creation_disposition), desired_access,
-      (create_options & CreateOptions::FILE_DIRECTORY_FILE) != 0,
-      (create_options & CreateOptions::FILE_NON_DIRECTORY_FILE) != 0, &vfs_file,
-      &file_action);
+  X_STATUS result;
+  kernel_state()->RunBlockingIo(
+      [&]() {
+        result = kernel_state()->file_system()->OpenFile(
+            root_entry, target_path,
+            vfs::FileDisposition((uint32_t)creation_disposition),
+            desired_access,
+            (create_options & CreateOptions::FILE_DIRECTORY_FILE) != 0,
+            (create_options & CreateOptions::FILE_NON_DIRECTORY_FILE) != 0,
+            &vfs_file, &file_action);
+      },
+      GuestScheduler::BlockingCallClass::kConcurrent);
   object_ref<XFile> file = nullptr;
 
   X_HANDLE handle = X_INVALID_HANDLE_VALUE;
@@ -315,7 +321,7 @@ dword_result_t NtReadFile_entry(dword_t file_handle, dword_t event_handle,
       }
       file->NotifyCompletion(status, bytes_read, apc_context_address);
       if (ev) {
-        ev->Set(XFile::kIoDiskIncrement, false);
+        ev->Set(KernelState::kIoDiskIncrement, false);
       }
       return status;
     };
@@ -398,7 +404,7 @@ dword_result_t NtReadFileScatter_entry(
       }
       file->NotifyCompletion(status, bytes_read, apc_context_address);
       if (ev) {
-        ev->Set(XFile::kIoDiskIncrement, false);
+        ev->Set(KernelState::kIoDiskIncrement, false);
       }
       return status;
     };
@@ -514,7 +520,7 @@ dword_result_t NtWriteFile_entry(dword_t file_handle, dword_t event_handle,
   }
 
   if (ev && signal_event) {
-    ev->Set(XFile::kIoDiskIncrement, false);
+    ev->Set(KernelState::kIoDiskIncrement, false);
   }
   // A kernel APC the write queued runs before the service returns.
   xeProcessKernelApcs(thread->thread_state()->context());
@@ -633,11 +639,19 @@ dword_result_t NtQueryFullAttributesFile_entry(
     return X_STATUS_OBJECT_NAME_INVALID;
   }
 
-  // Resolve the file using the virtual file system.
-  auto entry = kernel_state()->file_system()->ResolvePath(target_path);
+  // Resolve the file using the virtual file system. The host lookup can block
+  // on a slow drive.
+  vfs::Entry* entry = nullptr;
+  kernel_state()->RunBlockingIo(
+      [&]() {
+        entry = kernel_state()->file_system()->ResolvePath(target_path);
+        if (entry) {
+          entry->update();
+        }
+      },
+      GuestScheduler::BlockingCallClass::kConcurrent);
   if (entry) {
     // Found.
-    entry->update();
     file_info->creation_time = entry->create_timestamp();
     file_info->last_access_time = entry->access_timestamp();
     file_info->last_write_time = entry->write_timestamp();

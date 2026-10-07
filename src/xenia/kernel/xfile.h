@@ -17,7 +17,6 @@
 #include <vector>
 
 #include "xenia/kernel/guest_scheduler.h"
-#include "xenia/kernel/xevent.h"
 #include "xenia/kernel/xiocompletion.h"
 #include "xenia/vfs/device.h"
 #include "xenia/vfs/entry.h"
@@ -137,9 +136,6 @@ class XFile : public XObject {
  public:
   static const XObject::Type kObjectType = XObject::Type::File;
 
-  // Wake boost for a completed file request, NT's IO_DISK_INCREMENT.
-  static constexpr uint32_t kIoDiskIncrement = 1;
-
   // |alertable| is FILE_SYNCHRONOUS_IO_ALERT: a user APC can interrupt the
   // wait.
   XFile(KernelState* kernel_state, vfs::File* file, bool synchronous,
@@ -207,11 +203,9 @@ class XFile : public XObject {
   // Concurrency class this file's device allows for its offloaded calls.
   GuestScheduler::BlockingCallClass io_call_class() const;
 
-  // Runs |fn| as a synchronous request: on a fiber it goes to an I/O worker and
-  // the caller waits on an event the completion signals, else it runs inline.
+  // Runs |fn| as a synchronous request on this file's device. See
+  // KernelState::RunBlockingIo.
   void RunSynchronousIo(const std::function<void()>& fn);
-  object_ref<XEvent> AcquireIoEvent();
-  void ReleaseIoEvent(object_ref<XEvent> event);
 
   // Books this read on the medium and returns when it would be delivered, or
   // 0 for a read this does not model.
@@ -253,10 +247,6 @@ class XFile : public XObject {
 
   xe::filesystem::WildcardEngine find_engine_;
   size_t find_index_ = 0;
-
-  // Pooled completion events, so a request creates no kernel object.
-  std::mutex io_event_lock_;
-  std::vector<object_ref<XEvent>> idle_io_events_;
 
   bool is_synchronous_ = false;
   bool is_alertable_ = false;

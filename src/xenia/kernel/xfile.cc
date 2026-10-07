@@ -14,7 +14,6 @@
 
 #include "xenia/base/byte_stream.h"
 #include "xenia/base/clock.h"
-#include "xenia/base/logging.h"
 #include "xenia/base/threading.h"
 #include "xenia/kernel/guest_scheduler.h"
 #include "xenia/kernel/kernel_state.h"
@@ -23,12 +22,6 @@
 
 namespace xe {
 namespace kernel {
-
-namespace {
-// What the I/O manager waits with for a title's synchronous request.
-constexpr uint32_t kWaitReasonExecutive = 0;
-constexpr uint32_t kUserMode = 1;
-}  // namespace
 
 XFile::XFile(KernelState* kernel_state, vfs::File* file, bool synchronous,
              bool alertable)
@@ -49,13 +42,6 @@ XFile::~XFile() {
   // TODO(benvanik): signal that the file is closing?
   async_event_->Set();
   file_->Destroy();
-  // A worker still signaling one holds a reference; a table reset may have
-  // taken the handles already.
-  for (auto& event : idle_io_events_) {
-    if (!event->handles().empty()) {
-      event->ReleaseHandle();
-    }
-  }
 }
 
 GuestScheduler::BlockingCallClass XFile::io_call_class() const {
@@ -65,60 +51,7 @@ GuestScheduler::BlockingCallClass XFile::io_call_class() const {
 }
 
 void XFile::RunSynchronousIo(const std::function<void()>& fn) {
-  auto* scheduler = kernel_state()->guest_scheduler();
-  if (!GuestScheduler::CurrentThreadOffloadsBlockingCalls()) {
-    fn();
-    return;
-  }
-  auto event = AcquireIoEvent();
-  // The worker writes into this frame, so only |done| may end the wait, and a
-  // terminate must not end it either.
-  std::atomic<bool> done{false};
-  scheduler->PostHostCall(
-      [&fn, &done, signal = retain_object(event.get())]() {
-        fn();
-        done.store(true, std::memory_order_release);
-        signal->Set(kIoDiskIncrement, false);
-      },
-      io_call_class());
-  uint32_t alertable = is_alertable_ ? 1 : 0;
-  while (!done.load(std::memory_order_acquire)) {
-    X_STATUS status =
-        event->Wait(kWaitReasonExecutive, kUserMode, alertable, nullptr, false);
-    if (status == X_STATUS_USER_APC) {
-      // An alert cannot cancel the host request. The APCs run at the next
-      // alertable wait, after the caller writes its status block.
-      alertable = 0;
-    } else if (status != X_STATUS_SUCCESS) {
-      // A failed poll does not wait, so give up the CPU instead of spinning.
-      XELOGW("XFile: I/O wait on {} returned {:08X}", name(), status);
-      scheduler->YieldCurrentThread(false);
-    }
-  }
-  ReleaseIoEvent(std::move(event));
-}
-
-object_ref<XEvent> XFile::AcquireIoEvent() {
-  {
-    std::lock_guard<std::mutex> lock(io_event_lock_);
-    if (!idle_io_events_.empty()) {
-      auto event = std::move(idle_io_events_.back());
-      idle_io_events_.pop_back();
-      return event;
-    }
-  }
-  auto event = object_ref<XEvent>(new XEvent(kernel_state(), true));
-  event->Initialize(false, false);
-  // One signal per request would crowd the guest signals out of the ring.
-  event->set_signal_ring_quiet(true);
-  return event;
-}
-
-void XFile::ReleaseIoEvent(object_ref<XEvent> event) {
-  // The completion can land after |done|, leaving it armed for the next user.
-  event->Reset();
-  std::lock_guard<std::mutex> lock(io_event_lock_);
-  idle_io_events_.push_back(std::move(event));
+  kernel_state()->RunBlockingIo(fn, io_call_class(), is_alertable_);
 }
 
 uint64_t XFile::position() const { return position_.load(); }
@@ -515,7 +448,7 @@ X_STATUS XFile::SetLength(size_t length) {
   return result;
 }
 X_STATUS XFile::Rename(const std::filesystem::path file_path) {
-  entry()->Rename(file_path);
+  RunSynchronousIo([&]() { entry()->Rename(file_path); });
   return X_STATUS_SUCCESS;
 }
 

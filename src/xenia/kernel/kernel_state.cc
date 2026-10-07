@@ -105,6 +105,14 @@ KernelState::~KernelState() {
   user_modules_.clear();
   kernel_modules_.clear();
 
+  // The table reset would take the pooled I/O events' handles otherwise.
+  for (auto& event : idle_io_events_) {
+    if (!event->handles().empty()) {
+      event->ReleaseHandle();
+    }
+  }
+  idle_io_events_.clear();
+
   // Delete all objects.
   object_table_.Reset();
 
@@ -112,6 +120,70 @@ KernelState::~KernelState() {
 
   assert_true(shared_kernel_state_ == this);
   shared_kernel_state_ = nullptr;
+}
+
+namespace {
+// What the I/O manager waits with for a title's synchronous request.
+constexpr uint32_t kWaitReasonExecutive = 0;
+constexpr uint32_t kUserMode = 1;
+}  // namespace
+
+void KernelState::RunBlockingIo(const std::function<void()>& fn,
+                                GuestScheduler::BlockingCallClass call_class,
+                                bool alertable) {
+  if (!GuestScheduler::CurrentThreadOffloadsBlockingCalls()) {
+    fn();
+    return;
+  }
+  auto event = AcquireIoEvent();
+  // The worker writes into this frame so only |done| ends the wait, even on a
+  // terminate.
+  std::atomic<bool> done{false};
+  guest_scheduler_->PostHostCall(
+      [&fn, &done, signal = retain_object(event.get())]() {
+        fn();
+        done.store(true, std::memory_order_release);
+        signal->Set(kIoDiskIncrement, false);
+      },
+      call_class);
+  uint32_t wait_alertable = alertable ? 1 : 0;
+  while (!done.load(std::memory_order_acquire)) {
+    X_STATUS status = event->Wait(kWaitReasonExecutive, kUserMode,
+                                  wait_alertable, nullptr, false);
+    if (status == X_STATUS_USER_APC) {
+      // An alert cannot cancel the host request. The APCs run at the next
+      // alertable wait, after the caller writes its status block.
+      wait_alertable = 0;
+    } else if (status != X_STATUS_SUCCESS) {
+      // A failed poll does not wait so give up the CPU instead of spinning.
+      XELOGW("KernelState: blocking I/O wait returned {:08X}", status);
+      guest_scheduler_->YieldCurrentThread(false);
+    }
+  }
+  ReleaseIoEvent(std::move(event));
+}
+
+object_ref<XEvent> KernelState::AcquireIoEvent() {
+  {
+    std::lock_guard<std::mutex> lock(io_event_lock_);
+    if (!idle_io_events_.empty()) {
+      auto event = std::move(idle_io_events_.back());
+      idle_io_events_.pop_back();
+      return event;
+    }
+  }
+  auto event = object_ref<XEvent>(new XEvent(this, true));
+  event->Initialize(false, false);
+  // One signal per request would crowd the guest signals out of the ring.
+  event->set_signal_ring_quiet(true);
+  return event;
+}
+
+void KernelState::ReleaseIoEvent(object_ref<XEvent> event) {
+  // The completion can land after |done|, leaving it armed for the next user.
+  event->Reset();
+  std::lock_guard<std::mutex> lock(io_event_lock_);
+  idle_io_events_.push_back(std::move(event));
 }
 
 void KernelState::ShutdownDispatchThread() {
