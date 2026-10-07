@@ -75,6 +75,16 @@ function(xe_platform_sources target base_path)
       "${base_path}/*_gtk.h"
       "${base_path}/*_gtk.cc"
     )
+  elseif(ANDROID)
+    # As premake had it for Android-*: POSIX and Linux, plus the Android files
+    file(${glob_mode} _plat_sources
+      "${base_path}/*_posix.h"
+      "${base_path}/*_posix.cc"
+      "${base_path}/*_linux.h"
+      "${base_path}/*_linux.cc"
+      "${base_path}/*_android.h"
+      "${base_path}/*_android.cc"
+    )
   endif()
 
   list(APPEND _sources ${_plat_sources})
