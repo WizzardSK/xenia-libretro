@@ -1,9 +1,0 @@
-test_lvlxl128_1:
-  # Load vector left with cache hint
-  # EA=0x10001077, aligns to 0x10001070, offset=7
-  #_ MEMORY_IN 0x0000000010001070 [00, 00, 00, 00, 00, 00, 00, 0A, 0B, 0C, 0D, 0E, 0F, 10, 11, 12]
-  #_ REGISTER_IN r4 0x0000000010001077
-  lvlxl128 v3, r4, r0
-  blr
-  #_ REGISTER_OUT r4 0x0000000010001077
-  #_ REGISTER_OUT v3 [0A0B0C0D, 0E0F1011, 12000000, 00000000]

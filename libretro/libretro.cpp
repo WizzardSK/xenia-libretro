@@ -1214,7 +1214,7 @@ RETRO_API void retro_deinit(void) {
 RETRO_API void retro_get_system_info(struct retro_system_info *info) {
     memset(info, 0, sizeof(*info));
     info->library_name     = "Xenia Edge";
-    info->library_version  = "0.1.0";
+    info->library_version  = XENIA_LIBRETRO_VERSION;
     info->need_fullpath    = true;
     info->valid_extensions = "iso|xex|zar|xcp";
     info->block_extract    = false;

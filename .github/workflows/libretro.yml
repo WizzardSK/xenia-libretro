@@ -1,8 +1,8 @@
 name: Build libretro core
 
-# xenia_edge_libretro (.so / .dll), the xenia-libretro premake target, built
-# with xenia-build.py on the same runners and tools upstream builds Xenia
-# with, minus Qt and the AppImage tooling the core has no use for.
+# xenia_edge_libretro (.so / .dll / .dylib), the xenia-libretro CMake target,
+# built with xenia-build.py on the runners and tools upstream builds Xenia
+# Edge with.
 
 on:
   workflow_dispatch:
@@ -10,48 +10,39 @@ on:
     branches: [libretro]
     paths-ignore:
       - '*.md'
-      - 'docs/**'
       - 'LICENSE'
 
 jobs:
   linux:
-    name: Linux x86_64
-    runs-on: ubuntu-24.04
+    name: Linux ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+          - arch: arm64
+            runner: ubuntu-22.04-arm
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # As upstream: clang 21 from apt.llvm.org with GCC 14's libstdc++, on
+      # Ubuntu 22.04 for an older glibc
       - name: Setup
         run: |
           UBUNTU_BASE=$(lsb_release -cs)
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
-          sudo apt-add-repository -y "deb http://apt.llvm.org/${UBUNTU_BASE}/ llvm-toolchain-${UBUNTU_BASE}-21 main"
+          sudo apt-add-repository --no-update "deb http://apt.llvm.org/${UBUNTU_BASE}/ llvm-toolchain-${UBUNTU_BASE}-21 main"
+          sudo add-apt-repository -y --no-update ppa:ubuntu-toolchain-r/test
           sudo apt-get -y update
-          sudo apt-get -y install libc++-dev libc++abi-dev libsdl2-dev libvulkan-dev libx11-xcb-dev clang-21 \
-            ninja-build spirv-tools libfontconfig1-dev libxtst-dev libgtk-3-dev
-          # The shader tools from LunarG's Vulkan SDK, as upstream: Ubuntu's
-          # spirv-opt is too old for the flags the shader build uses
-          # (--canonicalize-ids)
-          wget -qO vulkan-sdk.tar.xz https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.xz
-          mkdir -p ~/vulkan-sdk
-          tar -xf vulkan-sdk.tar.xz -C ~/vulkan-sdk
-          VULKAN_SDK_VERSION=$(ls ~/vulkan-sdk)
-          echo "VULKAN_SDK=$HOME/vulkan-sdk/$VULKAN_SDK_VERSION/x86_64" >> $GITHUB_ENV
-          echo "$HOME/vulkan-sdk/$VULKAN_SDK_VERSION/x86_64/bin" >> $GITHUB_PATH
-          export PATH="$HOME/vulkan-sdk/$VULKAN_SDK_VERSION/x86_64/bin:$PATH"
-          # Qt as upstream: on Linux xenia-ui's widgets are Qt ones, and the
-          # core is linked against xenia-ui
-          pip install aqtinstall
-          aqt install-qt linux desktop 6.10.1 linux_gcc_64 -O /opt/Qt
-          export QT_DIR=/opt/Qt/6.10.1/gcc_64
-          export CMAKE_PREFIX_PATH=$QT_DIR PKG_CONFIG_PATH=$QT_DIR/lib/pkgconfig PATH="$QT_DIR/bin:$PATH"
-          echo "QT_DIR=$QT_DIR" >> $GITHUB_ENV
-          echo "CMAKE_PREFIX_PATH=$QT_DIR" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=$QT_DIR/lib/pkgconfig" >> $GITHUB_ENV
-          echo "$QT_DIR/bin" >> $GITHUB_PATH
-          git submodule update --init --depth=1 -j$(getconf _NPROCESSORS_ONLN) $(grep -oP '(?<=path = )(?!third_party\/(DirectXShaderCompiler|premake-(androidndk|export-compile-commands))).+' .gitmodules)
-          ./xenia-build.py premake
+          sudo apt-get -y install --no-install-recommends clang-21 lld-21 libclang-rt-21-dev llvm-21
+          sudo apt-get -y install g++-14 ninja-build libx11-xcb-dev libfontconfig1-dev liblz4-dev
+          pip install --upgrade cmake
+          git submodule update --init --depth=1 -j$(getconf _NPROCESSORS_ONLN) $(grep -oP '(?<=path = )(?!third_party\/(mesa|MoltenVK|SPIRV-Cross|DirectX-Headers|libusb)).+' .gitmodules)
+          ./xenia-build.py slang
           ./xenia-build.py fetchdata
 
       - name: Build
@@ -63,7 +54,7 @@ jobs:
       - name: Collect
         run: |
           mkdir -p dist
-          core=$(find build -name '*xenia_edge_libretro*.so' | head -1)
+          core=$(find build -name 'xenia_edge_libretro.so' | head -1)
           echo "core: $core"
           cp "$core" dist/xenia_edge_libretro.so
           strip --strip-unneeded dist/xenia_edge_libretro.so
@@ -72,137 +63,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: xenia_edge_libretro-linux-x86_64
-          path: dist/
-
-  linux-arm64:
-    name: Linux ARM64
-    runs-on: ubuntu-24.04-arm
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup
-        run: |
-          UBUNTU_BASE=$(lsb_release -cs)
-          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
-          sudo apt-add-repository -y "deb http://apt.llvm.org/${UBUNTU_BASE}/ llvm-toolchain-${UBUNTU_BASE}-21 main"
-          sudo apt-get -y update
-          sudo apt-get -y install libc++-dev libc++abi-dev libsdl2-dev libvulkan-dev libx11-xcb-dev clang-21 \
-            ninja-build spirv-tools libfontconfig1-dev libxtst-dev libgtk-3-dev
-          # LunarG has no Vulkan SDK for Linux on ARM64, so the shader tools
-          # the build runs (glslangValidator, spirv-opt, spirv-dis) are built
-          # from the SDK's own tags instead
-          V=vulkan-sdk-$(curl -s https://vulkan.lunarg.com/sdk/latest.json | python3 -c "import json,sys; print(json.load(sys.stdin)['linux'])")
-          git clone -q --depth 1 -b $V https://github.com/KhronosGroup/SPIRV-Tools.git ~/spirv-tools
-          git clone -q --depth 1 -b $V https://github.com/KhronosGroup/SPIRV-Headers.git ~/spirv-tools/external/spirv-headers
-          git clone -q --depth 1 -b $V https://github.com/KhronosGroup/glslang.git ~/glslang
-          cmake -S ~/spirv-tools -B ~/spirv-tools/build -GNinja -DCMAKE_BUILD_TYPE=Release -DSPIRV_SKIP_TESTS=ON -DCMAKE_INSTALL_PREFIX=$HOME/vksdk
-          ninja -C ~/spirv-tools/build install
-          cmake -S ~/glslang -B ~/glslang/build -GNinja -DCMAKE_BUILD_TYPE=Release -DENABLE_OPT=OFF -DGLSLANG_TESTS=OFF -DCMAKE_INSTALL_PREFIX=$HOME/vksdk
-          ninja -C ~/glslang/build install
-          echo "VULKAN_SDK=$HOME/vksdk" >> $GITHUB_ENV
-          echo "$HOME/vksdk/bin" >> $GITHUB_PATH
-          export PATH="$HOME/vksdk/bin:$PATH"
-          # Qt as upstream: on Linux xenia-ui's widgets are Qt ones, and the
-          # core is linked against xenia-ui
-          pip install aqtinstall
-          aqt install-qt linux_arm64 desktop 6.10.1 linux_gcc_arm64 -O /opt/Qt
-          export QT_DIR=/opt/Qt/6.10.1/gcc_arm64
-          export CMAKE_PREFIX_PATH=$QT_DIR PKG_CONFIG_PATH=$QT_DIR/lib/pkgconfig PATH="$QT_DIR/bin:$PATH"
-          echo "QT_DIR=$QT_DIR" >> $GITHUB_ENV
-          echo "CMAKE_PREFIX_PATH=$QT_DIR" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=$QT_DIR/lib/pkgconfig" >> $GITHUB_ENV
-          echo "$QT_DIR/bin" >> $GITHUB_PATH
-          git submodule update --init --depth=1 -j$(getconf _NPROCESSORS_ONLN) $(grep -oP '(?<=path = )(?!third_party\/(DirectXShaderCompiler|premake-(androidndk|export-compile-commands))).+' .gitmodules)
-          ./xenia-build.py premake
-          ./xenia-build.py fetchdata
-
-      - name: Build
-        env:
-          CC: clang-21
-          CXX: clang++-21
-        run: ./xenia-build.py build --config=Release --target=xenia-libretro
-
-      - name: Collect
-        run: |
-          mkdir -p dist
-          core=$(find build -name '*xenia_edge_libretro*.so' | head -1)
-          echo "core: $core"
-          cp "$core" dist/xenia_edge_libretro.so
-          strip --strip-unneeded dist/xenia_edge_libretro.so
-          ls -la dist
-          readelf -d dist/xenia_edge_libretro.so | grep NEEDED
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: xenia_edge_libretro-linux-arm64
-          path: dist/
-
-  android:
-    name: Android
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # premake-androidndk writes ndk-build files, and one ndk-build run makes
-      # the core for both ABIs; the shaders are built on the host first, with
-      # the Vulkan SDK's tools as on Linux
-      - name: Setup
-        run: |
-          sudo apt-get -y update
-          sudo apt-get -y install ninja-build uuid-dev
-          wget -qO vulkan-sdk.tar.xz https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.xz
-          mkdir -p ~/vulkan-sdk
-          tar -xf vulkan-sdk.tar.xz -C ~/vulkan-sdk
-          VULKAN_SDK_VERSION=$(ls ~/vulkan-sdk)
-          echo "VULKAN_SDK=$HOME/vulkan-sdk/$VULKAN_SDK_VERSION/x86_64" >> $GITHUB_ENV
-          echo "$HOME/vulkan-sdk/$VULKAN_SDK_VERSION/x86_64/bin" >> $GITHUB_PATH
-          git submodule update --init --depth=1 -j$(getconf _NPROCESSORS_ONLN) $(grep -oP '(?<=path = )(?!third_party\/(DirectXShaderCompiler|premake-export-compile-commands)).+' .gitmodules)
-
-      - name: Build
-        run: |
-          ./xenia-build.py buildshaders --target=spirv
-          # snappy's generated header, which its premake project makes with a
-          # prebuild command that ndk-build does not run
-          cmake -S third_party/snappy -B third_party/snappy -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
-          ./xenia-build.py premake --target_os=android
-          # SPIRV-Tools for each ABI, and its headers, from vcpkg
-          export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
-          "$VCPKG_INSTALLATION_ROOT/vcpkg" install spirv-tools:arm64-android spirv-tools:x64-android
-          V=$VCPKG_INSTALLATION_ROOT/installed
-          mkdir -p build/spirv-tools-include build/spirv-tools-android/arm64-v8a build/spirv-tools-android/x86_64
-          cp -r $V/arm64-android/include/spirv-tools build/spirv-tools-include/
-          cp $V/arm64-android/lib/libSPIRV-Tools-opt.a $V/arm64-android/lib/libSPIRV-Tools.a build/spirv-tools-android/arm64-v8a/
-          cp $V/x64-android/lib/libSPIRV-Tools-opt.a $V/x64-android/lib/libSPIRV-Tools.a build/spirv-tools-android/x86_64/
-          export SPIRV_TOOLS_ANDROID=$PWD/build/spirv-tools-android
-          ls build/*.mk
-          "$ANDROID_NDK_LATEST_HOME/ndk-build" -k -j$(getconf _NPROCESSORS_ONLN) \
-            NDK_PROJECT_PATH:=build NDK_APPLICATION_MK:=build/xenia.Application.mk \
-            PREMAKE_ANDROIDNDK_PLATFORMS:=Android-ARM64 PREMAKE_ANDROIDNDK_PLATFORMS+=Android-x86_64 \
-            PREMAKE_ANDROIDNDK_CONFIGURATIONS:=Release \
-            APP_ABI="arm64-v8a x86_64" APP_STL=c++_static APP_PLATFORM=android-24 \
-            xenia-libretro
-
-      - name: Collect
-        run: |
-          for abi in arm64-v8a x86_64; do
-            core=$(find build -path "*/$abi/*" -name '*xenia_edge_libretro*.so' | grep -v '/obj/' | head -1)
-            [ -n "$core" ] || core=$(find build -path "*/$abi/*" -name '*xenia_edge_libretro*.so' | head -1)
-            echo "$abi: $core"
-            mkdir -p dist/$abi
-            cp "$core" dist/$abi/xenia_edge_libretro_android.so
-            # ndk-build leaves the debug info in: 375 MB a core
-            "$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-unneeded dist/$abi/xenia_edge_libretro_android.so
-          done
-          ls -laR dist
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: xenia_edge_libretro-android
+          name: xenia_edge_libretro-linux-${{ matrix.arch }}
           path: dist/
 
   windows:
@@ -213,14 +74,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Mesa's spirv_to_dxil, D3D12's shader backend, is built by meson
       - name: Setup
         run: |
-          Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe" -OutFile "vulkan-sdk.exe"
-          Start-Process -FilePath "vulkan-sdk.exe" -ArgumentList "--accept-licenses", "--default-answer", "--confirm-command", "install" -Wait
-          $env:VULKAN_SDK = "C:\VulkanSDK\$(Get-ChildItem -Path 'C:\VulkanSDK' -Directory | Select-Object -First 1 -ExpandProperty Name)"
-          echo "VULKAN_SDK=$env:VULKAN_SDK" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "$env:VULKAN_SDK\Bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          git submodule update --init --depth=1 -j $env:NUMBER_OF_PROCESSORS (Select-String -CaseSensitive '(?<=path = )(?!third_party\/(premake-(androidndk|cmake|export-compile-commands))).+' .gitmodules).Matches.Value
+          git submodule update --init --depth=1 -j $env:NUMBER_OF_PROCESSORS (Select-String -CaseSensitive '(?<=path = )(?!third_party/(MoltenVK|SPIRV-Cross)$).+' .gitmodules).Matches.Value
+          python -m pip install --upgrade meson mako pyyaml packaging
+          python xenia-build.py slang
           python xenia-build.py fetchdata
 
       - name: Build
@@ -230,7 +89,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          core=$(find build -name 'xenia_edge_libretro*.dll' | head -1)
+          core=$(find build -name 'xenia_edge_libretro.dll' | head -1)
           echo "core: $core"
           cp "$core" dist/xenia_edge_libretro.dll
           ls -la dist
@@ -238,4 +97,99 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: xenia_edge_libretro-windows-x86_64
+          path: dist/
+
+  # Vulkan through MoltenVK, linked into the core as upstream links it into
+  # the app; the core runs Xenia's own Vulkan device and hands RetroArch the
+  # frames
+  macos:
+    name: macOS ${{ matrix.arch }}
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup
+        run: |
+          brew install ninja
+          git submodule update --init --depth=1 -j$(sysctl -n hw.ncpu) \
+            $(grep -oE 'path = .+' .gitmodules | sed 's/path = //' | grep -vE 'mesa|DirectX-Headers|libusb')
+          ./xenia-build.py slang
+          ./xenia-build.py fetchdata
+
+      - name: Build
+        run: ./xenia-build.py build --config=Release --target=xenia-libretro --target-arch=${{ matrix.arch }}
+
+      - name: Collect
+        run: |
+          mkdir -p dist
+          core=$(find build* -name 'xenia_edge_libretro.dylib' | head -1)
+          echo "core: $core"
+          cp "$core" dist/xenia_edge_libretro.dylib
+          strip -x dist/xenia_edge_libretro.dylib
+          codesign -f -s - dist/xenia_edge_libretro.dylib
+          otool -L dist/xenia_edge_libretro.dylib
+          lipo -info dist/xenia_edge_libretro.dylib
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xenia_edge_libretro-macos-${{ matrix.arch }}
+          path: dist/
+
+  # Cross-compiled with the NDK; the shader compiler the build runs is built
+  # for the host first
+  android:
+    name: Android ${{ matrix.abi }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, x86_64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install ninja-build
+          pip install --upgrade cmake
+          git submodule update --init --depth=1 -j$(getconf _NPROCESSORS_ONLN) $(grep -oP '(?<=path = )(?!third_party\/(mesa|MoltenVK|SPIRV-Cross|DirectX-Headers|libusb)).+' .gitmodules)
+          ./xenia-build.py slang
+          ./xenia-build.py fetchdata
+
+      - name: Host shader compiler
+        run: |
+          cmake -S . -B build-host -G Ninja -DCMAKE_BUILD_TYPE=Release
+          ninja -C build-host xenia-shader-cc
+          echo "HOST_SHADER_CC=$(find $PWD/build-host -name xenia-shader-cc -type f | head -1)" >> $GITHUB_ENV
+
+      - name: Build
+        run: |
+          cmake -S . -B build-android -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=${{ matrix.abi }} -DANDROID_PLATFORM=android-28 -DANDROID_STL=c++_static \
+            -DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON \
+            -DXENIA_HOST_SHADER_CC=$HOST_SHADER_CC -DXENIA_ENABLE_LTO=OFF
+          ninja -C build-android -k 0 xenia-libretro
+
+      - name: Collect
+        run: |
+          mkdir -p dist
+          core=$(find build-android -name 'xenia_edge_libretro_android.so' | head -1)
+          echo "core: $core"
+          cp "$core" dist/xenia_edge_libretro_android.so
+          "$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-unneeded dist/xenia_edge_libretro_android.so
+          "$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -d dist/xenia_edge_libretro_android.so | grep NEEDED
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xenia_edge_libretro-android-${{ matrix.abi }}
           path: dist/

@@ -120,42 +120,6 @@ add_library(dxbc STATIC
 target_include_directories(dxbc PUBLIC dxbc)
 
 # ==============================================================================
-# discord-rpc
-# ==============================================================================
-add_library(discord-rpc STATIC
-  discord-rpc/src/connection.h
-  discord-rpc/src/discord_rpc.cpp
-  discord-rpc/src/msg_queue.h
-  discord-rpc/src/rpc_connection.cpp
-  discord-rpc/src/rpc_connection.h
-  discord-rpc/src/serialization.cpp
-  discord-rpc/src/serialization.h
-)
-if(XE_TARGET_X86_64)
-  target_compile_definitions(discord-rpc PRIVATE RAPIDJSON_SSE42)
-elseif(XE_TARGET_ARM64)
-  target_compile_definitions(discord-rpc PRIVATE RAPIDJSON_NEON)
-endif()
-target_include_directories(discord-rpc PUBLIC discord-rpc/include PRIVATE rapidjson/include)
-if(WIN32)
-  target_sources(discord-rpc PRIVATE
-    discord-rpc/src/connection_win.cpp
-    discord-rpc/src/discord_register_win.cpp
-  )
-elseif(APPLE)
-  target_sources(discord-rpc PRIVATE
-    discord-rpc/src/connection_unix.cpp
-    discord-rpc/src/discord_register_osx.m
-  )
-  target_link_libraries(discord-rpc PRIVATE "-framework AppKit")
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  target_sources(discord-rpc PRIVATE
-    discord-rpc/src/connection_unix.cpp
-    discord-rpc/src/discord_register_linux.cpp
-  )
-endif()
-
-# ==============================================================================
 # fmt
 # ==============================================================================
 add_library(fmt STATIC
@@ -190,6 +154,12 @@ target_include_directories(glslang-spirv PUBLIC glslang)
 set(_xe_use_host_shader_cc FALSE)
 if(WIN32 AND CMAKE_CROSSCOMPILING AND XE_TARGET_AARCH64
     AND CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64")
+  set(_xe_use_host_shader_cc TRUE)
+endif()
+# Any other cross-compile (Android) is given a host build's xenia-shader-cc.
+set(XENIA_HOST_SHADER_CC "" CACHE FILEPATH
+    "xenia-shader-cc built for the host, for cross-compiling (Android)")
+if(XENIA_HOST_SHADER_CC)
   set(_xe_use_host_shader_cc TRUE)
 endif()
 
@@ -426,6 +396,12 @@ endif()
 if(MSVC)
   target_compile_options(xenia-shader-cc PRIVATE /EHsc)
 endif()
+
+elseif(XENIA_HOST_SHADER_CC)
+
+add_executable(xenia-shader-cc IMPORTED GLOBAL)
+set_target_properties(xenia-shader-cc PROPERTIES
+  IMPORTED_LOCATION "${XENIA_HOST_SHADER_CC}")
 
 else()  # _xe_use_host_shader_cc: x64→ARM64 cross-compile, use native build's binary
 
@@ -683,103 +659,6 @@ if(WIN32)
     libusb/libusb/os/windows_winusb.h
   )
   target_include_directories(libusb PUBLIC libusb/libusb PRIVATE libusb/msvc)
-endif()
-
-# ==============================================================================
-# SDL3
-# ==============================================================================
-# Build SDL3 from source on every platform using upstream's own CMake. Xenia
-# drives windowing/rendering/GPU directly, so the SDL subsystems we don't
-# consume are switched off. Only audio + joystick/gamepad/haptic + events are
-# exercised by xenia-apu-sdl / xenia-hid-sdl. Linux builds shared so the
-# runtime dlopen("libSDL3.so.0") path in system_gnulinux.cc can resolve and so
-# linuxdeploy can bundle the .so into the AppImage; Windows/macOS build static.
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  set(SDL_SHARED ON CACHE INTERNAL "")
-  set(SDL_STATIC OFF CACHE INTERNAL "")
-else()
-  set(SDL_SHARED OFF CACHE INTERNAL "")
-  set(SDL_STATIC ON CACHE INTERNAL "")
-endif()
-set(SDL_TEST_LIBRARY OFF CACHE INTERNAL "")
-set(SDL_INSTALL OFF CACHE INTERNAL "")
-set(SDL_DISABLE_INSTALL ON CACHE INTERNAL "")
-set(SDL_CAMERA OFF CACHE INTERNAL "")
-set(SDL_DIALOG OFF CACHE INTERNAL "")
-set(SDL_GPU OFF CACHE INTERNAL "")
-set(SDL_RENDER OFF CACHE INTERNAL "")
-set(SDL_SENSOR OFF CACHE INTERNAL "")
-set(SDL_HIDAPI_LIBUSB OFF CACHE INTERNAL "")
-
-# We never create an SDL window, so the video backends are dead weight.
-# SDL_VIDEO and SDL_X11 must stay on: system_gnulinux.cc dlopens
-# SDL_ShowSimpleMessageBox(), which dispatches through the video bootstrap list.
-set(SDL_WAYLAND OFF CACHE INTERNAL "")
-set(SDL_KMSDRM OFF CACHE INTERNAL "")
-set(SDL_VULKAN OFF CACHE INTERNAL "")
-set(SDL_OPENGL OFF CACHE INTERNAL "")
-set(SDL_OPENGLES OFF CACHE INTERNAL "")
-
-# Of the X11 extensions only Xdbe and Xrandr are reachable from the messagebox
-# toolkit. The rest guard windowing and input code we never enter.
-set(SDL_X11_XCURSOR OFF CACHE INTERNAL "")
-set(SDL_X11_XFIXES OFF CACHE INTERNAL "")
-set(SDL_X11_XINPUT OFF CACHE INTERNAL "")
-set(SDL_X11_XSCRNSAVER OFF CACHE INTERNAL "")
-set(SDL_X11_XSHAPE OFF CACHE INTERNAL "")
-set(SDL_X11_XSYNC OFF CACHE INTERNAL "")
-set(SDL_X11_XTEST OFF CACHE INTERNAL "")
-set(SDL_FRIBIDI OFF CACHE INTERNAL "")
-set(SDL_LIBTHAI OFF CACHE INTERNAL "")
-
-# SDL3's sdlcommands.cmake uses file(GLOB CONFIGURE_DEPENDS ...) for its
-# source lists. CMake honours that by emitting a "Re-checking globbed
-# directories" probe on every build — slow and pointless for a submodule
-# pinned to a release tag. Strip the flag in place at configure time;
-# .gitmodules marks SDL3 as ignore=dirty so the in-tree edit doesn't pollute
-# git status. Same pattern as snappy and zlib-ng.
-set(_sdl3_cmd "${CMAKE_CURRENT_SOURCE_DIR}/SDL3/cmake/sdlcommands.cmake")
-if(EXISTS "${_sdl3_cmd}")
-  file(READ "${_sdl3_cmd}" _sdl3_cmd_content)
-  string(REPLACE " CONFIGURE_DEPENDS " " " _sdl3_cmd_patched "${_sdl3_cmd_content}")
-  if(NOT "${_sdl3_cmd_patched}" STREQUAL "${_sdl3_cmd_content}")
-    file(WRITE "${_sdl3_cmd}" "${_sdl3_cmd_patched}")
-  endif()
-endif()
-
-# SDL3's target_precompile_headers emits /Yu on MSVC, which sccache cannot
-# cache. Disable PCH so each source compiles standalone and caches across CI.
-set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON)
-# SDL3 puts /GL- on SDL_mslibc.c to keep its hand-written memcpy out of
-# whole-program opt. Our inherited Release /GL then trips D9025, so drop /GL
-# for the SDL3 subtree and restore it afterward.
-get_directory_property(_xe_save_opts COMPILE_OPTIONS)
-set(_xe_sdl_opts "${_xe_save_opts}")
-list(FILTER _xe_sdl_opts EXCLUDE REGEX "/GL>$")
-set_property(DIRECTORY PROPERTY COMPILE_OPTIONS "${_xe_sdl_opts}")
-add_subdirectory(SDL3 EXCLUDE_FROM_ALL)
-set_property(DIRECTORY PROPERTY COMPILE_OPTIONS "${_xe_save_opts}")
-# Consistent target name for downstream link calls.
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  add_library(SDL3 ALIAS SDL3-shared)
-else()
-  add_library(SDL3 ALIAS SDL3-static)
-endif()
-
-# SDL3 explicitly bakes /W3 into its target COMPILE_OPTIONS, which clashes
-# with the directory-level /W0 above and produces D9025 noise on every TU.
-# Strip the /W* and /WX flags it added so only the directory-level /W0
-# survives. Mirrors the same workaround we apply to SPIRV-Tools.
-if(MSVC)
-  foreach(_sdl3_target SDL3-static SDL_uclibc)
-    if(TARGET ${_sdl3_target})
-      get_target_property(_opts ${_sdl3_target} COMPILE_OPTIONS)
-      if(_opts)
-        list(FILTER _opts EXCLUDE REGEX "^/[Ww]([0-9]|all|X)$")
-        set_target_properties(${_sdl3_target} PROPERTIES COMPILE_OPTIONS "${_opts}")
-      endif()
-    endif()
-  endforeach()
 endif()
 
 # ==============================================================================
@@ -1156,152 +1035,16 @@ endif()
 target_link_libraries(libavformat PRIVATE libavutil libavcodec)
 ffmpeg_common(libavformat)
 
-# ==============================================================================
-# wxWidgets
-# ==============================================================================
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
-    # Build from vendored source — matches what we ship on Windows/macOS, and
-    # on Linux gives us a known-good 3.3 (system 3.2 has GTK3/Wayland issues).
-    # Strip the directory-level /W0 (or -w) so wxWidgets's own /W3 doesn't
-    # spam D9025 "overriding /W0 with /W3", but keep everything else (e.g.
-    # /utf-8) so wxWidgets's UTF-8 source files compile cleanly under
-    # non-Latin code pages (CP932 → C4819 in languageinfo.cpp otherwise).
-    get_directory_property(_xe_save_thirdparty_options COMPILE_OPTIONS)
-    set(_xe_wx_options "${_xe_save_thirdparty_options}")
-    list(FILTER _xe_wx_options EXCLUDE REGEX "^(/W[0-4]|-w)$")
-    set_property(DIRECTORY PROPERTY COMPILE_OPTIONS "${_xe_wx_options}")
-    if(MSVC)
-      string(REGEX REPLACE " */W[0-4]" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-      string(REGEX REPLACE " */W[0-4]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    endif()
-    if(UNIX)
-      set(wxUSE_ZLIB sys CACHE STRING "" FORCE)
-      set(wxUSE_EXPAT sys CACHE STRING "" FORCE)
-      # Resolve in this scope so the imported targets propagate to wx (its
-      # nested find_package calls would otherwise create them in wx's
-      # subdirectory scope, out of reach of the fixup below).
-      find_package(OpenGL REQUIRED)
-      find_package(ZLIB REQUIRED)
-      find_package(EXPAT REQUIRED)
-      # Tag bare IMPORTED_LOCATION imports with Release before wx is added —
-      # wx references these targets during its own configure pass, where
-      # CMAKE_MAP_IMPORTED_CONFIG_DEBUG="Release;NOCONFIG" can't resolve a
-      # target that has no IMPORTED_CONFIGURATIONS.
-      get_property(_xe_thirdparty_imports DIRECTORY PROPERTY IMPORTED_TARGETS)
-      foreach(_xe_imp ${_xe_thirdparty_imports})
-        get_target_property(_xe_imp_loc ${_xe_imp} IMPORTED_LOCATION)
-        if(_xe_imp_loc AND NOT _xe_imp_loc MATCHES "-NOTFOUND$")
-          get_target_property(_xe_imp_confs ${_xe_imp} IMPORTED_CONFIGURATIONS)
-          if(NOT _xe_imp_confs OR _xe_imp_confs MATCHES "-NOTFOUND$")
-            set_target_properties(${_xe_imp} PROPERTIES
-              IMPORTED_CONFIGURATIONS "Release"
-              IMPORTED_LOCATION_RELEASE "${_xe_imp_loc}"
-            )
-          endif()
-        endif()
-      endforeach()
-    endif()
-    set(wxBUILD_SHARED OFF CACHE BOOL "" FORCE)
-    set(wxBUILD_INSTALL OFF CACHE BOOL "" FORCE)
-    set(wxBUILD_SAMPLES OFF CACHE BOOL "" FORCE)
-    set(wxBUILD_TESTS OFF CACHE BOOL "" FORCE)
-    set(wxBUILD_DEMOS OFF CACHE BOOL "" FORCE)
-    set(wxBUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
-    # PCH (/Yu) and /MP make every wx TU non-cacheable under sccache on MSVC.
-    # Disable both so each source compiles standalone and the stable wx objects
-    # cache across CI runs.
-    set(wxBUILD_PRECOMP OFF CACHE BOOL "" FORCE)
-    set(wxBUILD_MSVC_MULTIPROC OFF CACHE BOOL "" FORCE)
-    set(wxUSE_WEBVIEW OFF CACHE BOOL "" FORCE)
-    set(wxUSE_MEDIACTRL OFF CACHE BOOL "" FORCE)
-    set(wxUSE_RICHTEXT OFF CACHE BOOL "" FORCE)
-    set(wxUSE_RIBBON OFF CACHE BOOL "" FORCE)
-    set(wxUSE_PROPGRID OFF CACHE BOOL "" FORCE)
-    set(wxUSE_AUI ON CACHE BOOL "" FORCE)
-    set(wxUSE_STC OFF CACHE BOOL "" FORCE)
-    set(wxUSE_HTML OFF CACHE BOOL "" FORCE)
-    set(wxUSE_XRC OFF CACHE BOOL "" FORCE)
-    set(wxUSE_XML OFF CACHE BOOL "" FORCE)
-    set(wxUSE_PRINTING_ARCHITECTURE OFF CACHE BOOL "" FORCE)
-    set(wxUSE_HELP OFF CACHE BOOL "" FORCE)
-    set(wxUSE_MS_HTML_HELP OFF CACHE BOOL "" FORCE)
-    set(wxUSE_WXHTML_HELP OFF CACHE BOOL "" FORCE)
-    set(wxUSE_DEBUGREPORT OFF CACHE BOOL "" FORCE)
-    set(wxUSE_SOCKETS OFF CACHE BOOL "" FORCE)
-    set(wxUSE_PROTOCOL OFF CACHE BOOL "" FORCE)
-    set(wxUSE_URL OFF CACHE BOOL "" FORCE)
-    set(wxUSE_FS_INET OFF CACHE BOOL "" FORCE)
-    set(wxUSE_FS_ARCHIVE OFF CACHE BOOL "" FORCE)
-    set(wxUSE_FS_ZIP OFF CACHE BOOL "" FORCE)
-    set(wxUSE_SOUND OFF CACHE BOOL "" FORCE)
-    set(wxUSE_LIBTIFF OFF CACHE BOOL "" FORCE)
-    set(wxUSE_LIBJPEG OFF CACHE BOOL "" FORCE)
-    set(wxUSE_LIBWEBP OFF CACHE BOOL "" FORCE)
-    set(wxUSE_NANOSVG OFF CACHE BOOL "" FORCE)
-    add_subdirectory(wxWidgets)
-    if(WIN32)
-      # Generic file dialog (not built by default on MSW) — used as a Wine
-      # fallback in file_picker_wx.cc since the native Win32 dialog stalls
-      # under Wine for arbitrary input.
-      target_sources(wxcore PRIVATE
-          ${CMAKE_CURRENT_SOURCE_DIR}/wxWidgets/src/generic/filedlgg.cpp)
-    endif()
-    # Walk the wx subdirectory tree to apply per-target fixups: rewrite the
-    # MSVC runtime so wx links the same CRT we pin (LNK2038 otherwise — wx's
-    # functions.cmake sets MSVC_RUNTIME_LIBRARY per target, shadowing our
-    # CMake-wide setting), and append -w on clang/gcc to suppress the
-    # -Wall/-Wundef/-Wunused-parameter wx adds via target_compile_options
-    # (the equivalent DEFAULT_WARNINGS opt-out is a function arg, not a cache
-    # variable, so we can't reach it from here without patching wx).
-    set(_xe_wx_dirs "${CMAKE_CURRENT_SOURCE_DIR}/wxWidgets")
-    set(_xe_wx_targets "")
-    while(_xe_wx_dirs)
-      list(POP_FRONT _xe_wx_dirs _xe_wx_dir)
-      get_property(_xe_dir_targets DIRECTORY "${_xe_wx_dir}"
-                   PROPERTY BUILDSYSTEM_TARGETS)
-      list(APPEND _xe_wx_targets ${_xe_dir_targets})
-      get_property(_xe_subdirs DIRECTORY "${_xe_wx_dir}"
-                   PROPERTY SUBDIRECTORIES)
-      list(APPEND _xe_wx_dirs ${_xe_subdirs})
-    endwhile()
-    foreach(_xe_t ${_xe_wx_targets})
-      get_target_property(_xe_t_type ${_xe_t} TYPE)
-      if(_xe_t_type STREQUAL "INTERFACE_LIBRARY"
-          OR _xe_t_type STREQUAL "UTILITY")
-        continue()
-      endif()
-      if(MSVC)
-        set_target_properties(${_xe_t} PROPERTIES
-          MSVC_RUNTIME_LIBRARY "${CMAKE_MSVC_RUNTIME_LIBRARY}")
-      else()
-        target_compile_options(${_xe_t} PRIVATE -w)
-      endif()
-      # Strip wx's asserts in Release. wx defaults wxDEBUG_LEVEL to 1 in every
-      # config; under Ninja Multi-Config we apply the override per-target so
-      # the generator expression is evaluated at build time.
-      target_compile_definitions(${_xe_t} PRIVATE
-          $<$<CONFIG:Release>:wxDEBUG_LEVEL=0>)
-    endforeach()
-    set_property(DIRECTORY PROPERTY COMPILE_OPTIONS
-        "${_xe_save_thirdparty_options}")
-    add_library(xe-wxWidgets INTERFACE)
-    target_link_libraries(xe-wxWidgets INTERFACE wx::aui wx::adv wx::core wx::base)
-    # Consumers including wx headers must agree on wxDEBUG_LEVEL with the
-    # compiled wx libraries to keep inline assert expansions consistent.
-    target_compile_definitions(xe-wxWidgets INTERFACE
-        $<$<CONFIG:Release>:wxDEBUG_LEVEL=0>)
-endif()
-
 # spirv_to_dxil (Mesa, NIR based SPIR-V to DXIL) is the D3D12 guest shader
 # backend. Mesa is meson only, so it is built out of tree by meson and linked
 # statically (no runtime DLL, matching the rest of xenia). libspirv_to_dxil.a
 # does not bundle its deps, so we link the whole archive set (nir, vtn,
 # compiler, dxil_compiler, util, blake3, and on Windows the bundled zlib wrap).
 #
-# Built on WIN32 and APPLE. The Windows build runs release with /MD to match
+# Built on WIN32. The Windows build runs release with /MD to match
 # xenia's CRT under an MSVC environment so meson detects cl. Verify the archive
 # paths below against the real build output if Mesa is restructured.
-if(WIN32 OR APPLE)
+if(WIN32)
   # Mesa source tree built for spirv_to_dxil. Defaults to the third_party/mesa
   # submodule (our fork with the barycentric, linking, keep_io_vars and FSI->ROV
   # changes). Repoint this cache variable to build a different Mesa checkout.
@@ -1497,40 +1240,5 @@ endian = 'little'
     string(TOUPPER "${_xe_cfg}" _xe_cfg_u)
     set_target_properties(spirv_to_dxil PROPERTIES
       IMPORTED_LOCATION_${_xe_cfg_u} "${_xe_s2d_main}")
-  endforeach()
-endif()
-
-# ==============================================================================
-# Metal Shader Converter (Apple only — the DXIL -> AIR half of the Metal guest
-# shader path, taking the DXIL that spirv_to_dxil above produces)
-# ==============================================================================
-# Apache 2.0 but closed source, so it is downloaded rather than built. The
-# headers are vendored here; the dylib is mirrored as a release asset and
-# fetched by `./xenia-build.py msc` into .metal-shader-converter/, because
-# Apple's own download requires a developer login.
-if(APPLE)
-  set(_xe_msc_root "${CMAKE_CURRENT_SOURCE_DIR}/metal-shader-converter")
-  file(GLOB _xe_msc_found
-       "${PROJECT_SOURCE_DIR}/.metal-shader-converter/*/libmetalirconverter.dylib")
-  if(NOT _xe_msc_found)
-    message(FATAL_ERROR
-      "The Metal backend requires Apple's Metal Shader Converter. Run: "
-      "./xenia-build.py msc")
-  endif()
-  list(GET _xe_msc_found 0 _xe_msc_dylib)
-
-  add_library(xenia-third-party-metal-shader-converter SHARED IMPORTED GLOBAL)
-  # IR_RUNTIME_METALCPP makes metal_irconverter_runtime.h's inline helpers take
-  # metal-cpp types instead of Objective-C ones.
-  set_target_properties(xenia-third-party-metal-shader-converter PROPERTIES
-    IMPORTED_LOCATION "${_xe_msc_dylib}"
-    INTERFACE_INCLUDE_DIRECTORIES
-      "${_xe_msc_root}/include;${_xe_msc_root}/include/metal_irconverter;${_xe_msc_root}/include/metal_irconverter_runtime"
-    INTERFACE_COMPILE_DEFINITIONS "IR_RUNTIME_METALCPP")
-  # Multi-Config evaluates every config, so point each at the same dylib.
-  foreach(_xe_cfg IN LISTS CMAKE_CONFIGURATION_TYPES)
-    string(TOUPPER "${_xe_cfg}" _xe_cfg_u)
-    set_target_properties(xenia-third-party-metal-shader-converter PROPERTIES
-      IMPORTED_LOCATION_${_xe_cfg_u} "${_xe_msc_dylib}")
   endforeach()
 endif()

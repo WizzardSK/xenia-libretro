@@ -362,16 +362,15 @@ else()
       pthread
     )
   elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(GTK3 REQUIRED gtk+-x11-3.0)
-    include_directories(${GTK3_INCLUDE_DIRS})
-    link_directories(${GTK3_LIBRARY_DIRS})
-    add_compile_options(${GTK3_CFLAGS_OTHER})
-
     link_libraries(stdc++fs dl lz4 m pthread rt)
 
-    # Link group so executables resolve circular static-lib deps.
+    # Link group so executables and the core resolve circular static-lib deps.
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--start-group")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--start-group")
+    set(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CXX_STANDARD_LIBRARIES} -Wl,--end-group")
+  elseif(ANDROID)
+    link_libraries(dl m)
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--start-group")
     set(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CXX_STANDARD_LIBRARIES} -Wl,--end-group")
   endif()
 
@@ -457,8 +456,12 @@ endif()
 # Subdirectories
 # ==============================================================================
 
+# The core is a shared library: everything linked into it, position
+# independent
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 add_subdirectory(third_party)
 
 add_subdirectory(src/xenia)
 
-set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT xenia-app)
+add_subdirectory(libretro)
