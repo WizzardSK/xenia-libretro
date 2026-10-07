@@ -432,4 +432,13 @@ project("xenia-libretro")
       "XENIA_LIBRETRO=1",
     })
 
+  -- The NDK's Vulkan loader, and SPIRV-Tools built for the ABI by vcpkg, put
+  -- where SPIRV_TOOLS_ANDROID points by CI (ndk-build expands both variables)
+  filter("platforms:Android-*")
+    links({ "vulkan", "log", "android" })
+    linkoptions({
+      "$(SPIRV_TOOLS_ANDROID)/$(TARGET_ARCH_ABI)/libSPIRV-Tools-opt.a",
+      "$(SPIRV_TOOLS_ANDROID)/$(TARGET_ARCH_ABI)/libSPIRV-Tools.a",
+    })
+
   filter({})
