@@ -463,6 +463,9 @@ endif()
 # The core is a shared library: everything linked into it, position
 # independent
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# The emulator's libretro hooks (the presenters' frame capture), everywhere:
+# headers declare members under it, so every file has to see it the same
+add_compile_definitions(XENIA_LIBRETRO=1)
 
 add_subdirectory(third_party)
 
