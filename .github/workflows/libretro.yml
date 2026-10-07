@@ -39,9 +39,9 @@ jobs:
           sudo add-apt-repository -y --no-update ppa:ubuntu-toolchain-r/test
           sudo apt-get -y update
           sudo apt-get -y install --no-install-recommends clang-21 lld-21 libclang-rt-21-dev llvm-21
-          sudo apt-get -y install g++-14 ninja-build libx11-xcb-dev libfontconfig1-dev liblz4-dev
+          sudo apt-get -y install g++-14 ninja-build libx11-xcb-dev libwayland-dev libfontconfig1-dev liblz4-dev
           pip install --upgrade cmake
-          git submodule update --init --depth=1 -j$(getconf _NPROCESSORS_ONLN) $(grep -oP '(?<=path = )(?!third_party\/(mesa|MoltenVK|SPIRV-Cross|DirectX-Headers|libusb)).+' .gitmodules)
+          git submodule update --init --depth=1 -j$(getconf _NPROCESSORS_ONLN) $(grep -oP '(?<=path = )(?!third_party\/(mesa|MoltenVK|SPIRV-Cross|DirectX-Headers|DirectXShaderCompiler|libusb)).+' .gitmodules)
           ./xenia-build.py slang
           ./xenia-build.py fetchdata
 
@@ -49,7 +49,7 @@ jobs:
         env:
           CC: clang-21
           CXX: clang++-21
-        run: ./xenia-build.py build --config=Release --target=xenia-libretro
+        run: ./xenia-build.py build --config=Release --target=xenia-libretro -- -- -k 0
 
       - name: Collect
         run: |
@@ -83,7 +83,7 @@ jobs:
           python xenia-build.py fetchdata
 
       - name: Build
-        run: python xenia-build.py build --config=Release --target=xenia-libretro
+        run: python xenia-build.py build --config=Release --target=xenia-libretro -- -- -k 0
 
       - name: Collect
         shell: bash
@@ -118,12 +118,12 @@ jobs:
         run: |
           brew install ninja
           git submodule update --init --depth=1 -j$(sysctl -n hw.ncpu) \
-            $(grep -oE 'path = .+' .gitmodules | sed 's/path = //' | grep -vE 'mesa|DirectX-Headers|libusb')
+            $(grep -oE 'path = .+' .gitmodules | sed 's/path = //' | grep -vE 'mesa|DirectX-Headers|DirectXShaderCompiler|libusb')
           ./xenia-build.py slang
           ./xenia-build.py fetchdata
 
       - name: Build
-        run: ./xenia-build.py build --config=Release --target=xenia-libretro --target-arch=${{ matrix.arch }}
+        run: ./xenia-build.py build --config=Release --target=xenia-libretro --target-arch=${{ matrix.arch }} -- -- -k 0
 
       - name: Collect
         run: |
@@ -160,7 +160,7 @@ jobs:
           sudo apt-get -y update
           sudo apt-get -y install ninja-build
           pip install --upgrade cmake
-          git submodule update --init --depth=1 -j$(getconf _NPROCESSORS_ONLN) $(grep -oP '(?<=path = )(?!third_party\/(mesa|MoltenVK|SPIRV-Cross|DirectX-Headers|libusb)).+' .gitmodules)
+          git submodule update --init --depth=1 -j$(getconf _NPROCESSORS_ONLN) $(grep -oP '(?<=path = )(?!third_party\/(mesa|MoltenVK|SPIRV-Cross|DirectX-Headers|DirectXShaderCompiler|libusb)).+' .gitmodules)
           ./xenia-build.py slang
           ./xenia-build.py fetchdata
 
@@ -172,6 +172,8 @@ jobs:
 
       - name: Build
         run: |
+          # version.h, which xenia-build.py writes into the build directory
+          python3 -c "import importlib.util as u; s=u.spec_from_file_location('xb','xenia-build.py'); m=u.module_from_spec(s); s.loader.exec_module(m); m.generate_version_h('build-android')"
           cmake -S . -B build-android -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=${{ matrix.abi }} -DANDROID_PLATFORM=android-28 -DANDROID_STL=c++_static \

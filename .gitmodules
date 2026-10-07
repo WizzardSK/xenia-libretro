@@ -110,3 +110,6 @@
 	path = third_party/mesa
 	url = https://gitlab.freedesktop.org/has207/mesa.git
 	ignore = dirty
+[submodule "third_party/DirectXShaderCompiler"]
+	path = third_party/DirectXShaderCompiler
+	url = https://github.com/microsoft/DirectXShaderCompiler.git

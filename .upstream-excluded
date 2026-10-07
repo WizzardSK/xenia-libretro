@@ -25,15 +25,6 @@ src/xenia/hid/hid_demo.cc
 src/xenia/hid/keyboard
 src/xenia/hid/sdl
 src/xenia/kernel/testing
-src/xenia/kernel/xam/ui/create_profile_ui.cc
-src/xenia/kernel/xam/ui/disc_swap_ui.cc
-src/xenia/kernel/xam/ui/game_achievements_ui.cc
-src/xenia/kernel/xam/ui/gamercard_ui.cc
-src/xenia/kernel/xam/ui/passcode_ui.cc
-src/xenia/kernel/xam/ui/signin_ui.cc
-src/xenia/kernel/xam/ui/title_info_ui.cc
-src/xenia/kernel/xam/xam_nui.cc
-src/xenia/kernel/xam/xam_ui.cc
 src/xenia/tools
 src/xenia/ui/advanced_settings_dialog_wx.cc
 src/xenia/ui/advanced_settings_dialog_wx.h
@@ -89,7 +80,6 @@ src/xenia/ui/windowed_app_wx_mac.mm
 src/xenia/ui/wx_locale.cc
 src/xenia/ui/wx_locale.h
 src/xenia/vfs/testing
-third_party/DirectXShaderCompiler
 third_party/SDL3
 third_party/catch
 third_party/cpplint

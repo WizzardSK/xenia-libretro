@@ -28,7 +28,9 @@ namespace {
 // with no syscall and is unique among live threads. It is only ever compared
 // for equality here, to detect recursive acquisition by the current owner.
 inline uint64_t xe_current_thread_id() {
-  return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(pthread_self()));
+  // pthread_t is a pointer on macOS and an integer elsewhere (signed on
+  // Android), which reinterpret_cast takes only for some of them
+  return static_cast<uint64_t>((uintptr_t)pthread_self());
 }
 }  // namespace
 #endif

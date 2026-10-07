@@ -20,12 +20,18 @@ std::atomic<uint64_t> ImGuiDialog::next_window_id_ = 0;
 
 ImGuiDialog::ImGuiDialog(ImGuiDrawer* imgui_drawer)
     : imgui_drawer_(imgui_drawer) {
-  imgui_drawer_->AddDialog(this);
+  // No drawer in the libretro core, which has no window: the dialog is only
+  // answered, never drawn
+  if (imgui_drawer_) {
+    imgui_drawer_->AddDialog(this);
+  }
   next_window_id_++;
 }
 
 ImGuiDialog::~ImGuiDialog() {
-  imgui_drawer_->RemoveDialog(this);
+  if (imgui_drawer_) {
+    imgui_drawer_->RemoveDialog(this);
+  }
   for (auto fence : waiting_fences_) {
     fence->Signal();
   }

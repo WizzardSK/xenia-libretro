@@ -45,7 +45,7 @@ DECLARE_int32(log_level);
 // New cvars for expanded core options
 DECLARE_int32(draw_resolution_scale_x);
 DECLARE_int32(draw_resolution_scale_y);
-DECLARE_uint64(framerate_limit);
+DECLARE_uint32(framerate_limit);
 DECLARE_string(readback_resolve);
 DECLARE_bool(store_shaders);
 DECLARE_bool(half_pixel_offset);
@@ -610,7 +610,14 @@ static void apply_core_options(void) {
 
     // Mute
     if ((v = opt_get(XENIA_OPT_MUTE))) {
-        cvars::mute = (strcmp(v, "enabled") == 0);
+        // Upstream mutes through its volume now
+        static uint32_t unmuted_volume = 100;
+        if (strcmp(v, "enabled") == 0) {
+            if (cvars::volume) unmuted_volume = cvars::volume;
+            cvars::volume = 0;
+        } else if (!cvars::volume) {
+            cvars::volume = unmuted_volume;
+        }
     }
 
     // XMA decoder (restart required)
