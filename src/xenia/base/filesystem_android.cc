@@ -274,9 +274,7 @@ int OpenAndroidContentFileDescriptor(const std::string_view uri,
   return file_descriptor;
 }
 
-bool SetAttributes(const std::filesystem::path& path, uint64_t attributes) {
-  return false;
-}
+// SetAttributes is filesystem_posix.cc's, which Android builds as well
 
 }  // namespace filesystem
 }  // namespace xe

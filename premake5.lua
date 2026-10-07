@@ -86,6 +86,9 @@ filter("platforms:Linux")
   -- tomlplusplus calls abs() on a long double, which on ARM64 is not the
   -- double it is on x86_64, and clang warns (fatal here)
   buildoptions({ "-Wno-absolute-value" })
+  -- The a64 backend switches over capstone's register enum with the names of
+  -- its older one; the values are the same
+  buildoptions({ "-Wno-enum-compare-switch" })
 filter({})
 
 -- SPIRV-Tools' headers, copied out of the Vulkan SDK on the build host by CI:
