@@ -9,6 +9,7 @@
 
 #include "xenia/base/cvar.h"
 #include "xenia/base/platform.h"
+#if XE_ARCH_AMD64
 #define XBYAK_NO_OP_NAMES
 #include "third_party/xbyak/xbyak/xbyak.h"
 #include "third_party/xbyak/xbyak/xbyak_util.h"
@@ -135,3 +136,4 @@ void InitFeatureFlags() {
 }
 }  // namespace amd64
 }  // namespace xe
+#endif  // XE_ARCH_AMD64
