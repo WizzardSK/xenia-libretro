@@ -869,6 +869,7 @@ void Value::Permute(Value* src1, Value* src2, TypeName type) {
       perm.u8[i * 2] = v * 2;
       perm.u8[i * 2 + 1] = v * 2 + 1;
     }
+#if XE_ARCH_AMD64
     auto lod = [](const vec128_t& v) {
       return _mm_loadu_si128((const __m128i*)&v);
     };
@@ -895,6 +896,29 @@ void Value::Permute(Value* src1, Value* src2, TypeName type) {
     }
 
     sto(constant.v128, _mm_blendv_epi8(xmm1, xmm2, lod(unp_mask)));
+#else
+    // pshufb on each source, then pblendvb by the mask, byte by byte
+    uint8_t mask = 0;
+    for (int i = 0; i < 8; i++) {
+      if (perm_ctrl.i16[i] == 0) {
+        mask |= 1 << (7 - i);
+      }
+    }
+    vec128_t unp_mask = vec128b(0);
+    for (int i = 0; i < 8; i++) {
+      if (mask & (1 << i)) {
+        unp_mask.u16[i] = 0xFFFF;
+      }
+    }
+    vec128_t result;
+    for (int i = 0; i < 16; i++) {
+      uint8_t index = perm.u8[i];
+      uint8_t a = (index & 0x80) ? 0 : src1->constant.v128.u8[index & 15];
+      uint8_t b = (index & 0x80) ? 0 : src2->constant.v128.u8[index & 15];
+      result.u8[i] = (unp_mask.u8[i] & 0x80) ? b : a;
+    }
+    constant.v128 = result;
+#endif  // XE_ARCH_AMD64
 
   } else {
     assert_unhandled_case(type);

@@ -18,6 +18,9 @@
 #include <limits>
 #include <numeric>
 #include <type_traits>
+#if defined(__aarch64__) || defined(_M_ARM64)
+#include <arm_neon.h>
+#endif
 
 #if defined __has_include
 #if __has_include(<version>)
@@ -460,6 +463,33 @@ static uint32_t ArchFloatMaskSignbit(ArchFloatMask x) {
 constexpr ArchFloatMask floatmask_zero{.0f};
 
 #else
+#if XE_ARCH_ARM64
+// The SSE helpers above for NEON values, as the a64 backend's tracers use them
+template <int N>
+float m128_f32(const float32x4_t& v) {
+  return vgetq_lane_f32(v, N);
+}
+template <int N>
+int32_t m128_i32(const float32x4_t& v) {
+  return vgetq_lane_s32(vreinterpretq_s32_f32(v), N);
+}
+template <int N>
+double m128_f64(const float64x2_t& v) {
+  return vgetq_lane_f64(v, N);
+}
+template <int N>
+double m128_f64(const float32x4_t& v) {
+  return vgetq_lane_f64(vreinterpretq_f64_f32(v), N);
+}
+template <int N>
+int64_t m128_i64(const float64x2_t& v) {
+  return vgetq_lane_s64(vreinterpretq_s64_f64(v), N);
+}
+template <int N>
+int64_t m128_i64(const float32x4_t& v) {
+  return vgetq_lane_s64(vreinterpretq_s64_f32(v), N);
+}
+#endif  // XE_ARCH_ARM64
 static float ArchMin(float x, float y) { return std::min<float>(x, y); }
 static float ArchMax(float x, float y) { return std::max<float>(x, y); }
 static float ArchReciprocal(float den) { return 1.0f / den; }
