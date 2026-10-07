@@ -1134,7 +1134,8 @@ class PosixCondition<Thread> final : public PosixConditionBase {
 #else
       pthread_setname_np(thread_, std::string(name).c_str());
 #if XE_PLATFORM_ANDROID
-      SetAndroidPreApi26Name(name);
+      // set_name is const, the name kept for Android before API 26 is not
+      const_cast<PosixCondition*>(this)->SetAndroidPreApi26Name(name);
 #endif
 #endif
     }
