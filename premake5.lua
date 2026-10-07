@@ -85,6 +85,12 @@ filter("platforms:Linux")
   pic("On")
 filter({})
 
+-- SPIRV-Tools' headers, from the Vulkan SDK on the build host (spirv-opt is
+-- loaded at run time)
+filter("platforms:Android-*")
+  includedirs({ "$(VULKAN_SDK)/include" })
+filter({})
+
 filter("configurations:Checked")
   runtime("Debug")
   inlining("Auto")  -- /Ob2 for Checked builds

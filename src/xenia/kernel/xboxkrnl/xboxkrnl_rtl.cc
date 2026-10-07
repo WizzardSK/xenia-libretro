@@ -7,9 +7,9 @@
  ******************************************************************************
  */
 
-#include <cwctype>
-
 #include "xenia/kernel/xboxkrnl/xboxkrnl_rtl.h"
+
+#include <cwctype>
 
 #include "xenia/base/atomic.h"
 #include "xenia/base/pe_image.h"
@@ -229,8 +229,10 @@ void RtlInitAnsiString_entry(pointer_t<X_ANSI_STRING> destination,
 DECLARE_XBOXKRNL_EXPORT1(RtlInitAnsiString, kNone, kImplemented);
 // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlupcaseunicodechar
 dword_result_t RtlUpcaseUnicodeChar_entry(dword_t SourceCharacter) {
-  return std::use_facet<std::ctype<char16_t>>(std::locale())
-      .toupper(SourceCharacter);
+  // std::ctype<char16_t> is no facet the standard provides (libc++ has
+  // none), so through wint_t in the "C" locale, as std::locale() was
+  return static_cast<uint16_t>(
+      std::towupper(static_cast<wint_t>(SourceCharacter & 0xFFFF)));
 }
 DECLARE_XBOXKRNL_EXPORT1(RtlUpcaseUnicodeChar, kNone, kImplemented);
 

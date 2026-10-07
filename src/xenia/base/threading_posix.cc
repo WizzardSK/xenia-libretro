@@ -197,7 +197,9 @@ class PosixConditionBase {
     // Initialize as robust mutex to handle thread termination gracefully
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
+#if !XE_PLATFORM_ANDROID  // bionic has no robust mutexes
     pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST);
+#endif
 
     // Get the native handle and set it as robust
     auto native_mutex = static_cast<pthread_mutex_t*>(mutex_.native_handle());
@@ -218,7 +220,9 @@ class PosixConditionBase {
     int lock_result = pthread_mutex_lock(native_mutex);
     if (lock_result == EOWNERDEAD) {
       // Recover from dead owner
+#if !XE_PLATFORM_ANDROID
       pthread_mutex_consistent(native_mutex);
+#endif
     } else if (lock_result != 0) {
       return WaitResult::kFailed;
     }
@@ -282,7 +286,9 @@ class PosixConditionBase {
           // Successfully acquired lock or recovered from dead owner
           if (result == EOWNERDEAD) {
             // Make mutex consistent after previous owner died
+#if !XE_PLATFORM_ANDROID
             pthread_mutex_consistent(native_mutex);
+#endif
           }
           locks.emplace_back(handles[i]->mutex_, std::adopt_lock);
         } else {
@@ -676,7 +682,7 @@ class PosixCondition<Thread> final : public PosixConditionBase {
     if (state_ != State::kUninitialized && state_ != State::kFinished) {
       pthread_setname_np(thread_, std::string(name).c_str());
 #if XE_PLATFORM_ANDROID
-      SetAndroidPreApi26Name(name);
+      const_cast<PosixCondition*>(this)->SetAndroidPreApi26Name(name);
 #endif
     }
   }

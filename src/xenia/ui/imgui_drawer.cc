@@ -31,7 +31,7 @@
 #include <ShlObj_core.h>
 #endif
 
-#if XE_PLATFORM_LINUX
+#if XE_PLATFORM_LINUX && !XE_PLATFORM_ANDROID
 #include <fontconfig/fontconfig.h>
 #endif
 
@@ -400,7 +400,7 @@ bool ImGuiDrawer::LoadWindowsFont(ImGuiIO& io, ImFontConfig& font_config,
   return true;
 #endif
 
-#if XE_PLATFORM_LINUX
+#if XE_PLATFORM_LINUX && !XE_PLATFORM_ANDROID
   // On Linux, use fontconfig to find the system's default sans-serif font
   FcConfig* config = FcInitLoadConfigAndFonts();
   if (!config) {

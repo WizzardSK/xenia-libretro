@@ -166,6 +166,9 @@ jobs:
       - name: Build
         run: |
           ./xenia-build.py buildshaders --target=spirv
+          # snappy's generated header, which its premake project makes with a
+          # prebuild command that ndk-build does not run
+          cmake -S third_party/snappy -B third_party/snappy -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
           ./xenia-build.py premake --target_os=android
           ls build/*.mk
           "$ANDROID_NDK_LATEST_HOME/ndk-build" -k -j$(getconf _NPROCESSORS_ONLN) \

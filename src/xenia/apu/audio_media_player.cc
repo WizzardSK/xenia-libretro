@@ -13,7 +13,7 @@
 #include "xenia/apu/xma_context.h"
 #include "xenia/base/logging.h"
 
-#if XE_PLATFORM_LINUX
+#if XE_PLATFORM_LINUX && !XE_PLATFORM_ANDROID
 #include "xenia/apu/sdl/sdl_audio_driver.h"
 #endif
 
@@ -530,7 +530,7 @@ bool AudioMediaPlayer::SetupDriver(uint32_t sample_rate, uint32_t channels) {
     return false;
   }
 
-#if XE_PLATFORM_LINUX
+#if XE_PLATFORM_LINUX && !XE_PLATFORM_ANDROID
   // On Linux always use SDL driver for XMP to avoid conflicts with ALSA
   // which opens the driver in exclusive hardware access mode
   driver_ = std::unique_ptr<AudioDriver>(new xe::apu::sdl::SDLAudioDriver(
