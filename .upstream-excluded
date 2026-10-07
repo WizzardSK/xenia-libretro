@@ -52,6 +52,12 @@ src/xenia/ui/game_scan_progress_dialog_wx.cc
 src/xenia/ui/game_scan_progress_dialog_wx.h
 src/xenia/ui/icon_decode.cc
 src/xenia/ui/icon_decode.h
+src/xenia/ui/imgui_debug_dialog.cc
+src/xenia/ui/imgui_debug_dialog.h
+src/xenia/ui/imgui_performance_dialog.cc
+src/xenia/ui/imgui_performance_dialog.h
+src/xenia/ui/imgui_postprocessing_dialog.cc
+src/xenia/ui/imgui_postprocessing_dialog.h
 src/xenia/ui/install_progress_dialog_wx.cc
 src/xenia/ui/install_progress_dialog_wx.h
 src/xenia/ui/menu_item_wx.cc
@@ -66,6 +72,7 @@ src/xenia/ui/profile_editor_dialog_wx.h
 src/xenia/ui/quick_settings_dialog_wx.cc
 src/xenia/ui/quick_settings_dialog_wx.h
 src/xenia/ui/redist_installer_wx.cc
+src/xenia/ui/surface_gnulinux.cc
 src/xenia/ui/window_demo.cc
 src/xenia/ui/window_demo.h
 src/xenia/ui/window_wx.cc

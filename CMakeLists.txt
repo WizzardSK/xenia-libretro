@@ -319,6 +319,10 @@ else()
       add_compile_options(
         $<$<COMPILE_LANGUAGE:CXX>:-Wno-character-conversion>
       )
+      # The NDK's clang 21 is a snapshot from before that warning existed
+      if(ANDROID)
+        add_compile_options(-Wno-unknown-warning-option)
+      endif()
     endif()
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     add_compile_options(
