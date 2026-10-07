@@ -83,12 +83,15 @@ filter("kind:StaticLib")
 -- The libretro core is a shared library, and the static libraries go into it
 filter("platforms:Linux")
   pic("On")
+  -- tomlplusplus calls abs() on a long double, which on ARM64 is not the
+  -- double it is on x86_64, and clang warns (fatal here)
+  buildoptions({ "-Wno-absolute-value" })
 filter({})
 
--- SPIRV-Tools' headers, from the Vulkan SDK on the build host (spirv-opt is
--- loaded at run time)
+-- SPIRV-Tools' headers, copied out of the Vulkan SDK on the build host by CI:
+-- the SDK's whole include directory would bring its newer Vulkan headers too
 filter("platforms:Android-*")
-  includedirs({ "$(VULKAN_SDK)/include" })
+  includedirs({ "build/spirv-tools-include" })
 filter({})
 
 filter("configurations:Checked")
