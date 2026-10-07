@@ -101,14 +101,15 @@ jobs:
 
   # Vulkan through MoltenVK, linked into the core as upstream links it into
   # the app; the core runs Xenia's own Vulkan device and hands RetroArch the
-  # frames
+  # frames. Apple Silicon only: the x64 backend needs the address space
+  # below 4 GB, which a dylib can't free (the __PAGEZERO is RetroArch's)
   macos:
     name: macOS ${{ matrix.arch }}
     runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
-        arch: [arm64, x64]
+        arch: [arm64]
     steps:
       - uses: actions/checkout@v4
         with:

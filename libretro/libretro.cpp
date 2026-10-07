@@ -46,7 +46,7 @@ DECLARE_int32(log_level);
 DECLARE_int32(draw_resolution_scale_x);
 DECLARE_int32(draw_resolution_scale_y);
 DECLARE_uint32(framerate_limit);
-DECLARE_string(readback_resolve);
+DECLARE_bool(readback_resolve);
 DECLARE_bool(store_shaders);
 DECLARE_bool(half_pixel_offset);
 DECLARE_bool(gpu_allow_invalid_fetch_constants);
@@ -60,8 +60,8 @@ DECLARE_bool(enable_xmp);
 DECLARE_int32(xmp_default_volume);
 DECLARE_bool(apply_patches);
 DECLARE_int32(license_mask);
-DECLARE_string(user_language);
-DECLARE_string(user_country);
+DECLARE_int32(user_language);
+DECLARE_int32(user_country);
 DECLARE_bool(protect_zero);
 DECLARE_bool(clear_memory_page_state);
 DECLARE_bool(disable_context_promotion);
@@ -611,7 +611,7 @@ static void apply_core_options(void) {
 
     // Readback resolve
     if ((v = opt_get(XENIA_OPT_READBACK_RESOLVE))) {
-        cvars::readback_resolve = v;
+        cvars::readback_resolve = (strcmp(v, "disabled") != 0);
     }
 
     // Store shaders
@@ -745,12 +745,30 @@ static void apply_core_options(void) {
 
     // User language
     if ((v = opt_get(XENIA_OPT_USER_LANGUAGE))) {
-        cvars::user_language = v;
+        // XLanguage IDs (xbox.h)
+        static const std::pair<const char*, int32_t> languages[] = {
+            {"English", 1}, {"Japanese", 2}, {"German", 3}, {"French", 4},
+            {"Spanish", 5}, {"Italian", 6}, {"Korean", 7}, {"TChinese", 8},
+            {"Portuguese", 9}, {"Polish", 11}, {"Russian", 12},
+            {"SChinese", 17}};
+        for (const auto& [name, id] : languages)
+            if (strcmp(v, name) == 0)
+                cvars::user_language = id;
     }
 
     // User country
     if ((v = opt_get(XENIA_OPT_USER_COUNTRY))) {
-        cvars::user_country = v;
+        // XConfig country IDs (user_country in kernel/xconfig.cc)
+        static const std::pair<const char*, int32_t> countries[] = {
+            {"United States", 103}, {"Great Britain", 35}, {"Japan", 53},
+            {"Germany", 24}, {"France", 34}, {"Spain", 31}, {"Italy", 50},
+            {"Australia", 6}, {"Canada", 16}, {"Brazil", 13}, {"Korea", 56},
+            {"China", 20}, {"Mexico", 71}, {"Netherlands", 74},
+            {"Russia", 88}, {"Sweden", 90}, {"Poland", 82},
+            {"Portugal", 84}, {"Taiwan", 101}, {"Hong Kong", 39}};
+        for (const auto& [name, id] : countries)
+            if (strcmp(v, name) == 0)
+                cvars::user_country = id;
     }
 
     // =================================================================

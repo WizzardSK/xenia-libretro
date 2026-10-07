@@ -90,6 +90,9 @@ if(WIN32)
   target_link_libraries(xenia-libretro PRIVATE d3d12 dxgi)
 elseif(ANDROID)
   target_link_libraries(xenia-libretro PRIVATE android log)
+  # FFmpeg's assembly reaches its tables PC-relative, which a shared object
+  # allows only for symbols bound inside it
+  target_link_options(xenia-libretro PRIVATE -Wl,-Bsymbolic)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   target_link_libraries(xenia-libretro PRIVATE X11 xcb X11-xcb)
   # Only the libretro API out of the core, and its own symbols bound inside
