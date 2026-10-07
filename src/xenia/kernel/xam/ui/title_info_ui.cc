@@ -10,6 +10,8 @@
 #include "xenia/kernel/xam/ui/title_info_ui.h"
 
 #include "xenia/emulator.h"
+#include "xenia/ui/window.h"
+#include "xenia/ui/windowed_app_context.h"
 #include "xenia/kernel/xam/ui/game_achievements_ui.h"
 
 #include "xenia/base/system.h"

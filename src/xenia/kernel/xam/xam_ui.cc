@@ -10,12 +10,16 @@
 #include "xenia/kernel/xam/xam_ui.h"
 
 #include <algorithm>
+#include <thread>
 
 #include "xenia/base/png_utils.h"
 #include "xenia/base/system.h"
 #include "xenia/hid/input_system.h"
 #include "xenia/kernel/guest_scheduler.h"
+#include "xenia/emulator.h"
 #include "xenia/kernel/kernel_state.h"
+#include "xenia/ui/window.h"
+#include "xenia/ui/windowed_app_context.h"
 #include "xenia/kernel/title_id_utils.h"
 #include "xenia/kernel/util/shim_utils.h"
 #include "xenia/kernel/xam/content_manager.h"
@@ -96,7 +100,7 @@ X_RESULT xeXamDispatchDialog(T* dialog,
     return result;
   };
   auto post = []() {
-    std::jthread t([] {
+    std::thread t([] {
       xe::threading::Sleep(kUIDelayMillis);
       kernel_state()->BroadcastNotification(kXNotificationSystemUI, false);
     });
@@ -171,7 +175,7 @@ X_RESULT xeXamDispatchWithoutDialog(std::function<X_RESULT()> run_callback,
     xe::threading::Sleep(std::chrono::milliseconds(25));
   };
   auto post = []() {
-    std::jthread t([]() {
+    std::thread t([]() {
       xe::threading::Sleep(kUIDelayMillis);
       kernel_state()->BroadcastNotification(kXNotificationSystemUI, false);
     });
