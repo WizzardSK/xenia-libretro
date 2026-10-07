@@ -1018,7 +1018,14 @@ void EmulatorWindow::OnEmulatorInitialized() {
       xe::FlushLog();
       std::_Exit(0);
     }).detach();
-    app_context_.RequestDeferredQuit();
+    // The title runs on into the exit, which deletes the window without closing
+    // it, so the title's frames are cut off from the window first. That comes
+    // after the quit has run what's queued and stopped taking more, so nothing
+    // reattaches them.
+    app_context_.CallInUIThreadDeferred([this]() {
+      app_context_.QuitFromUIThread();
+      ShutdownGraphicsSystemPresenterPainting();
+    });
   });
 
   emulator_->set_on_exit_to_dashboard(
