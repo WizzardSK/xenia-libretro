@@ -195,6 +195,8 @@ jobs:
             echo "$abi: $core"
             mkdir -p dist/$abi
             cp "$core" dist/$abi/xenia_edge_libretro_android.so
+            # ndk-build leaves the debug info in: 375 MB a core
+            "$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-unneeded dist/$abi/xenia_edge_libretro_android.so
           done
           ls -laR dist
 
