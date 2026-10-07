@@ -82,57 +82,57 @@ DECLARE_bool(disable_context_promotion);
 // own loader through the HW render interface: the core links no Vulkan loader
 // (Windows has none to link), and Xenia's own device has its own functions.
 static struct {
-    PFN_vkAllocateCommandBuffers vkAllocateCommandBuffers = nullptr;
-    PFN_vkAllocateMemory vkAllocateMemory = nullptr;
-    PFN_vkBeginCommandBuffer vkBeginCommandBuffer = nullptr;
-    PFN_vkBindBufferMemory vkBindBufferMemory = nullptr;
-    PFN_vkBindImageMemory vkBindImageMemory = nullptr;
-    PFN_vkCmdCopyBufferToImage vkCmdCopyBufferToImage = nullptr;
-    PFN_vkCmdPipelineBarrier vkCmdPipelineBarrier = nullptr;
-    PFN_vkCreateBuffer vkCreateBuffer = nullptr;
-    PFN_vkCreateCommandPool vkCreateCommandPool = nullptr;
-    PFN_vkCreateImage vkCreateImage = nullptr;
-    PFN_vkCreateImageView vkCreateImageView = nullptr;
-    PFN_vkDestroyBuffer vkDestroyBuffer = nullptr;
-    PFN_vkDestroyCommandPool vkDestroyCommandPool = nullptr;
-    PFN_vkDestroyImage vkDestroyImage = nullptr;
-    PFN_vkDestroyImageView vkDestroyImageView = nullptr;
-    PFN_vkDeviceWaitIdle vkDeviceWaitIdle = nullptr;
-    PFN_vkEndCommandBuffer vkEndCommandBuffer = nullptr;
-    PFN_vkFreeMemory vkFreeMemory = nullptr;
-    PFN_vkGetBufferMemoryRequirements vkGetBufferMemoryRequirements = nullptr;
-    PFN_vkGetImageMemoryRequirements vkGetImageMemoryRequirements = nullptr;
-    PFN_vkGetPhysicalDeviceMemoryProperties vkGetPhysicalDeviceMemoryProperties = nullptr;
-    PFN_vkMapMemory vkMapMemory = nullptr;
-    PFN_vkQueueSubmit vkQueueSubmit = nullptr;
-    PFN_vkResetCommandBuffer vkResetCommandBuffer = nullptr;
-    PFN_vkUnmapMemory vkUnmapMemory = nullptr;
+    PFN_vkAllocateCommandBuffers p_vkAllocateCommandBuffers = nullptr;
+    PFN_vkAllocateMemory p_vkAllocateMemory = nullptr;
+    PFN_vkBeginCommandBuffer p_vkBeginCommandBuffer = nullptr;
+    PFN_vkBindBufferMemory p_vkBindBufferMemory = nullptr;
+    PFN_vkBindImageMemory p_vkBindImageMemory = nullptr;
+    PFN_vkCmdCopyBufferToImage p_vkCmdCopyBufferToImage = nullptr;
+    PFN_vkCmdPipelineBarrier p_vkCmdPipelineBarrier = nullptr;
+    PFN_vkCreateBuffer p_vkCreateBuffer = nullptr;
+    PFN_vkCreateCommandPool p_vkCreateCommandPool = nullptr;
+    PFN_vkCreateImage p_vkCreateImage = nullptr;
+    PFN_vkCreateImageView p_vkCreateImageView = nullptr;
+    PFN_vkDestroyBuffer p_vkDestroyBuffer = nullptr;
+    PFN_vkDestroyCommandPool p_vkDestroyCommandPool = nullptr;
+    PFN_vkDestroyImage p_vkDestroyImage = nullptr;
+    PFN_vkDestroyImageView p_vkDestroyImageView = nullptr;
+    PFN_vkDeviceWaitIdle p_vkDeviceWaitIdle = nullptr;
+    PFN_vkEndCommandBuffer p_vkEndCommandBuffer = nullptr;
+    PFN_vkFreeMemory p_vkFreeMemory = nullptr;
+    PFN_vkGetBufferMemoryRequirements p_vkGetBufferMemoryRequirements = nullptr;
+    PFN_vkGetImageMemoryRequirements p_vkGetImageMemoryRequirements = nullptr;
+    PFN_vkGetPhysicalDeviceMemoryProperties p_vkGetPhysicalDeviceMemoryProperties = nullptr;
+    PFN_vkMapMemory p_vkMapMemory = nullptr;
+    PFN_vkQueueSubmit p_vkQueueSubmit = nullptr;
+    PFN_vkResetCommandBuffer p_vkResetCommandBuffer = nullptr;
+    PFN_vkUnmapMemory p_vkUnmapMemory = nullptr;
 } lr_vk;
-#define vkAllocateCommandBuffers lr_vk.vkAllocateCommandBuffers
-#define vkAllocateMemory lr_vk.vkAllocateMemory
-#define vkBeginCommandBuffer lr_vk.vkBeginCommandBuffer
-#define vkBindBufferMemory lr_vk.vkBindBufferMemory
-#define vkBindImageMemory lr_vk.vkBindImageMemory
-#define vkCmdCopyBufferToImage lr_vk.vkCmdCopyBufferToImage
-#define vkCmdPipelineBarrier lr_vk.vkCmdPipelineBarrier
-#define vkCreateBuffer lr_vk.vkCreateBuffer
-#define vkCreateCommandPool lr_vk.vkCreateCommandPool
-#define vkCreateImage lr_vk.vkCreateImage
-#define vkCreateImageView lr_vk.vkCreateImageView
-#define vkDestroyBuffer lr_vk.vkDestroyBuffer
-#define vkDestroyCommandPool lr_vk.vkDestroyCommandPool
-#define vkDestroyImage lr_vk.vkDestroyImage
-#define vkDestroyImageView lr_vk.vkDestroyImageView
-#define vkDeviceWaitIdle lr_vk.vkDeviceWaitIdle
-#define vkEndCommandBuffer lr_vk.vkEndCommandBuffer
-#define vkFreeMemory lr_vk.vkFreeMemory
-#define vkGetBufferMemoryRequirements lr_vk.vkGetBufferMemoryRequirements
-#define vkGetImageMemoryRequirements lr_vk.vkGetImageMemoryRequirements
-#define vkGetPhysicalDeviceMemoryProperties lr_vk.vkGetPhysicalDeviceMemoryProperties
-#define vkMapMemory lr_vk.vkMapMemory
-#define vkQueueSubmit lr_vk.vkQueueSubmit
-#define vkResetCommandBuffer lr_vk.vkResetCommandBuffer
-#define vkUnmapMemory lr_vk.vkUnmapMemory
+#define vkAllocateCommandBuffers lr_vk.p_vkAllocateCommandBuffers
+#define vkAllocateMemory lr_vk.p_vkAllocateMemory
+#define vkBeginCommandBuffer lr_vk.p_vkBeginCommandBuffer
+#define vkBindBufferMemory lr_vk.p_vkBindBufferMemory
+#define vkBindImageMemory lr_vk.p_vkBindImageMemory
+#define vkCmdCopyBufferToImage lr_vk.p_vkCmdCopyBufferToImage
+#define vkCmdPipelineBarrier lr_vk.p_vkCmdPipelineBarrier
+#define vkCreateBuffer lr_vk.p_vkCreateBuffer
+#define vkCreateCommandPool lr_vk.p_vkCreateCommandPool
+#define vkCreateImage lr_vk.p_vkCreateImage
+#define vkCreateImageView lr_vk.p_vkCreateImageView
+#define vkDestroyBuffer lr_vk.p_vkDestroyBuffer
+#define vkDestroyCommandPool lr_vk.p_vkDestroyCommandPool
+#define vkDestroyImage lr_vk.p_vkDestroyImage
+#define vkDestroyImageView lr_vk.p_vkDestroyImageView
+#define vkDeviceWaitIdle lr_vk.p_vkDeviceWaitIdle
+#define vkEndCommandBuffer lr_vk.p_vkEndCommandBuffer
+#define vkFreeMemory lr_vk.p_vkFreeMemory
+#define vkGetBufferMemoryRequirements lr_vk.p_vkGetBufferMemoryRequirements
+#define vkGetImageMemoryRequirements lr_vk.p_vkGetImageMemoryRequirements
+#define vkGetPhysicalDeviceMemoryProperties lr_vk.p_vkGetPhysicalDeviceMemoryProperties
+#define vkMapMemory lr_vk.p_vkMapMemory
+#define vkQueueSubmit lr_vk.p_vkQueueSubmit
+#define vkResetCommandBuffer lr_vk.p_vkResetCommandBuffer
+#define vkUnmapMemory lr_vk.p_vkUnmapMemory
 
 // CVars from xenia_main.cc - libretro core replaces main entry point. apu and
 // gpu are the emulator's own now (emulator.cc); the core sets gpu itself.
@@ -399,31 +399,31 @@ static void vulkan_context_reset(void) {
     }
     vk_hw = (const struct retro_hw_render_interface_vulkan *)iface;
     vulkan_hw_render_active = true;
-    lr_vk.vkAllocateCommandBuffers = (PFN_vkAllocateCommandBuffers)vk_hw->get_device_proc_addr(vk_hw->device, "vkAllocateCommandBuffers");
-    lr_vk.vkAllocateMemory = (PFN_vkAllocateMemory)vk_hw->get_device_proc_addr(vk_hw->device, "vkAllocateMemory");
-    lr_vk.vkBeginCommandBuffer = (PFN_vkBeginCommandBuffer)vk_hw->get_device_proc_addr(vk_hw->device, "vkBeginCommandBuffer");
-    lr_vk.vkBindBufferMemory = (PFN_vkBindBufferMemory)vk_hw->get_device_proc_addr(vk_hw->device, "vkBindBufferMemory");
-    lr_vk.vkBindImageMemory = (PFN_vkBindImageMemory)vk_hw->get_device_proc_addr(vk_hw->device, "vkBindImageMemory");
-    lr_vk.vkCmdCopyBufferToImage = (PFN_vkCmdCopyBufferToImage)vk_hw->get_device_proc_addr(vk_hw->device, "vkCmdCopyBufferToImage");
-    lr_vk.vkCmdPipelineBarrier = (PFN_vkCmdPipelineBarrier)vk_hw->get_device_proc_addr(vk_hw->device, "vkCmdPipelineBarrier");
-    lr_vk.vkCreateBuffer = (PFN_vkCreateBuffer)vk_hw->get_device_proc_addr(vk_hw->device, "vkCreateBuffer");
-    lr_vk.vkCreateCommandPool = (PFN_vkCreateCommandPool)vk_hw->get_device_proc_addr(vk_hw->device, "vkCreateCommandPool");
-    lr_vk.vkCreateImage = (PFN_vkCreateImage)vk_hw->get_device_proc_addr(vk_hw->device, "vkCreateImage");
-    lr_vk.vkCreateImageView = (PFN_vkCreateImageView)vk_hw->get_device_proc_addr(vk_hw->device, "vkCreateImageView");
-    lr_vk.vkDestroyBuffer = (PFN_vkDestroyBuffer)vk_hw->get_device_proc_addr(vk_hw->device, "vkDestroyBuffer");
-    lr_vk.vkDestroyCommandPool = (PFN_vkDestroyCommandPool)vk_hw->get_device_proc_addr(vk_hw->device, "vkDestroyCommandPool");
-    lr_vk.vkDestroyImage = (PFN_vkDestroyImage)vk_hw->get_device_proc_addr(vk_hw->device, "vkDestroyImage");
-    lr_vk.vkDestroyImageView = (PFN_vkDestroyImageView)vk_hw->get_device_proc_addr(vk_hw->device, "vkDestroyImageView");
-    lr_vk.vkDeviceWaitIdle = (PFN_vkDeviceWaitIdle)vk_hw->get_device_proc_addr(vk_hw->device, "vkDeviceWaitIdle");
-    lr_vk.vkEndCommandBuffer = (PFN_vkEndCommandBuffer)vk_hw->get_device_proc_addr(vk_hw->device, "vkEndCommandBuffer");
-    lr_vk.vkFreeMemory = (PFN_vkFreeMemory)vk_hw->get_device_proc_addr(vk_hw->device, "vkFreeMemory");
-    lr_vk.vkGetBufferMemoryRequirements = (PFN_vkGetBufferMemoryRequirements)vk_hw->get_device_proc_addr(vk_hw->device, "vkGetBufferMemoryRequirements");
-    lr_vk.vkGetImageMemoryRequirements = (PFN_vkGetImageMemoryRequirements)vk_hw->get_device_proc_addr(vk_hw->device, "vkGetImageMemoryRequirements");
-    lr_vk.vkMapMemory = (PFN_vkMapMemory)vk_hw->get_device_proc_addr(vk_hw->device, "vkMapMemory");
-    lr_vk.vkQueueSubmit = (PFN_vkQueueSubmit)vk_hw->get_device_proc_addr(vk_hw->device, "vkQueueSubmit");
-    lr_vk.vkResetCommandBuffer = (PFN_vkResetCommandBuffer)vk_hw->get_device_proc_addr(vk_hw->device, "vkResetCommandBuffer");
-    lr_vk.vkUnmapMemory = (PFN_vkUnmapMemory)vk_hw->get_device_proc_addr(vk_hw->device, "vkUnmapMemory");
-    lr_vk.vkGetPhysicalDeviceMemoryProperties = (PFN_vkGetPhysicalDeviceMemoryProperties)vk_hw->get_instance_proc_addr(vk_hw->instance, "vkGetPhysicalDeviceMemoryProperties");
+    lr_vk.p_vkAllocateCommandBuffers = (PFN_vkAllocateCommandBuffers)vk_hw->get_device_proc_addr(vk_hw->device, "vkAllocateCommandBuffers");
+    lr_vk.p_vkAllocateMemory = (PFN_vkAllocateMemory)vk_hw->get_device_proc_addr(vk_hw->device, "vkAllocateMemory");
+    lr_vk.p_vkBeginCommandBuffer = (PFN_vkBeginCommandBuffer)vk_hw->get_device_proc_addr(vk_hw->device, "vkBeginCommandBuffer");
+    lr_vk.p_vkBindBufferMemory = (PFN_vkBindBufferMemory)vk_hw->get_device_proc_addr(vk_hw->device, "vkBindBufferMemory");
+    lr_vk.p_vkBindImageMemory = (PFN_vkBindImageMemory)vk_hw->get_device_proc_addr(vk_hw->device, "vkBindImageMemory");
+    lr_vk.p_vkCmdCopyBufferToImage = (PFN_vkCmdCopyBufferToImage)vk_hw->get_device_proc_addr(vk_hw->device, "vkCmdCopyBufferToImage");
+    lr_vk.p_vkCmdPipelineBarrier = (PFN_vkCmdPipelineBarrier)vk_hw->get_device_proc_addr(vk_hw->device, "vkCmdPipelineBarrier");
+    lr_vk.p_vkCreateBuffer = (PFN_vkCreateBuffer)vk_hw->get_device_proc_addr(vk_hw->device, "vkCreateBuffer");
+    lr_vk.p_vkCreateCommandPool = (PFN_vkCreateCommandPool)vk_hw->get_device_proc_addr(vk_hw->device, "vkCreateCommandPool");
+    lr_vk.p_vkCreateImage = (PFN_vkCreateImage)vk_hw->get_device_proc_addr(vk_hw->device, "vkCreateImage");
+    lr_vk.p_vkCreateImageView = (PFN_vkCreateImageView)vk_hw->get_device_proc_addr(vk_hw->device, "vkCreateImageView");
+    lr_vk.p_vkDestroyBuffer = (PFN_vkDestroyBuffer)vk_hw->get_device_proc_addr(vk_hw->device, "vkDestroyBuffer");
+    lr_vk.p_vkDestroyCommandPool = (PFN_vkDestroyCommandPool)vk_hw->get_device_proc_addr(vk_hw->device, "vkDestroyCommandPool");
+    lr_vk.p_vkDestroyImage = (PFN_vkDestroyImage)vk_hw->get_device_proc_addr(vk_hw->device, "vkDestroyImage");
+    lr_vk.p_vkDestroyImageView = (PFN_vkDestroyImageView)vk_hw->get_device_proc_addr(vk_hw->device, "vkDestroyImageView");
+    lr_vk.p_vkDeviceWaitIdle = (PFN_vkDeviceWaitIdle)vk_hw->get_device_proc_addr(vk_hw->device, "vkDeviceWaitIdle");
+    lr_vk.p_vkEndCommandBuffer = (PFN_vkEndCommandBuffer)vk_hw->get_device_proc_addr(vk_hw->device, "vkEndCommandBuffer");
+    lr_vk.p_vkFreeMemory = (PFN_vkFreeMemory)vk_hw->get_device_proc_addr(vk_hw->device, "vkFreeMemory");
+    lr_vk.p_vkGetBufferMemoryRequirements = (PFN_vkGetBufferMemoryRequirements)vk_hw->get_device_proc_addr(vk_hw->device, "vkGetBufferMemoryRequirements");
+    lr_vk.p_vkGetImageMemoryRequirements = (PFN_vkGetImageMemoryRequirements)vk_hw->get_device_proc_addr(vk_hw->device, "vkGetImageMemoryRequirements");
+    lr_vk.p_vkMapMemory = (PFN_vkMapMemory)vk_hw->get_device_proc_addr(vk_hw->device, "vkMapMemory");
+    lr_vk.p_vkQueueSubmit = (PFN_vkQueueSubmit)vk_hw->get_device_proc_addr(vk_hw->device, "vkQueueSubmit");
+    lr_vk.p_vkResetCommandBuffer = (PFN_vkResetCommandBuffer)vk_hw->get_device_proc_addr(vk_hw->device, "vkResetCommandBuffer");
+    lr_vk.p_vkUnmapMemory = (PFN_vkUnmapMemory)vk_hw->get_device_proc_addr(vk_hw->device, "vkUnmapMemory");
+    lr_vk.p_vkGetPhysicalDeviceMemoryProperties = (PFN_vkGetPhysicalDeviceMemoryProperties)vk_hw->get_instance_proc_addr(vk_hw->instance, "vkGetPhysicalDeviceMemoryProperties");
     xenia_log(RETRO_LOG_INFO,
               "Vulkan HW render interface acquired (ver %u, device %p)\n",
               vk_hw->interface_version, (void *)vk_hw->device);
