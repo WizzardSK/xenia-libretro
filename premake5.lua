@@ -88,7 +88,7 @@ filter("platforms:Linux")
   buildoptions({ "-Wno-absolute-value" })
   -- The a64 backend switches over capstone's register enum with the names of
   -- its older one; the values are the same
-  buildoptions({ "-Wno-enum-compare-switch" })
+  buildoptions({ "-Wno-enum-compare-switch", "-Wno-deprecated-enum-compare" })
 filter({})
 
 -- SPIRV-Tools' headers, copied out of the Vulkan SDK on the build host by CI:
