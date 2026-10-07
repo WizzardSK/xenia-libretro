@@ -713,13 +713,8 @@ X_STATUS Emulator::LaunchPath(const std::filesystem::path& path) {
   if (!path.empty()) {
     last_launch_path_ = path;
   }
-  // The original Xbox game stays in the drive while XeFu launches from its own
-  // folder, as xbox.xex does the build it picks.
-  std::error_code xefu_path_error;
-  if (!std::filesystem::equivalent(path.parent_path(), xefu_path(),
-                                   xefu_path_error)) {
-    xbox_disc_path_.clear();
-    xbox_game_.reset();
+  if (!KeepsXboxGame(path)) {
+    EjectXboxGame();
   }
   // A file an earlier launch missed says nothing about this one.
   missing_xefu_file_.clear();
@@ -852,6 +847,12 @@ X_STATUS Emulator::LaunchDiscImage(const std::filesystem::path& path) {
 
 std::filesystem::path Emulator::xefu_path() const {
   return cvars::xefu_path.empty() ? storage_root_ / "xefu" : cvars::xefu_path;
+}
+
+bool Emulator::KeepsXboxGame(const std::filesystem::path& path) const {
+  // XeFu launches from its own folder.
+  std::error_code error;
+  return std::filesystem::equivalent(path.parent_path(), xefu_path(), error);
 }
 
 X_STATUS Emulator::LaunchXboxOriginal(const std::filesystem::path& path,
@@ -1456,7 +1457,8 @@ bool Emulator::RestoreFromFile(const std::filesystem::path& path) {
 void Emulator::RelaunchTitle(const std::string& host_path,
                              const std::string& launch_module,
                              uint32_t launch_flags,
-                             std::vector<uint8_t> launch_data) {
+                             std::vector<uint8_t> launch_data,
+                             bool keep_xbox_game) {
   // Each UI launch and guest launch request relaunches on its own thread, so a
   // burst of them queues here. One a newer request replaced while it waited is
   // dropped.
@@ -1522,6 +1524,10 @@ void Emulator::RelaunchTitle(const std::string& host_path,
   };
 
   Shutdown();
+  // After Shutdown() closes the title, which reads the game while it's open.
+  if (!keep_xbox_game) {
+    EjectXboxGame();
+  }
   SetupAgain();
   if (const X_STATUS result = SetupSubsystems(); XFAILED(result)) {
     XELOGE("RelaunchTitle: setting up subsystems failed: {:08X}", result);
@@ -1606,6 +1612,8 @@ void Emulator::ResetTitle() {
   }
 
   Shutdown();
+  // Nothing is left in the drive for the next launch.
+  EjectXboxGame();
   SetupAgain();
 
   relaunching_ = false;

@@ -3571,7 +3571,8 @@ xe::X_STATUS EmulatorWindow::RunTitle(
       auto* emulator = emulator_;
       std::thread([emulator, host_path = std::move(host_path)]() mutable {
         emulator->RelaunchTitle(host_path, /*launch_module=*/{},
-                                /*launch_flags=*/0, /*launch_data=*/{});
+                                /*launch_flags=*/0, /*launch_data=*/{},
+                                /*keep_xbox_game=*/false);
       }).detach();
       return X_STATUS_SUCCESS;
     }

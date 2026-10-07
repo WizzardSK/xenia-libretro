@@ -26,6 +26,7 @@
 #include "xenia/ui/config_helpers.h"
 #include "xenia/vfs/iso_metadata.h"
 #include "xenia/vfs/stfs_metadata.h"
+#include "xenia/vfs/xbe_metadata.h"
 #include "xenia/vfs/xex_metadata.h"
 #include "xenia/vfs/zar_metadata.h"
 
@@ -48,8 +49,14 @@ std::filesystem::path config_path;
 std::string game_config_suffix = ".config.toml";
 std::function<void()> config_saved_callback;
 
-std::filesystem::path GetGameConfigPath(const std::string& title_id) {
-  return config_folder / "config" / (title_id + game_config_suffix);
+// Empty for none, and for XeFu's, which every original Xbox game would
+// otherwise share.
+std::filesystem::path GetGameConfigPath(uint32_t title_id) {
+  if (!title_id || title_id == xe::kXeFuTitleId) {
+    return {};
+  }
+  return config_folder / "config" /
+         (fmt::format("{:08X}", title_id) + game_config_suffix);
 }
 
 std::filesystem::path GetBundledDataPath(const std::string& subdirectory) {
@@ -306,6 +313,13 @@ uint32_t LoadGameConfigForFile(const std::filesystem::path& game_path) {
   if (ext == ".iso") {
     if (auto metadata = xe::vfs::ExtractIsoMetadata(game_path)) {
       title_id = metadata->title_id;
+    } else if (auto xbe = xe::vfs::ExtractXbeMetadata(game_path)) {
+      // An original Xbox disc.
+      title_id = xbe->title_id;
+    }
+  } else if (ext == ".xbe") {
+    if (auto metadata = xe::vfs::ExtractXbeMetadata(game_path)) {
+      title_id = metadata->title_id;
     }
   } else if (ext == ".zar") {
     if (auto metadata = xe::vfs::ExtractZarMetadata(game_path)) {
@@ -319,26 +333,23 @@ uint32_t LoadGameConfigForFile(const std::filesystem::path& game_path) {
     // Unknown extension - try all formats.
     if (auto metadata = xe::vfs::ExtractStfsMetadata(game_path)) {
       title_id = metadata->title_id;
+      // An Xbox Original package is configured as the game its executable
+      // names, as the library lists it, or not at all.
+      if (metadata->content_type == uint32_t(xe::XContentType::kXboxTitle)) {
+        const auto xbe = xe::vfs::ExtractXbeMetadata(game_path);
+        title_id = xbe ? xbe->title_id : 0;
+      }
     } else if (auto metadata = xe::vfs::ExtractXexMetadata(game_path)) {
       title_id = metadata->title_id;
     } else if (auto metadata = xe::vfs::ExtractZarMetadata(game_path)) {
       title_id = metadata->title_id;
     } else if (auto metadata = xe::vfs::ExtractIsoMetadata(game_path)) {
       title_id = metadata->title_id;
+    } else if (auto metadata = xe::vfs::ExtractXbeMetadata(game_path)) {
+      // An original Xbox disc, which launches whatever its extension.
+      title_id = metadata->title_id;
     }
   }
-
-  if (title_id == 0) {
-    XELOGI("Could not extract title_id from: {}", xe::path_to_utf8(game_path));
-    return 0;
-  }
-
-  XELOGI("Extracted title_id {:08X} from: {}", title_id,
-         xe::path_to_utf8(game_path));
-
-  // Load the game config directly into cvars.
-  auto title_id_str = fmt::format("{:08X}", title_id);
-  const auto game_config_path = GetGameConfigPath(title_id_str);
 
   if (!cvar::ConfigVars) {
     return title_id;
@@ -350,7 +361,17 @@ uint32_t LoadGameConfigForFile(const std::filesystem::path& game_path) {
     static_cast<cvar::IConfigVar*>(it.second)->ClearGameConfigValue();
   }
 
-  if (!std::filesystem::exists(game_config_path)) {
+  if (title_id == 0) {
+    XELOGI("Could not extract title_id from: {}", xe::path_to_utf8(game_path));
+    return 0;
+  }
+
+  XELOGI("Extracted title_id {:08X} from: {}", title_id,
+         xe::path_to_utf8(game_path));
+
+  // Load the game config directly into cvars.
+  const auto game_config_path = GetGameConfigPath(title_id);
+  if (game_config_path.empty() || !std::filesystem::exists(game_config_path)) {
     return title_id;
   }
 
@@ -387,8 +408,11 @@ uint32_t LoadGameConfigForFile(const std::filesystem::path& game_path) {
 }
 
 void SaveGameConfig(uint32_t title_id, const toml::table& config_table) {
-  const auto game_config_path =
-      GetGameConfigPath(fmt::format("{:08X}", title_id));
+  const auto game_config_path = GetGameConfigPath(title_id);
+  if (game_config_path.empty()) {
+    XELOGW("Not saving a game config for title {:08X}", title_id);
+    return;
+  }
 
   try {
     xe::filesystem::CreateParentFolder(game_config_path);
@@ -436,11 +460,11 @@ toml::table* ResolveSectionTable(toml::table& root, std::string_view section) {
 
 void SaveGameConfigSetting(xe::Emulator* emulator, const char* section,
                            const char* cvar_name, const std::string& value) {
-  if (!emulator || !emulator->is_title_open()) {
+  const uint32_t title_id = emulator ? emulator->game_config_title_id() : 0;
+  if (!title_id) {
     return;
   }
 
-  uint32_t title_id = emulator->title_id();
   toml::table config_table = LoadGameConfig(title_id);
 
   auto* section_table = ResolveSectionTable(config_table, section);
@@ -453,11 +477,11 @@ void SaveGameConfigSetting(xe::Emulator* emulator, const char* section,
 
 void SaveGameConfigSetting(xe::Emulator* emulator, const char* section,
                            const char* cvar_name, bool value) {
-  if (!emulator || !emulator->is_title_open()) {
+  const uint32_t title_id = emulator ? emulator->game_config_title_id() : 0;
+  if (!title_id) {
     return;
   }
 
-  uint32_t title_id = emulator->title_id();
   toml::table config_table = LoadGameConfig(title_id);
 
   auto* section_table = ResolveSectionTable(config_table, section);
@@ -470,11 +494,11 @@ void SaveGameConfigSetting(xe::Emulator* emulator, const char* section,
 
 void SaveGameConfigSetting(xe::Emulator* emulator, const char* section,
                            const char* cvar_name, int32_t value) {
-  if (!emulator || !emulator->is_title_open()) {
+  const uint32_t title_id = emulator ? emulator->game_config_title_id() : 0;
+  if (!title_id) {
     return;
   }
 
-  uint32_t title_id = emulator->title_id();
   toml::table config_table = LoadGameConfig(title_id);
 
   auto* section_table = ResolveSectionTable(config_table, section);
@@ -487,11 +511,11 @@ void SaveGameConfigSetting(xe::Emulator* emulator, const char* section,
 
 void SaveGameConfigSetting(xe::Emulator* emulator, const char* section,
                            const char* cvar_name, uint32_t value) {
-  if (!emulator || !emulator->is_title_open()) {
+  const uint32_t title_id = emulator ? emulator->game_config_title_id() : 0;
+  if (!title_id) {
     return;
   }
 
-  uint32_t title_id = emulator->title_id();
   toml::table config_table = LoadGameConfig(title_id);
 
   auto* section_table = ResolveSectionTable(config_table, section);
@@ -504,11 +528,11 @@ void SaveGameConfigSetting(xe::Emulator* emulator, const char* section,
 
 void SaveGameConfigSetting(xe::Emulator* emulator, const char* section,
                            const char* cvar_name, double value) {
-  if (!emulator || !emulator->is_title_open()) {
+  const uint32_t title_id = emulator ? emulator->game_config_title_id() : 0;
+  if (!title_id) {
     return;
   }
 
-  uint32_t title_id = emulator->title_id();
   toml::table config_table = LoadGameConfig(title_id);
 
   auto* section_table = ResolveSectionTable(config_table, section);
@@ -520,11 +544,10 @@ void SaveGameConfigSetting(xe::Emulator* emulator, const char* section,
 }
 
 toml::table LoadGameConfig(uint32_t title_id) {
-  const auto game_config_path =
-      GetGameConfigPath(fmt::format("{:08X}", title_id));
+  const auto game_config_path = GetGameConfigPath(title_id);
 
   toml::table config_table;
-  if (std::filesystem::exists(game_config_path)) {
+  if (!game_config_path.empty() && std::filesystem::exists(game_config_path)) {
     try {
       config_table = toml::parse_file(xe::path_to_utf8(game_config_path));
     } catch (const std::exception& e) {

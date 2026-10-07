@@ -112,6 +112,17 @@ class Emulator {
   const std::optional<vfs::XbeMetadata>& xbox_game() const {
     return xbox_game_;
   }
+  // Whether the original Xbox game stays in the drive for a launch of path, as
+  // it does for the XeFu build xbox.xex picks.
+  bool KeepsXboxGame(const std::filesystem::path& path) const;
+  // The title the running title's per-game config is kept under: the original
+  // Xbox game while XeFu runs it, none when XeFu runs without one.
+  uint32_t game_config_title_id() const {
+    if (title_id() != kXeFuTitleId) {
+      return title_id();
+    }
+    return xbox_game_ ? xbox_game_->title_id : 0;
+  }
 
   // Folder guest content is stored in.
   const std::filesystem::path& content_root() const { return content_root_; }
@@ -383,9 +394,12 @@ class Emulator {
 
   // Full in-process relaunch: terminates threads, Shutdown(), Setup(),
   // then launches with new params. Must be called from a non-guest thread.
+  // keep_xbox_game leaves an original Xbox game in the drive for the XeFu
+  // build a guest launches. A launch from the UI is a fresh one.
   void RelaunchTitle(const std::string& host_path,
                      const std::string& launch_module, uint32_t launch_flags,
-                     std::vector<uint8_t> launch_data);
+                     std::vector<uint8_t> launch_data,
+                     bool keep_xbox_game = true);
 
   // Stops the current title and returns the kernel to a fresh, idle state
   // (no title loaded). Must be called from a non-guest thread.
@@ -492,6 +506,11 @@ class Emulator {
   // Sets the emulator up again after Shutdown(). Nothing runs without it, so a
   // failure is fatal.
   void SetupAgain();
+  // Takes the original Xbox game XeFu runs out of the drive.
+  void EjectXboxGame() {
+    xbox_disc_path_.clear();
+    xbox_game_.reset();
+  }
 
   std::filesystem::path command_line_;
   std::filesystem::path last_launch_path_;  // persists across relaunch

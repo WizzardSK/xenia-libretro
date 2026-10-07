@@ -413,17 +413,9 @@ void CommandProcessor::SetZPDMode(ZPDMode mode) {
   SetZPDModeCvar(mode_str);
 
   // Save to per-game config if a title is loaded.
-  uint32_t title_id = kernel_state_ ? kernel_state_->title_id() : 0;
-  if (title_id != 0) {
-    toml::table config_table = config::LoadGameConfig(title_id);
-
-    auto* gpu_table = config::ResolveSectionTable(config_table, "GPU");
-    if (gpu_table) {
-      gpu_table->insert_or_assign("occlusion_query", mode_str);
-    }
-
-    config::SaveGameConfig(title_id, config_table);
-  }
+  config::SaveGameConfigSetting(
+      kernel_state_ ? kernel_state_->emulator() : nullptr, "GPU",
+      "occlusion_query", std::string(mode_str));
 }
 
 void CommandProcessor::SetDesiredSwapPostEffect(
