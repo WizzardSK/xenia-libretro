@@ -7,6 +7,7 @@
 #include "libretro_hid.h"
 
 #include <cstring>
+#include <string>
 
 #include "xenia/base/byte_order.h"
 
@@ -31,6 +32,19 @@ X_STATUS LibretroInputDriver::Setup() { return X_STATUS_SUCCESS; }
 
 InputType LibretroInputDriver::GetInputType() const {
   return InputType::Controller;
+}
+
+std::vector<InputDeviceInfo> LibretroInputDriver::EnumerateDevices() {
+  std::vector<InputDeviceInfo> devices;
+  for (size_t i = 0; i < kMaxPorts; ++i) {
+    InputDeviceInfo info;
+    info.driver_slot = static_cast<uint8_t>(i);
+    info.stable_id = "libretro:" + std::to_string(i);
+    info.display_name = "RetroPad " + std::to_string(i + 1);
+    info.preferred_slot = static_cast<int8_t>(i);
+    devices.push_back(std::move(info));
+  }
+  return devices;
 }
 
 X_RESULT LibretroInputDriver::GetCapabilities(uint32_t user_index,

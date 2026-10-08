@@ -16,6 +16,7 @@
 struct xenia_core_state;
 
 // Core option keys ??? Graphics
+#define XENIA_OPT_GRAPHICS_API          "xenia_graphics_api"
 #define XENIA_OPT_RENDER_TARGET_PATH    "xenia_render_target_path"
 #define XENIA_OPT_DRAW_RESOLUTION_SCALE "xenia_draw_resolution_scale"
 #define XENIA_OPT_ANISOTROPIC_FILTERING "xenia_anisotropic_filtering"
@@ -79,6 +80,25 @@ static struct retro_core_option_v2_definition xenia_core_options_v2_defs[] = {
     /* ================================================================ */
     /* --- Graphics ---                                                  */
     /* ================================================================ */
+    {
+        XENIA_OPT_GRAPHICS_API,
+        "Graphics API (Restart)",
+        "Graphics API",
+        "The GPU backend Xenia emulates the Xbox 360 GPU with, and the "
+        "context the core asks RetroArch for: RetroArch changes its video "
+        "driver to match when it is allowed to (Settings > Video > Output). "
+        "Applies when the content is loaded again.",
+        NULL,
+        "Graphics",
+        {
+            { "vulkan", "Vulkan" },
+#ifdef _WIN32
+            { "d3d12",  "Direct3D 12" },
+#endif
+            { NULL, NULL }
+        },
+        "vulkan"
+    },
     {
         XENIA_OPT_RENDER_TARGET_PATH,
         "Render Target Path",

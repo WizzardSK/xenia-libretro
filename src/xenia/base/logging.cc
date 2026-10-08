@@ -439,9 +439,19 @@ class Logger {
   }
 };
 
+static std::unique_ptr<LogSink> extra_log_sink_;
+
+void SetExtraLogSink(std::unique_ptr<LogSink> sink) {
+  extra_log_sink_ = std::move(sink);
+}
+
 void InitializeLogging(const std::string_view app_name) {
   auto mem = memory::AlignedAlloc<Logger>(0x10);
   logger_ = new (mem) Logger(app_name);
+
+  if (extra_log_sink_) {
+    logger_->AddLogSink(std::move(extra_log_sink_));
+  }
 
 #if XE_PLATFORM_ANDROID
   // TODO(Triang3l): Enable file logging, but not by default as logs may be

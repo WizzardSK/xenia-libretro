@@ -60,6 +60,10 @@ class LibretroInputDriver final : public InputDriver {
   X_RESULT GetKeystroke(uint32_t user_index, uint32_t flags,
                         X_INPUT_KEYSTROKE* out_keystroke) override;
   InputType GetInputType() const override;
+  // One device per RetroPad port, port N bound to guest slot N. Always all
+  // of them: a port the frontend unplugs reads as not connected in GetState,
+  // so the binding never has to change
+  std::vector<InputDeviceInfo> EnumerateDevices() override;
 
   // Called from libretro frontend thread (retro_run) to update
   // the cached controller state for all ports.

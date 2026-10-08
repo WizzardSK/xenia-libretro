@@ -9,6 +9,10 @@
 
 #include <ranges>
 
+#if !defined(_WIN32)
+#include <dlfcn.h>
+#endif
+
 #include "xenia/emulator.h"
 
 #include <algorithm>
@@ -22,6 +26,7 @@
 #include "xenia/base/cvar.h"
 #include "xenia/base/debugging.h"
 #include "xenia/base/exception_handler.h"
+#include "xenia/base/filesystem.h"
 #include "xenia/base/literals.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/mapped_memory.h"
@@ -1573,15 +1578,7 @@ void Emulator::RelaunchTitle(const std::string& host_path,
   XELOGI("RelaunchTitle: relaunch complete");
 }
 
-void Emulator::ResetTitle() {
-  // Drops relaunches requested before the reset.
-  ++relaunch_requests_;
-  std::lock_guard<std::recursive_mutex> launch_lock(launch_mutex_);
-  XELOGI("ResetTitle: stopping title and resetting kernel");
-
-  relaunching_ = true;
-  on_title_closing();
-
+void Emulator::StopTitleThreads() {
   kernel_state_->ShutdownDispatchThread();
 
   // Stop the GPU command processor before terminating guest threads so its
@@ -1607,7 +1604,7 @@ void Emulator::ResetTitle() {
     auto threads =
         kernel_state()->object_table()->GetObjectsByType<kernel::XThread>(
             kernel::XObject::Type::Thread);
-    XELOGI("ResetTitle: terminating {} threads", threads.size());
+    XELOGI("StopTitleThreads: terminating {} threads", threads.size());
     for (auto thread : threads) {
       // Their owners stop host threads. Killing one could leave a lock it
       // holds taken for good.
@@ -1617,6 +1614,18 @@ void Emulator::ResetTitle() {
       thread->Terminate(0);
     }
   }
+}
+
+void Emulator::ResetTitle() {
+  // Drops relaunches requested before the reset.
+  ++relaunch_requests_;
+  std::lock_guard<std::recursive_mutex> launch_lock(launch_mutex_);
+  XELOGI("ResetTitle: stopping title and resetting kernel");
+
+  relaunching_ = true;
+  on_title_closing();
+
+  StopTitleThreads();
 
   Shutdown();
   // Nothing is left in the drive for the next launch.
@@ -1913,10 +1922,34 @@ bool Emulator::ExceptionCallback(Exception* ex) {
     // dispatcher and the other fibers alive.
     if (auto* fiber_self = kernel::XThread::GetCurrentFiberThread()) {
       // ASLR moves the absolute PC each run, so log a stable module offset that
-      // resolves against the pdb with "ln xenia_edge+<offset>".
+      // resolves against the pdb with "ln xenia_edge+<offset>". The module is
+      // the one the PC is in: in a libretro core that is the core's library,
+      // not the frontend's executable.
       uint64_t module_base = 0;
+      std::string module_name = "module";
 #if XE_PLATFORM_WIN32 == 1
-      module_base = reinterpret_cast<uint64_t>(GetModuleHandleW(nullptr));
+      HMODULE module_handle = nullptr;
+      if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                                 GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                             reinterpret_cast<LPCWSTR>(ex->pc()),
+                             &module_handle)) {
+        module_base = reinterpret_cast<uint64_t>(module_handle);
+        wchar_t module_path[MAX_PATH];
+        if (GetModuleFileNameW(module_handle, module_path, MAX_PATH)) {
+          module_name = xe::path_to_utf8(
+              std::filesystem::path(module_path).filename());
+        }
+      }
+#else
+      Dl_info dl_info;
+      if (dladdr(reinterpret_cast<void*>(ex->pc()), &dl_info) &&
+          dl_info.dli_fbase) {
+        module_base = reinterpret_cast<uint64_t>(dl_info.dli_fbase);
+        if (dl_info.dli_fname) {
+          module_name = xe::path_to_utf8(
+              std::filesystem::path(dl_info.dli_fname).filename());
+        }
+      }
 #endif
       uint64_t module_offset =
           (module_base && ex->pc() >= module_base) ? ex->pc() - module_base : 0;
@@ -1963,11 +1996,11 @@ bool Emulator::ExceptionCallback(Exception* ex) {
       }
       XELOGE(
           "Host-side crash on fiber thread (handle 0x{:08X}, guest tid "
-          "0x{:08X}): {}{} at host PC 0x{:016X} (module+0x{:X}, guest lr "
+          "0x{:08X}): {}{} at host PC 0x{:016X} ({}+0x{:X}, guest lr "
           "0x{:08X}, host sp 0x{:016X}, sp%16={}). "
           "Halting fiber to keep the dispatcher alive.",
           fiber_self->handle(), fiber_self->thread_id(), code_name,
-          fault_detail, ex->pc(), module_offset, guest_lr, host_sp,
+          fault_detail, ex->pc(), module_name, module_offset, guest_lr, host_sp,
           host_sp % 16);
       DivertToThunk(ex, &HaltCrashedFiberThunk);
       return true;

@@ -11,6 +11,21 @@ add_library(xenia-libretro SHARED
 )
 if(WIN32)
   target_sources(xenia-libretro PRIVATE libretro_d3d12_presenter.cc)
+  # dxil.dll, D3D12's shader validator, carried inside the core as a resource
+  # the core writes out to its system folder, so the core is one file
+  set(XENIA_LIBRETRO_DXIL "$ENV{XENIA_LIBRETRO_DXIL}" CACHE FILEPATH
+      "dxil.dll to embed in the core")
+  if(XENIA_LIBRETRO_DXIL)
+    if(NOT EXISTS "${XENIA_LIBRETRO_DXIL}")
+      message(FATAL_ERROR "XENIA_LIBRETRO_DXIL: no ${XENIA_LIBRETRO_DXIL}")
+    endif()
+    file(TO_CMAKE_PATH "${XENIA_LIBRETRO_DXIL}" _xe_dxil)
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/dxil.rc"
+         "XENIA_DXIL RCDATA \"${_xe_dxil}\"\n")
+    target_sources(xenia-libretro PRIVATE
+                   "${CMAKE_CURRENT_BINARY_DIR}/dxil.rc")
+    target_compile_definitions(xenia-libretro PRIVATE XENIA_LIBRETRO_DXIL)
+  endif()
 endif()
 
 # RetroArch's names: xenia_edge_libretro.so / .dll / .dylib, and

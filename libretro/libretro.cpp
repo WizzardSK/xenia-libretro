@@ -8,11 +8,13 @@
  * (at your option) any later version.
  */
 
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <cstdarg>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 
 #include "libretro.h"
@@ -38,6 +40,12 @@
 
 // CVars declared in .cc files - DECLARE for direct assignment.
 DECLARE_bool(use_50Hz_mode);
+#ifdef _WIN32
+DECLARE_path(d3d12_runtime_path);
+#endif
+#ifndef __ANDROID__
+DECLARE_path(log_file);  // not on Android, where Xenia logs to logcat
+#endif
 DECLARE_bool(apply_title_update);
 DECLARE_string(xma_decoder);
 DECLARE_int32(log_level);
@@ -75,6 +83,9 @@ DECLARE_bool(disable_context_promotion);
 #include "libretro_d3d12_presenter.h"
 #endif
 #include "xenia/vfs/virtual_file_system.h"
+#include "xenia/kernel/kernel_state.h"
+#include "xenia/kernel/xam/profile_manager.h"
+#include "xenia/kernel/xam/xam_state.h"
 #include "libretro_audio_driver.h"
 #include "libretro_hid.h"
 
@@ -253,6 +264,28 @@ static void xenia_log(enum retro_log_level level, const char *fmt, ...) {
     va_end(va);
     core_state.log_cb(level, "[Xenia] %s", buf);
 }
+
+// Xenia's errors and warnings into the frontend's log, so that the one log a
+// tester sends has them; the whole log goes to xenia.log in the save
+// directory. The logger writes a line in pieces - its "!> f:... " prefix, the
+// text, a newline - from its one writer thread, so they are put together here.
+class RetroLogSink final : public xe::LogSink {
+public:
+    void Write(const char *buf, size_t size) override {
+        line_.append(buf, size);
+        size_t end;
+        while ((end = line_.find('\n')) != std::string::npos) {
+            const std::string line = line_.substr(0, end);
+            line_.erase(0, end + 1);
+            if (line.size() > 1 && line[1] == '>' && (line[0] == '!' || line[0] == 'w'))
+                xenia_log(line[0] == '!' ? RETRO_LOG_ERROR : RETRO_LOG_WARN, "%s\n", line.c_str() + 3);
+        }
+    }
+    void Flush() override {}
+
+private:
+    std::string line_;
+};
 
 /* ================================================================== */
 /*  Vulkan HW render helpers                                           */
@@ -1113,18 +1146,103 @@ static xe::X_STATUS xenia_launch_path_seh(const std::filesystem::path &p) {
 }
 #endif
 
+#if defined(_WIN32) && defined(XENIA_LIBRETRO_DXIL)
+// Writes the dxil.dll the core carries (libretro/CMakeLists.txt) to dir,
+// unless the one there is already it
+static void write_embedded_dxil(const std::filesystem::path &dir) {
+    HMODULE module = nullptr;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            reinterpret_cast<LPCWSTR>(&write_embedded_dxil),
+                            &module))
+        return;
+    HRSRC res = FindResourceW(module, L"XENIA_DXIL", MAKEINTRESOURCEW(10));
+    HGLOBAL data = res ? LoadResource(module, res) : nullptr;
+    const void *bytes = data ? LockResource(data) : nullptr;
+    const DWORD size = res ? SizeofResource(module, res) : 0;
+    if (!bytes || !size)
+        return;
+    const auto path = dir / "dxil.dll";
+    std::error_code ec;
+    if (std::filesystem::file_size(path, ec) == size && !ec)
+        return;
+    std::filesystem::create_directories(dir, ec);
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    out.write(static_cast<const char *>(bytes), size);
+    if (!out)
+        xenia_log(RETRO_LOG_WARN, "Could not write %s\n",
+                  path.string().c_str());
+}
+#endif
+
+// A profile signed in to the first slot, as many titles ask for one before
+// they start: standalone makes them in its UI, the core makes one itself,
+// named after the frontend's username, and signs in the first it has after
+static void xenia_sign_in(void) {
+    auto *profiles =
+        xenia_emulator->kernel_state()->xam_state()->profile_manager();
+    if (profiles->GetProfile(static_cast<uint8_t>(0)))
+        return;
+    if (profiles->GetAccountCount()) {
+        profiles->Login(profiles->GetAccounts()->begin()->first, 0);
+        return;
+    }
+    // A gamertag: letters, digits and single spaces, starting with a letter,
+    // 15 at most
+    std::string gamertag;
+    const char *username = nullptr;
+    if (core_state.environ_cb)
+        core_state.environ_cb(RETRO_ENVIRONMENT_GET_USERNAME, &username);
+    for (const char *c = username; c && *c && gamertag.size() < 15; ++c) {
+        if (isalpha((unsigned char)*c) ||
+            (!gamertag.empty() && isdigit((unsigned char)*c)))
+            gamertag += *c;
+        else if (*c == ' ' && !gamertag.empty() && gamertag.back() != ' ')
+            gamertag += ' ';
+    }
+    while (!gamertag.empty() && gamertag.back() == ' ')
+        gamertag.pop_back();
+    if (!xe::kernel::xam::ProfileManager::IsGamertagValid(gamertag))
+        gamertag = "Player";
+    if (profiles->CreateProfile(gamertag, true))
+        xenia_log(RETRO_LOG_INFO, "Created profile %s\n", gamertag.c_str());
+    else
+        xenia_log(RETRO_LOG_WARN, "Could not create a profile\n");
+}
+
 static bool xenia_setup_and_launch(const char *path) {
     try {
         namespace fs = std::filesystem;
-        fs::path storage = fs::path(core_state.save_dir);
-        fs::path content = fs::path(core_state.system_dir);
-        fs::path cache   = fs::path(core_state.save_dir) / "cache";
+        // Everything the emulator keeps - its storage, the content (saves,
+        // title updates, DLC), caches and its log - in a folder of its own in
+        // the system directory, as the other cores do (NNshi); nothing in the
+        // frontend's own folder.
+        fs::path root    = fs::path(core_state.system_dir) / "Xenia-Edge";
+        fs::path storage = root;
+        fs::path content = root / "content";
+        fs::path cache   = root / "cache";
         fs::path cmdline = fs::path(path);
 
         std::error_code ec;
         fs::create_directories(cache, ec);
-        fs::create_directories(storage, ec);
-        // Initialize Xenia logging first
+        fs::create_directories(content, ec);
+        // Initialize Xenia logging first: its default file is beside the
+        // executable, which for a core is the frontend's folder; and its errors
+        // and warnings go to the frontend's log as well
+#ifndef __ANDROID__
+        if (cvars::log_file.empty())
+            cvars::log_file = root / "xenia.log";
+#endif
+        xe::SetExtraLogSink(std::make_unique<RetroLogSink>());
+#ifdef _WIN32
+        // Direct3D 12's shader validator, dxil.dll, from the core's folder in
+        // the system directory rather than beside the frontend's executable
+        if (cvars::d3d12_runtime_path.empty())
+            cvars::d3d12_runtime_path = root / "D3D12";
+#ifdef XENIA_LIBRETRO_DXIL
+        write_embedded_dxil(cvars::d3d12_runtime_path);
+#endif
+#endif
 #ifdef _WIN32
         xe::InitializeWin32App("xenia_libretro");
 #else
@@ -1180,6 +1298,23 @@ static bool xenia_setup_and_launch(const char *path) {
             return false;
         }
 
+        // Setup only keeps the factories since upstream split it: graphics,
+        // audio and the input drivers are made here, as the standalone app
+        // does before it launches a title. Without it a title ran with no
+        // graphics system and crashed on its first video call
+        // (VdSetGraphicsInterruptCallback, NNshi: a black screen in every
+        // game). The GPU uses its own Vulkan device, so the frontend's context
+        // is not needed for this yet.
+        status = xenia_emulator->SetupSubsystems();
+        if (XFAILED(status)) {
+            xenia_log(RETRO_LOG_ERROR,
+                      "Emulator::SetupSubsystems failed 0x%08X\n", status);
+            xenia_emulator.reset();
+            return false;
+        }
+
+        xenia_sign_in();
+
         status = xenia_launch_path_seh(fs::path(path));
 
         if (XFAILED(status)) {
@@ -1205,7 +1340,9 @@ static bool xenia_setup_and_launch(const char *path) {
 
 static void xenia_shutdown(void) {
     if (xenia_emulator) {
-        xenia_emulator->TerminateTitle();
+        // Not TerminateTitle: it ends the process, RetroArch with it
+        if (xenia_emulator->is_title_open())
+            xenia_emulator->StopTitleThreads();
         xenia_emulator->Shutdown();
         xenia_emulator.reset();
     }
@@ -1240,6 +1377,16 @@ RETRO_API unsigned retro_api_version(void) {
     return RETRO_API_VERSION;
 }
 
+#ifdef _WIN32
+// Whether a Direct3D 12 device can be made on the default adapter: the
+// Graphics API option is offered, and D3D12 used, only then
+static bool d3d12_available(void) {
+    static const bool available = SUCCEEDED(D3D12CreateDevice(
+        nullptr, D3D_FEATURE_LEVEL_11_0, __uuidof(ID3D12Device), nullptr));
+    return available;
+}
+#endif
+
 RETRO_API void retro_set_environment(retro_environment_t cb) {
     core_state.environ_cb = cb;
 
@@ -1250,6 +1397,13 @@ RETRO_API void retro_set_environment(retro_environment_t cb) {
 
     // Publish core options v2
     cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2, &xenia_core_options_v2_def);
+#ifdef _WIN32
+    if (!d3d12_available()) {
+        struct retro_core_option_display display = {
+            XENIA_OPT_GRAPHICS_API, false};
+        cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &display);
+    }
+#endif
 
     // Publish input descriptors for 4 Xbox 360 controllers
     static const struct retro_input_descriptor descs[] = {
@@ -1348,23 +1502,25 @@ RETRO_API bool retro_load_game(const struct retro_game_info *info) {
     // Apply any options set before load
     apply_core_options();
 
-    // Pick graphics backend based on frontend's preferred HW context.
-    unsigned preferred_hw = RETRO_HW_CONTEXT_NONE;
-    core_state.environ_cb(RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER,
-                          &preferred_hw);
-    if (preferred_hw == RETRO_HW_CONTEXT_VULKAN) {
-        strncpy(core_state.graphics_backend, XENIA_GRAPHICS_VULKAN,
-                sizeof(core_state.graphics_backend) - 1);
-    } else {
-        // D3D12, D3D11, OpenGL, or anything else ??? use D3D12 backend
+    // The backend is the Graphics API option's (NNshi), not whatever video
+    // driver the frontend happens to run: the core asks for that context, and
+    // RetroArch switches its driver to it. Following the frontend's driver
+    // took D3D12 for anything not Vulkan - d3d11 or gl included - without a
+    // context of that kind behind it.
+    unsigned preferred_hw = RETRO_HW_CONTEXT_VULKAN;
+    strncpy(core_state.graphics_backend, XENIA_GRAPHICS_VULKAN,
+            sizeof(core_state.graphics_backend) - 1);
+#ifdef _WIN32
+    if (const char *api = opt_get(XENIA_OPT_GRAPHICS_API);
+        api && strcmp(api, XENIA_GRAPHICS_D3D12) == 0 && d3d12_available()) {
+        preferred_hw = RETRO_HW_CONTEXT_D3D12;
         strncpy(core_state.graphics_backend, XENIA_GRAPHICS_D3D12,
                 sizeof(core_state.graphics_backend) - 1);
     }
+#endif
     // Also update the gpu cvar so internal Xenia code stays consistent
     cvars::gpu = core_state.graphics_backend;
-    xenia_log(RETRO_LOG_INFO,
-              "Frontend preferred HW context: %u -> using %s backend\n",
-              preferred_hw, core_state.graphics_backend);
+    xenia_log(RETRO_LOG_INFO, "Graphics API: %s\n", core_state.graphics_backend);
 
     // Request HW render from the frontend.
     memset(&hw_render_cb, 0, sizeof(hw_render_cb));

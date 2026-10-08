@@ -406,6 +406,11 @@ class Emulator {
   // Stops the current title and returns the kernel to a fresh, idle state
   // (no title loaded). Must be called from a non-guest thread.
   void ResetTitle();
+  // Stops the title's host workers and guest threads in order, leaving the
+  // subsystems to Shutdown. What ResetTitle does before it sets up again, and
+  // what a host that tears the emulator down without exiting the process
+  // (the libretro core) does instead of TerminateTitle, which exits it.
+  void StopTitleThreads();
 
   struct TitleDisc {
     std::string label;

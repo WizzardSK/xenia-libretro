@@ -57,6 +57,7 @@ jobs:
           core=$(find build -name 'xenia_edge_libretro.so' | head -1)
           echo "core: $core"
           cp "$core" dist/xenia_edge_libretro.so
+          cp libretro/xenia_edge_libretro.info dist/
           strip --strip-unneeded dist/xenia_edge_libretro.so
           ls -la dist
           readelf -d dist/xenia_edge_libretro.so | grep NEEDED
@@ -82,6 +83,18 @@ jobs:
           python xenia-build.py slang
           python xenia-build.py fetchdata
 
+      # Direct3D 12's shader validator, which the D3D12 backend needs and
+      # standalone downloads at run time; the core carries it inside instead
+      # and writes it to system/Xenia-Edge/D3D12/. From a pinned
+      # DirectXShaderCompiler release (MIT).
+      - name: dxil.dll
+        shell: bash
+        run: |
+          curl -sSL -o dxc.zip https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.9.2609/dxc_2026_09_29.zip
+          mkdir -p dxc
+          python -c "import zipfile; open('dxc/dxil.dll','wb').write(zipfile.ZipFile('dxc.zip').read('bin/x64/dxil.dll'))"
+          echo "XENIA_LIBRETRO_DXIL=$GITHUB_WORKSPACE/dxc/dxil.dll" >> $GITHUB_ENV
+
       - name: Build
         run: python xenia-build.py build --config=Release --target=xenia-libretro -- -- -k 0
 
@@ -92,12 +105,24 @@ jobs:
           core=$(find build -name 'xenia_edge_libretro.dll' | head -1)
           echo "core: $core"
           cp "$core" dist/xenia_edge_libretro.dll
+          cp libretro/xenia_edge_libretro.info dist/
           ls -la dist
+          # The pdb, kept apart: a crash's "xenia_edge_libretro.dll+<offset>"
+          # in xenia.log resolves against it
+          mkdir -p symbols
+          pdb=$(find build -name 'xenia_edge_libretro.pdb' | head -1)
+          [ -n "$pdb" ] && cp "$pdb" symbols/ || echo "no pdb"
 
       - uses: actions/upload-artifact@v4
         with:
           name: xenia_edge_libretro-windows-x86_64
           path: dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xenia_edge_libretro-windows-x86_64-symbols
+          path: symbols/
+          if-no-files-found: ignore
 
   # Vulkan through MoltenVK, linked into the core as upstream links it into
   # the app; the core runs Xenia's own Vulkan device and hands RetroArch the
@@ -132,6 +157,7 @@ jobs:
           core=$(find build* -name 'xenia_edge_libretro.dylib' | head -1)
           echo "core: $core"
           cp "$core" dist/xenia_edge_libretro.dylib
+          cp libretro/xenia_edge_libretro.info dist/
           strip -x dist/xenia_edge_libretro.dylib
           codesign -f -s - dist/xenia_edge_libretro.dylib
           otool -L dist/xenia_edge_libretro.dylib
@@ -188,6 +214,7 @@ jobs:
           core=$(find build-android -name 'xenia_edge_libretro_android.so' | head -1)
           echo "core: $core"
           cp "$core" dist/xenia_edge_libretro_android.so
+          cp libretro/xenia_edge_libretro.info dist/
           "$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-unneeded dist/xenia_edge_libretro_android.so
           "$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -d dist/xenia_edge_libretro_android.so | grep NEEDED
           ls -la dist

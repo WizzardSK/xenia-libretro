@@ -12,6 +12,7 @@
 
 #include <cstdarg>
 #include <cstdint>
+#include <memory>
 #include <string>
 
 #include "third_party/fmt/include/fmt/format.h"
@@ -70,6 +71,10 @@ class DebugPrintLogSink final : public LogSink {
   void Write(const char* buf, size_t size) override;
   void Flush() override {}
 };
+
+// One more output for the log, from a host that has its own (a libretro
+// frontend's log); taken by InitializeLogging, so it has to come before it.
+void SetExtraLogSink(std::unique_ptr<LogSink> sink);
 
 // Initializes the logging system and any outputs requested.
 // Must be called on startup.

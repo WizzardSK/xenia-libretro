@@ -46,6 +46,11 @@ DEFINE_int32(
     "system responsibility)",
     "D3D12");
 
+DEFINE_path(d3d12_runtime_path, "",
+            "Where dxil.dll (and D3D12Core.dll) are; empty: the D3D12 folder "
+            "next to the executable.",
+            "D3D12");
+
 namespace xe {
 namespace ui {
 namespace d3d12 {
@@ -267,9 +272,16 @@ bool D3D12Provider::Initialize() {
   // Load the required DXIL validator (dxil.dll) from the D3D12 folder next to
   // the executable. It signs every shader Mesa emits, which D3D12 rejects
   // unsigned, so offer to download it if it's missing.
-  auto d3d12_dir = xe::filesystem::GetExecutablePath().parent_path() / "D3D12";
+  auto d3d12_dir = cvars::d3d12_runtime_path.empty()
+                       ? xe::filesystem::GetExecutablePath().parent_path() /
+                             "D3D12"
+                       : cvars::d3d12_runtime_path;
   {
+#ifndef XENIA_LIBRETRO
+    // A libretro core does not download anything at run time, nor restart
+    // its host: dxil.dll comes with the core's package.
     EnsureShaderCompilerRuntime(d3d12_dir);
+#endif
 
     // Load by full path, since the signer's own plain-name load skips D3D12/.
     auto dxil_path_utf16 = xe::path_to_utf16(d3d12_dir / "dxil.dll");
@@ -292,6 +304,9 @@ bool D3D12Provider::Initialize() {
 
   // The D3D12SDKVersion exports make d3d12.dll load D3D12Core.dll at the first
   // device creation, which fails outright if it's missing, so fetch it first.
+  // Not for a libretro core: the exports have to be the executable's, and
+  // the frontend's has none, so a core runs on the system's Direct3D 12.
+#ifndef XENIA_LIBRETRO
   std::error_code ec;
   if (!std::filesystem::exists(d3d12_dir / "D3D12Core.dll", ec)) {
     // Returns only on decline or failure. On success it restarts.
@@ -303,6 +318,7 @@ bool D3D12Provider::Initialize() {
       return false;
     }
   }
+#endif
 
   // Configure the DXGI debug info queue.
   if (cvars::d3d12_break_on_error || cvars::d3d12_break_on_warning) {
