@@ -6,12 +6,20 @@ name: Build libretro core
 
 on:
   workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Platforms to build besides Linux, comma-separated (windows, android, macos), or all'
+        type: string
+        default: all
   push:
     branches: [libretro]
     paths-ignore:
       - '*.md'
       - 'LICENSE'
 
+# Test builds can be limited to the platforms their testers use: the
+# platforms input (workflow_dispatch) lists them; Linux is always built, as a
+# quick check that it compiles. Pushes and "all" build everything.
 jobs:
   linux:
     name: Linux ${{ matrix.arch }}
@@ -68,6 +76,7 @@ jobs:
           path: dist/
 
   windows:
+    if: github.event_name != 'workflow_dispatch' || inputs.platforms == 'all' || contains(inputs.platforms, 'windows')
     name: Windows x86_64
     runs-on: windows-2025
     steps:
@@ -129,6 +138,7 @@ jobs:
   # frames. Apple Silicon only: the x64 backend needs the address space
   # below 4 GB, which a dylib can't free (the __PAGEZERO is RetroArch's)
   macos:
+    if: github.event_name != 'workflow_dispatch' || inputs.platforms == 'all' || contains(inputs.platforms, 'macos')
     name: macOS ${{ matrix.arch }}
     runs-on: macos-15
     strategy:
@@ -171,6 +181,7 @@ jobs:
   # Cross-compiled with the NDK; the shader compiler the build runs is built
   # for the host first
   android:
+    if: github.event_name != 'workflow_dispatch' || inputs.platforms == 'all' || contains(inputs.platforms, 'android')
     name: Android ${{ matrix.abi }}
     runs-on: ubuntu-24.04
     strategy:
