@@ -39,7 +39,6 @@ This repository builds the libretro core and nothing else. The standalone's part
 - Compare with standalone Xenia Edge at the same upstream version before calling something a core bug; when standalone fails the same way, it is upstream's.
 - Each Windows CI build uploads its `.pdb` as `<artifact>-symbols`; a crash offset in xenia.log (`xenia_edge_libretro.dll+0x...`) is resolved against the symbols of the same build.
 
-
 ## Libretro pitfalls already hit in the other cores
 
 Each of these was a bug in at least one of the cemu, rpcs3, vita3k or xenia cores. Check new code against them before asking testers.
