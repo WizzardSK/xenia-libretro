@@ -1,0 +1,138 @@
+# DESCRIPTION: GitLab CI/CD for libRetro (NOT FOR GitLab-proper)
+
+# Linux x64, Linux aarch64, Android arm64-v8a and x86_64.
+#
+# Xenia Edge needs clang 21 and GCC 14's libstdc++; the buildbot's Linux images
+# (Ubuntu 16.04, gcc 9) cannot build it, so the Linux jobs run in Ubuntu 22.04
+# (glibc 2.35) with clang 21 from apt.llvm.org, as the project's GitHub CI
+# does and as cemu-libretro's and vita3k-libretro's jobs do. The core is built
+# through xenia-build.py, which also generates the shaders and the version
+# header. Windows and macOS are not here: Windows builds with a newer MSVC than
+# the buildbot's 2019 16.8, and macOS has not been tried on the buildbot yet.
+
+##############################################################################
+################################# BOILERPLATE ################################
+##############################################################################
+
+variables:
+  # Only the submodules the core needs; mesa, MoltenVK, SPIRV-Cross,
+  # DirectX-Headers, DirectXShaderCompiler and libusb are for other targets.
+  # --jobs=N rather than -jN: 22.04's git submodule takes only the long form.
+  GIT_SUBMODULE_STRATEGY: none
+  GIT_DEPTH: "0"
+
+.core-defs:
+  variables:
+    CORENAME: xenia_edge
+
+include:
+  # Linux
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/linux-cmake.yml'
+
+  # Android
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/android-cmake.yml'
+
+stages:
+  - build-prepare
+  - build-shared
+
+# A runner having a bad minute should not redden the pipeline; anything really
+# broken still fails three times over.
+default:
+  retry: 2
+
+.xenia-submodules: &xenia-submodules
+  - git submodule update --init --depth=1 --jobs=$(getconf _NPROCESSORS_ONLN) $(grep -oP '(?<=path = )(?!third_party\/(mesa|MoltenVK|SPIRV-Cross|DirectX-Headers|DirectXShaderCompiler|libusb)).+' .gitmodules)
+
+##############################################################################
+#################################### STAGES ##################################
+##############################################################################
+
+# Defining before_script replaces the template's instead of adding to it, so
+# its NUMPROC is set again here.
+.core-defs-linux:
+  extends: .core-defs
+  image: ubuntu:22.04
+  timeout: 3h
+  variables:
+    DEBIAN_FRONTEND: noninteractive
+  before_script:
+    - export NUMPROC=$(($(nproc)/5))
+    - apt-get update -qq
+    - apt-get install -y --no-install-recommends
+      ca-certificates wget gnupg lsb-release software-properties-common
+      git python3 python3-pip file
+    - wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key > /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+    - apt-add-repository -y --no-update "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-21 main"
+    - add-apt-repository -y --no-update ppa:ubuntu-toolchain-r/test
+    - apt-get update -qq
+    - apt-get install -y --no-install-recommends
+      clang-21 lld-21 libclang-rt-21-dev llvm-21 g++-14 ninja-build make
+      libx11-xcb-dev libwayland-dev libfontconfig1-dev liblz4-dev
+    - pip3 install --upgrade cmake
+    # The helper steps below configure CMake projects of their own too, with
+    # the default compiler, which the image does not have under cc/c++
+    - export CC=clang-21 CXX=clang++-21
+    - *xenia-submodules
+    - ./xenia-build.py slang
+    - ./xenia-build.py fetchdata
+  script:
+    - ./xenia-build.py build --config=Release --target=xenia-libretro
+    - mv "$(find build -name "$LIBNAME" | head -1)" "$LIBNAME"
+    - strip --strip-unneeded "$LIBNAME"
+
+# Linux 64-bit
+libretro-build-linux-x64:
+  extends:
+    - .libretro-linux-cmake-x86_64
+    - .core-defs-linux
+
+# Linux 64-bit (ARM)
+libretro-build-linux-aarch64:
+  extends:
+    - .libretro-linux-cmake-aarch64
+    - .core-defs-linux
+
+# Android
+#
+# The shaders are compiled by xenia-shader-cc, a host tool, so it is built
+# first for the build machine and handed to the Android build
+# (XENIA_HOST_SHADER_CC), as in the project's GitHub CI. API 28 and the NDK
+# the template sets up.
+.core-defs-android:
+  extends: .core-defs
+  timeout: 3h
+  variables:
+    API_LEVEL: 28
+  script:
+    - *xenia-submodules
+    - ./xenia-build.py slang
+    - ./xenia-build.py fetchdata
+    - cmake -S . -B build-host -G Ninja -DCMAKE_BUILD_TYPE=Release -DXENIA_ENABLE_LTO=OFF
+    - cmake --build build-host --target xenia-shader-cc -- -j $NUMPROC
+    - HOST_SHADER_CC=$(find "$PWD/build-host" -name xenia-shader-cc -type f | head -1)
+    # version.h, which xenia-build.py writes into the build directory
+    - python3 -c "import importlib.util as u; s=u.spec_from_file_location('xb','xenia-build.py'); m=u.module_from_spec(s); s.loader.exec_module(m); m.generate_version_h('$BUILD_DIR')"
+    - cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release
+      -DCMAKE_TOOLCHAIN_FILE=$NDK_ROOT/build/cmake/android.toolchain.cmake
+      -DANDROID_ABI=$ANDROID_ABI -DANDROID_PLATFORM=android-$API_LEVEL -DANDROID_STL=c++_static
+      -DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON
+      -DXENIA_HOST_SHADER_CC=$HOST_SHADER_CC -DXENIA_ENABLE_LTO=OFF
+    - cmake --build "$BUILD_DIR" --target xenia-libretro -- -j $NUMPROC
+  after_script:
+    - mv "$(find "$BUILD_DIR" -name "$LIBNAME" | head -1)" "$LIBNAME"
+    - $NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded "$LIBNAME"
+
+# Android 64-bit (ARM)
+android-arm64-v8a:
+  extends:
+    - .libretro-android-cmake-arm64-v8a
+    - .core-defs-android
+
+# Android 64-bit (x86)
+android-x86_64:
+  extends:
+    - .libretro-android-cmake-x86_64
+    - .core-defs-android
