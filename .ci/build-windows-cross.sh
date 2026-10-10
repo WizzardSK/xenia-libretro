@@ -167,6 +167,12 @@ cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DXENIA_HOST_SHADER_CC="$HOST_SHADER_CC" -DXENIA_ENABLE_LTO=OFF
 # Meson builds Mesa's build-machine helpers with these
 export CC_FOR_BUILD=clang-21 CXX_FOR_BUILD=clang++-21
-cmake --build "$BUILD_DIR" --target xenia-libretro -- -j "$NUMPROC" ${XE_CROSS_KEEP_GOING:+-k 0}
+# lld-link's own search path, for the links meson's checks make
+export LIB="$MSVC/crt/lib/x86_64;$MSVC/sdk/lib/um/x86_64;$MSVC/sdk/lib/ucrt/x86_64"
+if ! cmake --build "$BUILD_DIR" --target xenia-libretro -- -j "$NUMPROC" ${XE_CROSS_KEEP_GOING:+-k 0}; then
+  MESON_LOG="$BUILD_DIR/third_party/mesa-build/meson-logs/meson-log.txt"
+  [ -f "$MESON_LOG" ] && tail -n 120 "$MESON_LOG"
+  exit 1
+fi
 mv "$(find "$BUILD_DIR" -name xenia_edge_libretro.dll | head -1)" "$BUILD_DIR/xenia_edge_libretro.dll"
 file "$BUILD_DIR/xenia_edge_libretro.dll"
