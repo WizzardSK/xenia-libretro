@@ -1,0 +1,29 @@
+# Temporary: replays the GitLab Windows job (.ci/build-windows-cross.sh) in
+# the same ubuntu:24.04 image before it goes to the buildbot. Removed again
+# when the job is merged.
+name: GitLab Windows preflight
+on:
+  push:
+    branches: [gitlab-windows]
+jobs:
+  windows-cross:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL && df -h /
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build in ubuntu:24.04
+        run: |
+          docker run --rm -v "$PWD":/src -w /src ubuntu:24.04 bash -c '
+            apt-get update -qq && apt-get install -y -qq git >/dev/null
+            git config --global --add safe.directory "*"
+            BUILD_DIR=build/windows-x86_64 NUMPROC=$(nproc) .ci/build-windows-cross.sh'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: xenia_edge_libretro-windows-x86_64-gitlab
+          path: build/windows-x86_64/xenia_edge_libretro.dll
+          if-no-files-found: ignore

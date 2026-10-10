@@ -1128,7 +1128,40 @@ if(WIN32)
     # asserts, leaving assert-only locals that would trip the promoted warning.
     list(APPEND _xe_s2d_meson_args
       -Db_vscrt=md -Dc_args=/wd4189 -Dcpp_args=/wd4189)
-    if(_xe_s2d_cross)
+    if(NOT CMAKE_HOST_WIN32)
+      # Cross-built from Linux with clang-cl (.ci/build-windows-cross.sh): the
+      # toolchain's compiler, librarian and linker, with the CRT and SDK
+      # directories its toolchain file lists
+      set(_xe_s2d_flags "")
+      foreach(_xe_dir IN LISTS XE_CLANG_CL_INCLUDES)
+        string(APPEND _xe_s2d_flags ", '/imsvc', '${_xe_dir}'")
+      endforeach()
+      set(_xe_s2d_link_flags "")
+      foreach(_xe_dir IN LISTS XE_CLANG_CL_LIBS)
+        string(APPEND _xe_s2d_link_flags ", '/libpath:${_xe_dir}'")
+      endforeach()
+      set(_xe_s2d_cross_file
+        "${CMAKE_CURRENT_BINARY_DIR}/mesa-windows-clang-cl-${_xe_s2d_cpu}.ini")
+      file(WRITE "${_xe_s2d_cross_file}"
+"[binaries]
+c = ['${CMAKE_C_COMPILER}', '--target=x86_64-pc-windows-msvc'${_xe_s2d_flags}]
+cpp = ['${CMAKE_CXX_COMPILER}', '--target=x86_64-pc-windows-msvc'${_xe_s2d_flags}]
+c_ld = '${CMAKE_LINKER}'
+cpp_ld = '${CMAKE_LINKER}'
+ar = '${CMAKE_AR}'
+
+[built-in options]
+c_link_args = ['/manifest:no'${_xe_s2d_link_flags}]
+cpp_link_args = ['/manifest:no'${_xe_s2d_link_flags}]
+
+[host_machine]
+system = 'windows'
+cpu_family = '${_xe_s2d_cpu}'
+cpu = '${_xe_s2d_cpu}'
+endian = 'little'
+")
+      list(APPEND _xe_s2d_meson_args --cross-file "${_xe_s2d_cross_file}")
+    elseif(_xe_s2d_cross)
       set(_xe_s2d_cross_file
         "${CMAKE_CURRENT_BINARY_DIR}/mesa-windows-cross-${_xe_s2d_cpu}.ini")
       file(WRITE "${_xe_s2d_cross_file}"
