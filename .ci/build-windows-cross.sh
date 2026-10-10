@@ -26,7 +26,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y --no-install-recommends \
   ca-certificates wget gnupg lsb-release software-properties-common \
-  git python3 python3-venv ninja-build file unzip xz-utils
+  git python3 python3-venv ninja-build make file unzip xz-utils
 wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key > /etc/apt/trusted.gpg.d/apt.llvm.org.asc
 apt-add-repository -y --no-update "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main"
 apt-get update -qq
