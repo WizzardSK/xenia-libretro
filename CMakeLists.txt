@@ -359,7 +359,14 @@ else()
       pthread
     )
   elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    link_libraries(stdc++fs dl lz4 m pthread rt)
+    link_libraries(stdc++fs dl m pthread rt)
+    # Nothing in the tree uses lz4; linked where it is installed, as upstream
+    # links it, but not required - the buildbot's Android image builds the
+    # host shader compiler without it
+    find_library(XE_LZ4_LIBRARY lz4)
+    if(XE_LZ4_LIBRARY)
+      link_libraries(lz4)
+    endif()
 
     # Link group so executables and the core resolve circular static-lib deps.
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--start-group")
