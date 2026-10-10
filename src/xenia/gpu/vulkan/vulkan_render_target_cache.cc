@@ -672,6 +672,17 @@ bool VulkanRenderTargetCache::Initialize(uint32_t shared_memory_binding_count) {
     dump_pipeline_layout_push_constant_range.offset = 0;
     dump_pipeline_layout_push_constant_range.size =
         sizeof(uint32_t) * kEdramDumpShaderPushConstantCount;
+    // Turnip gives a layout of up to 128 bytes of push constants the Adreno's
+    // constants shared by all stages, and a dump dispatched between draws then
+    // read the draws' constants instead of its own: a zero pitch dumped every
+    // tile row of a render target into the EDRAM's first, and resolved frames
+    // were black below their top 16 rows. Over 128 bytes (Turnip allows 256)
+    // the dumps get constants of their own.
+    if (vulkan_device->properties().driverID == VK_DRIVER_ID_MESA_TURNIP) {
+      dump_pipeline_layout_push_constant_range.size =
+          std::max(dump_pipeline_layout_push_constant_range.size,
+                   uint32_t(128 + sizeof(uint32_t)));
+    }
     VkPipelineLayoutCreateInfo dump_pipeline_layout_create_info;
     dump_pipeline_layout_create_info.sType =
         VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
