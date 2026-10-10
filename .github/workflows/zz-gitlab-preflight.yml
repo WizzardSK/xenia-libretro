@@ -20,7 +20,7 @@ jobs:
           docker run --rm -v "$PWD":/src -w /src ubuntu:24.04 bash -c '
             apt-get update -qq && apt-get install -y -qq git >/dev/null
             git config --global --add safe.directory "*"
-            BUILD_DIR=build/windows-x86_64 NUMPROC=$(nproc) .ci/build-windows-cross.sh'
+            BUILD_DIR=build/windows-x86_64 NUMPROC=$(nproc) XE_CROSS_KEEP_GOING=1 .ci/build-windows-cross.sh'
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -128,6 +128,6 @@ python3 -c "import importlib.util as u, sys; s=u.spec_from_file_location('xb','x
 cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
   -DXENIA_HOST_SHADER_CC="$HOST_SHADER_CC" -DXENIA_ENABLE_LTO=OFF
-cmake --build "$BUILD_DIR" --target xenia-libretro -- -j "$NUMPROC"
+cmake --build "$BUILD_DIR" --target xenia-libretro -- -j "$NUMPROC" ${XE_CROSS_KEEP_GOING:+-k 0}
 mv "$(find "$BUILD_DIR" -name xenia_edge_libretro.dll | head -1)" "$BUILD_DIR/xenia_edge_libretro.dll"
 file "$BUILD_DIR/xenia_edge_libretro.dll"
