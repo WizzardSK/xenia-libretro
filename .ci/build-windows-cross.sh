@@ -113,7 +113,9 @@ unset CC CXX
 
 # clang-cl against the downloaded headers and libraries. For meson (Mesa) a
 # clang-cl that brings them along itself: its resource compiler step takes
-# the compiler as one argument
+# the compiler as one argument. Mesa's MSVC atomics also use MSVC's
+# lower-case _interlocked* forms, which clang-cl's intrin.h does not have:
+# the documented upper-case intrinsics in their place.
 mkdir -p "$TOOLS/bin"
 cat > "$TOOLS/bin/clang-cl" <<WRAPPER
 #!/bin/sh
@@ -121,7 +123,14 @@ exec "$LLVM/clang-cl" --target=x86_64-pc-windows-msvc -fuse-ld=lld \\
   -Wno-unused-command-line-argument \\
   /imsvc "$MSVC/crt/include" /imsvc "$MSVC/sdk/include/ucrt" \\
   /imsvc "$MSVC/sdk/include/um" /imsvc "$MSVC/sdk/include/shared" \\
-  /imsvc "$MSVC/sdk/include/winrt" "\$@"
+  /imsvc "$MSVC/sdk/include/winrt" \\
+  -D_interlockedexchange64=_InterlockedExchange64 \\
+  -D_interlockedexchangeadd64=_InterlockedExchangeAdd64 \\
+  -D_interlockedincrement64=_InterlockedIncrement64 \\
+  -D_interlockeddecrement64=_InterlockedDecrement64 \\
+  "-D_interlockedadd(a,v)=(_InterlockedExchangeAdd((a),(v))+(v))" \\
+  "-D_interlockedadd64(a,v)=(_InterlockedExchangeAdd64((a),(v))+(v))" \\
+  "\$@"
 WRAPPER
 chmod +x "$TOOLS/bin/clang-cl"
 # and an llvm-rc that knows the SDK's headers (Mesa's zlib resource)
