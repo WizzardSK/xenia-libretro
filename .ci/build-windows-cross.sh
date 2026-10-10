@@ -182,6 +182,9 @@ cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release \
 export PATH="$LLVM:$PATH"
 # Meson builds Mesa's build-machine helpers with these
 export CC_FOR_BUILD=clang-21 CXX_FOR_BUILD=clang++-21
+# llvm-rc's (Mesa's zlib resource), which preprocesses on its own, and on
+# Linux splits INCLUDE at colons
+export INCLUDE="$MSVC/crt/include:$MSVC/sdk/include/ucrt:$MSVC/sdk/include/um:$MSVC/sdk/include/shared:$MSVC/sdk/include/winrt"
 # lld-link's own search path, for the links meson's checks make
 export LIB="$MSVC/crt/lib/x86_64;$MSVC/sdk/lib/um/x86_64;$MSVC/sdk/lib/ucrt/x86_64"
 if ! cmake --build "$BUILD_DIR" --target xenia-libretro -- -j "$NUMPROC" ${XE_CROSS_KEEP_GOING:+-k 0}; then
