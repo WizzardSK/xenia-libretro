@@ -472,6 +472,15 @@ target_include_directories(pugixml PUBLIC pugixml/src)
 # ==============================================================================
 # snappy
 # ==============================================================================
+# snappy and zlib-ng generate their config headers into their source trees
+# with a configure of their own. A cross build configures them for the
+# target, not for the build machine (Release: the debug CRT is not part of a
+# cross toolchain's runtime).
+set(_xe_nested_toolchain_flag "")
+if(CMAKE_TOOLCHAIN_FILE)
+  set(_xe_nested_toolchain_flag "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+    -G "${CMAKE_GENERATOR}" -DCMAKE_BUILD_TYPE=Release)
+endif()
 # Generate snappy-stubs-public.h if missing
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/snappy/snappy-stubs-public.h")
   if(XE_TARGET_X86_64)
@@ -479,16 +488,9 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/snappy/snappy-stubs-public.h")
   else()
     set(_snappy_avx_flag "-DSNAPPY_REQUIRE_AVX=OFF")
   endif()
-  # A cross build configures it for the target, not for the build machine
-  set(_snappy_toolchain_flag "")
-  if(CMAKE_TOOLCHAIN_FILE)
-    # Release: the debug CRT is not part of a cross toolchain's runtime
-    set(_snappy_toolchain_flag "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
-      -G "${CMAKE_GENERATOR}" -DCMAKE_BUILD_TYPE=Release)
-  endif()
   execute_process(
     COMMAND ${CMAKE_COMMAND}
-      ${_snappy_toolchain_flag}
+      ${_xe_nested_toolchain_flag}
       -DSNAPPY_BUILD_TESTS=OFF
       -DSNAPPY_BUILD_BENCHMARKS=OFF
       ${_snappy_avx_flag}
@@ -571,6 +573,7 @@ endforeach()
 if(_zlibng_needs_configure)
   execute_process(
     COMMAND ${CMAKE_COMMAND}
+      ${_xe_nested_toolchain_flag}
       -DZLIB_ENABLE_TESTS=OFF
       -DWITH_GTEST=OFF
       ${CMAKE_CURRENT_SOURCE_DIR}/zlib-ng
