@@ -31,6 +31,16 @@ class VulkanInstance {
   static std::unique_ptr<VulkanInstance> Create(bool with_surface,
                                                 int validation_level);
 
+#ifdef XENIA_LIBRETRO
+  // The frontend's instance, which stays the frontend's: the libretro core
+  // makes its device on it (RetroArch's context negotiation), and nothing
+  // here destroys it. Functions come from the frontend's
+  // vkGetInstanceProcAddr; api_version is what the instance was made with.
+  static std::unique_ptr<VulkanInstance> CreateExternal(
+      VkInstance instance, PFN_vkGetInstanceProcAddr get_instance_proc_addr,
+      uint32_t api_version);
+#endif
+
   VulkanInstance(const VulkanInstance&) = delete;
   VulkanInstance& operator=(const VulkanInstance&) = delete;
   VulkanInstance(VulkanInstance&&) = delete;
@@ -152,6 +162,9 @@ class VulkanInstance {
       void* user_data);
 
   VkDebugUtilsMessengerEXT debug_utils_messenger_ = VK_NULL_HANDLE;
+
+  // false for an instance taken from elsewhere (CreateExternal)
+  bool owns_instance_ = true;
 };
 
 }  // namespace vulkan

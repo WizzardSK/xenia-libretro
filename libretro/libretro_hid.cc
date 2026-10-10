@@ -6,14 +6,57 @@
 
 #include "libretro_hid.h"
 
+#include <algorithm>
 #include <cstring>
 #include <string>
 
 #include "xenia/base/byte_order.h"
+#include "xenia/ui/virtual_key.h"
 
 namespace xe {
 namespace hid {
 namespace libretro_hid {
+
+// Libretro RetroPad uses SNES positional layout:
+//   B=south  A=east  Y=west  X=north
+// Xbox 360:
+//   A=south  B=east  X=west  Y=north
+static uint16_t XboxButtons(const LibretroControllerState& s) {
+  uint16_t btns = 0;
+  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_UP])    btns |= X_INPUT_GAMEPAD_DPAD_UP;
+  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_DOWN])  btns |= X_INPUT_GAMEPAD_DPAD_DOWN;
+  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_LEFT])  btns |= X_INPUT_GAMEPAD_DPAD_LEFT;
+  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_RIGHT]) btns |= X_INPUT_GAMEPAD_DPAD_RIGHT;
+  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_START]) btns |= X_INPUT_GAMEPAD_START;
+  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_SELECT])btns |= X_INPUT_GAMEPAD_BACK;
+  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_L3])    btns |= X_INPUT_GAMEPAD_LEFT_THUMB;
+  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_R3])    btns |= X_INPUT_GAMEPAD_RIGHT_THUMB;
+  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_L])     btns |= X_INPUT_GAMEPAD_LEFT_SHOULDER;
+  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_R])     btns |= X_INPUT_GAMEPAD_RIGHT_SHOULDER;
+  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_B])     btns |= X_INPUT_GAMEPAD_A;
+  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_A])     btns |= X_INPUT_GAMEPAD_B;
+  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_Y])     btns |= X_INPUT_GAMEPAD_X;
+  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_X])     btns |= X_INPUT_GAMEPAD_Y;
+  return btns;
+}
+
+// The direction key for a stick, as XInput reports it: one of eight, past
+// the stick's dead zone, or none (0). x right and y up positive.
+static uint16_t StickKey(int x, int y, int deadzone, uint16_t up) {
+  const bool u = y > deadzone, d = y < -deadzone;
+  const bool r = x > deadzone, l = x < -deadzone;
+  // Up, Down, Right, Left, UpLeft, UpRight, DownRight, DownLeft follow
+  // each other from the Up key
+  if (u && l) return up + 4;
+  if (u && r) return up + 5;
+  if (d && r) return up + 6;
+  if (d && l) return up + 7;
+  if (u) return up;
+  if (d) return up + 1;
+  if (r) return up + 2;
+  if (l) return up + 3;
+  return 0;
+}
 
 // ---- LibretroInputDriver --------------------------------------------------
 
@@ -88,27 +131,7 @@ X_RESULT LibretroInputDriver::GetState(uint32_t user_index,
   out_state->packet_number = s.packet_number;
 
   // Map libretro joypad buttons -> Xbox 360 button bitmask
-  uint16_t btns = 0;
-  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_UP])    btns |= X_INPUT_GAMEPAD_DPAD_UP;
-  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_DOWN])  btns |= X_INPUT_GAMEPAD_DPAD_DOWN;
-  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_LEFT])  btns |= X_INPUT_GAMEPAD_DPAD_LEFT;
-  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_RIGHT]) btns |= X_INPUT_GAMEPAD_DPAD_RIGHT;
-  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_START]) btns |= X_INPUT_GAMEPAD_START;
-  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_SELECT])btns |= X_INPUT_GAMEPAD_BACK;
-  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_L3])    btns |= X_INPUT_GAMEPAD_LEFT_THUMB;
-  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_R3])    btns |= X_INPUT_GAMEPAD_RIGHT_THUMB;
-  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_L])     btns |= X_INPUT_GAMEPAD_LEFT_SHOULDER;
-  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_R])     btns |= X_INPUT_GAMEPAD_RIGHT_SHOULDER;
-  // Libretro RetroPad uses SNES positional layout:
-  //   B=south  A=east  Y=west  X=north
-  // Xbox 360:
-  //   A=south  B=east  X=west  Y=north
-  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_B])     btns |= X_INPUT_GAMEPAD_A;
-  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_A])     btns |= X_INPUT_GAMEPAD_B;
-  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_Y])     btns |= X_INPUT_GAMEPAD_X;
-  if (s.buttons[RETRO_DEVICE_ID_JOYPAD_X])     btns |= X_INPUT_GAMEPAD_Y;
-
-  out_state->gamepad.buttons = btns;
+  out_state->gamepad.buttons = XboxButtons(s);
 
   // Triggers: libretro 0..+0x7FFF ??? Xbox 0..255
   out_state->gamepad.left_trigger =
@@ -158,10 +181,104 @@ X_RESULT LibretroInputDriver::SetState(uint32_t user_index,
   return X_ERROR_SUCCESS;
 }
 
+// XInputGetKeystroke for the RetroPad. Many titles drive their menus with it
+// rather than with the state (Minecraft's main menu took no input at all while
+// this said EMPTY), so the button, trigger and stick changes UpdateFromLibretro
+// saw are handed out one at a time, oldest first.
 X_RESULT LibretroInputDriver::GetKeystroke(uint32_t user_index, uint32_t flags,
                                             X_INPUT_KEYSTROKE* out_keystroke) {
-  // Keyboard input not supported via libretro joypad interface.
-  return X_ERROR_EMPTY;
+  if (user_index >= kMaxPorts) return X_ERROR_DEVICE_NOT_CONNECTED;
+
+  std::lock_guard<std::mutex> lock(state_mutex_);
+  if (!states_[user_index].connected) return X_ERROR_DEVICE_NOT_CONNECTED;
+
+  auto& queue = keystrokes_[user_index].queue;
+  if (queue.empty()) return X_ERROR_EMPTY;
+  *out_keystroke = queue.front();
+  queue.pop_front();
+  return X_ERROR_SUCCESS;
+}
+
+// Turns the state just polled into keystrokes: a key down for each key that
+// is now held and was not, a key up for each that was and is not, and, as
+// XInput does, repeats for a held key - first after 400 ms, then every 100.
+void LibretroInputDriver::UpdateKeystrokes(size_t port) {
+  using namespace std::chrono;
+  using xe::ui::VirtualKey;
+  auto& s = states_[port];
+  auto& k = keystrokes_[port];
+  if (!s.connected) {
+    k.queue.clear();
+    k.held.clear();
+    k.next_repeat.clear();
+    return;
+  }
+
+  static const struct { uint16_t mask; VirtualKey key; } kButtons[] = {
+      {X_INPUT_GAMEPAD_A, VirtualKey::kXInputPadA},
+      {X_INPUT_GAMEPAD_B, VirtualKey::kXInputPadB},
+      {X_INPUT_GAMEPAD_X, VirtualKey::kXInputPadX},
+      {X_INPUT_GAMEPAD_Y, VirtualKey::kXInputPadY},
+      {X_INPUT_GAMEPAD_RIGHT_SHOULDER, VirtualKey::kXInputPadRShoulder},
+      {X_INPUT_GAMEPAD_LEFT_SHOULDER, VirtualKey::kXInputPadLShoulder},
+      {X_INPUT_GAMEPAD_DPAD_UP, VirtualKey::kXInputPadDpadUp},
+      {X_INPUT_GAMEPAD_DPAD_DOWN, VirtualKey::kXInputPadDpadDown},
+      {X_INPUT_GAMEPAD_DPAD_LEFT, VirtualKey::kXInputPadDpadLeft},
+      {X_INPUT_GAMEPAD_DPAD_RIGHT, VirtualKey::kXInputPadDpadRight},
+      {X_INPUT_GAMEPAD_START, VirtualKey::kXInputPadStart},
+      {X_INPUT_GAMEPAD_BACK, VirtualKey::kXInputPadBack},
+      {X_INPUT_GAMEPAD_LEFT_THUMB, VirtualKey::kXInputPadLThumbPress},
+      {X_INPUT_GAMEPAD_RIGHT_THUMB, VirtualKey::kXInputPadRThumbPress},
+  };
+  std::vector<uint16_t> now;
+  const uint16_t btns = XboxButtons(s);
+  for (const auto& b : kButtons)
+    if (btns & b.mask) now.push_back(static_cast<uint16_t>(b.key));
+  // XINPUT_GAMEPAD_TRIGGER_THRESHOLD is 30 of 255
+  if (s.left_trigger > 30 * 0x7FFF / 255)
+    now.push_back(static_cast<uint16_t>(VirtualKey::kXInputPadLTrigger));
+  if (s.right_trigger > 30 * 0x7FFF / 255)
+    now.push_back(static_cast<uint16_t>(VirtualKey::kXInputPadRTrigger));
+  // RetroArch's y is down positive, XInput's up positive
+  if (uint16_t key = StickKey(s.left_stick_x, -s.left_stick_y,
+                              X_INPUT_GAMEPAD_LEFT_THUMB_DEADZONE,
+                              static_cast<uint16_t>(VirtualKey::kXInputPadLThumbUp)))
+    now.push_back(key);
+  if (uint16_t key = StickKey(s.right_stick_x, -s.right_stick_y,
+                              X_INPUT_GAMEPAD_RIGHT_THUMB_DEADZONE,
+                              static_cast<uint16_t>(VirtualKey::kXInputPadRThumbUp)))
+    now.push_back(key);
+
+  const auto t = steady_clock::now();
+  auto push = [&](uint16_t key, uint16_t flags) {
+    // A title that never reads keystrokes must not grow this without end
+    if (k.queue.size() >= 64) k.queue.pop_front();
+    X_INPUT_KEYSTROKE ks;
+    std::memset(&ks, 0, sizeof(ks));
+    ks.virtual_key = key;
+    ks.flags = flags;
+    ks.user_index = static_cast<uint8_t>(port);
+    k.queue.push_back(ks);
+  };
+  for (size_t i = 0; i < k.held.size(); ++i)
+    if (std::find(now.begin(), now.end(), k.held[i]) == now.end())
+      push(k.held[i], X_INPUT_KEYSTROKE_KEYUP);
+  std::vector<steady_clock::time_point> next(now.size());
+  for (size_t i = 0; i < now.size(); ++i) {
+    auto it = std::find(k.held.begin(), k.held.end(), now[i]);
+    if (it == k.held.end()) {
+      push(now[i], X_INPUT_KEYSTROKE_KEYDOWN);
+      next[i] = t + milliseconds(400);
+    } else {
+      next[i] = k.next_repeat[it - k.held.begin()];
+      if (t >= next[i]) {
+        push(now[i], X_INPUT_KEYSTROKE_KEYDOWN | X_INPUT_KEYSTROKE_REPEAT);
+        next[i] = t + milliseconds(100);
+      }
+    }
+  }
+  k.held = std::move(now);
+  k.next_repeat = std::move(next);
 }
 
 void LibretroInputDriver::UpdateFromLibretro(
@@ -220,6 +337,7 @@ void LibretroInputDriver::UpdateFromLibretro(
     s.connected = port_connected_[port];
 
     if (any_input && s.connected) s.packet_number++;
+    UpdateKeystrokes(port);
   }
 }
 

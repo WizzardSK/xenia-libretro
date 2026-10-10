@@ -10,6 +10,9 @@
 #ifndef XENIA_KERNEL_XAM_XAM_UI_H_
 #define XENIA_KERNEL_XAM_XAM_UI_H_
 
+#include <functional>
+#include <string>
+
 #include "xenia/kernel/util/shim_utils.h"
 #include "xenia/ui/imgui_dialog.h"
 #include "xenia/ui/imgui_drawer.h"
@@ -24,6 +27,11 @@ class InputSystem;
 namespace xe {
 namespace kernel {
 namespace xam {
+
+// Told about each message box the libretro core answers without a window:
+// its title and the button chosen, for an on-screen message
+extern std::function<void(const std::string& title, const std::string& answer)>
+    xam_message_box_notice;
 
 class XamDialog : public xe::ui::ImGuiDialog {
  public:

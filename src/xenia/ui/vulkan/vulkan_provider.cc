@@ -35,9 +35,35 @@ namespace xe {
 namespace ui {
 namespace vulkan {
 
+#ifdef XENIA_LIBRETRO
+static VulkanInstance* s_external_instance = nullptr;
+static VulkanDevice* s_external_device = nullptr;
+
+void VulkanProvider::SetExternal(VulkanInstance* const instance,
+                                 VulkanDevice* const device) {
+  s_external_instance = instance;
+  s_external_device = device;
+}
+#endif
+
 std::unique_ptr<VulkanProvider> VulkanProvider::Create(
     const bool with_gpu_emulation, const bool with_presentation) {
   std::unique_ptr<VulkanProvider> provider(new VulkanProvider());
+
+#ifdef XENIA_LIBRETRO
+  if (s_external_instance && s_external_device) {
+    provider->external_instance_ = s_external_instance;
+    provider->external_device_ = s_external_device;
+    XELOGI("Vulkan: on the device shared with the frontend");
+    if (with_presentation) {
+      provider->ui_samplers_ = UISamplers::Create(s_external_device);
+      if (!provider->ui_samplers_) {
+        return nullptr;
+      }
+    }
+    return provider;
+  }
+#endif
 
   provider->vulkan_instance_ =
       VulkanInstance::Create(with_presentation, cvars::vulkan_validation);

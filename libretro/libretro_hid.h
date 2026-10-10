@@ -13,7 +13,9 @@
 #define LIBRETRO_HID_H
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -42,6 +44,17 @@ struct LibretroControllerState {
   bool connected = false;
   // Monotonically increasing packet counter
   uint32_t packet_number = 0;
+};
+
+// What GetKeystroke hands out for a port: the VK_PAD_* keys that went down,
+// up or repeat since the title last asked, made from the polled state the
+// way XInput makes them from the controller's
+struct LibretroKeystrokeState {
+  std::deque<X_INPUT_KEYSTROKE> queue;
+  // The keys held at the last poll, and when each one was pressed or last
+  // repeated
+  std::vector<uint16_t> held;
+  std::vector<std::chrono::steady_clock::time_point> next_repeat;
 };
 
 class LibretroInputDriver final : public InputDriver {
@@ -78,6 +91,8 @@ class LibretroInputDriver final : public InputDriver {
  private:
   std::mutex state_mutex_;
   LibretroControllerState states_[kMaxPorts];
+  LibretroKeystrokeState keystrokes_[kMaxPorts];
+  void UpdateKeystrokes(size_t port);
   retro_set_rumble_state_t rumble_cb_ = nullptr;
   // Tracks which ports the frontend has assigned a device to.
   bool port_connected_[kMaxPorts] = {true, false, false, false};

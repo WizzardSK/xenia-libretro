@@ -10,7 +10,9 @@
 #include "xenia/kernel/guest_scheduler.h"
 
 #include <algorithm>
+#include <chrono>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "xenia/base/assert.h"
@@ -1541,6 +1543,10 @@ void GuestScheduler::RunLoop(int cpu_index) {
   XELOGI("GuestScheduler: CPU {} dispatch loop started", cpu_index);
 
   while (!shutting_down_.load()) {
+    if (paused_.load(std::memory_order_acquire)) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+      continue;
+    }
     if (cpu_index == 0) {
       ReportStatsIfDue();
     }
@@ -1881,7 +1887,8 @@ void GuestScheduler::WatchdogLoop() {
     // Only meaningful once something has been dispatched, so a title still
     // loading is not reported.
     uint32_t frame = xe::logging::GetFrameNumber();
-    if (frame != last_frame_number_ || !dispatched_any_.load()) {
+    if (frame != last_frame_number_ || !dispatched_any_.load() ||
+        paused_.load()) {
       last_frame_number_ = frame;
       no_progress_ticks_ = 0;
       no_progress_reported_ = false;

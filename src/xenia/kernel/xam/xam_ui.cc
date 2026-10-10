@@ -27,6 +27,8 @@
 #include "xenia/kernel/xam/xam_private.h"
 #include "xenia/ui/file_picker.h"
 #include "xenia/ui/imgui_dialog.h"
+#include <typeinfo>
+
 #include "xenia/ui/imgui_drawer.h"
 #include "xenia/ui/imgui_guest_notification.h"
 
@@ -82,8 +84,11 @@ X_RESULT xeXamDispatchDialog(T* dialog,
     auto display_window = kernel_state()->emulator()->display_window();
     if (!display_window) {
       // No window (the libretro core): dismissed at once, as with its
-      // default choice
+      // default choice. Logged, as a title that stalls after one is
+      // otherwise hard to tell from one that stalls for another reason
       result = close_callback(dialog);
+      XELOGI("XAM dialog {} dismissed without a window: result {:08X}",
+             typeid(T).name(), result);
       kernel_state()->xam_state()->is_xam_dialog_present_.store(false);
       delete static_cast<xe::ui::ImGuiDialog*>(dialog);
       return result;
@@ -137,6 +142,9 @@ X_RESULT xeXamDispatchDialogEx(
       // No window (the libretro core): dismissed at once, as with its
       // default choice
       result = close_callback(dialog, extended_error, length);
+      XELOGI("XAM dialog {} dismissed without a window: result {:08X}, "
+             "extended error {:08X}",
+             typeid(T).name(), result, extended_error);
       kernel_state()->xam_state()->is_xam_dialog_present_.store(false);
       delete static_cast<xe::ui::ImGuiDialog*>(dialog);
       return result;
@@ -367,6 +375,9 @@ void KeyboardInputDialog::OnDraw(ImGuiIO& io) {
   ImGui::PopStyleColor(10);
 }
 
+std::function<void(const std::string& title, const std::string& answer)>
+    xam_message_box_notice;
+
 static dword_result_t XamShowMessageBoxUi(
     dword_t user_index, lpu16string_t title_ptr, lpu16string_t text_ptr,
     dword_t button_count, lpdword_t button_ptrs, dword_t active_button,
@@ -388,6 +399,60 @@ static dword_result_t XamShowMessageBoxUi(
 
   if (buttons.empty()) {
     buttons.push_back("OK");
+  }
+
+  // In the libretro core, with no window, the box is answered at once, the
+  // way the player would go on: a button that goes on offline when there is
+  // one (a core has no Xbox LIVE; "Connect to Xbox LIVE" only asks again -
+  // Minecraft's "Gamer profile not online" at Play), otherwise the active
+  // button when it is not a way back (Cancel, Back, No) - the game's own
+  // default; "Select a storage device" before it can't be answered without a
+  // window, so Sonic's Ultimate Genesis Collection asked "Load Scores and
+  // Settings" again forever - otherwise the first that is not a way back: the
+  // box asks to confirm something the player chose to do, like deleting a
+  // save (NNshi); the active button when every button is one. The log and RetroArch's on-screen message say
+  // what was asked and answered.
+  uint32_t answer = static_cast<uint32_t>(active_button);
+  if (!kernel_state()->emulator()->display_window()) {
+    std::string choices;
+    int offline = -1, confirm = -1, active = -1;
+    for (size_t i = 0; i < buttons.size(); ++i) {
+      choices += fmt::format("{}[{}] {}", i ? ", " : "", i, buttons[i]);
+      std::string lower = buttons[i];
+      std::transform(lower.begin(), lower.end(), lower.begin(),
+                     [](unsigned char c) { return std::tolower(c); });
+      if (offline < 0 && lower.find("offline") != std::string::npos) {
+        offline = static_cast<int>(i);
+      }
+      const bool back = lower.find("cancel") != std::string::npos ||
+                        lower.find("back") != std::string::npos ||
+                        lower == "no" ||
+                        lower.find("don't") != std::string::npos ||
+                        lower.find("do not") != std::string::npos;
+      if (confirm < 0 && !back) {
+        confirm = static_cast<int>(i);
+      }
+      if (i == static_cast<uint32_t>(active_button) && !back) {
+        active = static_cast<int>(i);
+      }
+    }
+    if (offline >= 0) {
+      answer = static_cast<uint32_t>(offline);
+    } else if (active >= 0) {
+      answer = static_cast<uint32_t>(active);
+    } else if (confirm >= 0) {
+      answer = static_cast<uint32_t>(confirm);
+    }
+    if (answer >= buttons.size()) {
+      answer = 0;
+    }
+    XELOGI("XamShowMessageBoxUI: \"{}\" - \"{}\"; buttons {}; active {}; "
+           "answered {}; flags {:08X}",
+           title, text, choices, static_cast<uint32_t>(active_button), answer,
+           static_cast<uint32_t>(flags));
+    if (xam_message_box_notice) {
+      xam_message_box_notice(title, buttons[answer]);
+    }
   }
 
   X_RESULT result;
@@ -435,7 +500,7 @@ static dword_result_t XamShowMessageBoxUi(
 
     result = xeXamDispatchDialog<MessageBoxDialog>(
         new MessageBoxDialog(imgui_drawer, input_system, title, text, buttons,
-                             static_cast<uint32_t>(active_button)),
+                             answer),
         close, overlapped);
   }
 
@@ -553,6 +618,21 @@ dword_result_t XamShowKeyboardUI_entry(
         def_text_str = profile->name();
       }
     }
+  }
+
+  // No window to type in (the libretro core): answered at once as if OK had
+  // been pressed on the default text. The generic no-window dismissal reads
+  // as Cancel for a keyboard, which Burnout Revenge takes as no player file
+  // name, so it never made its save (NNshi).
+  if (!emulator->display_window()) {
+    kernel_state()->xam_state()->is_xam_dialog_present_.store(false);
+    auto text = xe::to_utf16(def_text_str);
+    return xeXamDispatchWithoutDialog(
+        [buffer, buffer_length, text]() -> X_RESULT {
+          string_util::copy_and_swap_truncating(buffer, text, buffer_length);
+          return X_ERROR_SUCCESS;
+        },
+        overlapped);
   }
 
   return xeXamDispatchDialogEx<KeyboardInputDialog>(
@@ -987,6 +1067,28 @@ X_RESULT xeXamShowSigninUI(uint32_t user_index, uint32_t users_needed,
 
   if (kernel_state()->xam_state()->IsUIActive()) {
     return X_ERROR_ACCESS_DENIED;
+  }
+
+  // No window (the libretro core): there is nobody to pick a profile, and the
+  // core has signed one in already. Answer as the dialog's OK would - the
+  // games that sit and wait for a sign-in change get one for the profiles
+  // that are signed in - instead of a dialog that just goes away.
+  if (!kernel_state()->emulator()->display_window()) {
+    auto* profiles = kernel_state()->xam_state()->profile_manager();
+    uint32_t signed_in = 0;
+    for (uint8_t slot = 0; slot < XUserMaxUserCount; ++slot) {
+      if (profiles->GetProfile(slot)) {
+        signed_in |= 1u << slot;
+      }
+    }
+    XELOGI("XamShowSigninUI without a window: {} user(s) needed, signed in "
+           "mask {:X}",
+           users_needed, signed_in);
+    kernel_state()->BroadcastNotification(kXNotificationSystemUI, true);
+    kernel_state()->BroadcastNotification(kXNotificationSystemSignInChanged,
+                                          signed_in);
+    kernel_state()->BroadcastNotification(kXNotificationSystemUI, false);
+    return X_ERROR_SUCCESS;
   }
 
   kernel_state()->xam_state()->is_xam_dialog_present_.store(true);

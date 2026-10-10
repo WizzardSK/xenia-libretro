@@ -1,7 +1,7 @@
 # Software Information
 display_name = "Microsoft - Xbox 360 (Xenia Edge)"
 authors = "Xenia team|has207 (Xenia Edge)"
-supported_extensions = "iso|xex|zar|xcp"
+supported_extensions = "iso|xex|zar|xcp|m3u"
 corename = "Xenia Edge"
 categories = "Emulator"
 license = "BSD"

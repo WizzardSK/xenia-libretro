@@ -14,6 +14,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -149,6 +150,15 @@ class VulkanPresenter final : public Presenter {
   // Returns pointer to readback buffer (valid until next call).
   bool CaptureGuestOutputGPUBlit(const void*& data_out, uint32_t& width_out,
                                  uint32_t& height_out);
+
+  // On a device shared with the frontend: the guest output blitted (to
+  // R8G8B8A8) straight into an image of the frontend's frame, left in
+  // SHADER_READ_ONLY_OPTIMAL. target_for gets the output's size and gives
+  // the image, VK_NULL_HANDLE to skip. Waits for the blit.
+  bool BlitGuestOutputToImage(
+      const std::function<VkImage(uint32_t width, uint32_t height)>&
+          target_for,
+      uint32_t& width_out, uint32_t& height_out);
 #endif
 
   void AwaitUISubmissionCompletionFromUIThread(uint64_t submission_index) {
@@ -500,6 +510,9 @@ class VulkanPresenter final : public Presenter {
     VkFence fence = VK_NULL_HANDLE;
     uint32_t width = 0;
     uint32_t height = 0;
+    // BlitGuestOutputToImage's, made on first use
+    VkCommandPool direct_cmd_pool = VK_NULL_HANDLE;
+    VkCommandBuffer direct_cmd = VK_NULL_HANDLE;
   };
   GPUBlitResources gpu_blit_;
   void DestroyGPUBlitResources();

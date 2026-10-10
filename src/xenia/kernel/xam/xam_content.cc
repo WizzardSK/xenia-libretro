@@ -746,7 +746,8 @@ dword_result_t XamSwapDisc_entry(
   while (true) {
     const std::filesystem::path new_disc_path =
         kernel_state()->emulator()->GetNewDiscPath(
-            xe::to_utf8(text_message) + "\n\n" + error_dialog_message);
+            xe::to_utf8(text_message) + "\n\n" + error_dialog_message,
+            static_cast<uint8_t>(disc_number));
     XELOGI("XamSwapDisc: GetNewDiscPath returned path {}.",
            xe::path_to_utf8(new_disc_path));
 

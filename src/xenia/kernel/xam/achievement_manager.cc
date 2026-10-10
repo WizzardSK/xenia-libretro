@@ -152,6 +152,13 @@ void AchievementManager::ShowAchievementEarnedNotification(
                   xe::to_utf8(achievement->achievement_name));
 
   const Emulator* emulator = kernel_state()->emulator();
+  if (!emulator->display_window() || !emulator->imgui_drawer()) {
+    // No window to show it in (the libretro core): logged only. Reaching
+    // for the window's app context crashed the title's thread at the first
+    // achievement (NNshi, Mushihimesama Futari).
+    XELOGI("Achievement earned: {}", description);
+    return;
+  }
   ui::WindowedAppContext& app_context =
       emulator->display_window()->app_context();
   ui::ImGuiDrawer* imgui_drawer = emulator->imgui_drawer();

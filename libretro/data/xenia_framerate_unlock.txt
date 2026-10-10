@@ -1,0 +1,54 @@
+# Xenia Edge libretro core: games whose frame rate can be unlocked, for the
+# Unlock Framerate option. A title ID under [30 fps] runs as "30 fps games at
+# 60", under [60 fps] as "60 fps games at 120", under [Uncapped] uncapped;
+# a title not listed runs at the Display Refresh Rate. One title ID per line,
+# anything after # is a comment. The core makes this file once and never
+# overwrites it. Sorted by NNshi from the games xenia-manager's optimized
+# settings mark as unlockable; not exhaustive.
+
+[30 fps]
+4D5307D5 # Gears of War
+4D53082D # Gears of War 2
+4D5308AB # Gears of War 3
+4D5309C9 # Forza Horizon
+4D530AA4 # Forza Horizon 2
+4E4D07D1 # Ace Combat 6
+4156085A # Chaotic - Shadow Warriors
+45410813 # skate.
+465307D6 # Armored Core 4
+4E4D084F # Armored Core V
+4D530A26 # Gears of War - Judgement
+4E4D0864 # Armored Core - Verdict Day
+45410821 # Tiger Woods PGA Tour 08
+45410870 # Tiger Woods PGA Tour 09
+4541097B # Fifa Street
+4541083B # FIFA Street 3
+555308AE # Assassins Creed III
+5553085D # Assassin's Creed - Brotherhood
+55530879 # Assassin's Creed: Revelations
+555308C2 # Assassins Creed IV Black Flag
+4D5307D1 # Project Gotham Racing 3
+4D5307F9 # Project Gotham Racing 4
+4D5307ED # Banjo Kazooie - Nuts & Bolts
+555307EA # Brothers in Arms - Hell's Highway
+45410915 # Fight Night Champion
+5451080D # Red Faction Guerrilla
+5451087B # MX vs. ATX Alive
+545407EE # The Darkness
+55530808 # America's Army True Soldiers
+565507E4 # Crash of the Titans
+565507FA # Crash - Mind over Mutant
+58410B86 # Fable Heroes
+415607E1 # Call of Duty 3
+545407F2 # GTA IV
+
+[60 fps]
+584111F7 # Minecraft: Xbox 360 Edition
+4541087F # Skate 2
+454108E6 # Skate 3
+4D5307EA # Forza Motorsport 2
+4D53084D # Forza Motorsport 3
+4D530910 # Forza Motorsport 4
+494F07D1 # El Shaddai Ascension of the Metatron
+
+[Uncapped]

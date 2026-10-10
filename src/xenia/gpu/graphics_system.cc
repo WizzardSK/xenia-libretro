@@ -9,6 +9,8 @@
 
 #include "xenia/gpu/graphics_system.h"
 
+#include <atomic>
+
 #include "xenia/base/byte_stream.h"
 #include "xenia/base/clock.h"
 #include "xenia/base/logging.h"
@@ -167,6 +169,28 @@ X_STATUS GraphicsSystem::Setup(cpu::Processor* processor,
               // host presentation throttling
               bool refresh_cap_enabled = cvars::guest_display_refresh_cap;
 
+#ifdef XENIA_LIBRETRO
+              if (refresh_cap_enabled &&
+                  libretro_vblank_driven_.load(std::memory_order_acquire)) {
+                bool fire = false;
+                {
+                  std::unique_lock<std::mutex> lock(libretro_vblank_mutex_);
+                  libretro_vblank_cv_.wait_for(
+                      lock, std::chrono::milliseconds(50), [this]() {
+                        return libretro_vblanks_pending_ != 0 ||
+                               !frame_limiter_worker_running_;
+                      });
+                  if (libretro_vblanks_pending_) {
+                    --libretro_vblanks_pending_;
+                    fire = true;
+                  }
+                }
+                if (fire) {
+                  MarkVblank();
+                }
+                continue;
+              }
+#endif
               if (refresh_cap_enabled) {
                 const uint32_t vblank_hz = GetGuestVblankRateHz();
                 const uint64_t tick_freq = Clock::guest_tick_frequency();
@@ -248,9 +272,27 @@ void GraphicsSystem::Shutdown() {
   provider_.reset();
 }
 
+#ifdef XENIA_LIBRETRO
+void GraphicsSystem::LibretroVblank() {
+  libretro_vblank_driven_.store(true, std::memory_order_release);
+  {
+    std::lock_guard<std::mutex> lock(libretro_vblank_mutex_);
+    // At most a frame behind (two vblanks at 120 Hz): a frame limiter that
+    // fell back does not fire a burst of vblanks to catch up.
+    if (libretro_vblanks_pending_ < 3) {
+      ++libretro_vblanks_pending_;
+    }
+  }
+  libretro_vblank_cv_.notify_one();
+}
+#endif
+
 void GraphicsSystem::StopFrameLimiter() {
   if (frame_limiter_worker_thread_) {
     frame_limiter_worker_running_ = false;
+#ifdef XENIA_LIBRETRO
+    libretro_vblank_cv_.notify_all();
+#endif
     frame_limiter_worker_thread_->Wait(0, 0, 0, nullptr);
     frame_limiter_worker_thread_.reset();
   }
@@ -382,8 +424,11 @@ void GraphicsSystem::DispatchInterruptCallback(uint32_t source, uint32_t cpu) {
                                         interrupt_callback_data_, source, cpu);
 }
 
+extern std::atomic<uint64_t> g_guest_vblanks;
+
 void GraphicsSystem::MarkVblank() {
   SCOPE_profile_cpu_f("gpu");
+  g_guest_vblanks.fetch_add(1, std::memory_order_relaxed);
 
   // Capture vblank cadence so D1MODE_V_COUNTER tracks the actual rate
   // (50Hz, 60Hz, or uncapped ~1ms), not just the configured one.

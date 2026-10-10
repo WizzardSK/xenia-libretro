@@ -40,7 +40,12 @@ struct VulkanFeatures {
 std::unique_ptr<VulkanDevice> VulkanDevice::CreateIfSupported(
     const VulkanInstance* const vulkan_instance,
     const VkPhysicalDevice physical_device, const bool with_gpu_emulation,
-    const bool with_swapchain) {
+    const bool with_swapchain
+#ifdef XENIA_LIBRETRO
+    ,
+    const FrontendRequest* const frontend_request
+#endif
+) {
   assert_not_null(vulkan_instance);
   assert_not_null(physical_device);
 
@@ -296,6 +301,38 @@ std::unique_ptr<VulkanDevice> VulkanDevice::CreateIfSupported(
                requested_extension.first);
       }
     }
+#ifdef XENIA_LIBRETRO
+    // The frontend's, which it cannot do without
+    if (frontend_request) {
+      for (uint32_t i = 0; i < frontend_request->extension_count; ++i) {
+        const char* const name = frontend_request->extensions[i];
+        bool enabled = false, supported = false;
+        for (const char* const e : enabled_extensions) {
+          enabled |= std::strcmp(e, name) == 0;
+        }
+        uint32_t count = 0;
+        ifn.vkEnumerateDeviceExtensionProperties(physical_device, nullptr,
+                                                 &count, nullptr);
+        std::vector<VkExtensionProperties> all(count);
+        ifn.vkEnumerateDeviceExtensionProperties(physical_device, nullptr,
+                                                 &count, all.data());
+        for (const VkExtensionProperties& e : all) {
+          supported |= std::strcmp(e.extensionName, name) == 0;
+        }
+        if (!supported) {
+          XELOGW("Vulkan device '{}' lacks the frontend's extension {}",
+                 properties.deviceName, name);
+          return nullptr;
+        }
+        if (!enabled) {
+          enabled_extensions.emplace_back(name);
+          if (std::strcmp(name, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0) {
+            device->extensions_.ext_KHR_swapchain = true;
+          }
+        }
+      }
+    }
+#endif
   }
 
   if (with_swapchain && !device->extensions_.ext_KHR_swapchain) {
@@ -641,6 +678,22 @@ std::unique_ptr<VulkanDevice> VulkanDevice::CreateIfSupported(
         "stay "
         "on the graphics queue");
   }
+
+#ifdef XENIA_LIBRETRO
+  // A queue of the frontend's own beside Xenia's where the family has two,
+  // so neither waits for the other's submissions; else the one is shared
+  if (frontend_request) {
+    std::vector<std::unique_ptr<Queue>>& queues =
+        device->queue_families_[device->queue_family_graphics_compute_].queues;
+    if (queue_families[device->queue_family_graphics_compute_].queueCount >=
+        2) {
+      queues.resize(std::max(size_t(2), queues.size()));
+      device->frontend_queue_index_ = 1;
+    } else {
+      device->frontend_queue_index_ = 0;
+    }
+  }
+#endif
 
   size_t max_enabled_queues_per_family = 0;
   for (const QueueFamily& queue_family : device->queue_families_) {
@@ -999,6 +1052,26 @@ std::unique_ptr<VulkanDevice> VulkanDevice::CreateIfSupported(
 #undef XE_UI_VULKAN_ENUM_PROPERTY_2
 #undef XE_UI_VULKAN_FEATURE_2
 
+#ifdef XENIA_LIBRETRO
+  // The frontend's required features, those the device has
+  if (frontend_request && frontend_request->features) {
+    const VkBool32* required =
+        reinterpret_cast<const VkBool32*>(frontend_request->features);
+    const VkBool32* supported_bools =
+        reinterpret_cast<const VkBool32*>(&supported_features);
+    VkBool32* enabled_bools = reinterpret_cast<VkBool32*>(&enabled_features);
+    for (size_t i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32);
+         ++i) {
+      if (required[i] && supported_bools[i]) {
+        enabled_bools[i] = VK_TRUE;
+      }
+    }
+  }
+  if (frontend_request) {
+    device->owns_device_ = false;
+  }
+#endif
+
   // Create the device.
 
   const VkResult device_create_result = ifn.vkCreateDevice(
@@ -1169,7 +1242,11 @@ std::unique_ptr<VulkanDevice> VulkanDevice::CreateIfSupported(
 }
 
 VulkanDevice::~VulkanDevice() {
-  if (device_) {
+  if (device_
+#ifdef XENIA_LIBRETRO
+      && owns_device_
+#endif
+  ) {
     vulkan_instance_->functions().vkDestroyDevice(device_, nullptr);
   }
 }

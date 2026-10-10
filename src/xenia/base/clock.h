@@ -83,6 +83,10 @@ class Clock {
   // Sets the system time of the guest.
   static void SetGuestSystemTime(uint64_t system_time);
 
+  // Stops and restarts guest time (the libretro core's pause): while paused,
+  // the guest tick count and system time stand still.
+  static void SetGuestClockPaused(bool paused);
+
   // Scales a time duration in milliseconds, from guest time.
   static uint32_t ScaleGuestDurationMillis(uint32_t guest_ms);
   // Scales a time duration in 100ns ticks like FILETIME, from guest time.

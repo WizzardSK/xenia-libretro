@@ -47,6 +47,9 @@ DECLARE_string(cl);
 namespace xe {
 namespace kernel {
 
+std::function<void(uint32_t title_id, std::optional<uint64_t> hash)>
+    before_title_patches;
+
 constexpr std::chrono::milliseconds kDeferredOverlappedDelayMillis(25);
 
 // This is a global object initialized with the XboxkrnlModule.
@@ -744,6 +747,9 @@ X_RESULT KernelState::FinishLoadingUserModule(
     return result;
   }
   module->Dump();
+  if (before_title_patches) {
+    before_title_patches(module->title_id(), module->hash());
+  }
   emulator_->patcher()->ApplyPatchesForTitle(memory_, module->title_id(),
                                              module->hash());
   emulator_->on_patch_apply();
@@ -790,7 +796,7 @@ X_RESULT KernelState::ApplyTitleUpdate(
       XELOGW(
           "Skipping incompatible title update for {} due to signature mismatch",
           title_module->name());
-      if (!GetExecutableModule()) {
+      if (!GetExecutableModule() && emulator_->display_window()) {
         emulator_->display_window()->app_context().CallInUIThread([&]() {
           new xe::ui::HostNotificationWindow(
               emulator_->imgui_drawer(), "Warning!",
@@ -808,7 +814,7 @@ X_RESULT KernelState::ApplyTitleUpdate(
 
     // First module that is loaded is always main executable. That way we can
     // prevent random message spam in case of loading/unloading.
-    if (!GetExecutableModule()) {
+    if (!GetExecutableModule() && emulator_->display_window()) {
       emulator_->display_window()->app_context().CallInUIThread([&]() {
         new xe::ui::HostNotificationWindow(
             emulator_->imgui_drawer(), "Warning!",

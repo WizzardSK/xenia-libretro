@@ -7,6 +7,7 @@
  ******************************************************************************
  */
 
+#include <cerrno>
 #include <ranges>
 
 #if !defined(_WIN32)
@@ -254,11 +255,21 @@ void Emulator::Shutdown() {
 
   // Note that we delete things in the reverse order they were initialized.
 
+  // Each step logged and flushed: a host that tears the emulator down
+  // without exiting (the libretro core) can hang in one, and a buffered log
+  // would not say which (NNshi)
+  const auto step = [](const char* what) {
+    XELOGI("Emulator::Shutdown: {}", what);
+    xe::FlushLog();
+  };
+
   // Give the systems time to shutdown before we delete them.
   if (graphics_system_) {
+    step("graphics system");
     graphics_system_->Shutdown();
   }
   if (audio_system_) {
+    step("audio system");
     audio_system_->Shutdown();
   }
 
@@ -267,17 +278,22 @@ void Emulator::Shutdown() {
   // Keep input_system_ alive across relaunch — it's bound to the persistent
   // window and SDL requires init/quit on the same thread.
   if (!relaunching_) {
+    step("input system");
     input_system_.reset();
   }
+  step("freeing graphics and audio");
   graphics_system_.reset();
   audio_system_.reset();
   audio_media_player_.reset();
 
+  step("kernel");
   kernel_state_.reset();
+  step("file system");
   file_system_.reset();
   patcher_.reset();
   plugin_loader_.reset();
 
+  step("processor and memory");
   processor_.reset();
   export_resolver_.reset();
   memory_.reset();
@@ -629,13 +645,20 @@ Emulator::FileSignatureType Emulator::GetFileSignature(
   FILE* file = xe::filesystem::OpenFile(path, "rb");
 
   if (!file) {
+    // Said, so a launch that fails here does not end in a bare NOT_SUPPORTED
+    XELOGE("{}: cannot open {} (errno {})", __func__, xe::path_to_utf8(path),
+           errno);
     return FileSignatureType::Unknown;
   }
 
-  const uint64_t file_size = std::filesystem::file_size(path);
+  std::error_code size_error;
+  const uint64_t file_size = std::filesystem::file_size(path, size_error);
   constexpr int64_t header_size = 4;
 
-  if (file_size < header_size) {
+  if (size_error || file_size < header_size) {
+    XELOGE("{}: {} has no size to read ({} bytes, {})", __func__,
+           xe::path_to_utf8(path), file_size, size_error.message());
+    fclose(file);
     return FileSignatureType::Unknown;
   }
 
@@ -1579,17 +1602,27 @@ void Emulator::RelaunchTitle(const std::string& host_path,
 }
 
 void Emulator::StopTitleThreads() {
+  // Each step logged and flushed, as in Shutdown: a teardown that hangs
+  // leaves nothing else to tell which step it hung in (NNshi's Vulkan unload).
+  const auto step = [](const char* what) {
+    XELOGI("StopTitleThreads: {}", what);
+    xe::FlushLog();
+  };
+  step("dispatch thread");
   kernel_state_->ShutdownDispatchThread();
 
   // Stop the GPU command processor before terminating guest threads so its
   // worker can cleanly run ShutdownContext and free its Vulkan resources.
+  step("GPU command processor");
   if (graphics_system_ && graphics_system_->command_processor()) {
     graphics_system_->command_processor()->Shutdown();
   }
   // The other host workers too, as they're not terminated below.
+  step("frame limiter");
   if (graphics_system_) {
     graphics_system_->StopFrameLimiter();
   }
+  step("audio worker");
   if (audio_system_) {
     audio_system_->StopWorker();
   }
@@ -1598,6 +1631,7 @@ void Emulator::StopTitleThreads() {
   // run on it, so terminating one from this host thread while the dispatcher is
   // executing it would free the fiber out from under it. No-op if the scheduler
   // never started.
+  step("guest scheduler");
   kernel_state_->guest_scheduler()->Shutdown();
 
   {
@@ -1614,6 +1648,7 @@ void Emulator::StopTitleThreads() {
       thread->Terminate(0);
     }
   }
+  step("done");
 }
 
 void Emulator::ResetTitle() {
@@ -1724,8 +1759,19 @@ void Emulator::MountStandardDrives() {
 }
 
 const std::filesystem::path Emulator::GetNewDiscPath(
-    std::string window_message) {
+    std::string window_message, uint8_t disc_number) {
   std::filesystem::path path = "";
+
+  if (!display_window_ && disc_request_) {
+    xe::threading::Fence fence;
+    disc_request_(disc_number, window_message,
+                  [&path, &fence](std::filesystem::path chosen) {
+                    path = std::move(chosen);
+                    fence.Signal();
+                  });
+    kernel::GuestScheduler::WaitOnFence(fence);
+    return path;
+  }
 
   uint32_t current_title_id = !title_id_.has_value() ? 0 : title_id_.value();
   std::vector<TitleDisc> saved_discs;

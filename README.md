@@ -23,6 +23,8 @@ Xbox 360 games as a disc image (`.iso`), an executable (`.xex`), or a `.zar` / `
 
 Everything the core keeps is in `system/Xenia-Edge/`: saves, title updates and DLC under `content/`, laid out as in standalone Xenia's content folder; the shader and other caches under `cache/`; and Xenia's log, `xenia.log`. Errors and warnings from it also appear in RetroArch's log. The core option Apply Title Updates turns updates off.
 
+Games that need a signed-in profile get one: the core signs in the first profile under `content/`, or creates one when there is none, named after the first line of `system/Xenia-Edge/xbl_profilename.txt` ("Player" if the file is missing, which the core then writes there).
+
 ## Building
 
 With upstream's build dependencies (see upstream's documentation), from a checkout with its submodules:

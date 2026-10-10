@@ -8,7 +8,30 @@ add_library(xenia-libretro SHARED
   libretro_headless_stubs.cc
   libretro_hid.cc
   libretro_vk_presenter.cc
+  libretro_gamedb.cc
+  libretro_disc.cc
 )
+
+# The frame rate unlock list (libretro/data), carried inside the core and
+# written to its system folder when missing
+set(_xe_data_cc "${CMAKE_CURRENT_BINARY_DIR}/libretro_gamedb_data.cc")
+set(_xe_data_text "// Generated from libretro/data by libretro/CMakeLists.txt\n#include <cstddef>\n")
+foreach(_xe_pair "framerate_unlock:xenia_framerate_unlock.txt")
+  string(REPLACE ":" ";" _xe_pair "${_xe_pair}")
+  list(GET _xe_pair 0 _xe_symbol)
+  list(GET _xe_pair 1 _xe_file)
+  set(_xe_path "${CMAKE_CURRENT_SOURCE_DIR}/data/${_xe_file}")
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_xe_path}")
+  file(READ "${_xe_path}" _xe_hex HEX)
+  file(SIZE "${_xe_path}" _xe_size)
+  string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," _xe_bytes "${_xe_hex}")
+  string(APPEND _xe_data_text
+    "extern const unsigned char xenia_libretro_${_xe_symbol}[] = {${_xe_bytes}0};\n"
+    "extern const size_t xenia_libretro_${_xe_symbol}_size = ${_xe_size};\n")
+endforeach()
+file(WRITE "${_xe_data_cc}.tmp" "${_xe_data_text}")
+file(COPY_FILE "${_xe_data_cc}.tmp" "${_xe_data_cc}" ONLY_IF_DIFFERENT)
+target_sources(xenia-libretro PRIVATE "${_xe_data_cc}")
 if(WIN32)
   target_sources(xenia-libretro PRIVATE libretro_d3d12_presenter.cc)
   # dxil.dll, D3D12's shader validator, carried inside the core as a resource
@@ -54,8 +77,25 @@ file(STRINGS ${PROJECT_SOURCE_DIR}/upstream.version _xe_upstream_version LIMIT_C
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
   ${PROJECT_SOURCE_DIR}/upstream.version)
 
+# And the commit of this repository it is built from, logged at start, so a
+# tester's log says which build it came from. Taken when CMake configures, as
+# every CI build does from scratch.
+set(_xe_libretro_commit "unknown")
+find_package(Git QUIET)
+if(GIT_FOUND)
+  execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short=7 HEAD
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    RESULT_VARIABLE _xe_commit_result
+    OUTPUT_VARIABLE _xe_commit
+    OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+  if(_xe_commit_result EQUAL 0 AND _xe_commit)
+    set(_xe_libretro_commit "${_xe_commit}")
+  endif()
+endif()
+
 target_compile_definitions(xenia-libretro PRIVATE
   XENIA_LIBRETRO_VERSION="${_xe_upstream_version}"
+  XENIA_LIBRETRO_COMMIT="${_xe_libretro_commit}"
   XBYAK_NO_OP_NAMES
   XBYAK_ENABLE_OMITTED_OPERAND
   XENIA_LIBRETRO=1

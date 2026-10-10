@@ -15,6 +15,7 @@
 #include <condition_variable>
 #include <deque>
 #include <functional>
+#include <optional>
 #include <list>
 #include <mutex>
 #include <vector>
@@ -169,6 +170,13 @@ struct KernelVersion {
     qfe = 0;
   }
 };
+
+// Called with a title module's title ID and hash right before its patches are
+// applied: the libretro core lists that game's patches as core options there
+// and writes the patch files their values say, so a change made in the
+// options applies on this boot
+extern std::function<void(uint32_t title_id, std::optional<uint64_t> hash)>
+    before_title_patches;
 
 class KernelState {
  public:

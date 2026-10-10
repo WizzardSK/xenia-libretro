@@ -440,7 +440,19 @@ class Emulator {
   }
 
   // The game can request another title to be loaded.
-  const std::filesystem::path GetNewDiscPath(std::string window_message = "");
+  // disc_number: the disc asked for, 1-based, 0 when not known.
+  const std::filesystem::path GetNewDiscPath(std::string window_message = "",
+                                             uint8_t disc_number = 0);
+
+  // Without a window the app is asked for the disc instead: it calls answer
+  // once, with the disc's path (an empty one asks again), whenever it has it;
+  // the guest thread waits until then.
+  using DiscRequest = std::function<void(
+      uint8_t disc_number, const std::string& message,
+      std::function<void(std::filesystem::path)> answer)>;
+  void set_disc_request(DiscRequest request) {
+    disc_request_ = std::move(request);
+  }
 
   void WaitUntilExit();
 
@@ -529,6 +541,7 @@ class Emulator {
   std::optional<vfs::XbeMetadata> xbox_game_;
   std::string missing_xefu_file_;
   DiscProvider disc_provider_;
+  DiscRequest disc_request_;
   DiscRecorder disc_recorder_;
   std::filesystem::path storage_root_;
   std::filesystem::path content_root_;

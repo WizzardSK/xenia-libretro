@@ -622,8 +622,51 @@ std::unique_ptr<VulkanInstance> VulkanInstance::Create(
   return vulkan_instance;
 }
 
+#ifdef XENIA_LIBRETRO
+std::unique_ptr<VulkanInstance> VulkanInstance::CreateExternal(
+    const VkInstance instance,
+    const PFN_vkGetInstanceProcAddr get_instance_proc_addr,
+    const uint32_t api_version) {
+  std::unique_ptr<VulkanInstance> vulkan_instance(new VulkanInstance());
+  vulkan_instance->owns_instance_ = false;
+  vulkan_instance->instance_ = instance;
+  vulkan_instance->api_version_ = api_version;
+  // Only what the device needs from the instance: the frontend made it, so
+  // nothing optional of its extensions is assumed beyond Vulkan 1.1's
+  // promoted physical device properties.
+  vulkan_instance->extensions_.ext_1_1_KHR_get_physical_device_properties2 =
+      api_version >= VK_MAKE_API_VERSION(0, 1, 1, 0);
+
+  Functions& ifn = vulkan_instance->functions_;
+  ifn.vkGetInstanceProcAddr = get_instance_proc_addr;
+  bool functions_loaded = true;
+#define XE_UI_VULKAN_FUNCTION(name)                                     \
+  functions_loaded &= (ifn.name = PFN_##name(ifn.vkGetInstanceProcAddr( \
+                           vulkan_instance->instance_, #name))) != nullptr;
+#include "xenia/ui/vulkan/functions/instance_1_0.inc"
+#define XE_UI_VULKAN_FUNCTION_PROMOTED(extension_name, core_name) \
+  functions_loaded &=                                             \
+      (ifn.core_name = PFN_##core_name(ifn.vkGetInstanceProcAddr( \
+           vulkan_instance->instance_, #core_name))) != nullptr;
+  if (vulkan_instance->extensions_
+          .ext_1_1_KHR_get_physical_device_properties2) {
+#include "xenia/ui/vulkan/functions/instance_1_1_khr_get_physical_device_properties2.inc"
+  }
+#undef XE_UI_VULKAN_FUNCTION_PROMOTED
+#undef XE_UI_VULKAN_FUNCTION
+  if (!functions_loaded) {
+    XELOGE("Failed to get the frontend's Vulkan instance function pointers");
+    return nullptr;
+  }
+  XELOGI("Vulkan instance: the frontend's, API version {}.{}.{}",
+         VK_VERSION_MAJOR(api_version), VK_VERSION_MINOR(api_version),
+         VK_VERSION_PATCH(api_version));
+  return vulkan_instance;
+}
+#endif
+
 VulkanInstance::~VulkanInstance() {
-  if (instance_) {
+  if (instance_ && owns_instance_) {
     if (debug_utils_messenger_ != VK_NULL_HANDLE) {
       functions_.vkDestroyDebugUtilsMessengerEXT(
           instance_, debug_utils_messenger_, nullptr);

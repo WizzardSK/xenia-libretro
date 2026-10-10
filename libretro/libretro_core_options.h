@@ -17,7 +17,6 @@ struct xenia_core_state;
 
 // Core option keys ??? Graphics
 #define XENIA_OPT_GRAPHICS_API          "xenia_graphics_api"
-#define XENIA_OPT_RENDER_TARGET_PATH    "xenia_render_target_path"
 #define XENIA_OPT_DRAW_RESOLUTION_SCALE "xenia_draw_resolution_scale"
 #define XENIA_OPT_ANISOTROPIC_FILTERING "xenia_anisotropic_filtering"
 #define XENIA_OPT_ASYNC_SHADERS         "xenia_async_shader_compilation"
@@ -26,9 +25,9 @@ struct xenia_core_state;
 #define XENIA_OPT_HALF_PIXEL_OFFSET     "xenia_half_pixel_offset"
 #define XENIA_OPT_GPU_INVALID_FETCH     "xenia_gpu_allow_invalid_fetch_constants"
 #define XENIA_OPT_FUZZY_ALPHA_EPSILON   "xenia_use_fuzzy_alpha_epsilon"
-#define XENIA_OPT_VSYNC                 "xenia_vsync"
-#define XENIA_OPT_FRAMERATE_LIMIT       "xenia_framerate_limit"
-#define XENIA_OPT_50HZ_MODE            "xenia_50hz_mode"
+#define XENIA_OPT_DISPLAY_REFRESH       "xenia_display_refresh"
+#define XENIA_OPT_UNLOCK_FRAMERATE      "xenia_unlock_framerate"
+#define XENIA_OPT_WAIT_FOR_FRAME        "xenia_wait_for_frame"
 
 // Core option keys ??? Video
 #define XENIA_OPT_INTERNAL_DISPLAY_RES  "xenia_internal_display_resolution"
@@ -39,6 +38,7 @@ struct xenia_core_state;
 // Core option keys ??? Audio
 #define XENIA_OPT_AUDIO_ENABLED         "xenia_audio_enabled"
 #define XENIA_OPT_MUTE                  "xenia_mute"
+#define XENIA_OPT_AUDIO_CHANNELS        "xenia_audio_channels"
 #define XENIA_OPT_XMA_DECODER           "xenia_xma_decoder"
 #define XENIA_OPT_DEDICATED_XMA_THREAD  "xenia_dedicated_xma_thread"
 #define XENIA_OPT_ENABLE_XMP            "xenia_enable_xmp"
@@ -55,6 +55,20 @@ struct xenia_core_state;
 // Core option keys ??? Compatibility
 #define XENIA_OPT_PROTECT_ZERO          "xenia_protect_zero"
 #define XENIA_OPT_CLEAR_MEMORY_PAGE     "xenia_clear_memory_page_state"
+#define XENIA_OPT_OCCLUSION_QUERY       "xenia_occlusion_query"
+#define XENIA_OPT_OCCLUSION_FULL        "xenia_occlusion_query_full_counters"
+#define XENIA_OPT_OCCLUSION_FAKE_LOWER  "xenia_occlusion_query_fake_lower_threshold"
+#define XENIA_OPT_OCCLUSION_FAKE_UPPER  "xenia_occlusion_query_fake_upper_threshold"
+#define XENIA_OPT_RENDER_TARGET_PATH    "xenia_render_target_path"
+#define XENIA_OPT_DEPTH_BIAS_SHADER     "xenia_depth_bias_shader_offset"
+#define XENIA_OPT_SCALE_THRESHOLD       "xenia_draw_resolution_scale_threshold"
+#define XENIA_OPT_INVALID_UPLOAD        "xenia_gpu_allow_invalid_upload_range"
+#define XENIA_OPT_GAMMA_UNORM16         "xenia_gamma_render_target_as_unorm16"
+#define XENIA_OPT_FORCE_DEPTH_CLAMP     "xenia_force_depth_clamp"
+#define XENIA_OPT_IGNORE_RANGED_OFFSET  "xenia_ignore_offset_for_ranged_allocations"
+#define XENIA_OPT_BREAK_UNIMPLEMENTED   "xenia_break_on_unimplemented_instructions"
+#define XENIA_OPT_SCRIBBLE_HEAP         "xenia_scribble_heap"
+#define XENIA_OPT_SCRIBBLE_HEAP_VALUE   "xenia_scribble_heap_value"
 #define XENIA_OPT_DISABLE_CTX_PROMOTION "xenia_disable_context_promotion"
 #define XENIA_OPT_MOUNT_CACHE           "xenia_mount_cache"
 #define XENIA_OPT_MOUNT_SCRATCH         "xenia_mount_scratch"
@@ -246,47 +260,54 @@ static struct retro_core_option_v2_definition xenia_core_options_v2_defs[] = {
         "disabled"
     },
     {
-        XENIA_OPT_VSYNC,
-        "V-Sync (Guest Frame Limiter)",
-        "V-Sync",
-        "Cap guest vblank rate to 60Hz (NTSC) or 50Hz (PAL). Disabling "
-        "allows the emulator to run as fast as possible.",
+        XENIA_OPT_DISPLAY_REFRESH,
+        "Emulated Display Refresh Rate",
+        "Display Refresh Rate",
+        "The refresh rate of the TV the game thinks it is on, as standalone's "
+        "option. NTSC (60 Hz) is the console's. PAL (50 Hz) is a PAL TV: "
+        "games run at 50 frames a second. Unlock Framerate overrides this.",
         NULL,
         "Graphics",
         {
-            { "enabled",  "Enabled" },
+            { "60", "NTSC (60Hz)" },
+            { "50", "PAL (50Hz)" },
+            { NULL, NULL }
+        },
+        "60"
+    },
+    {
+        XENIA_OPT_WAIT_FOR_FRAME,
+        "Wait for the Game's Frame",
+        "Wait for the Game's Frame",
+        "Removes 1 frame of input lag at the possible cost of the game slowing down.",
+        NULL,
+        "Graphics",
+        {
             { "disabled", "Disabled" },
+            { "enabled",  "Enabled" },
             { NULL, NULL }
         },
-        "enabled"
+        "disabled"
     },
     {
-        XENIA_OPT_FRAMERATE_LIMIT,
-        "Host Framerate Limit",
-        "FPS Limit",
-        "Limit the host rendering framerate. 0 = unlimited.",
+        XENIA_OPT_UNLOCK_FRAMERATE,
+        "Unlock Framerate",
+        "Unlock Framerate",
+        "Only for games whose logic is not tied to their frame rate, else "
+        "they run too fast. 30 fps games at 60: two vblanks for each frame "
+        "RetroArch shows. 60 fps games at 120: the core at 120 frames a "
+        "second (set RetroArch and the display up for it). Uncapped: vblanks "
+        "as fast as possible. Listed games: the rate "
+        "system/Xenia-Edge/xenia_framerate_unlock.txt gives the running game, "
+        "if it lists it. Can be changed while a game runs.",
         NULL,
         "Graphics",
         {
-            { "0",   "Unlimited" },
-            { "30",  "30 FPS" },
-            { "60",  "60 FPS" },
-            { "120", "120 FPS" },
-            { "144", "144 FPS" },
-            { NULL, NULL }
-        },
-        "0"
-    },
-    {
-        XENIA_OPT_50HZ_MODE,
-        "PAL 50Hz Mode",
-        "50Hz Mode",
-        "Run at 50Hz instead of 60Hz for PAL region games.",
-        NULL,
-        "Graphics",
-        {
-            { "disabled", "Disabled (60Hz NTSC)" },
-            { "enabled",  "Enabled (50Hz PAL)" },
+            { "disabled", "Disabled" },
+            { "enabled",  "Listed games" },
+            { "30to60",   "30 fps games at 60" },
+            { "120",      "60 fps games at 120" },
+            { "uncapped", "Uncapped" },
             { NULL, NULL }
         },
         "disabled"
@@ -400,6 +421,20 @@ static struct retro_core_option_v2_definition xenia_core_options_v2_defs[] = {
         "disabled"
     },
     {
+        XENIA_OPT_AUDIO_CHANNELS,
+        "Audio Channels (Restart)",
+        "Audio Channels",
+        "Stereo: the console's 5.1 folded down to two channels. Surround 5.1: all six channels to RetroArch, whose audio output layout then decides between speakers and a fold-down. Needs a RetroArch with multi-channel audio output, else stays stereo.",
+        NULL,
+        "Audio",
+        {
+            { "stereo", "Stereo" },
+            { "5.1",    "Surround 5.1" },
+            { NULL, NULL }
+        },
+        "stereo"
+    },
+    {
         XENIA_OPT_XMA_DECODER,
         "XMA Decoder (Restart)",
         "XMA Decoder",
@@ -408,13 +443,13 @@ static struct retro_core_option_v2_definition xenia_core_options_v2_defs[] = {
         NULL,
         "Audio",
         {
-            { "old",    "Old (Default)" },
-            { "new",    "New" },
+            { "new",    "New (Default)" },
+            { "old",    "Old" },
             { "master", "Master" },
             { "fake",   "Fake (Silence)" },
             { NULL, NULL }
         },
-        "old"
+        "new"
     },
     {
         XENIA_OPT_DEDICATED_XMA_THREAD,
@@ -425,11 +460,11 @@ static struct retro_core_option_v2_definition xenia_core_options_v2_defs[] = {
         NULL,
         "Audio",
         {
-            { "enabled",  "Enabled" },
             { "disabled", "Disabled" },
+            { "enabled",  "Enabled" },
             { NULL, NULL }
         },
-        "enabled"
+        "disabled"
     },
     {
         XENIA_OPT_ENABLE_XMP,
@@ -460,13 +495,13 @@ static struct retro_core_option_v2_definition xenia_core_options_v2_defs[] = {
             { "40",  "40%" },
             { "50",  "50%" },
             { "60",  "60%" },
-            { "70",  "70% (Default)" },
+            { "70",  "70%" },
             { "80",  "80%" },
             { "90",  "90%" },
-            { "100", "100%" },
+            { "100", "100% (Default)" },
             { NULL, NULL }
         },
-        "70"
+        "100"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
@@ -610,16 +645,18 @@ static struct retro_core_option_v2_definition xenia_core_options_v2_defs[] = {
         XENIA_OPT_CLEAR_MEMORY_PAGE,
         "Clear GPU Memory Page State",
         "Clear GPU Cache",
-        "Refresh state of memory pages for GPU written data. Disable for "
-        "a minor performance boost, but may break rendering.",
+        "Refresh state of memory pages for GPU written data. Off by "
+        "default, as on standalone; some games need it on to render right "
+        "(Ridge Racer 6, and the others xenia-manager's optimized settings "
+        "list).",
         NULL,
         "Compatibility",
         {
-            { "enabled",  "Enabled" },
             { "disabled", "Disabled" },
+            { "enabled",  "Enabled" },
             { NULL, NULL }
         },
-        "enabled"
+        "disabled"
     },
     {
         XENIA_OPT_DISABLE_CTX_PROMOTION,
@@ -663,6 +700,194 @@ static struct retro_core_option_v2_definition xenia_core_options_v2_defs[] = {
             { NULL, NULL }
         },
         "disabled"
+    },
+    {
+        XENIA_OPT_OCCLUSION_QUERY,
+        "Occlusion Query",
+        "Occlusion Query",
+        "How occlusion queries (lens flares, culling, auto-exposure) are answered. Fast (default) asks the GPU without waiting; Fake writes a made-up result; Fast-alt keeps cached zero results; Strict waits for the GPU, most accurate.",
+        NULL,
+        "Compatibility",
+        {
+            { "fast", "Fast" },
+            { "fake", "Fake" },
+            { "fast-alt", "Fast-alt" },
+            { "strict", "Strict" },
+            { NULL, NULL }
+        },
+        "fast"
+    },
+    {
+        XENIA_OPT_OCCLUSION_FULL,
+        "Occlusion Query Full Counters",
+        "Full Counters",
+        "Emulate the ZFail, StencilFail and Total occlusion counters in shaders. Some games need them; costs performance.",
+        NULL,
+        "Compatibility",
+        {
+            { "disabled", "Disabled" },
+            { "enabled", "Enabled" },
+            { NULL, NULL }
+        },
+        "disabled"
+    },
+    {
+        XENIA_OPT_OCCLUSION_FAKE_LOWER,
+        "Fake Occlusion Lower Threshold",
+        "Fake Lower",
+        "Lower end of the fake sample count written when occlusion queries are faked. -1 writes nothing (some games then wait forever).",
+        NULL,
+        "Compatibility",
+        {
+            { "80", "80" },
+            { "-1", "-1" },
+            { "0", "0" },
+            { "1", "1" },
+            { NULL, NULL }
+        },
+        "80"
+    },
+    {
+        XENIA_OPT_OCCLUSION_FAKE_UPPER,
+        "Fake Occlusion Upper Threshold",
+        "Fake Upper",
+        "Upper end of the fake sample count written when occlusion queries are faked.",
+        NULL,
+        "Compatibility",
+        {
+            { "100", "100" },
+            { "0", "0" },
+            { NULL, NULL }
+        },
+        "100"
+    },
+    {
+        XENIA_OPT_DEPTH_BIAS_SHADER,
+        "Depth Bias Through Shader",
+        "Depth Bias Shader",
+        "Route decal draws with polygon offset through the shader instead of host depth bias. Fixes z-fighting decals in some games.",
+        NULL,
+        "Compatibility",
+        {
+            { "disabled", "Disabled" },
+            { "enabled", "Enabled" },
+            { NULL, NULL }
+        },
+        "disabled"
+    },
+    {
+        XENIA_OPT_SCALE_THRESHOLD,
+        "Resolution Scale Threshold",
+        "Scale Threshold",
+        "Render targets at or below this pitch in pixels are not upscaled by the resolution scale. Fixes some effects that break when scaled.",
+        NULL,
+        "Compatibility",
+        {
+            { "0", "0 (scale all)" },
+            { "256", "256" },
+            { "360", "360" },
+            { "512", "512" },
+            { NULL, NULL }
+        },
+        "0"
+    },
+    {
+        XENIA_OPT_INVALID_UPLOAD,
+        "Allow Invalid Upload Range",
+        "Invalid Uploads",
+        "Allow games to read data from pages marked as no access.",
+        NULL,
+        "Compatibility",
+        {
+            { "enabled", "Enabled" },
+            { "disabled", "Disabled" },
+            { NULL, NULL }
+        },
+        "enabled"
+    },
+    {
+        XENIA_OPT_GAMMA_UNORM16,
+        "Gamma Render Target as UNORM16",
+        "Gamma UNORM16",
+        "Emulate gamma render targets with 16 bits per component where the host cannot do 8-bit piecewise gamma. Turn off if colors look wrong in a game.",
+        NULL,
+        "Compatibility",
+        {
+            { "enabled", "Enabled" },
+            { "disabled", "Disabled" },
+            { NULL, NULL }
+        },
+        "enabled"
+    },
+    {
+        XENIA_OPT_FORCE_DEPTH_CLAMP,
+        "Force Depth Clamp",
+        "Depth Clamp",
+        "Use host depth clamping instead of near and far plane clipping.",
+        NULL,
+        "Compatibility",
+        {
+            { "disabled", "Disabled" },
+            { "enabled", "Enabled" },
+            { NULL, NULL }
+        },
+        "disabled"
+    },
+    {
+        XENIA_OPT_IGNORE_RANGED_OFFSET,
+        "Ignore Offset for Ranged Allocations",
+        "Ranged Allocations",
+        "Ignore the 4 KB offset for physical allocations with a provided range. Needed by a few games.",
+        NULL,
+        "Compatibility",
+        {
+            { "disabled", "Disabled" },
+            { "enabled", "Enabled" },
+            { NULL, NULL }
+        },
+        "disabled"
+    },
+    {
+        XENIA_OPT_BREAK_UNIMPLEMENTED,
+        "Break on Unimplemented Instructions",
+        "Break Unimplemented",
+        "Stop when a game runs a CPU instruction Xenia does not implement. In a core that ends RetroArch; turn off to let such games go on.",
+        NULL,
+        "Compatibility",
+        {
+            { "enabled", "Enabled" },
+            { "disabled", "Disabled" },
+            { NULL, NULL }
+        },
+        "enabled"
+    },
+    {
+        XENIA_OPT_SCRIBBLE_HEAP,
+        "Scribble Heap",
+        "Scribble Heap",
+        "Fill newly allocated heap memory with a value, for games that rely on what is left there.",
+        NULL,
+        "Compatibility",
+        {
+            { "disabled", "Disabled" },
+            { "enabled", "Enabled" },
+            { NULL, NULL }
+        },
+        "disabled"
+    },
+    {
+        XENIA_OPT_SCRIBBLE_HEAP_VALUE,
+        "Scribble Heap Value",
+        "Scribble Value",
+        "The value Scribble Heap fills memory with. 0 is random.",
+        NULL,
+        "Compatibility",
+        {
+            { "0", "0 (random)" },
+            { "255", "255" },
+            { NULL, NULL }
+        },
+        "0"
     },
     /* ================================================================ */
     /* --- Debug ---                                                     */

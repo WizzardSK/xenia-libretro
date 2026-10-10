@@ -11,6 +11,7 @@
 #define XENIA_GPU_GRAPHICS_SYSTEM_H_
 
 #include <atomic>
+#include <condition_variable>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -129,6 +130,14 @@ class GraphicsSystem {
     scaled_aspect_y_ = y;
   };
 
+#ifdef XENIA_LIBRETRO
+  // retro_run fires the guest's vblank (with the refresh cap on): one frontend
+  // frame is one guest vblank. The frame limiter's own 60 Hz timer drifted
+  // against RetroArch's, so now and then two guest frames fell into one
+  // frontend frame and none into the next - doubled frames (NNshi).
+  void LibretroVblank();
+#endif
+
  protected:
   GraphicsSystem();
 
@@ -166,6 +175,13 @@ class GraphicsSystem {
   std::unique_ptr<CommandProcessor> command_processor_;
 
   bool paused_ = false;
+
+#ifdef XENIA_LIBRETRO
+  std::mutex libretro_vblank_mutex_;
+  std::condition_variable libretro_vblank_cv_;
+  uint32_t libretro_vblanks_pending_ = 0;
+  std::atomic<bool> libretro_vblank_driven_{false};
+#endif
 
   uint32_t scaled_aspect_x_ = 0;
   uint32_t scaled_aspect_y_ = 0;

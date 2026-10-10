@@ -9,6 +9,7 @@
 
 #include "xenia/base/clock.h"
 
+#include <atomic>
 #include <mutex>
 
 #include "xenia/base/assert.h"
@@ -92,6 +93,8 @@ void RecomputeGuestTickScalar() {
 
 // Update the guest timer for all threads.
 // Return a copy of the value so locking is reduced.
+static std::atomic<bool> guest_clock_paused_{false};
+
 uint64_t UpdateGuestClock() {
   uint64_t host_tick_count = Clock::QueryHostTickCount();
 
@@ -106,6 +109,9 @@ uint64_t UpdateGuestClock() {
     uint64_t host_tick_delta = host_tick_count > last_host_tick_count_
                                    ? host_tick_count - last_host_tick_count_
                                    : 0;
+    if (guest_clock_paused_.load(std::memory_order_relaxed)) {
+      host_tick_delta = 0;
+    }
     last_host_tick_count_ = host_tick_count;
     uint64_t guest_tick_delta =
         host_tick_delta * guest_tick_ratio_.first / guest_tick_ratio_.second;
@@ -204,6 +210,12 @@ void Clock::SetGuestSystemTime(uint64_t system_time) {
   // Query the filetime offset to calculate a new base time.
   auto guest_system_time_offset = QueryGuestSystemTimeOffset();
   guest_system_time_base_ = system_time - guest_system_time_offset;
+}
+
+void Clock::SetGuestClockPaused(bool paused) {
+  UpdateGuestClock();  // time up to now still counts
+  guest_clock_paused_.store(paused, std::memory_order_relaxed);
+  UpdateGuestClock();  // and the host ticks while paused do not
 }
 
 uint32_t Clock::ScaleGuestDurationMillis(uint32_t guest_ms) {

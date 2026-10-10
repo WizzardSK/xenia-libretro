@@ -23,9 +23,26 @@ namespace vulkan {
 
 class VulkanDevice {
  public:
+#ifdef XENIA_LIBRETRO
+  // A device made for the frontend too (RetroArch's context negotiation):
+  // the frontend's required extensions and features are enabled with
+  // Xenia's, the graphics and compute family gets a second queue for the
+  // frontend where it has one, and the frontend destroys the device.
+  struct FrontendRequest {
+    const char* const* extensions = nullptr;
+    uint32_t extension_count = 0;
+    const VkPhysicalDeviceFeatures* features = nullptr;
+  };
+#endif
+
   static std::unique_ptr<VulkanDevice> CreateIfSupported(
       const VulkanInstance* vulkan_instance, VkPhysicalDevice physical_device,
-      bool with_gpu_emulation, bool with_swapchain);
+      bool with_gpu_emulation, bool with_swapchain
+#ifdef XENIA_LIBRETRO
+      ,
+      const FrontendRequest* frontend_request = nullptr
+#endif
+  );
 
   VulkanDevice(const VulkanDevice&) = delete;
   VulkanDevice& operator=(const VulkanDevice&) = delete;
@@ -305,16 +322,49 @@ class VulkanDevice {
 
     explicit Queue(const VkQueue queue) : queue(queue) {}
 
+#ifdef XENIA_LIBRETRO
+    // A queue the frontend submits to as well (the device has one queue for
+    // both): the frontend's own lock, taken around the outermost acquisition.
+    void (*external_lock)(void* user) = nullptr;
+    void (*external_unlock)(void* user) = nullptr;
+    void* external_lock_user = nullptr;
+    uint32_t acquisition_depth = 0;  // under mutex
+#endif
+
     class Acquisition {
      public:
       explicit Acquisition(Queue& queue)
-          : lock_(queue.mutex), queue_(queue.queue) {}
+          : lock_(queue.mutex), queue_(queue.queue) {
+#ifdef XENIA_LIBRETRO
+        queue_object_ = &queue;
+        if (queue.external_lock && queue.acquisition_depth++ == 0) {
+          queue.external_lock(queue.external_lock_user);
+        }
+#endif
+      }
+#ifdef XENIA_LIBRETRO
+      Acquisition(Acquisition&& other) noexcept
+          : lock_(std::move(other.lock_)),
+            queue_(other.queue_),
+            queue_object_(other.queue_object_) {
+        other.queue_object_ = nullptr;
+      }
+      ~Acquisition() {
+        if (queue_object_ && queue_object_->external_lock &&
+            --queue_object_->acquisition_depth == 0) {
+          queue_object_->external_unlock(queue_object_->external_lock_user);
+        }
+      }
+#endif
 
       VkQueue queue() const { return queue_; }
 
      private:
       std::unique_lock<std::recursive_mutex> lock_;
       VkQueue queue_;
+#ifdef XENIA_LIBRETRO
+      Queue* queue_object_ = nullptr;
+#endif
     };
 
     Acquisition Acquire() { return Acquisition(*this); }
@@ -395,6 +445,18 @@ class VulkanDevice {
   Extensions extensions_;
 
   VkDevice device_ = nullptr;
+#ifdef XENIA_LIBRETRO
+  // false when the frontend destroys it (FrontendRequest)
+  bool owns_device_ = true;
+
+ public:
+  // The queue the frontend gets: queue 1 of the graphics and compute family,
+  // or queue 0, shared with Xenia, where the family has only one.
+  uint32_t frontend_queue_index() const { return frontend_queue_index_; }
+
+ private:
+  uint32_t frontend_queue_index_ = 0;
+#endif
 
   Functions functions_;
 

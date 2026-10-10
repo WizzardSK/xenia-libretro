@@ -45,6 +45,11 @@ class GuestScheduler {
   explicit GuestScheduler(KernelState* kernel_state);
   ~GuestScheduler();
 
+  // The libretro core's pause: no guest fiber is dispatched while paused (one
+  // running keeps going until it yields).
+  void SetPaused(bool paused) { paused_.store(paused); }
+  bool paused() const { return paused_.load(); }
+
   // True if the cooperative scheduler is active (gated by the cvar).
   static bool enabled();
 
@@ -337,6 +342,7 @@ class GuestScheduler {
 
   std::atomic<bool> started_{false};
   std::atomic<bool> shutting_down_{false};
+  std::atomic<bool> paused_{false};
   // Set once Shutdown has joined the dispatch threads and reclaimed every
   // leftover fiber. TerminateThread then frees threads directly.
   std::atomic<bool> stopped_{false};

@@ -249,9 +249,10 @@ void VulkanPresenter::DestroyGPUBlitResources() {
   const VulkanDevice::Functions& dfn = vulkan_device_->functions();
   const VkDevice device = vulkan_device_->device();
 
-  if (gpu_blit_.fence != VK_NULL_HANDLE) {
-    dfn.vkWaitForFences(device, 1, &gpu_blit_.fence, VK_TRUE, UINT64_MAX);
-  }
+  // No wait here: every blit is submitted through a completion timeline and
+  // awaited before CaptureGuestOutputGPUBlit returns. gpu_blit_.fence is never
+  // submitted, so waiting on it (unsignaled, no timeout) hung every Vulkan
+  // unload forever (NNshi).
   if (gpu_blit_.readback_mapped && gpu_blit_.readback_memory) {
     dfn.vkUnmapMemory(device, gpu_blit_.readback_memory);
   }
@@ -261,6 +262,7 @@ void VulkanPresenter::DestroyGPUBlitResources() {
   if (gpu_blit_.blit_memory) dfn.vkFreeMemory(device, gpu_blit_.blit_memory, nullptr);
   if (gpu_blit_.fence) dfn.vkDestroyFence(device, gpu_blit_.fence, nullptr);
   if (gpu_blit_.cmd_pool) dfn.vkDestroyCommandPool(device, gpu_blit_.cmd_pool, nullptr);
+  if (gpu_blit_.direct_cmd_pool) dfn.vkDestroyCommandPool(device, gpu_blit_.direct_cmd_pool, nullptr);
   gpu_blit_ = {};
 }
 
@@ -483,6 +485,138 @@ bool VulkanPresenter::CaptureGuestOutputGPUBlit(const void*& data_out,
   return true;
 }
 #endif  // XENIA_LIBRETRO
+
+#ifdef XENIA_LIBRETRO
+bool VulkanPresenter::BlitGuestOutputToImage(
+    const std::function<VkImage(uint32_t width, uint32_t height)>& target_for,
+    uint32_t& width_out, uint32_t& height_out) {
+  std::shared_ptr<GuestOutputImage> guest_output_image;
+  {
+    uint32_t guest_output_mailbox_index;
+    std::unique_lock<std::mutex> guest_output_consumer_lock(
+        ConsumeGuestOutput(guest_output_mailbox_index, nullptr, nullptr));
+    if (guest_output_mailbox_index != UINT32_MAX) {
+      guest_output_image =
+          guest_output_images_[guest_output_mailbox_index].image;
+    }
+  }
+  if (!guest_output_image) {
+    return false;
+  }
+  const VkExtent2D extent = guest_output_image->extent();
+  const uint32_t w = extent.width, h = extent.height;
+  if (!w || !h) {
+    return false;
+  }
+  const VkImage target = target_for(w, h);
+  if (target == VK_NULL_HANDLE) {
+    return false;
+  }
+
+  const VulkanDevice::Functions& dfn = vulkan_device_->functions();
+  const VkDevice device = vulkan_device_->device();
+  if (gpu_blit_.direct_cmd_pool == VK_NULL_HANDLE) {
+    VkCommandPoolCreateInfo pool_info = {
+        VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+    pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+    pool_info.queueFamilyIndex =
+        vulkan_device_->queue_family_graphics_compute();
+    if (dfn.vkCreateCommandPool(device, &pool_info, nullptr,
+                                &gpu_blit_.direct_cmd_pool) != VK_SUCCESS) {
+      gpu_blit_.direct_cmd_pool = VK_NULL_HANDLE;
+      return false;
+    }
+    VkCommandBufferAllocateInfo alloc_info = {
+        VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    alloc_info.commandPool = gpu_blit_.direct_cmd_pool;
+    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    alloc_info.commandBufferCount = 1;
+    if (dfn.vkAllocateCommandBuffers(device, &alloc_info,
+                                     &gpu_blit_.direct_cmd) != VK_SUCCESS) {
+      return false;
+    }
+  }
+  const VkCommandBuffer cmd = gpu_blit_.direct_cmd;
+  dfn.vkResetCommandPool(device, gpu_blit_.direct_cmd_pool, 0);
+  VkCommandBufferBeginInfo begin_info = {
+      VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+  if (dfn.vkBeginCommandBuffer(cmd, &begin_info) != VK_SUCCESS) {
+    return false;
+  }
+
+  VkImageMemoryBarrier barriers[2] = {};
+  barriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  barriers[0].srcAccessMask = kGuestOutputInternalAccessMask;
+  barriers[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+  barriers[0].oldLayout = kGuestOutputInternalLayout;
+  barriers[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+  barriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barriers[0].image = guest_output_image->image();
+  barriers[0].subresourceRange = util::InitializeSubresourceRange();
+  // The frontend's previous read of the image is done: it waits on its
+  // frame's sync index before the core is given the image again
+  barriers[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  barriers[1].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+  barriers[1].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  barriers[1].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+  barriers[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barriers[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barriers[1].image = target;
+  barriers[1].subresourceRange = util::InitializeSubresourceRange();
+  dfn.vkCmdPipelineBarrier(
+      cmd, kGuestOutputInternalStageMask | VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+      VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 2, barriers);
+
+  VkImageBlit blit_region = {};
+  blit_region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  blit_region.srcSubresource.layerCount = 1;
+  blit_region.srcOffsets[1] = {int32_t(w), int32_t(h), 1};
+  blit_region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  blit_region.dstSubresource.layerCount = 1;
+  blit_region.dstOffsets[1] = {int32_t(w), int32_t(h), 1};
+  dfn.vkCmdBlitImage(cmd, guest_output_image->image(),
+                     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, target,
+                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit_region,
+                     VK_FILTER_NEAREST);
+
+  barriers[0].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+  barriers[0].dstAccessMask = kGuestOutputInternalAccessMask;
+  barriers[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+  barriers[0].newLayout = kGuestOutputInternalLayout;
+  barriers[1].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+  barriers[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+  barriers[1].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+  barriers[1].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  dfn.vkCmdPipelineBarrier(
+      cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+      kGuestOutputInternalStageMask | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+      0, 0, nullptr, 0, nullptr, 2, barriers);
+
+  if (dfn.vkEndCommandBuffer(cmd) != VK_SUCCESS) {
+    return false;
+  }
+  {
+    // Awaited when the timeline goes: the frontend draws the image in this
+    // same retro_run, on its own queue
+    VulkanGPUCompletionTimeline completion_timeline(vulkan_device_);
+    VkSubmitInfo submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &cmd;
+    const VkResult submit_result = completion_timeline.AcquireFenceAndSubmit(
+        vulkan_device_->queue_family_graphics_compute(), 0, 1, &submit_info);
+    if (submit_result != VK_SUCCESS) {
+      XELOGE("VulkanPresenter: Failed to submit the guest output blit: {}",
+             vk::to_string(vk::Result(submit_result)));
+      return false;
+    }
+  }
+  width_out = w;
+  height_out = h;
+  return true;
+}
+#endif
 
 bool VulkanPresenter::CaptureGuestOutput(RawImage& image_out) {
   std::shared_ptr<GuestOutputImage> guest_output_image;

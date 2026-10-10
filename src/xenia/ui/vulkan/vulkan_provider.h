@@ -26,9 +26,23 @@ class VulkanProvider : public GraphicsProvider {
   static std::unique_ptr<VulkanProvider> Create(bool with_gpu_emulation,
                                                 bool with_presentation);
 
-  VulkanInstance* vulkan_instance() const { return vulkan_instance_.get(); }
+#ifdef XENIA_LIBRETRO
+  // The frontend's instance and the device the core made on it (RetroArch's
+  // context negotiation), kept by the core for as long as the frontend keeps
+  // the device: Create takes them instead of making its own. nullptr for
+  // none.
+  static void SetExternal(VulkanInstance* instance, VulkanDevice* device);
 
+  VulkanInstance* vulkan_instance() const {
+    return external_instance_ ? external_instance_ : vulkan_instance_.get();
+  }
+  VulkanDevice* vulkan_device() const {
+    return external_device_ ? external_device_ : vulkan_device_.get();
+  }
+#else
+  VulkanInstance* vulkan_instance() const { return vulkan_instance_.get(); }
   VulkanDevice* vulkan_device() const { return vulkan_device_.get(); }
+#endif
 
   // nullptr if created without presentation support.
   const UISamplers* ui_samplers() const { return ui_samplers_.get(); }
@@ -49,6 +63,10 @@ class VulkanProvider : public GraphicsProvider {
 
   // Depends on the device.
   std::unique_ptr<UISamplers> ui_samplers_;
+#ifdef XENIA_LIBRETRO
+  VulkanInstance* external_instance_ = nullptr;
+  VulkanDevice* external_device_ = nullptr;
+#endif
 };
 
 }  // namespace vulkan
