@@ -64,6 +64,36 @@ export XENIA_LIBRETRO_DXIL="$TOOLS/dxil.dll"
 # The submodules the Windows build uses, as the project's CI takes them
 git submodule update --init --depth=1 --jobs="$NUMPROC" \
   $(grep -oP '(?<=path = )(?!third_party/(MoltenVK|SPIRV-Cross)$).+' .gitmodules)
+# Headers the sources name in another case than the SDK's files (<ObjBase.h>
+# for objbase.h): a link of that spelling next to each
+python3 - "$MSVC" <<'PY'
+import os, re, sys
+root = sys.argv[1]
+dirs = [os.path.join(root, d) for d in ("crt/include", "sdk/include/ucrt",
+        "sdk/include/um", "sdk/include/shared", "sdk/include/winrt")]
+files = {}
+for d in dirs:
+    for name in os.listdir(d):
+        files.setdefault(name.lower(), (d, name))
+wanted = set()
+pattern = re.compile(rb'#\s*include\s*[<"]([A-Za-z0-9_]+\.[hH])[>"]')
+for top in ("src", "libretro", "third_party"):
+    for base, _, names in os.walk(top):
+        for n in names:
+            if n.endswith((".h", ".hpp", ".c", ".cc", ".cpp", ".inl")):
+                try:
+                    data = open(os.path.join(base, n), "rb").read()
+                except OSError:
+                    continue
+                wanted.update(m.decode() for m in pattern.findall(data))
+made = 0
+for name in wanted:
+    hit = files.get(name.lower())
+    if hit and hit[1] != name and not os.path.exists(os.path.join(hit[0], name)):
+        os.symlink(hit[1], os.path.join(hit[0], name))
+        made += 1
+print(f"case links: {made}")
+PY
 export CC=clang-21 CXX=clang++-21
 ./xenia-build.py slang
 ./xenia-build.py fetchdata
@@ -108,7 +138,9 @@ foreach(_xe_dir IN LISTS XE_CLANG_CL_INCLUDES)
   string(APPEND _xe_includes " /imsvc \"\${_xe_dir}\"")
   string(APPEND _xe_rc_includes " /I \"\${_xe_dir}\"")
 endforeach()
-set(_xe_flags "-Wno-unused-command-line-argument\${_xe_includes}")
+# Warnings xenia's clang setup turns off, which its MSVC setup (what CMake
+# takes clang-cl for) does not, and -Werror would fail on
+set(_xe_flags "-Wno-unused-command-line-argument -Wno-switch -Wno-character-conversion -Wno-nontrivial-memcall -Wno-deprecated-literal-operator -Wno-deprecated-volatile -Wno-deprecated-enum-enum-conversion -Wno-deprecated-register -Wno-absolute-value\${_xe_includes}")
 set(_xe_link "/manifest:no")
 foreach(_xe_dir IN LISTS XE_CLANG_CL_LIBS)
   string(APPEND _xe_link " /libpath:\"\${_xe_dir}\"")
