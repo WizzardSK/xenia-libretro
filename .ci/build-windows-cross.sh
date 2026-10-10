@@ -100,7 +100,9 @@ set(XE_CLANG_CL_INCLUDES
   "$MSVC/sdk/include/shared" "$MSVC/sdk/include/winrt")
 set(XE_CLANG_CL_LIBS
   "$MSVC/crt/lib/x86_64" "$MSVC/sdk/lib/um/x86_64" "$MSVC/sdk/lib/ucrt/x86_64")
-set(_xe_flags "")
+# /MP and /Zc:preprocessor are MSVC's; clang-cl ignores them, and xenia's
+# -Werror would make that an error
+set(_xe_flags "-Wno-unused-command-line-argument")
 foreach(_xe_dir IN LISTS XE_CLANG_CL_INCLUDES)
   string(APPEND _xe_flags " /imsvc \"\${_xe_dir}\"")
 endforeach()
