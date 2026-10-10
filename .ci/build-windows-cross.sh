@@ -57,7 +57,7 @@ wget -q -O "$TOOLS/dxc-linux.tar.gz" "$DXC_URL/$DXC_LINUX"
 tar -xzf "$TOOLS/dxc-linux.tar.gz" -C "$TOOLS/dxc-linux"
 export LD_LIBRARY_PATH="$TOOLS/dxc-linux/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 wget -q -O "$TOOLS/dxc-windows.zip" "$DXC_URL/$DXC_WINDOWS"
-python3 -c "import sys, zipfile; open(sys.argv[2], 'wb').write(zipfile.ZipFile(sys.argv[1]).read('bin/x64/dxil.dll'))" \
+python3 -c "import sys, zipfile; open(sys.argv[2], 'wb').write(zipfile.ZipFile(sys.argv[1]).read(r'bin\x64\dxil.dll'))" \
   "$TOOLS/dxc-windows.zip" "$TOOLS/dxil.dll"
 export XENIA_LIBRETRO_DXIL="$TOOLS/dxil.dll"
 
