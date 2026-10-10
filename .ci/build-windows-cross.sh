@@ -175,7 +175,7 @@ if ! cmake --build "$BUILD_DIR" --target xenia-libretro -- -j "$NUMPROC" ${XE_CR
   MESON_LOG="$BUILD_DIR/third_party/mesa-build/meson-logs/meson-log.txt"
   if [ -f "$MESON_LOG" ]; then
     # The first link check, which shows why linking fails, and the end
-    grep -n -m1 -A60 "Running link" "$MESON_LOG" || true
+    grep -n -m1 -B70 'required -latomic" links' "$MESON_LOG" || true
     tail -n 60 "$MESON_LOG"
   fi
   exit 1
