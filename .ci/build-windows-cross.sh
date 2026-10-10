@@ -140,7 +140,7 @@ foreach(_xe_dir IN LISTS XE_CLANG_CL_INCLUDES)
 endforeach()
 # Warnings xenia's clang setup turns off, which its MSVC setup (what CMake
 # takes clang-cl for) does not, and -Werror would fail on
-set(_xe_flags "-Wno-unused-command-line-argument -Wno-switch -Wno-character-conversion -Wno-nontrivial-memcall -Wno-deprecated-literal-operator -Wno-deprecated-volatile -Wno-deprecated-enum-enum-conversion -Wno-deprecated-register -Wno-absolute-value\${_xe_includes}")
+set(_xe_flags "-Wno-unused-command-line-argument -Wno-switch -Wno-character-conversion -Wno-nontrivial-memcall -Wno-deprecated-literal-operator -Wno-deprecated-volatile -Wno-deprecated-enum-enum-conversion -Wno-deprecated-register -Wno-absolute-value -Wno-tautological-pointer-compare\${_xe_includes}")
 set(_xe_link "/manifest:no")
 foreach(_xe_dir IN LISTS XE_CLANG_CL_LIBS)
   string(APPEND _xe_link " /libpath:\"\${_xe_dir}\"")
@@ -165,6 +165,8 @@ python3 -c "import importlib.util as u, sys; s=u.spec_from_file_location('xb','x
 cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
   -DXENIA_HOST_SHADER_CC="$HOST_SHADER_CC" -DXENIA_ENABLE_LTO=OFF
+# Meson builds Mesa's build-machine helpers with these
+export CC_FOR_BUILD=clang-21 CXX_FOR_BUILD=clang++-21
 cmake --build "$BUILD_DIR" --target xenia-libretro -- -j "$NUMPROC" ${XE_CROSS_KEEP_GOING:+-k 0}
 mv "$(find "$BUILD_DIR" -name xenia_edge_libretro.dll | head -1)" "$BUILD_DIR/xenia_edge_libretro.dll"
 file "$BUILD_DIR/xenia_edge_libretro.dll"
