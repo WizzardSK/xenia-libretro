@@ -171,7 +171,11 @@ export CC_FOR_BUILD=clang-21 CXX_FOR_BUILD=clang++-21
 export LIB="$MSVC/crt/lib/x86_64;$MSVC/sdk/lib/um/x86_64;$MSVC/sdk/lib/ucrt/x86_64"
 if ! cmake --build "$BUILD_DIR" --target xenia-libretro -- -j "$NUMPROC" ${XE_CROSS_KEEP_GOING:+-k 0}; then
   MESON_LOG="$BUILD_DIR/third_party/mesa-build/meson-logs/meson-log.txt"
-  [ -f "$MESON_LOG" ] && tail -n 120 "$MESON_LOG"
+  if [ -f "$MESON_LOG" ]; then
+    # The first link check, which shows why linking fails, and the end
+    grep -n -m1 -A60 "Running link" "$MESON_LOG" || true
+    tail -n 60 "$MESON_LOG"
+  fi
   exit 1
 fi
 mv "$(find "$BUILD_DIR" -name xenia_edge_libretro.dll | head -1)" "$BUILD_DIR/xenia_edge_libretro.dll"
