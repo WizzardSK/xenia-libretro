@@ -482,8 +482,9 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/snappy/snappy-stubs-public.h")
   # A cross build configures it for the target, not for the build machine
   set(_snappy_toolchain_flag "")
   if(CMAKE_TOOLCHAIN_FILE)
+    # Release: the debug CRT is not part of a cross toolchain's runtime
     set(_snappy_toolchain_flag "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
-      -G "${CMAKE_GENERATOR}")
+      -G "${CMAKE_GENERATOR}" -DCMAKE_BUILD_TYPE=Release)
   endif()
   execute_process(
     COMMAND ${CMAKE_COMMAND}
