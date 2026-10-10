@@ -620,7 +620,9 @@ else()
     X86_AVX512VNNI
     WITH_GZFILEOP
   )
-  if(NOT MSVC)
+  # clang-cl too: it is MSVC to CMake, but zlib-ng's fallback_builtins.h
+  # stands down for any clang, so it needs the clang setup
+  if(NOT MSVC OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
     # GCC/Clang have native __builtin_ctz/__builtin_ctzll (MSVC gets these
     # from fallback_builtins.h). Defining these enables optimized compare256
     # and longest_match codepaths. HAVE_ATTRIBUTE_ALIGNED gates GCC-style
