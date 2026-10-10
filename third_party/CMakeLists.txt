@@ -1154,6 +1154,7 @@ if(WIN32)
 "[binaries]
 c = '${XE_CLANG_CL_WRAPPER}'
 cpp = '${XE_CLANG_CL_WRAPPER}'
+windres = '${XE_LLVM_RC_WRAPPER}'
 ar = '${CMAKE_AR}'
 
 [host_machine]
