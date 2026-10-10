@@ -111,7 +111,19 @@ git -C third_party/snappy clean -fdxq
 git -C third_party/zlib-ng clean -fdxq
 unset CC CXX
 
-# clang-cl against the downloaded headers and libraries
+# clang-cl against the downloaded headers and libraries. For meson (Mesa) a
+# clang-cl that brings them along itself: its resource compiler step takes
+# the compiler as one argument
+mkdir -p "$TOOLS/bin"
+cat > "$TOOLS/bin/clang-cl" <<WRAPPER
+#!/bin/sh
+exec "$LLVM/clang-cl" --target=x86_64-pc-windows-msvc -fuse-ld=lld \\
+  -Wno-unused-command-line-argument \\
+  /imsvc "$MSVC/crt/include" /imsvc "$MSVC/sdk/include/ucrt" \\
+  /imsvc "$MSVC/sdk/include/um" /imsvc "$MSVC/sdk/include/shared" \\
+  /imsvc "$MSVC/sdk/include/winrt" "\$@"
+WRAPPER
+chmod +x "$TOOLS/bin/clang-cl"
 TOOLCHAIN="$TOOLS/clang-cl-x86_64.cmake"
 cat > "$TOOLCHAIN" <<EOF
 set(CMAKE_SYSTEM_NAME Windows)
@@ -125,6 +137,7 @@ set(CMAKE_LINKER "$LLVM/lld-link")
 set(CMAKE_AR "$LLVM/llvm-lib")
 set(CMAKE_RC_COMPILER "$LLVM/llvm-rc")
 set(CMAKE_MT "$LLVM/llvm-mt")
+set(XE_CLANG_CL_WRAPPER "$TOOLS/bin/clang-cl")
 set(XE_CLANG_CL_INCLUDES
   "$MSVC/crt/include" "$MSVC/sdk/include/ucrt" "$MSVC/sdk/include/um"
   "$MSVC/sdk/include/shared" "$MSVC/sdk/include/winrt")

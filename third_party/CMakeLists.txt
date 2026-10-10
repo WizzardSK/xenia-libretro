@@ -1142,22 +1142,18 @@ if(WIN32)
     list(APPEND _xe_s2d_meson_args
       -Db_vscrt=md -Dc_args=/wd4189 -Dcpp_args=/wd4189)
     if(NOT CMAKE_HOST_WIN32)
-      # Cross-built from Linux with clang-cl (.ci/build-windows-cross.sh): the
-      # toolchain's compiler and librarian, with the CRT and SDK headers its
-      # toolchain file lists. meson links (its checks only) through clang-cl,
-      # which needs lld named as a driver option - meson puts its link args
-      # after /link, where clang-cl hands them to the linker - and lld-link
-      # takes the libraries' directories from LIB, which the script sets.
-      set(_xe_s2d_flags "")
-      foreach(_xe_dir IN LISTS XE_CLANG_CL_INCLUDES)
-        string(APPEND _xe_s2d_flags ", '/imsvc', '${_xe_dir}'")
-      endforeach()
+      # Cross-built from Linux with clang-cl (.ci/build-windows-cross.sh):
+      # the script's clang-cl wrapper, which adds the target, lld and the CRT
+      # and SDK headers itself - meson's resource compiler step takes the
+      # compiler as one argument, and its link args go after /link, too late
+      # to name lld - and the toolchain's librarian. lld-link takes the
+      # libraries' directories from LIB, which the script sets.
       set(_xe_s2d_cross_file
         "${CMAKE_CURRENT_BINARY_DIR}/mesa-windows-clang-cl-${_xe_s2d_cpu}.ini")
       file(WRITE "${_xe_s2d_cross_file}"
 "[binaries]
-c = ['${CMAKE_C_COMPILER}', '--target=x86_64-pc-windows-msvc', '-fuse-ld=lld', '-Wno-unused-command-line-argument'${_xe_s2d_flags}]
-cpp = ['${CMAKE_CXX_COMPILER}', '--target=x86_64-pc-windows-msvc', '-fuse-ld=lld', '-Wno-unused-command-line-argument'${_xe_s2d_flags}]
+c = '${XE_CLANG_CL_WRAPPER}'
+cpp = '${XE_CLANG_CL_WRAPPER}'
 ar = '${CMAKE_AR}'
 
 [host_machine]
