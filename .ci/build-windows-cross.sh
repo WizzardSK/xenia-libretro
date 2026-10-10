@@ -165,6 +165,8 @@ python3 -c "import importlib.util as u, sys; s=u.spec_from_file_location('xb','x
 cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
   -DXENIA_HOST_SHADER_CC="$HOST_SHADER_CC" -DXENIA_ENABLE_LTO=OFF
+# meson looks lld-link up on PATH
+export PATH="$LLVM:$PATH"
 # Meson builds Mesa's build-machine helpers with these
 export CC_FOR_BUILD=clang-21 CXX_FOR_BUILD=clang++-21
 # lld-link's own search path, for the links meson's checks make
