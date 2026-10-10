@@ -31,7 +31,7 @@ wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key > /etc/apt/trusted.gpg.d/ap
 apt-add-repository -y --no-update "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main"
 apt-get update -qq
 apt-get install -y --no-install-recommends \
-  clang-21 clang-tools-21 lld-21 llvm-21 libclang-rt-21-dev g++-14
+  clang-21 clang-tools-21 lld-21 llvm-21 libclang-rt-21-dev g++-14 liblz4-dev
 
 # CMake, meson and Mesa's Python modules; 24.04's pip wants a venv
 python3 -m venv "$TOOLS/venv"
