@@ -479,8 +479,15 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/snappy/snappy-stubs-public.h")
   else()
     set(_snappy_avx_flag "-DSNAPPY_REQUIRE_AVX=OFF")
   endif()
+  # A cross build configures it for the target, not for the build machine
+  set(_snappy_toolchain_flag "")
+  if(CMAKE_TOOLCHAIN_FILE)
+    set(_snappy_toolchain_flag "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+      -G "${CMAKE_GENERATOR}")
+  endif()
   execute_process(
     COMMAND ${CMAKE_COMMAND}
+      ${_snappy_toolchain_flag}
       -DSNAPPY_BUILD_TESTS=OFF
       -DSNAPPY_BUILD_BENCHMARKS=OFF
       ${_snappy_avx_flag}

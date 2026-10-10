@@ -75,6 +75,9 @@ export SLANGC_PATH="$SLANGC"
 cmake -S . -B build-host -G Ninja -DCMAKE_BUILD_TYPE=Release -DXENIA_ENABLE_LTO=OFF
 cmake --build build-host --target xenia-shader-cc -- -j "$NUMPROC"
 HOST_SHADER_CC=$(find "$PWD/build-host" -name xenia-shader-cc -type f | head -1)
+# The host configure generated snappy's config header for Linux, in its
+# source tree; the Windows configure generates its own
+git -C third_party/snappy clean -fdxq
 unset CC CXX
 
 # clang-cl against the downloaded headers and libraries
