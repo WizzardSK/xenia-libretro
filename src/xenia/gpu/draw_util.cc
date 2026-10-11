@@ -683,7 +683,8 @@ static inline void GetScissorTmpl(const RegisterFile& XE_RESTRICT regs,
   __m128i pa_sc_scissor = _mm_setr_epi32(
       pa_sc_screen_scissor_tl_tl_x, pa_sc_screen_scissor_tl_tl_y,
       pa_sc_screen_scissor_br_br_x, pa_sc_screen_scissor_br_br_y);
-#if XE_PLATFORM_WIN32
+// _mm_cvtsi64x_si128 is MSVC's name only; clang-cl has the standard one
+#if XE_PLATFORM_WIN32 && !defined(__clang__)
   __m128i xyoffsetadd = _mm_cvtsi64x_si128(
       static_cast<unsigned long long>(pa_sc_window_offset_window_x_offset) |
       (static_cast<unsigned long long>(pa_sc_window_offset_window_y_offset)

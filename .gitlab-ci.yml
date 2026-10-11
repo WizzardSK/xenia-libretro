@@ -1,14 +1,15 @@
 # DESCRIPTION: GitLab CI/CD for libRetro (NOT FOR GitLab-proper)
 
-# Linux x64, Linux aarch64, Android arm64-v8a and x86_64.
+# Linux x64, Linux aarch64, Windows x64, Android arm64-v8a and x86_64.
 #
 # Xenia Edge needs clang 21 and GCC 14's libstdc++; the buildbot's Linux images
 # (Ubuntu 16.04, gcc 9) cannot build it, so the Linux jobs run in Ubuntu 22.04
 # (glibc 2.35) with clang 21 from apt.llvm.org, as the project's GitHub CI
 # does and as cemu-libretro's and vita3k-libretro's jobs do. The core is built
 # through xenia-build.py, which also generates the shaders and the version
-# header. Windows and macOS are not here: Windows builds with a newer MSVC than
-# the buildbot's 2019 16.8, and macOS has not been tried on the buildbot yet.
+# header. Windows needs a newer MSVC than the buildbot's 2019 16.8, so it is
+# cross-built on Linux with clang-cl (.ci/build-windows-cross.sh). macOS has
+# not been tried on the buildbot yet.
 
 ##############################################################################
 ################################# BOILERPLATE ################################
@@ -29,6 +30,10 @@ include:
   # Linux
   - project: 'libretro-infrastructure/ci-templates'
     file: '/linux-cmake.yml'
+
+  # Windows
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/windows-cmake-mingw.yml'
 
   # Android
   - project: 'libretro-infrastructure/ci-templates'
@@ -94,6 +99,28 @@ libretro-build-linux-aarch64:
   extends:
     - .libretro-linux-cmake-aarch64
     - .core-defs-linux
+
+# Windows 64-bit
+#
+# clang-cl and lld-link (LLVM 21) against the MSVC CRT and Windows SDK, which
+# the script fetches with xwin, so the core links the same runtime as the
+# project's MSVC build; the D3D12 shaders go through slangc with DXC's Linux
+# library, and Mesa's spirv_to_dxil through meson with the same clang-cl.
+# The template's MXE image and steps are not used, only its name and
+# artifacts.
+libretro-build-windows-x64:
+  extends:
+    - .libretro-windows-cmake-x86_64
+    - .core-defs
+  image: ubuntu:24.04
+  timeout: 3h
+  before_script:
+    - export NUMPROC=$(($(nproc)/5))
+    - apt-get update -qq
+    - apt-get install -y --no-install-recommends git ca-certificates
+  script:
+    - BUILD_DIR=$BUILD_DIR NUMPROC=$NUMPROC .ci/build-windows-cross.sh
+    - mv "$BUILD_DIR/$LIBNAME" "$LIBNAME"
 
 # Android
 #

@@ -472,6 +472,15 @@ target_include_directories(pugixml PUBLIC pugixml/src)
 # ==============================================================================
 # snappy
 # ==============================================================================
+# snappy and zlib-ng generate their config headers into their source trees
+# with a configure of their own. A cross build configures them for the
+# target, not for the build machine (Release: the debug CRT is not part of a
+# cross toolchain's runtime).
+set(_xe_nested_toolchain_flag "")
+if(CMAKE_TOOLCHAIN_FILE)
+  set(_xe_nested_toolchain_flag "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+    -G "${CMAKE_GENERATOR}" -DCMAKE_BUILD_TYPE=Release)
+endif()
 # Generate snappy-stubs-public.h if missing
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/snappy/snappy-stubs-public.h")
   if(XE_TARGET_X86_64)
@@ -481,6 +490,7 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/snappy/snappy-stubs-public.h")
   endif()
   execute_process(
     COMMAND ${CMAKE_COMMAND}
+      ${_xe_nested_toolchain_flag}
       -DSNAPPY_BUILD_TESTS=OFF
       -DSNAPPY_BUILD_BENCHMARKS=OFF
       ${_snappy_avx_flag}
@@ -563,6 +573,7 @@ endforeach()
 if(_zlibng_needs_configure)
   execute_process(
     COMMAND ${CMAKE_COMMAND}
+      ${_xe_nested_toolchain_flag}
       -DZLIB_ENABLE_TESTS=OFF
       -DWITH_GTEST=OFF
       ${CMAKE_CURRENT_SOURCE_DIR}/zlib-ng
@@ -609,7 +620,9 @@ else()
     X86_AVX512VNNI
     WITH_GZFILEOP
   )
-  if(NOT MSVC)
+  # clang-cl too: it is MSVC to CMake, but zlib-ng's fallback_builtins.h
+  # stands down for any clang, so it needs the clang setup
+  if(NOT MSVC OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
     # GCC/Clang have native __builtin_ctz/__builtin_ctzll (MSVC gets these
     # from fallback_builtins.h). Defining these enables optimized compare256
     # and longest_match codepaths. HAVE_ATTRIBUTE_ALIGNED gates GCC-style
@@ -1128,7 +1141,30 @@ if(WIN32)
     # asserts, leaving assert-only locals that would trip the promoted warning.
     list(APPEND _xe_s2d_meson_args
       -Db_vscrt=md -Dc_args=/wd4189 -Dcpp_args=/wd4189)
-    if(_xe_s2d_cross)
+    if(NOT CMAKE_HOST_WIN32)
+      # Cross-built from Linux with clang-cl (.ci/build-windows-cross.sh):
+      # the script's clang-cl wrapper, which adds the target, lld and the CRT
+      # and SDK headers itself - meson's resource compiler step takes the
+      # compiler as one argument, and its link args go after /link, too late
+      # to name lld - and the toolchain's librarian. lld-link takes the
+      # libraries' directories from LIB, which the script sets.
+      set(_xe_s2d_cross_file
+        "${CMAKE_CURRENT_BINARY_DIR}/mesa-windows-clang-cl-${_xe_s2d_cpu}.ini")
+      file(WRITE "${_xe_s2d_cross_file}"
+"[binaries]
+c = '${XE_CLANG_CL_WRAPPER}'
+cpp = '${XE_CLANG_CL_WRAPPER}'
+windres = '${XE_LLVM_RC_WRAPPER}'
+ar = '${CMAKE_AR}'
+
+[host_machine]
+system = 'windows'
+cpu_family = '${_xe_s2d_cpu}'
+cpu = '${_xe_s2d_cpu}'
+endian = 'little'
+")
+      list(APPEND _xe_s2d_meson_args --cross-file "${_xe_s2d_cross_file}")
+    elseif(_xe_s2d_cross)
       set(_xe_s2d_cross_file
         "${CMAKE_CURRENT_BINARY_DIR}/mesa-windows-cross-${_xe_s2d_cpu}.ini")
       file(WRITE "${_xe_s2d_cross_file}"
