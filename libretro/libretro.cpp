@@ -755,39 +755,31 @@ static bool s_hide_graphics_api = false;
 // the game's module is loaded (and without them after it is unloaded).
 // RetroArch keeps each option's value in the core's options file.
 static void publish_core_options(void) {
+    // option_defs_us is the header's array, which the translations
+    // (libretro_core_options_intl.h, from Crowdin) are matched to by key;
+    // the game's patches follow it here, untranslated. The Patch Manager
+    // category is declared with the others: without options it is not shown.
     static std::vector<retro_core_option_v2_definition> defs;
-    static std::vector<retro_core_option_v2_category> cats;
-    static retro_core_options_v2 options;
     defs.clear();
-    cats.clear();
-    for (const auto *d = xenia_core_options_v2_defs; d->key; ++d)
+    for (const auto *d = option_defs_us; d->key; ++d)
         defs.push_back(*d);
-    for (const auto *c = xenia_core_option_categories; c->key; ++c)
-        cats.push_back(*c);
-    const auto &patches = gamedb::patches();
-    if (!patches.empty()) {
-        cats.push_back({ "patches", "Patch Manager",
-            "The game's patches from Xenia Edge's game-patches, for this "
-            "version of it. A change applies at the next boot." });
-        for (const auto &p : patches) {
-            retro_core_option_v2_definition d{};
-            d.key = p.key.c_str();
-            d.desc = p.label.c_str();
-            d.desc_categorized = p.label.c_str();
-            d.info = p.info.empty() ? nullptr : p.info.c_str();
-            d.category_key = "patches";
-            d.values[0] = { "disabled", "Disabled" };
-            d.values[1] = { "enabled", "Enabled" };
-            d.values[2] = { nullptr, nullptr };
-            d.default_value = p.default_on ? "enabled" : "disabled";
-            defs.push_back(d);
-        }
+    for (const auto &p : gamedb::patches()) {
+        retro_core_option_v2_definition d{};
+        d.key = p.key.c_str();
+        d.desc = p.label.c_str();
+        d.desc_categorized = p.label.c_str();
+        d.info = p.info.empty() ? nullptr : p.info.c_str();
+        d.category_key = "patches";
+        d.values[0] = { "disabled", nullptr };
+        d.values[1] = { "enabled", nullptr };
+        d.values[2] = { nullptr, nullptr };
+        d.default_value = p.default_on ? "enabled" : "disabled";
+        defs.push_back(d);
     }
     defs.push_back({});
-    cats.push_back({ nullptr, nullptr, nullptr });
-    options.categories = cats.data();
-    options.definitions = defs.data();
-    core_state.environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2, &options);
+    options_us.definitions = defs.data();
+    bool categories_supported = false;
+    libretro_set_core_options(core_state.environ_cb, &categories_supported);
     if (s_hide_graphics_api) {
         struct retro_core_option_display display = {
             XENIA_OPT_GRAPHICS_API, false};
@@ -1984,7 +1976,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *info) {
     // tester's log then says what the core was asked to do
     {
         std::string dump;
-        for (const auto *d = xenia_core_options_v2_defs; d->key; ++d) {
+        for (const auto *d = option_defs_us; d->key; ++d) {
             const char *value = opt_get(d->key);
             dump += std::string("\n  ") + d->key + " = " + (value ? value : "(default)");
         }
