@@ -740,6 +740,8 @@ static const char *opt_get(const char *key) {
 // thread, shown by retro_run on RetroArch's screen
 static std::mutex s_notice_mutex;
 static std::string s_notice;
+// Dialog Notifications: whether an answered dialog is shown as one
+static std::atomic<bool> s_dialog_notices{true};
 
 // system/Xenia-Edge, where the core keeps everything (xenia_setup_and_launch)
 static std::filesystem::path xenia_root_dir(void) {
@@ -992,6 +994,10 @@ static void apply_core_options(void) {
     // Apply game patches
     if ((v = opt_get(XENIA_OPT_APPLY_PATCHES))) {
         cvars::apply_patches = (strcmp(v, "enabled") == 0);
+    }
+
+    if ((v = opt_get(XENIA_OPT_DIALOG_NOTICES))) {
+        s_dialog_notices.store(strcmp(v, "disabled") != 0, std::memory_order_relaxed);
     }
 
     // License mask (0=None, 1=Full, -1=All)
@@ -1665,6 +1671,8 @@ static bool xenia_setup_and_launch(const char *path) {
         // loaded after it go by.
         xe::kernel::xam::xam_message_box_notice =
             [](const std::string &title, const std::string &answer) {
+                if (!s_dialog_notices.load(std::memory_order_relaxed))
+                    return;
                 std::lock_guard<std::mutex> lock(s_notice_mutex);
                 s_notice = title + ": " + answer;
             };

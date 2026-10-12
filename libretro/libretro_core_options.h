@@ -53,6 +53,7 @@ struct xenia_core_state;
 #define XENIA_OPT_TIME_SCALAR           "xenia_time_scalar"
 #define XENIA_OPT_TITLE_UPDATES         "xenia_title_updates"
 #define XENIA_OPT_APPLY_PATCHES         "xenia_apply_patches"
+#define XENIA_OPT_DIALOG_NOTICES        "xenia_dialog_notifications"
 #define XENIA_OPT_LICENSE_MASK          "xenia_license_mask"
 #define XENIA_OPT_USER_LANGUAGE         "xenia_user_language"
 #define XENIA_OPT_USER_COUNTRY          "xenia_user_country"
@@ -559,6 +560,20 @@ struct retro_core_option_v2_definition option_defs_us[] = {
         "Apply Game Patches",
         "Patches",
         "Enable custom game patching functionality.",
+        NULL,
+        "Emulation",
+        {
+            { "enabled", NULL },
+            { "disabled", NULL },
+            { NULL, NULL }
+        },
+        "enabled"
+    },
+    {
+        "xenia_dialog_notifications",
+        "Dialog Notifications",
+        "Dialog Notifications",
+        "A system dialog a game opens (a message box with buttons) has no window in the core, so the core answers it and shows the dialog's title and the answer given as a notification. Disabled hides those notifications; the dialogs are answered the same, and Xenia's log still records them.",
         NULL,
         "Emulation",
         {
