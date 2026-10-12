@@ -202,6 +202,20 @@ X_RESULT xeXamDispatchWithoutDialog(std::function<X_RESULT()> run_callback,
   }
 }
 
+// No window (the libretro core): a dialog that only shows something - the
+// achievements list, the gamer card - is not made at all. Its constructor
+// loads what it draws through the drawer, which is not there; the game is
+// told a dialog opened and closed, as when the user dismisses it at once.
+static bool xeXamSkipDisplayDialog(const char* name) {
+  if (kernel_state()->emulator()->display_window()) {
+    return false;
+  }
+  XELOGI("{}: no window, dismissed at once", name);
+  kernel_state()->BroadcastNotification(kXNotificationSystemUI, true);
+  kernel_state()->BroadcastNotification(kXNotificationSystemUI, false);
+  return true;
+}
+
 template <typename T>
 X_RESULT xeXamDispatchDialogAsync(T* dialog,
                                   std::function<void(T*)> close_callback) {
@@ -1184,6 +1198,10 @@ dword_result_t XamShowAchievementsUI_entry(dword_t user_index,
     return X_ERROR_NO_SUCH_USER;
   }
 
+  if (xeXamSkipDisplayDialog("XamShowAchievementsUI")) {
+    return X_ERROR_SUCCESS;
+  }
+
   xe::ui::ImGuiDrawer* imgui_drawer =
       kernel_state()->emulator()->imgui_drawer();
   xe::hid::InputSystem* input_system =
@@ -1203,6 +1221,10 @@ dword_result_t XamShowGamerCardUI_entry(dword_t user_index) {
     return X_ERROR_ACCESS_DENIED;
   }
 
+  if (xeXamSkipDisplayDialog("XamShowGamerCardUI")) {
+    return X_ERROR_SUCCESS;
+  }
+
   xe::ui::ImGuiDrawer* imgui_drawer =
       kernel_state()->emulator()->imgui_drawer();
 
@@ -1218,6 +1240,10 @@ dword_result_t XamShowEditProfileUI_entry(dword_t user_index) {
   auto user = kernel_state()->xam_state()->GetUserProfile(user_index);
   if (!user) {
     return X_ERROR_ACCESS_DENIED;
+  }
+
+  if (xeXamSkipDisplayDialog("XamShowEditProfileUI")) {
+    return X_ERROR_SUCCESS;
   }
 
   xe::ui::ImGuiDrawer* imgui_drawer =
