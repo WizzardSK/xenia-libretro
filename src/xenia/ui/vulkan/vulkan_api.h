@@ -33,7 +33,9 @@
 #endif
 #endif
 
-#if XE_PLATFORM_GNU_LINUX
+// Not in the libretro core, which creates no surface: the window system's
+// headers and libraries are not needed to build or load it
+#if XE_PLATFORM_GNU_LINUX && !defined(XENIA_LIBRETRO)
 // Support both XCB (X11) and Wayland on Linux
 #ifndef VK_USE_PLATFORM_XCB_KHR
 #define VK_USE_PLATFORM_XCB_KHR

@@ -75,7 +75,7 @@ default:
     - apt-get update -qq
     - apt-get install -y --no-install-recommends
       clang-21 lld-21 libclang-rt-21-dev llvm-21 g++-14 ninja-build make
-      libx11-xcb-dev libwayland-dev libfontconfig1-dev liblz4-dev
+      libfontconfig1-dev liblz4-dev
     - pip3 install --upgrade cmake
     # The helper steps below configure CMake projects of their own too, with
     # the default compiler, which the image does not have under cc/c++

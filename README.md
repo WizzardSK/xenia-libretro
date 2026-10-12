@@ -9,7 +9,7 @@ The emulator is upstream's: this repository follows xenia-edge and adds the libr
 Builds for Windows, Linux (x86_64, arm64), macOS (Apple Silicon) and Android (arm64-v8a, x86_64) are on the [Releases](https://github.com/WizzardSK/xenia-libretro/releases) page.
 
 - **Windows:** `xenia_edge_libretro.dll`, which needs the Visual C++ 2015-2022 runtime. It carries `dxil.dll`, Direct3D 12's shader validator, inside and writes it to `system/Xenia-Edge/D3D12/` on start.
-- **Linux:** `xenia_edge_libretro.so`, glibc 2.35 or newer; besides the C/C++ runtime it uses only lz4, X11/xcb and fontconfig. ARM64 uses the a64 CPU backend.
+- **Linux:** `xenia_edge_libretro.so`, glibc 2.35 or newer; besides the C/C++ runtime it uses only lz4 and fontconfig; no X11 or Wayland libraries. ARM64 uses the a64 CPU backend.
 - **macOS:** `xenia_edge_libretro.dylib`, Apple Silicon only. The x64 CPU backend needs the address space below 4 GB, which a core loaded into RetroArch cannot free, so there is no Intel build.
 - **Android:** `xenia_edge_libretro_android.so`.
 

@@ -48,7 +48,7 @@ jobs:
           sudo add-apt-repository -y --no-update ppa:ubuntu-toolchain-r/test
           sudo apt-get -y update
           sudo apt-get -y install --no-install-recommends clang-21 lld-21 libclang-rt-21-dev llvm-21
-          sudo apt-get -y install g++-14 ninja-build libx11-xcb-dev libwayland-dev libfontconfig1-dev liblz4-dev
+          sudo apt-get -y install g++-14 ninja-build libfontconfig1-dev liblz4-dev
           pip install --upgrade cmake
           git submodule update --init --depth=1 -j$(getconf _NPROCESSORS_ONLN) $(grep -oP '(?<=path = )(?!third_party\/(mesa|MoltenVK|SPIRV-Cross|DirectX-Headers|DirectXShaderCompiler|libusb)).+' .gitmodules)
           ./xenia-build.py slang

@@ -15,9 +15,9 @@ target_link_libraries(xenia-ui PUBLIC xenia-base)
 if(WIN32)
   target_link_libraries(xenia-ui PRIVATE dxgi)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  # xcb / X11 / X11-xcb: Vulkan surface creation.
-  # fontconfig: imgui_drawer.cc font lookup.
-  target_link_libraries(xenia-ui PRIVATE xcb X11 X11-xcb fontconfig)
+  # fontconfig: imgui_drawer.cc font lookup. No xcb or X11: the core creates
+  # no Vulkan surface, the frontend owns the window.
+  target_link_libraries(xenia-ui PRIVATE fontconfig)
 elseif(APPLE)
   # xe_platform_sources globs *.cc only; .mm sources need explicit listing.
   target_sources(xenia-ui PRIVATE

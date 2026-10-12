@@ -24,7 +24,8 @@
 #if XE_PLATFORM_MAC
 #include "xenia/ui/surface_mac.h"
 #endif
-#if XE_PLATFORM_GNU_LINUX
+// The libretro core has no window: the frontend owns the surface
+#if XE_PLATFORM_GNU_LINUX && !defined(XENIA_LIBRETRO)
 #include "xenia/ui/surface_gnulinux.h"
 #endif
 #if XE_PLATFORM_WIN32
@@ -220,7 +221,7 @@ Surface::TypeFlags VulkanPresenter::GetSurfaceTypesSupportedByInstance(
     type_flags |= Surface::kTypeFlag_MacNSView;
   }
 #endif
-#if XE_PLATFORM_GNU_LINUX
+#if XE_PLATFORM_GNU_LINUX && !defined(XENIA_LIBRETRO)
   if (instance_extensions.ext_KHR_wayland_surface) {
     type_flags |= Surface::kTypeFlag_WaylandWindow;
   }
@@ -987,7 +988,7 @@ VulkanPresenter::ConnectOrReconnectPaintingToSurfaceFromUIThread(
             &paint_context_.vulkan_surface);
       } break;
 #endif
-#if XE_PLATFORM_GNU_LINUX
+#if XE_PLATFORM_GNU_LINUX && !defined(XENIA_LIBRETRO)
       case Surface::kTypeIndex_WaylandWindow: {
         auto& wayland_window_surface =
             static_cast<const WaylandWindowSurface&>(new_surface);

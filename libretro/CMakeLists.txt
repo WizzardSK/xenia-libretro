@@ -149,7 +149,6 @@ elseif(ANDROID)
   # allows only for symbols bound inside it
   target_link_options(xenia-libretro PRIVATE -Wl,-Bsymbolic)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  target_link_libraries(xenia-libretro PRIVATE X11 xcb X11-xcb)
   # Only the libretro API out of the core, and its own symbols bound inside
   # it, so the frontend's libraries don't stand in for them
   target_link_options(xenia-libretro PRIVATE -Wl,-Bsymbolic -Wl,--no-undefined)
