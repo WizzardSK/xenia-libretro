@@ -367,14 +367,14 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_widescreen",
-        "Widescreen (16:9)",
-        "Widescreen",
-        "Toggle between 16:9 widescreen and 4:3 standard aspect ratio.",
+        "Aspect Ratio",
+        "Aspect Ratio",
+        "The aspect ratio the console is set to, and the one the picture is shown at. Only some Xbox 360 games feature native 4:3 support.",
         NULL,
         "Video",
         {
-            { "enabled",  "16:9 Widescreen" },
-            { "disabled", "4:3 Standard" },
+            { "enabled",  "16:9 (default)" },
+            { "disabled", "4:3" },
             { NULL, NULL }
         },
         "enabled"

@@ -919,9 +919,17 @@ static void apply_core_options(void) {
         cvars::internal_display_resolution = (uint32_t)atoi(v);
     }
 
-    // Widescreen
+    // Aspect ratio: the console's widescreen setting, which a game with a
+    // 4:3 mode follows, and the ratio RetroArch shows the picture at
     if ((v = opt_get(XENIA_OPT_WIDESCREEN))) {
-        cvars::widescreen = (strcmp(v, "enabled") == 0);
+        const bool widescreen = (strcmp(v, "enabled") == 0);
+        const bool aspect_changed = widescreen != cvars::widescreen;
+        cvars::widescreen = widescreen;
+        if (aspect_changed && game_loaded) {
+            struct retro_system_av_info av;
+            retro_get_system_av_info(&av);
+            core_state.environ_cb(RETRO_ENVIRONMENT_SET_GEOMETRY, &av.geometry);
+        }
     }
 
     // Video standard (1=NTSC, 2=NTSC-J, 3=PAL)
@@ -1943,7 +1951,7 @@ RETRO_API void retro_get_system_av_info(struct retro_system_av_info *info) {
     const unsigned scale = std::max(1, std::min(8, int(cvars::draw_resolution_scale_x)));
     info->geometry.max_width    = 1280 * scale;
     info->geometry.max_height   = 720 * scale;
-    info->geometry.aspect_ratio = 16.0f / 9.0f;
+    info->geometry.aspect_ratio = cvars::widescreen ? 16.0f / 9.0f : 4.0f / 3.0f;
     info->timing.fps            = core_state.output_fps > 0 ? core_state.output_fps : 60.0;
     info->timing.sample_rate    = core_state.audio_sample_rate;
 }
