@@ -39,9 +39,10 @@ inline uint32_t GdfxPaddedEntryOrdinal(uint32_t ordinal) {
   return uint32_t((offset / kGdfxSectorSize + 1) * kGdfxSectorSize / 4);
 }
 
-// Known offsets where the game partition might start.
+// Known offsets where the game partition might start. The last is that of a
+// full dump of an original Xbox disc, behind its DVD-Video partition.
 constexpr size_t kGdfxLikelyOffsets[] = {
-    0x00000000, 0x0000FB20, 0x00020600, 0x02080000, 0x0FD90000,
+    0x00000000, 0x0000FB20, 0x00020600, 0x02080000, 0x0FD90000, 0x18300000,
 };
 
 struct GdfxPartitionInfo {
