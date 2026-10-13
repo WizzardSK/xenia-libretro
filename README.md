@@ -2,11 +2,11 @@
 
 A [libretro](https://www.libretro.com/) core of [Xenia Edge](https://github.com/has207/xenia-edge), the Xbox 360 emulator, for RetroArch and other libretro frontends.
 
-The emulator is upstream's: this repository follows xenia-edge and adds the libretro frontend in `libretro/`. It holds the core only; upstream's standalone UI, packaging and CI are not part of it (the paths are listed in `.upstream-excluded`). The version the core reports is upstream's, with the upstream commit it is merged to (`upstream.version`).
+The emulator is upstream's: this repository follows xenia-edge and adds the libretro frontend in `libretro/`. It holds the core only; upstream's standalone UI, packaging and CI are not part of it (the paths are listed in `.upstream-excluded`). The version the core reports is upstream's, with the upstream commit it is merged to (`upstream.version`). The core is currently on xenia-edge commit 8dc77b0 of 7 October 2026.
 
 ## Downloads
 
-Builds for Windows, Linux (x86_64, arm64), macOS (Apple Silicon) and Android (arm64-v8a, x86_64) are on the [Releases](https://github.com/WizzardSK/xenia-libretro/releases) page.
+The core is built by libretro's buildbot for Windows, Linux (x86_64, arm64) and Android (arm64-v8a, x86_64), and is installed from RetroArch: Online Updater > Core Downloader. Every push to the `libretro` branch is also built in [Actions](https://github.com/WizzardSK/xenia-libretro/actions/workflows/libretro.yml), macOS (Apple Silicon) included; the builds are the artifacts of a run, and downloading them needs a GitHub login.
 
 - **Windows:** `xenia_edge_libretro.dll`, which needs the Visual C++ 2015-2022 runtime. It carries `dxil.dll`, Direct3D 12's shader validator, inside and writes it to `system/Xenia-Edge/D3D12/` on start.
 - **Linux:** `xenia_edge_libretro.so`, glibc 2.35 or newer; besides the C/C++ runtime it uses only lz4 and fontconfig; no X11 or Wayland libraries. ARM64 uses the a64 CPU backend.
