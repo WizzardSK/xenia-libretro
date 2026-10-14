@@ -211,7 +211,7 @@ struct xenia_core_state {
     bool vsync_enabled;
     int vblanks_per_run;
     bool fps120;
-    // Wait for the Game's Frame
+    // [Libretro] Frame Wait
     bool wait_for_frame;
     // What RetroArch is told the core runs at (retro_get_system_av_info)
     double output_fps;
@@ -2251,7 +2251,7 @@ RETRO_API void retro_run(void) {
         for (int i = 0; i < core_state.vblanks_per_run; i++)
             lr_graphics->LibretroVblank();
 
-    // Wait for the Game's Frame: the frame the game draws after this vblank,
+    // [Libretro] Frame Wait: the frame the game draws after this vblank,
     // handed over in this same run - at most most of a frame's time, so a
     // game that skips a frame costs no more than the frame it skips
     if (core_state.wait_for_frame && lr_graphics && core_state.vsync_enabled &&

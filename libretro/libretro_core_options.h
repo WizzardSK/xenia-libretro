@@ -305,8 +305,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_wait_for_frame",
-        "Wait for the Game's Frame",
-        "Wait for the Game's Frame",
+        "[Libretro] Frame Wait",
+        "[Libretro] Frame Wait",
         "Removes 1 frame of input lag at the possible cost of the game slowing down.",
         NULL,
         "Graphics",
