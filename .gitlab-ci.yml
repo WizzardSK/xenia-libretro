@@ -114,6 +114,23 @@ libretro-build-windows-x64:
     - .core-defs
   image: ubuntu:24.04
   timeout: 3h
+  variables:
+    # The script's tools - the MSVC CRT and Windows SDK, the Python tools it
+    # installs, DXC - inside the project, so that GitLab's cache can
+    # keep them between pipelines (Craig). The key follows the script, which
+    # names the versions.
+    XE_CROSS_TOOLS: $CI_PROJECT_DIR/.cross-tools
+  cache:
+    key:
+      files:
+        - .ci/build-windows-cross.sh
+      prefix: windows-x64
+    paths:
+      - .cross-tools/msvc/
+      - .cross-tools/venv/
+      - .cross-tools/dxc-linux/
+      - .cross-tools/dxil.dll
+      - .cross-tools/dxil.dll.*
   before_script:
     - export NUMPROC=$(($(nproc)/5))
     - apt-get update -qq

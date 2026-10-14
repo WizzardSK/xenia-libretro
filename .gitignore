@@ -119,3 +119,5 @@ CMakeUserPresets.json
 /cache0
 /devkit
 recent.toml
+# the Windows cross build's tools (.ci/build-windows-cross.sh in CI)
+.cross-tools/

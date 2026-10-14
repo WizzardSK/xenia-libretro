@@ -34,31 +34,49 @@ apt-get install -y --no-install-recommends \
   clang-21 clang-tools-21 lld-21 llvm-21 libclang-rt-21-dev g++-14 liblz4-dev
 
 # CMake, meson and Mesa's Python modules; 24.04's pip wants a venv
-python3 -m venv "$TOOLS/venv"
-"$TOOLS/venv/bin/pip" install -q --upgrade cmake meson mako pyyaml packaging
+if [ ! -x "$TOOLS/venv/bin/meson" ]; then
+  python3 -m venv "$TOOLS/venv"
+  "$TOOLS/venv/bin/pip" install -q --upgrade cmake meson mako pyyaml packaging
+fi
 export PATH="$TOOLS/venv/bin:$PATH"
 
 # The MSVC CRT and the Windows SDK, laid out with lower-case links so the
 # case-sensitive file system finds <Windows.h> as well as <windows.h>
 mkdir -p "$TOOLS"
-wget -q -O "$TOOLS/xwin.tar.gz" \
-  "https://github.com/Jake-Shadle/xwin/releases/download/$XWIN_VERSION/xwin-$XWIN_VERSION-x86_64-unknown-linux-musl.tar.gz"
-tar -xzf "$TOOLS/xwin.tar.gz" -C "$TOOLS" --strip-components=1
-"$TOOLS/xwin" --accept-license --arch x86_64 --cache-dir "$TOOLS/xwin-cache" \
-  splat --output "$TOOLS/msvc"
-rm -rf "$TOOLS/xwin-cache"
+# Fetched once for this xwin version; kept when TOOLS comes back from the
+# buildbot's cache (.gitlab-ci.yml)
 MSVC="$TOOLS/msvc"
+if [ ! -f "$MSVC/.splat-$XWIN_VERSION" ]; then
+  mkdir -p "$TOOLS"
+  rm -rf "$MSVC"
+  wget -q -O "$TOOLS/xwin.tar.gz" \
+    "https://github.com/Jake-Shadle/xwin/releases/download/$XWIN_VERSION/xwin-$XWIN_VERSION-x86_64-unknown-linux-musl.tar.gz"
+  tar -xzf "$TOOLS/xwin.tar.gz" -C "$TOOLS" --strip-components=1
+  "$TOOLS/xwin" --accept-license --arch x86_64 --cache-dir "$TOOLS/xwin-cache" \
+    splat --output "$MSVC"
+  rm -rf "$TOOLS/xwin-cache" "$TOOLS/xwin.tar.gz"
+  touch "$MSVC/.splat-$XWIN_VERSION"
+fi
 
 # DXC: on Linux for slangc, which compiles the D3D12 shaders to DXIL with
 # it, and dxil.dll from the Windows release, which the core carries inside
 # (as the project's CI does)
-mkdir -p "$TOOLS/dxc-linux"
-wget -q -O "$TOOLS/dxc-linux.tar.gz" "$DXC_URL/$DXC_LINUX"
-tar -xzf "$TOOLS/dxc-linux.tar.gz" -C "$TOOLS/dxc-linux"
+if [ ! -f "$TOOLS/dxc-linux/.$DXC_LINUX" ]; then
+  rm -rf "$TOOLS/dxc-linux"
+  mkdir -p "$TOOLS/dxc-linux"
+  wget -q -O "$TOOLS/dxc-linux.tar.gz" "$DXC_URL/$DXC_LINUX"
+  tar -xzf "$TOOLS/dxc-linux.tar.gz" -C "$TOOLS/dxc-linux"
+  rm -f "$TOOLS/dxc-linux.tar.gz"
+  touch "$TOOLS/dxc-linux/.$DXC_LINUX"
+fi
 export LD_LIBRARY_PATH="$TOOLS/dxc-linux/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-wget -q -O "$TOOLS/dxc-windows.zip" "$DXC_URL/$DXC_WINDOWS"
-python3 -c "import sys, zipfile; open(sys.argv[2], 'wb').write(zipfile.ZipFile(sys.argv[1]).read(r'bin\x64\dxil.dll'))" \
-  "$TOOLS/dxc-windows.zip" "$TOOLS/dxil.dll"
+if [ ! -f "$TOOLS/dxil.dll.$DXC_WINDOWS" ]; then
+  wget -q -O "$TOOLS/dxc-windows.zip" "$DXC_URL/$DXC_WINDOWS"
+  python3 -c "import sys, zipfile; open(sys.argv[2], 'wb').write(zipfile.ZipFile(sys.argv[1]).read(r'bin\x64\dxil.dll'))" \
+    "$TOOLS/dxc-windows.zip" "$TOOLS/dxil.dll"
+  rm -f "$TOOLS/dxc-windows.zip"
+  touch "$TOOLS/dxil.dll.$DXC_WINDOWS"
+fi
 export XENIA_LIBRETRO_DXIL="$TOOLS/dxil.dll"
 
 # The submodules the Windows build uses, as the project's CI takes them
