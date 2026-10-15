@@ -29,7 +29,6 @@ struct xenia_core_state;
 #define XENIA_OPT_STORE_SHADERS         "xenia_store_shaders"
 #define XENIA_OPT_HALF_PIXEL_OFFSET     "xenia_half_pixel_offset"
 #define XENIA_OPT_GPU_INVALID_FETCH     "xenia_gpu_allow_invalid_fetch_constants"
-#define XENIA_OPT_FUZZY_ALPHA_EPSILON   "xenia_use_fuzzy_alpha_epsilon"
 #define XENIA_OPT_DISPLAY_REFRESH       "xenia_display_refresh"
 #define XENIA_OPT_UNLOCK_FRAMERATE      "xenia_unlock_framerate"
 #define XENIA_OPT_WAIT_FOR_FRAME        "xenia_wait_for_frame"
@@ -42,7 +41,6 @@ struct xenia_core_state;
 
 // Core option keys ??? Audio
 #define XENIA_OPT_AUDIO_ENABLED         "xenia_audio_enabled"
-#define XENIA_OPT_MUTE                  "xenia_mute"
 #define XENIA_OPT_AUDIO_CHANNELS        "xenia_audio_channels"
 #define XENIA_OPT_XMA_DECODER           "xenia_xma_decoder"
 #define XENIA_OPT_DEDICATED_XMA_THREAD  "xenia_dedicated_xma_thread"
@@ -50,7 +48,6 @@ struct xenia_core_state;
 #define XENIA_OPT_XMP_DEFAULT_VOLUME    "xenia_xmp_default_volume"
 
 // Core option keys ??? Emulation
-#define XENIA_OPT_TIME_SCALAR           "xenia_time_scalar"
 #define XENIA_OPT_TITLE_UPDATES         "xenia_title_updates"
 #define XENIA_OPT_APPLY_PATCHES         "xenia_apply_patches"
 #define XENIA_OPT_DIALOG_NOTICES        "xenia_dialog_notifications"
@@ -122,11 +119,9 @@ struct retro_core_option_v2_category option_cats_us[] = {
     { "Audio", "Audio Settings",
       "Audio output, XMA decoder, music player." },
     { "Emulation", "Emulation Settings",
-      "Speed, language, country, licenses, patches." },
+      "Speed, language, country, licenses, patches, log level." },
     { "Compatibility", "Compatibility Settings",
       "Per-game hacks, memory, cache/scratch mounts." },
-    { "Debug", "Debug Settings",
-      "Log verbosity." },
     { "patches", "Patch Manager",
       "The game's patches from Xenia Edge's game-patches, for this version of it. A change applies at the next boot." },
     { NULL, NULL, NULL }
@@ -140,7 +135,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     {
         "xenia_graphics_api",
         "Graphics API (Restart)",
-        "Graphics API",
+        "Graphics API (Restart)",
         "The GPU backend Xenia emulates the Xbox 360 GPU with, and the context the core asks RetroArch for: RetroArch changes its video driver to match when it is allowed to (Settings > Video > Output). Applies when the content is loaded again.",
         NULL,
         "Graphics",
@@ -155,8 +150,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_render_target_path",
-        "Render Target Path",
-        "RT Path",
+        "Render Target Path (Restart)",
+        "RT Path (Restart)",
         "Select render target emulation mode.\nPerformance: host render targets with fixed-function blending.\nAccuracy: pixel shader interlock / rasterizer-ordered views.",
         NULL,
         "Graphics",
@@ -170,7 +165,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     {
         "xenia_draw_resolution_scale",
         "Draw Resolution Scale (Restart)",
-        "Resolution Scale",
+        "Resolution Scale (Restart)",
         "Scale the internal rendering resolution. Higher values improve image quality but require more GPU power. Requires restart.",
         NULL,
         "Graphics",
@@ -235,8 +230,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_store_shaders",
-        "Store Shaders",
-        "Shader Cache",
+        "Store Shaders (Restart)",
+        "Shader Cache (Restart)",
         "Store compiled shaders persistently to avoid recompilation stutter on subsequent runs.",
         NULL,
         "Graphics",
@@ -276,20 +271,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
         "enabled"
     },
     {
-        "xenia_use_fuzzy_alpha_epsilon",
-        "Fuzzy Alpha Epsilon (NVIDIA Fix)",
-        "Fuzzy Alpha",
-        "Use approximate alpha comparison to prevent flickering on NVIDIA GPUs.",
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_display_refresh",
         "Emulated Display Refresh Rate",
         "Display Refresh Rate",
@@ -307,7 +288,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
         "xenia_wait_for_frame",
         "[Libretro] Frame Wait",
         "[Libretro] Frame Wait",
-        "Removes 1 frame of input lag at the possible cost of the game slowing down.",
+        "Removes 1 frame of input lag at the possible cost of the game stuttering. Recommended for powerful hardware and/or lightweight games.",
         NULL,
         "Graphics",
         {
@@ -340,7 +321,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     {
         "xenia_internal_display_resolution",
         "Internal Display Resolution (Restart)",
-        "Display Resolution",
+        "Display Resolution (Restart)",
         "Allow games that support multiple resolutions to render at a specific resolution. Not all games support this.",
         NULL,
         "Video",
@@ -367,8 +348,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_widescreen",
-        "Aspect Ratio",
-        "Aspect Ratio",
+        "Aspect Ratio (Restart)",
+        "Aspect Ratio (Restart)",
         "The aspect ratio the console is set to, and the one the picture is shown at. Only some Xbox 360 games feature native 4:3 support.",
         NULL,
         "Video",
@@ -381,8 +362,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_video_standard",
-        "Video Standard",
-        "Signal",
+        "Video Standard (Restart)",
+        "Signal (Restart)",
         "Select the video signal standard. Affects region detection.",
         NULL,
         "Video",
@@ -396,8 +377,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_display_gamma",
-        "Display Gamma",
-        "Gamma",
+        "Display Gamma (Restart)",
+        "Gamma (Restart)",
         "Select display gamma curve.\nBT.709 (HDTV) is closest to Xbox 360 on a modern display.",
         NULL,
         "Video",
@@ -427,23 +408,9 @@ struct retro_core_option_v2_definition option_defs_us[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        "Mute Audio",
-        "Mute",
-        "Mute all audio output while keeping audio processing active.",
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  "Enabled (Muted)" },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         "Audio Channels (Restart)",
-        "Audio Channels",
+        "Audio Channels (Restart)",
         "Stereo: the console's 5.1 folded down to two channels. Surround 5.1: all six channels to RetroArch, whose audio output layout then decides between speakers and a fold-down. Needs a RetroArch with multi-channel audio output, else stays stereo.",
         NULL,
         "Audio",
@@ -457,7 +424,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     {
         "xenia_xma_decoder",
         "XMA Decoder (Restart)",
-        "XMA Decoder",
+        "XMA Decoder (Restart)",
         "Select the XMA audio decoder implementation. Try a different option if audio is broken in a specific game.",
         NULL,
         "Audio",
@@ -472,8 +439,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_dedicated_xma_thread",
-        "Dedicated XMA Thread",
-        "XMA Thread",
+        "Dedicated XMA Thread (Restart)",
+        "XMA Thread (Restart)",
         "Use a dedicated thread for XMA audio decoding. May improve audio performance.",
         NULL,
         "Audio",
@@ -500,8 +467,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_xmp_default_volume",
-        "Music Player Volume",
-        "XMP Volume",
+        "Music Player Volume (Restart)",
+        "XMP Volume (Restart)",
         "Default music volume if the game doesn't set it.",
         NULL,
         "Audio",
@@ -513,38 +480,21 @@ struct retro_core_option_v2_definition option_defs_us[] = {
             { "40",  "40%" },
             { "50",  "50%" },
             { "60",  "60%" },
-            { "70",  "70%" },
+            { "70",  "70% (Default)" },
             { "80",  "80%" },
             { "90",  "90%" },
-            { "100", "100% (Default)" },
+            { "100", "100%" },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
     {
-        "xenia_time_scalar",
-        "Emulation Speed",
-        "Speed",
-        "Control emulation speed. 1.0x is normal speed.",
-        NULL,
-        "Emulation",
-        {
-            { "0.25", "0.25x" },
-            { "0.5",  "0.5x" },
-            { "1.0",  "1.0x (Normal)" },
-            { "2.0",  "2.0x" },
-            { "4.0",  "4.0x" },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
-    {
         "xenia_title_updates",
-        "Apply Title Updates",
-        "Title Updates",
+        "Apply Title Updates (Restart)",
+        "Title Updates (Restart)",
         "Apply title update patches if available in the content directory.",
         NULL,
         "Emulation",
@@ -557,8 +507,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_apply_patches",
-        "Apply Game Patches",
-        "Patches",
+        "Apply Game Patches (Restart)",
+        "Patches (Restart)",
         "Enable custom game patching functionality.",
         NULL,
         "Emulation",
@@ -583,10 +533,13 @@ struct retro_core_option_v2_definition option_defs_us[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
-        "License Mask",
-        "License",
+        "License Mask (Restart)",
+        "License (Restart)",
         "Set license mask for activated content (DLC, full version).\nNone: no licenses. Full: first license. All: all licenses.",
         NULL,
         "Emulation",
@@ -596,12 +549,12 @@ struct retro_core_option_v2_definition option_defs_us[] = {
             { "-1", "All" },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
-        "User Language",
-        "Language",
+        "User Language (Restart)",
+        "Language (Restart)",
         "Set the emulated console language.",
         NULL,
         "Emulation",
@@ -624,8 +577,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_user_country",
-        "User Country",
-        "Country",
+        "User Country (Restart)",
+        "Country (Restart)",
         "Set the emulated console country/region.",
         NULL,
         "Emulation",
@@ -654,13 +607,29 @@ struct retro_core_option_v2_definition option_defs_us[] = {
         },
         "United States"
     },
+    {
+        "xenia_log_level",
+        "Log Level",
+        "Log Level",
+        "Set the verbosity of logging output.",
+        NULL,
+        "Emulation",
+        {
+            { "error", "Error Only" },
+            { "warn",  "Warning" },
+            { "info",  "Info" },
+            { "debug", "Debug" },
+            { NULL, NULL }
+        },
+        "info"
+    },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
     /* ================================================================ */
     {
         "xenia_protect_zero",
-        "Protect Zero Page",
-        "Protect Zero",
+        "Protect Zero Page (Restart)",
+        "Protect Zero (Restart)",
         "Protect the zero page from reads and writes. Disable if a game crashes on startup.",
         NULL,
         "Compatibility",
@@ -687,8 +656,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_disable_context_promotion",
-        "Disable Context Promotion",
-        "No Ctx Promotion",
+        "Disable Context Promotion (Restart)",
+        "No Ctx Promotion (Restart)",
         "Disable context promotion CPU optimization. May be needed for some sports games, but reduces performance.",
         NULL,
         "Compatibility",
@@ -701,8 +670,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_mount_cache",
-        "Mount Cache Partition",
-        "Cache Mount",
+        "Mount Cache Partition (Restart)",
+        "Cache Mount (Restart)",
         "Enable cache partition mount. Required by some games.",
         NULL,
         "Compatibility",
@@ -715,8 +684,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_mount_scratch",
-        "Mount Scratch Partition",
-        "Scratch Mount",
+        "Mount Scratch Partition (Restart)",
+        "Scratch Mount (Restart)",
         "Enable scratch partition mount. Required by some games.",
         NULL,
         "Compatibility",
@@ -729,8 +698,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_occlusion_query",
-        "Occlusion Query",
-        "Occlusion Query",
+        "Occlusion Query (Restart)",
+        "Occlusion Query (Restart)",
         "How occlusion queries (lens flares, culling, auto-exposure) are answered. Fast (default) asks the GPU without waiting; Fake writes a made-up result; Fast-alt keeps cached zero results; Strict waits for the GPU, most accurate.",
         NULL,
         "Compatibility",
@@ -745,8 +714,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_occlusion_query_full_counters",
-        "Occlusion Query Full Counters",
-        "Full Counters",
+        "Occlusion Query Full Counters (Restart)",
+        "Full Counters (Restart)",
         "Emulate the ZFail, StencilFail and Total occlusion counters in shaders. Some games need them; costs performance.",
         NULL,
         "Compatibility",
@@ -833,8 +802,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_gamma_render_target_as_unorm16",
-        "Gamma Render Target as UNORM16",
-        "Gamma UNORM16",
+        "Gamma Render Target as UNORM16 (Restart)",
+        "Gamma UNORM16 (Restart)",
         "Emulate gamma render targets with 16 bits per component where the host cannot do 8-bit piecewise gamma. Turn off if colors look wrong in a game.",
         NULL,
         "Compatibility",
@@ -875,8 +844,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     },
     {
         "xenia_break_on_unimplemented_instructions",
-        "Break on Unimplemented Instructions",
-        "Break Unimplemented",
+        "Break on Unimplemented Instructions (Restart)",
+        "Break Unimplemented (Restart)",
         "Stop when a game runs a CPU instruction Xenia does not implement. In a core that ends RetroArch; turn off to let such games go on.",
         NULL,
         "Compatibility",
@@ -918,22 +887,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        "Log Level",
-        "Level",
-        "Set the verbosity of logging output.",
-        NULL,
-        "Debug",
-        {
-            { "error", "Error Only" },
-            { "warn",  "Warning" },
-            { "info",  "Info" },
-            { "debug", "Debug" },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };

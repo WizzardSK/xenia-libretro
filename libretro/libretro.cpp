@@ -64,7 +64,6 @@ DECLARE_bool(readback_resolve);
 DECLARE_bool(store_shaders);
 DECLARE_bool(half_pixel_offset);
 DECLARE_bool(gpu_allow_invalid_fetch_constants);
-DECLARE_bool(use_fuzzy_alpha_epsilon);
 DECLARE_uint32(internal_display_resolution);
 DECLARE_bool(widescreen);
 DECLARE_int32(video_standard);
@@ -850,11 +849,6 @@ static void apply_core_options(void) {
         cvars::gpu_allow_invalid_fetch_constants = (strcmp(v, "enabled") == 0);
     }
 
-    // Fuzzy alpha epsilon (NVIDIA fix)
-    if ((v = opt_get(XENIA_OPT_FUZZY_ALPHA_EPSILON))) {
-        cvars::use_fuzzy_alpha_epsilon = (strcmp(v, "enabled") == 0);
-    }
-
     // Emulated display refresh rate: 60/50 Hz, 120 Hz (two vblanks a frame),
     // or uncapped (vblanks as fast as possible, not paced by RetroArch)
     if ((v = opt_get(XENIA_OPT_WAIT_FOR_FRAME)))
@@ -950,18 +944,6 @@ static void apply_core_options(void) {
     if ((v = opt_get(XENIA_OPT_AUDIO_ENABLED)))
         core_state.audio_enabled = (strcmp(v, "enabled") == 0);
 
-    // Mute
-    if ((v = opt_get(XENIA_OPT_MUTE))) {
-        // Upstream mutes through its volume now
-        static uint32_t unmuted_volume = 100;
-        if (strcmp(v, "enabled") == 0) {
-            if (cvars::volume) unmuted_volume = cvars::volume;
-            cvars::volume = 0;
-        } else if (!cvars::volume) {
-            cvars::volume = unmuted_volume;
-        }
-    }
-
     // XMA decoder (restart required)
     if ((v = opt_get(XENIA_OPT_XMA_DECODER))) {
         cvars::xma_decoder = v;
@@ -985,14 +967,6 @@ static void apply_core_options(void) {
     // =================================================================
     // Emulation
     // =================================================================
-
-    // Time scalar
-    if ((v = opt_get(XENIA_OPT_TIME_SCALAR))) {
-        double scalar = atof(v);
-        if (scalar > 0.0) {
-            xe::Clock::set_guest_time_scalar(scalar);
-        }
-    }
 
     // Title updates
     if ((v = opt_get(XENIA_OPT_TITLE_UPDATES))) {
@@ -1098,10 +1072,6 @@ static void apply_core_options(void) {
     if ((v = opt_get(XENIA_OPT_MOUNT_SCRATCH))) {
         cvars::mount_scratch = (strcmp(v, "enabled") == 0);
     }
-
-    // =================================================================
-    // Debug
-    // =================================================================
 
     // Log level (0=error, 1=warning, 2=info, 3=debug)
     if ((v = opt_get(XENIA_OPT_LOG_LEVEL))) {
