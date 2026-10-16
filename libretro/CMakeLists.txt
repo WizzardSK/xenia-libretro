@@ -149,7 +149,11 @@ elseif(ANDROID)
   # allows only for symbols bound inside it
   target_link_options(xenia-libretro PRIVATE -Wl,-Bsymbolic)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  # Only the libretro API out of the core, and its own symbols bound inside
+  # Only the libretro API out of the core (the version script: it exported
+  # some sixteen thousand symbols before), and its own symbols bound inside
   # it, so the frontend's libraries don't stand in for them
-  target_link_options(xenia-libretro PRIVATE -Wl,-Bsymbolic -Wl,--no-undefined)
+  target_link_options(xenia-libretro PRIVATE -Wl,-Bsymbolic -Wl,--no-undefined
+    "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/link.T" -Wl,--exclude-libs,ALL)
+  set_property(TARGET xenia-libretro APPEND PROPERTY LINK_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/link.T")
 endif()
