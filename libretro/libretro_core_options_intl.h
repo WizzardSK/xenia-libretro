@@ -49,12 +49,9 @@ extern "C" {
 #define CATEGORY_EMULATION_INFO_0_AR NULL
 #define CATEGORY_COMPATIBILITY_LABEL_AR NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_AR NULL
-#define CATEGORY_DEBUG_LABEL_AR NULL
-#define CATEGORY_DEBUG_INFO_0_AR NULL
 #define CATEGORY_PATCHES_LABEL_AR NULL
 #define CATEGORY_PATCHES_INFO_0_AR NULL
 #define XENIA_GRAPHICS_API_LABEL_AR NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_AR NULL
 #define XENIA_GRAPHICS_API_INFO_0_AR NULL
 #define OPTION_VAL_VULKAN_AR NULL
 #define OPTION_VAL_D3D12_AR NULL
@@ -95,9 +92,6 @@ extern "C" {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_AR NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_AR NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_AR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_AR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_AR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_AR NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_AR NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_AR NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_AR NULL
@@ -130,7 +124,7 @@ extern "C" {
 #define OPTION_VAL_13_AR NULL
 #define OPTION_VAL_14_AR NULL
 #define OPTION_VAL_15_AR NULL
-#define XENIA_WIDESCREEN_LABEL_AR "نسبة الجانب"
+#define XENIA_WIDESCREEN_LABEL_AR NULL
 #define XENIA_WIDESCREEN_INFO_0_AR NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_AR NULL
 #define OPTION_VAL_DISABLED_AR NULL
@@ -148,17 +142,11 @@ extern "C" {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_AR NULL
 #define XENIA_AUDIO_ENABLED_LABEL_AR NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_AR NULL
-#define XENIA_MUTE_LABEL_AR NULL
-#define XENIA_MUTE_LABEL_CAT_AR "كتم"
-#define XENIA_MUTE_INFO_0_AR NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_AR NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_AR NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_AR NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_AR NULL
 #define OPTION_VAL_STEREO_AR NULL
 #define OPTION_VAL_5_1_AR NULL
 #define XENIA_XMA_DECODER_LABEL_AR NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_AR NULL
 #define XENIA_XMA_DECODER_INFO_0_AR NULL
 #define OPTION_VAL_NEW_AR NULL
 #define OPTION_VAL_OLD_AR NULL
@@ -184,14 +172,6 @@ extern "C" {
 #define OPTION_VAL_80_AR NULL
 #define OPTION_VAL_90_AR NULL
 #define OPTION_VAL_100_AR NULL
-#define XENIA_TIME_SCALAR_LABEL_AR NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_AR NULL
-#define XENIA_TIME_SCALAR_INFO_0_AR NULL
-#define OPTION_VAL_0_25_AR NULL
-#define OPTION_VAL_0_5_AR NULL
-#define OPTION_VAL_1_0_AR NULL
-#define OPTION_VAL_2_0_AR NULL
-#define OPTION_VAL_4_0_AR NULL
 #define XENIA_TITLE_UPDATES_LABEL_AR NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_AR NULL
 #define XENIA_TITLE_UPDATES_INFO_0_AR NULL
@@ -201,13 +181,13 @@ extern "C" {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_AR NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_AR NULL
 #define XENIA_LICENSE_MASK_LABEL_AR NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_AR "الترخيص"
+#define XENIA_LICENSE_MASK_LABEL_CAT_AR NULL
 #define XENIA_LICENSE_MASK_INFO_0_AR NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_AR "لاشيء"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_AR NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_AR "الكل"
 #define XENIA_USER_LANGUAGE_LABEL_AR NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_AR "اللغة"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_AR NULL
 #define XENIA_USER_LANGUAGE_INFO_0_AR NULL
 #define OPTION_VAL_ENGLISH_AR NULL
 #define OPTION_VAL_JAPANESE_AR "Japanese - 日本語"
@@ -244,6 +224,12 @@ extern "C" {
 #define OPTION_VAL_PORTUGAL_AR NULL
 #define OPTION_VAL_TAIWAN_AR NULL
 #define OPTION_VAL_HONG_KONG_AR NULL
+#define XENIA_LOG_LEVEL_LABEL_AR NULL
+#define XENIA_LOG_LEVEL_INFO_0_AR NULL
+#define OPTION_VAL_ERROR_AR NULL
+#define OPTION_VAL_WARN_AR "تحذير"
+#define OPTION_VAL_INFO_AR "معلومات"
+#define OPTION_VAL_DEBUG_AR NULL
 #define XENIA_PROTECT_ZERO_LABEL_AR NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_AR NULL
 #define XENIA_PROTECT_ZERO_INFO_0_AR NULL
@@ -304,13 +290,6 @@ extern "C" {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_AR NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_AR NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_AR NULL
-#define XENIA_LOG_LEVEL_LABEL_AR NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_AR NULL
-#define XENIA_LOG_LEVEL_INFO_0_AR NULL
-#define OPTION_VAL_ERROR_AR NULL
-#define OPTION_VAL_WARN_AR "تحذير"
-#define OPTION_VAL_INFO_AR "معلومات"
-#define OPTION_VAL_DEBUG_AR NULL
 
 struct retro_core_option_v2_category option_cats_ar[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_AR,
@@ -323,8 +302,6 @@ struct retro_core_option_v2_category option_cats_ar[] = {
       CATEGORY_EMULATION_INFO_0_AR },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_AR,
       CATEGORY_COMPATIBILITY_INFO_0_AR },
-    { "Debug", CATEGORY_DEBUG_LABEL_AR,
-      CATEGORY_DEBUG_INFO_0_AR },
     { "patches", CATEGORY_PATCHES_LABEL_AR,
       CATEGORY_PATCHES_INFO_0_AR },
     { NULL, NULL, NULL }
@@ -336,7 +313,7 @@ struct retro_core_option_v2_definition option_defs_ar[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_AR,
-        XENIA_GRAPHICS_API_LABEL_CAT_AR,
+        XENIA_GRAPHICS_API_LABEL_AR,
         XENIA_GRAPHICS_API_INFO_0_AR,
         NULL,
         "Graphics",
@@ -470,20 +447,6 @@ struct retro_core_option_v2_definition option_defs_ar[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_AR,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_AR,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_AR,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -623,23 +586,9 @@ struct retro_core_option_v2_definition option_defs_ar[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_AR,
-        XENIA_MUTE_LABEL_CAT_AR,
-        XENIA_MUTE_INFO_0_AR,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_AR },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_AR,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_AR,
+        XENIA_AUDIO_CHANNELS_LABEL_AR,
         XENIA_AUDIO_CHANNELS_INFO_0_AR,
         NULL,
         "Audio",
@@ -653,7 +602,7 @@ struct retro_core_option_v2_definition option_defs_ar[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_AR,
-        XENIA_XMA_DECODER_LABEL_CAT_AR,
+        XENIA_XMA_DECODER_LABEL_AR,
         XENIA_XMA_DECODER_INFO_0_AR,
         NULL,
         "Audio",
@@ -715,28 +664,11 @@ struct retro_core_option_v2_definition option_defs_ar[] = {
             { "100", OPTION_VAL_100_AR },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_AR,
-        XENIA_TIME_SCALAR_LABEL_CAT_AR,
-        XENIA_TIME_SCALAR_INFO_0_AR,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_AR },
-            { "0.5",  OPTION_VAL_0_5_AR },
-            { "1.0",  OPTION_VAL_1_0_AR },
-            { "2.0",  OPTION_VAL_2_0_AR },
-            { "4.0",  OPTION_VAL_4_0_AR },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_AR,
@@ -779,6 +711,9 @@ struct retro_core_option_v2_definition option_defs_ar[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_AR,
@@ -792,7 +727,7 @@ struct retro_core_option_v2_definition option_defs_ar[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_AR },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -849,6 +784,22 @@ struct retro_core_option_v2_definition option_defs_ar[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_AR,
+        XENIA_LOG_LEVEL_LABEL_AR,
+        XENIA_LOG_LEVEL_INFO_0_AR,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_AR },
+            { "warn",  OPTION_VAL_WARN_AR },
+            { "info",  OPTION_VAL_INFO_AR },
+            { "debug", OPTION_VAL_DEBUG_AR },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -1114,22 +1065,6 @@ struct retro_core_option_v2_definition option_defs_ar[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_AR,
-        XENIA_LOG_LEVEL_LABEL_CAT_AR,
-        XENIA_LOG_LEVEL_INFO_0_AR,
-        NULL,
-        OPTION_VAL_DEBUG_AR,
-        {
-            { "error", OPTION_VAL_ERROR_AR },
-            { "warn",  OPTION_VAL_WARN_AR },
-            { "info",  OPTION_VAL_INFO_AR },
-            { "debug", OPTION_VAL_DEBUG_AR },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -1150,12 +1085,9 @@ struct retro_core_options_v2 options_ar = {
 #define CATEGORY_EMULATION_INFO_0_AST NULL
 #define CATEGORY_COMPATIBILITY_LABEL_AST NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_AST NULL
-#define CATEGORY_DEBUG_LABEL_AST NULL
-#define CATEGORY_DEBUG_INFO_0_AST NULL
 #define CATEGORY_PATCHES_LABEL_AST NULL
 #define CATEGORY_PATCHES_INFO_0_AST NULL
 #define XENIA_GRAPHICS_API_LABEL_AST NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_AST NULL
 #define XENIA_GRAPHICS_API_INFO_0_AST NULL
 #define OPTION_VAL_VULKAN_AST NULL
 #define OPTION_VAL_D3D12_AST NULL
@@ -1196,9 +1128,6 @@ struct retro_core_options_v2 options_ar = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_AST NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_AST NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_AST NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_AST NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_AST NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_AST NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_AST NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_AST NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_AST NULL
@@ -1231,7 +1160,7 @@ struct retro_core_options_v2 options_ar = {
 #define OPTION_VAL_13_AST NULL
 #define OPTION_VAL_14_AST NULL
 #define OPTION_VAL_15_AST NULL
-#define XENIA_WIDESCREEN_LABEL_AST "Proporción del aspeutu"
+#define XENIA_WIDESCREEN_LABEL_AST NULL
 #define XENIA_WIDESCREEN_INFO_0_AST NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_AST NULL
 #define OPTION_VAL_DISABLED_AST NULL
@@ -1249,17 +1178,11 @@ struct retro_core_options_v2 options_ar = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_AST NULL
 #define XENIA_AUDIO_ENABLED_LABEL_AST NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_AST NULL
-#define XENIA_MUTE_LABEL_AST NULL
-#define XENIA_MUTE_LABEL_CAT_AST NULL
-#define XENIA_MUTE_INFO_0_AST NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_AST NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_AST NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_AST NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_AST NULL
 #define OPTION_VAL_STEREO_AST "Estéreu"
 #define OPTION_VAL_5_1_AST NULL
 #define XENIA_XMA_DECODER_LABEL_AST NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_AST NULL
 #define XENIA_XMA_DECODER_INFO_0_AST NULL
 #define OPTION_VAL_NEW_AST NULL
 #define OPTION_VAL_OLD_AST NULL
@@ -1284,15 +1207,7 @@ struct retro_core_options_v2 options_ar = {
 #define OPTION_VAL_70_AST NULL
 #define OPTION_VAL_80_AST NULL
 #define OPTION_VAL_90_AST NULL
-#define OPTION_VAL_100_AST "100% (Por defeutu)"
-#define XENIA_TIME_SCALAR_LABEL_AST NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_AST NULL
-#define XENIA_TIME_SCALAR_INFO_0_AST NULL
-#define OPTION_VAL_0_25_AST NULL
-#define OPTION_VAL_0_5_AST NULL
-#define OPTION_VAL_1_0_AST NULL
-#define OPTION_VAL_2_0_AST NULL
-#define OPTION_VAL_4_0_AST NULL
+#define OPTION_VAL_100_AST NULL
 #define XENIA_TITLE_UPDATES_LABEL_AST NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_AST NULL
 #define XENIA_TITLE_UPDATES_INFO_0_AST NULL
@@ -1302,13 +1217,13 @@ struct retro_core_options_v2 options_ar = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_AST NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_AST NULL
 #define XENIA_LICENSE_MASK_LABEL_AST NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_AST "Llicencia"
+#define XENIA_LICENSE_MASK_LABEL_CAT_AST NULL
 #define XENIA_LICENSE_MASK_INFO_0_AST NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_AST NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_AST NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_AST NULL
 #define XENIA_USER_LANGUAGE_LABEL_AST NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_AST "Llingua"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_AST NULL
 #define XENIA_USER_LANGUAGE_INFO_0_AST NULL
 #define OPTION_VAL_ENGLISH_AST "Inglés"
 #define OPTION_VAL_JAPANESE_AST "Xaponés"
@@ -1345,6 +1260,12 @@ struct retro_core_options_v2 options_ar = {
 #define OPTION_VAL_PORTUGAL_AST NULL
 #define OPTION_VAL_TAIWAN_AST NULL
 #define OPTION_VAL_HONG_KONG_AST NULL
+#define XENIA_LOG_LEVEL_LABEL_AST NULL
+#define XENIA_LOG_LEVEL_INFO_0_AST NULL
+#define OPTION_VAL_ERROR_AST NULL
+#define OPTION_VAL_WARN_AST "Alvertencia"
+#define OPTION_VAL_INFO_AST "Información"
+#define OPTION_VAL_DEBUG_AST NULL
 #define XENIA_PROTECT_ZERO_LABEL_AST NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_AST NULL
 #define XENIA_PROTECT_ZERO_INFO_0_AST NULL
@@ -1405,13 +1326,6 @@ struct retro_core_options_v2 options_ar = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_AST NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_AST NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_AST NULL
-#define XENIA_LOG_LEVEL_LABEL_AST NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_AST NULL
-#define XENIA_LOG_LEVEL_INFO_0_AST NULL
-#define OPTION_VAL_ERROR_AST NULL
-#define OPTION_VAL_WARN_AST "Alvertencia"
-#define OPTION_VAL_INFO_AST "Información"
-#define OPTION_VAL_DEBUG_AST NULL
 
 struct retro_core_option_v2_category option_cats_ast[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_AST,
@@ -1424,8 +1338,6 @@ struct retro_core_option_v2_category option_cats_ast[] = {
       CATEGORY_EMULATION_INFO_0_AST },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_AST,
       CATEGORY_COMPATIBILITY_INFO_0_AST },
-    { "Debug", CATEGORY_DEBUG_LABEL_AST,
-      CATEGORY_DEBUG_INFO_0_AST },
     { "patches", CATEGORY_PATCHES_LABEL_AST,
       CATEGORY_PATCHES_INFO_0_AST },
     { NULL, NULL, NULL }
@@ -1437,7 +1349,7 @@ struct retro_core_option_v2_definition option_defs_ast[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_AST,
-        XENIA_GRAPHICS_API_LABEL_CAT_AST,
+        XENIA_GRAPHICS_API_LABEL_AST,
         XENIA_GRAPHICS_API_INFO_0_AST,
         NULL,
         "Graphics",
@@ -1571,20 +1483,6 @@ struct retro_core_option_v2_definition option_defs_ast[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_AST,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_AST,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_AST,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -1724,23 +1622,9 @@ struct retro_core_option_v2_definition option_defs_ast[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_AST,
-        XENIA_MUTE_LABEL_CAT_AST,
-        XENIA_MUTE_INFO_0_AST,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_AST },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_AST,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_AST,
+        XENIA_AUDIO_CHANNELS_LABEL_AST,
         XENIA_AUDIO_CHANNELS_INFO_0_AST,
         NULL,
         "Audio",
@@ -1754,7 +1638,7 @@ struct retro_core_option_v2_definition option_defs_ast[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_AST,
-        XENIA_XMA_DECODER_LABEL_CAT_AST,
+        XENIA_XMA_DECODER_LABEL_AST,
         XENIA_XMA_DECODER_INFO_0_AST,
         NULL,
         "Audio",
@@ -1816,28 +1700,11 @@ struct retro_core_option_v2_definition option_defs_ast[] = {
             { "100", OPTION_VAL_100_AST },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_AST,
-        XENIA_TIME_SCALAR_LABEL_CAT_AST,
-        XENIA_TIME_SCALAR_INFO_0_AST,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_AST },
-            { "0.5",  OPTION_VAL_0_5_AST },
-            { "1.0",  OPTION_VAL_1_0_AST },
-            { "2.0",  OPTION_VAL_2_0_AST },
-            { "4.0",  OPTION_VAL_4_0_AST },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_AST,
@@ -1880,6 +1747,9 @@ struct retro_core_option_v2_definition option_defs_ast[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_AST,
@@ -1893,7 +1763,7 @@ struct retro_core_option_v2_definition option_defs_ast[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_AST },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -1950,6 +1820,22 @@ struct retro_core_option_v2_definition option_defs_ast[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_AST,
+        XENIA_LOG_LEVEL_LABEL_AST,
+        XENIA_LOG_LEVEL_INFO_0_AST,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_AST },
+            { "warn",  OPTION_VAL_WARN_AST },
+            { "info",  OPTION_VAL_INFO_AST },
+            { "debug", OPTION_VAL_DEBUG_AST },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -2215,22 +2101,6 @@ struct retro_core_option_v2_definition option_defs_ast[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_AST,
-        XENIA_LOG_LEVEL_LABEL_CAT_AST,
-        XENIA_LOG_LEVEL_INFO_0_AST,
-        NULL,
-        OPTION_VAL_DEBUG_AST,
-        {
-            { "error", OPTION_VAL_ERROR_AST },
-            { "warn",  OPTION_VAL_WARN_AST },
-            { "info",  OPTION_VAL_INFO_AST },
-            { "debug", OPTION_VAL_DEBUG_AST },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -2251,12 +2121,9 @@ struct retro_core_options_v2 options_ast = {
 #define CATEGORY_EMULATION_INFO_0_BE NULL
 #define CATEGORY_COMPATIBILITY_LABEL_BE NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_BE NULL
-#define CATEGORY_DEBUG_LABEL_BE NULL
-#define CATEGORY_DEBUG_INFO_0_BE NULL
 #define CATEGORY_PATCHES_LABEL_BE NULL
 #define CATEGORY_PATCHES_INFO_0_BE NULL
 #define XENIA_GRAPHICS_API_LABEL_BE NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_BE NULL
 #define XENIA_GRAPHICS_API_INFO_0_BE NULL
 #define OPTION_VAL_VULKAN_BE NULL
 #define OPTION_VAL_D3D12_BE NULL
@@ -2297,9 +2164,6 @@ struct retro_core_options_v2 options_ast = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_BE NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_BE NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_BE NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_BE NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_BE NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_BE NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_BE NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_BE NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_BE NULL
@@ -2332,7 +2196,7 @@ struct retro_core_options_v2 options_ast = {
 #define OPTION_VAL_13_BE NULL
 #define OPTION_VAL_14_BE NULL
 #define OPTION_VAL_15_BE NULL
-#define XENIA_WIDESCREEN_LABEL_BE "Суадносіны бакоў"
+#define XENIA_WIDESCREEN_LABEL_BE NULL
 #define XENIA_WIDESCREEN_INFO_0_BE NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_BE NULL
 #define OPTION_VAL_DISABLED_BE NULL
@@ -2350,17 +2214,11 @@ struct retro_core_options_v2 options_ast = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_BE NULL
 #define XENIA_AUDIO_ENABLED_LABEL_BE NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_BE NULL
-#define XENIA_MUTE_LABEL_BE NULL
-#define XENIA_MUTE_LABEL_CAT_BE "Прыглушыць"
-#define XENIA_MUTE_INFO_0_BE NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_BE NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_BE NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_BE NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_BE NULL
 #define OPTION_VAL_STEREO_BE "Стэрэа"
 #define OPTION_VAL_5_1_BE NULL
 #define XENIA_XMA_DECODER_LABEL_BE NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_BE NULL
 #define XENIA_XMA_DECODER_INFO_0_BE NULL
 #define OPTION_VAL_NEW_BE NULL
 #define OPTION_VAL_OLD_BE NULL
@@ -2382,18 +2240,10 @@ struct retro_core_options_v2 options_ast = {
 #define OPTION_VAL_40_BE "40 %"
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_BE "50 %"
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_BE "60 %"
-#define OPTION_VAL_70_BE "70 %"
+#define OPTION_VAL_70_BE NULL
 #define OPTION_VAL_80_BE "80 %"
 #define OPTION_VAL_90_BE "90 %"
-#define OPTION_VAL_100_BE "100 % (прадвызначана)"
-#define XENIA_TIME_SCALAR_LABEL_BE NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_BE NULL
-#define XENIA_TIME_SCALAR_INFO_0_BE NULL
-#define OPTION_VAL_0_25_BE NULL
-#define OPTION_VAL_0_5_BE NULL
-#define OPTION_VAL_1_0_BE NULL
-#define OPTION_VAL_2_0_BE NULL
-#define OPTION_VAL_4_0_BE NULL
+#define OPTION_VAL_100_BE "100 %"
 #define XENIA_TITLE_UPDATES_LABEL_BE NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_BE NULL
 #define XENIA_TITLE_UPDATES_INFO_0_BE NULL
@@ -2403,13 +2253,13 @@ struct retro_core_options_v2 options_ast = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_BE NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_BE NULL
 #define XENIA_LICENSE_MASK_LABEL_BE NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_BE "Ліцэнзія"
+#define XENIA_LICENSE_MASK_LABEL_CAT_BE NULL
 #define XENIA_LICENSE_MASK_INFO_0_BE NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_BE "Няма"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_BE "Цалкам"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_BE "Усе"
 #define XENIA_USER_LANGUAGE_LABEL_BE NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_BE "Мова"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_BE NULL
 #define XENIA_USER_LANGUAGE_INFO_0_BE NULL
 #define OPTION_VAL_ENGLISH_BE "Англійская"
 #define OPTION_VAL_JAPANESE_BE "Японскі"
@@ -2446,6 +2296,12 @@ struct retro_core_options_v2 options_ast = {
 #define OPTION_VAL_PORTUGAL_BE NULL
 #define OPTION_VAL_TAIWAN_BE NULL
 #define OPTION_VAL_HONG_KONG_BE NULL
+#define XENIA_LOG_LEVEL_LABEL_BE NULL
+#define XENIA_LOG_LEVEL_INFO_0_BE NULL
+#define OPTION_VAL_ERROR_BE NULL
+#define OPTION_VAL_WARN_BE "Папярэджанне"
+#define OPTION_VAL_INFO_BE "Звесткі"
+#define OPTION_VAL_DEBUG_BE NULL
 #define XENIA_PROTECT_ZERO_LABEL_BE NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_BE NULL
 #define XENIA_PROTECT_ZERO_INFO_0_BE NULL
@@ -2506,13 +2362,6 @@ struct retro_core_options_v2 options_ast = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_BE NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_BE NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_BE NULL
-#define XENIA_LOG_LEVEL_LABEL_BE NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_BE NULL
-#define XENIA_LOG_LEVEL_INFO_0_BE NULL
-#define OPTION_VAL_ERROR_BE NULL
-#define OPTION_VAL_WARN_BE "Папярэджанне"
-#define OPTION_VAL_INFO_BE "Звесткі"
-#define OPTION_VAL_DEBUG_BE NULL
 
 struct retro_core_option_v2_category option_cats_be[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_BE,
@@ -2525,8 +2374,6 @@ struct retro_core_option_v2_category option_cats_be[] = {
       CATEGORY_EMULATION_INFO_0_BE },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_BE,
       CATEGORY_COMPATIBILITY_INFO_0_BE },
-    { "Debug", CATEGORY_DEBUG_LABEL_BE,
-      CATEGORY_DEBUG_INFO_0_BE },
     { "patches", CATEGORY_PATCHES_LABEL_BE,
       CATEGORY_PATCHES_INFO_0_BE },
     { NULL, NULL, NULL }
@@ -2538,7 +2385,7 @@ struct retro_core_option_v2_definition option_defs_be[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_BE,
-        XENIA_GRAPHICS_API_LABEL_CAT_BE,
+        XENIA_GRAPHICS_API_LABEL_BE,
         XENIA_GRAPHICS_API_INFO_0_BE,
         NULL,
         "Graphics",
@@ -2672,20 +2519,6 @@ struct retro_core_option_v2_definition option_defs_be[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_BE,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_BE,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_BE,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -2825,23 +2658,9 @@ struct retro_core_option_v2_definition option_defs_be[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_BE,
-        XENIA_MUTE_LABEL_CAT_BE,
-        XENIA_MUTE_INFO_0_BE,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_BE },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_BE,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_BE,
+        XENIA_AUDIO_CHANNELS_LABEL_BE,
         XENIA_AUDIO_CHANNELS_INFO_0_BE,
         NULL,
         "Audio",
@@ -2855,7 +2674,7 @@ struct retro_core_option_v2_definition option_defs_be[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_BE,
-        XENIA_XMA_DECODER_LABEL_CAT_BE,
+        XENIA_XMA_DECODER_LABEL_BE,
         XENIA_XMA_DECODER_INFO_0_BE,
         NULL,
         "Audio",
@@ -2917,28 +2736,11 @@ struct retro_core_option_v2_definition option_defs_be[] = {
             { "100", OPTION_VAL_100_BE },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_BE,
-        XENIA_TIME_SCALAR_LABEL_CAT_BE,
-        XENIA_TIME_SCALAR_INFO_0_BE,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_BE },
-            { "0.5",  OPTION_VAL_0_5_BE },
-            { "1.0",  OPTION_VAL_1_0_BE },
-            { "2.0",  OPTION_VAL_2_0_BE },
-            { "4.0",  OPTION_VAL_4_0_BE },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_BE,
@@ -2981,6 +2783,9 @@ struct retro_core_option_v2_definition option_defs_be[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_BE,
@@ -2994,7 +2799,7 @@ struct retro_core_option_v2_definition option_defs_be[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_BE },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -3051,6 +2856,22 @@ struct retro_core_option_v2_definition option_defs_be[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_BE,
+        XENIA_LOG_LEVEL_LABEL_BE,
+        XENIA_LOG_LEVEL_INFO_0_BE,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_BE },
+            { "warn",  OPTION_VAL_WARN_BE },
+            { "info",  OPTION_VAL_INFO_BE },
+            { "debug", OPTION_VAL_DEBUG_BE },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -3316,22 +3137,6 @@ struct retro_core_option_v2_definition option_defs_be[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_BE,
-        XENIA_LOG_LEVEL_LABEL_CAT_BE,
-        XENIA_LOG_LEVEL_INFO_0_BE,
-        NULL,
-        OPTION_VAL_DEBUG_BE,
-        {
-            { "error", OPTION_VAL_ERROR_BE },
-            { "warn",  OPTION_VAL_WARN_BE },
-            { "info",  OPTION_VAL_INFO_BE },
-            { "debug", OPTION_VAL_DEBUG_BE },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -3352,12 +3157,9 @@ struct retro_core_options_v2 options_be = {
 #define CATEGORY_EMULATION_INFO_0_BG NULL
 #define CATEGORY_COMPATIBILITY_LABEL_BG NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_BG NULL
-#define CATEGORY_DEBUG_LABEL_BG NULL
-#define CATEGORY_DEBUG_INFO_0_BG NULL
 #define CATEGORY_PATCHES_LABEL_BG NULL
 #define CATEGORY_PATCHES_INFO_0_BG NULL
 #define XENIA_GRAPHICS_API_LABEL_BG NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_BG NULL
 #define XENIA_GRAPHICS_API_INFO_0_BG NULL
 #define OPTION_VAL_VULKAN_BG NULL
 #define OPTION_VAL_D3D12_BG NULL
@@ -3398,9 +3200,6 @@ struct retro_core_options_v2 options_be = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_BG NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_BG NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_BG NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_BG NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_BG NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_BG NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_BG NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_BG NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_BG NULL
@@ -3451,17 +3250,11 @@ struct retro_core_options_v2 options_be = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_BG NULL
 #define XENIA_AUDIO_ENABLED_LABEL_BG NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_BG NULL
-#define XENIA_MUTE_LABEL_BG NULL
-#define XENIA_MUTE_LABEL_CAT_BG "Заглушаване"
-#define XENIA_MUTE_INFO_0_BG NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_BG NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_BG NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_BG NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_BG NULL
 #define OPTION_VAL_STEREO_BG NULL
 #define OPTION_VAL_5_1_BG NULL
 #define XENIA_XMA_DECODER_LABEL_BG NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_BG NULL
 #define XENIA_XMA_DECODER_INFO_0_BG NULL
 #define OPTION_VAL_NEW_BG NULL
 #define OPTION_VAL_OLD_BG NULL
@@ -3487,14 +3280,6 @@ struct retro_core_options_v2 options_be = {
 #define OPTION_VAL_80_BG NULL
 #define OPTION_VAL_90_BG NULL
 #define OPTION_VAL_100_BG NULL
-#define XENIA_TIME_SCALAR_LABEL_BG NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_BG NULL
-#define XENIA_TIME_SCALAR_INFO_0_BG NULL
-#define OPTION_VAL_0_25_BG NULL
-#define OPTION_VAL_0_5_BG NULL
-#define OPTION_VAL_1_0_BG NULL
-#define OPTION_VAL_2_0_BG NULL
-#define OPTION_VAL_4_0_BG NULL
 #define XENIA_TITLE_UPDATES_LABEL_BG NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_BG NULL
 #define XENIA_TITLE_UPDATES_INFO_0_BG NULL
@@ -3504,7 +3289,7 @@ struct retro_core_options_v2 options_be = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_BG NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_BG NULL
 #define XENIA_LICENSE_MASK_LABEL_BG NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_BG "Лиценз"
+#define XENIA_LICENSE_MASK_LABEL_CAT_BG NULL
 #define XENIA_LICENSE_MASK_INFO_0_BG NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_BG NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_BG NULL
@@ -3547,6 +3332,12 @@ struct retro_core_options_v2 options_be = {
 #define OPTION_VAL_PORTUGAL_BG NULL
 #define OPTION_VAL_TAIWAN_BG NULL
 #define OPTION_VAL_HONG_KONG_BG NULL
+#define XENIA_LOG_LEVEL_LABEL_BG NULL
+#define XENIA_LOG_LEVEL_INFO_0_BG NULL
+#define OPTION_VAL_ERROR_BG NULL
+#define OPTION_VAL_WARN_BG NULL
+#define OPTION_VAL_INFO_BG "Информация"
+#define OPTION_VAL_DEBUG_BG NULL
 #define XENIA_PROTECT_ZERO_LABEL_BG NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_BG NULL
 #define XENIA_PROTECT_ZERO_INFO_0_BG NULL
@@ -3607,13 +3398,6 @@ struct retro_core_options_v2 options_be = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_BG NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_BG NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_BG NULL
-#define XENIA_LOG_LEVEL_LABEL_BG NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_BG NULL
-#define XENIA_LOG_LEVEL_INFO_0_BG NULL
-#define OPTION_VAL_ERROR_BG NULL
-#define OPTION_VAL_WARN_BG NULL
-#define OPTION_VAL_INFO_BG "Информация"
-#define OPTION_VAL_DEBUG_BG NULL
 
 struct retro_core_option_v2_category option_cats_bg[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_BG,
@@ -3626,8 +3410,6 @@ struct retro_core_option_v2_category option_cats_bg[] = {
       CATEGORY_EMULATION_INFO_0_BG },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_BG,
       CATEGORY_COMPATIBILITY_INFO_0_BG },
-    { "Debug", CATEGORY_DEBUG_LABEL_BG,
-      CATEGORY_DEBUG_INFO_0_BG },
     { "patches", CATEGORY_PATCHES_LABEL_BG,
       CATEGORY_PATCHES_INFO_0_BG },
     { NULL, NULL, NULL }
@@ -3639,7 +3421,7 @@ struct retro_core_option_v2_definition option_defs_bg[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_BG,
-        XENIA_GRAPHICS_API_LABEL_CAT_BG,
+        XENIA_GRAPHICS_API_LABEL_BG,
         XENIA_GRAPHICS_API_INFO_0_BG,
         NULL,
         "Graphics",
@@ -3773,20 +3555,6 @@ struct retro_core_option_v2_definition option_defs_bg[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_BG,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_BG,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_BG,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -3926,23 +3694,9 @@ struct retro_core_option_v2_definition option_defs_bg[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_BG,
-        XENIA_MUTE_LABEL_CAT_BG,
-        XENIA_MUTE_INFO_0_BG,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_BG },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_BG,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_BG,
+        XENIA_AUDIO_CHANNELS_LABEL_BG,
         XENIA_AUDIO_CHANNELS_INFO_0_BG,
         NULL,
         "Audio",
@@ -3956,7 +3710,7 @@ struct retro_core_option_v2_definition option_defs_bg[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_BG,
-        XENIA_XMA_DECODER_LABEL_CAT_BG,
+        XENIA_XMA_DECODER_LABEL_BG,
         XENIA_XMA_DECODER_INFO_0_BG,
         NULL,
         "Audio",
@@ -4018,28 +3772,11 @@ struct retro_core_option_v2_definition option_defs_bg[] = {
             { "100", OPTION_VAL_100_BG },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_BG,
-        XENIA_TIME_SCALAR_LABEL_CAT_BG,
-        XENIA_TIME_SCALAR_INFO_0_BG,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_BG },
-            { "0.5",  OPTION_VAL_0_5_BG },
-            { "1.0",  OPTION_VAL_1_0_BG },
-            { "2.0",  OPTION_VAL_2_0_BG },
-            { "4.0",  OPTION_VAL_4_0_BG },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_BG,
@@ -4082,6 +3819,9 @@ struct retro_core_option_v2_definition option_defs_bg[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_BG,
@@ -4095,7 +3835,7 @@ struct retro_core_option_v2_definition option_defs_bg[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_BG },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -4152,6 +3892,22 @@ struct retro_core_option_v2_definition option_defs_bg[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_BG,
+        XENIA_LOG_LEVEL_LABEL_BG,
+        XENIA_LOG_LEVEL_INFO_0_BG,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_BG },
+            { "warn",  OPTION_VAL_WARN_BG },
+            { "info",  OPTION_VAL_INFO_BG },
+            { "debug", OPTION_VAL_DEBUG_BG },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -4417,22 +4173,6 @@ struct retro_core_option_v2_definition option_defs_bg[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_BG,
-        XENIA_LOG_LEVEL_LABEL_CAT_BG,
-        XENIA_LOG_LEVEL_INFO_0_BG,
-        NULL,
-        OPTION_VAL_DEBUG_BG,
-        {
-            { "error", OPTION_VAL_ERROR_BG },
-            { "warn",  OPTION_VAL_WARN_BG },
-            { "info",  OPTION_VAL_INFO_BG },
-            { "debug", OPTION_VAL_DEBUG_BG },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -4443,34 +4183,31 @@ struct retro_core_options_v2 options_bg = {
 
 /* RETRO_LANGUAGE_CA */
 
-#define CATEGORY_GRAPHICS_LABEL_CA NULL
+#define CATEGORY_GRAPHICS_LABEL_CA "Configuració de gràfics"
 #define CATEGORY_GRAPHICS_INFO_0_CA NULL
-#define CATEGORY_VIDEO_LABEL_CA NULL
+#define CATEGORY_VIDEO_LABEL_CA "Configuració de vídeo"
 #define CATEGORY_VIDEO_INFO_0_CA NULL
-#define CATEGORY_AUDIO_LABEL_CA NULL
+#define CATEGORY_AUDIO_LABEL_CA "Configuració d'àudio"
 #define CATEGORY_AUDIO_INFO_0_CA NULL
 #define CATEGORY_EMULATION_LABEL_CA NULL
 #define CATEGORY_EMULATION_INFO_0_CA NULL
 #define CATEGORY_COMPATIBILITY_LABEL_CA "Configuració de compatibilitat"
 #define CATEGORY_COMPATIBILITY_INFO_0_CA NULL
-#define CATEGORY_DEBUG_LABEL_CA NULL
-#define CATEGORY_DEBUG_INFO_0_CA NULL
-#define CATEGORY_PATCHES_LABEL_CA NULL
+#define CATEGORY_PATCHES_LABEL_CA "Administrador de correccions"
 #define CATEGORY_PATCHES_INFO_0_CA NULL
-#define XENIA_GRAPHICS_API_LABEL_CA NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_CA "API de gràfics"
+#define XENIA_GRAPHICS_API_LABEL_CA "API de gràfics (Cal reiniciar)"
 #define XENIA_GRAPHICS_API_INFO_0_CA NULL
 #define OPTION_VAL_VULKAN_CA NULL
 #define OPTION_VAL_D3D12_CA NULL
 #define XENIA_RENDER_TARGET_PATH_LABEL_CA NULL
-#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_CA NULL
+#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_CA "RT Path (Cal reiniciar)"
 #define XENIA_RENDER_TARGET_PATH_INFO_0_CA NULL
 #define OPTION_VAL_PERFORMANCE_CA "Rendiment"
-#define OPTION_VAL_ACCURACY_CA NULL
+#define OPTION_VAL_ACCURACY_CA "Precisió"
 #define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CA NULL
-#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_CA "Escala de resolució"
+#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_CA NULL
 #define XENIA_DRAW_RESOLUTION_SCALE_INFO_0_CA NULL
-#define OPTION_VAL_1_CA NULL
+#define OPTION_VAL_1_CA "1x (Natiu 720p)"
 #define OPTION_VAL_2_CA NULL
 #define OPTION_VAL_3_CA NULL
 #define OPTION_VAL_4_CA NULL
@@ -4479,29 +4216,26 @@ struct retro_core_options_v2 options_bg = {
 #define OPTION_VAL_7_CA NULL
 #define OPTION_VAL_8_CA NULL
 #define XENIA_ANISOTROPIC_FILTERING_LABEL_CA "Filtre anisotròpic"
-#define XENIA_ANISOTROPIC_FILTERING_LABEL_CAT_CA NULL
+#define XENIA_ANISOTROPIC_FILTERING_LABEL_CAT_CA "Anisotròpic"
 #define XENIA_ANISOTROPIC_FILTERING_INFO_0_CA NULL
-#define OPTION_VAL_1_XENIA_ANISOTROPIC_FILTERING_CA NULL
+#define OPTION_VAL_1_XENIA_ANISOTROPIC_FILTERING_CA "Per defecte (Joc)"
 #define OPTION_VAL_1_XENIA_ANISOTROPIC_FILTERING_0_CA NULL
 #define OPTION_VAL_4_XENIA_ANISOTROPIC_FILTERING_CA NULL
 #define XENIA_ASYNC_SHADER_COMPILATION_LABEL_CA NULL
-#define XENIA_ASYNC_SHADER_COMPILATION_LABEL_CAT_CA NULL
+#define XENIA_ASYNC_SHADER_COMPILATION_LABEL_CAT_CA "Shaders asíncrons"
 #define XENIA_ASYNC_SHADER_COMPILATION_INFO_0_CA NULL
-#define XENIA_READBACK_RESOLVE_LABEL_CA NULL
-#define XENIA_READBACK_RESOLVE_LABEL_CAT_CA NULL
+#define XENIA_READBACK_RESOLVE_LABEL_CA "Resol la verificació de lectura"
+#define XENIA_READBACK_RESOLVE_LABEL_CAT_CA "Verificació"
 #define XENIA_READBACK_RESOLVE_INFO_0_CA NULL
 #define XENIA_STORE_SHADERS_LABEL_CA NULL
-#define XENIA_STORE_SHADERS_LABEL_CAT_CA NULL
+#define XENIA_STORE_SHADERS_LABEL_CAT_CA "Memòria cau de shaders (Cal reiniciar)"
 #define XENIA_STORE_SHADERS_INFO_0_CA NULL
-#define XENIA_HALF_PIXEL_OFFSET_LABEL_CA NULL
-#define XENIA_HALF_PIXEL_OFFSET_LABEL_CAT_CA NULL
+#define XENIA_HALF_PIXEL_OFFSET_LABEL_CA "Desplaçament de mig píxel"
+#define XENIA_HALF_PIXEL_OFFSET_LABEL_CAT_CA "1/2 de píxel"
 #define XENIA_HALF_PIXEL_OFFSET_INFO_0_CA NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CA NULL
-#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_CA NULL
+#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_CA "Captures no vàlides"
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_CA NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CA NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_CA NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_CA NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CA NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_CA NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_CA NULL
@@ -4509,12 +4243,12 @@ struct retro_core_options_v2 options_bg = {
 #define OPTION_VAL_50_CA "PAL (50 Hz)"
 #define XENIA_WAIT_FOR_FRAME_LABEL_CA NULL
 #define XENIA_WAIT_FOR_FRAME_INFO_0_CA NULL
-#define XENIA_UNLOCK_FRAMERATE_LABEL_CA NULL
+#define XENIA_UNLOCK_FRAMERATE_LABEL_CA "Desbloqueja la taxa de fotogrames"
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_CA NULL
-#define OPTION_VAL_ENABLED_CA NULL
+#define OPTION_VAL_ENABLED_CA "Jocs de la llista"
 #define OPTION_VAL_30TO60_CA NULL
 #define OPTION_VAL_120_CA NULL
-#define OPTION_VAL_UNCAPPED_CA NULL
+#define OPTION_VAL_UNCAPPED_CA "Sense límit"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CA NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_CA NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_INFO_0_CA NULL
@@ -4534,48 +4268,42 @@ struct retro_core_options_v2 options_bg = {
 #define OPTION_VAL_13_CA NULL
 #define OPTION_VAL_14_CA NULL
 #define OPTION_VAL_15_CA "1920×1080"
-#define XENIA_WIDESCREEN_LABEL_CA "Relació d'aspecte"
+#define XENIA_WIDESCREEN_LABEL_CA "Relació d'aspecte (Cal reiniciar)"
 #define XENIA_WIDESCREEN_INFO_0_CA NULL
-#define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_CA NULL
+#define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_CA "16:9 (Per defecte)"
 #define OPTION_VAL_DISABLED_CA NULL
 #define XENIA_VIDEO_STANDARD_LABEL_CA NULL
-#define XENIA_VIDEO_STANDARD_LABEL_CAT_CA NULL
+#define XENIA_VIDEO_STANDARD_LABEL_CAT_CA "Senyal (Cal reiniciar)"
 #define XENIA_VIDEO_STANDARD_INFO_0_CA NULL
 #define OPTION_VAL_1_XENIA_VIDEO_STANDARD_CA NULL
 #define OPTION_VAL_2_XENIA_VIDEO_STANDARD_CA "NTSC-J (Japó)"
 #define OPTION_VAL_3_XENIA_VIDEO_STANDARD_CA NULL
-#define XENIA_DISPLAY_GAMMA_LABEL_CA NULL
-#define XENIA_DISPLAY_GAMMA_LABEL_CAT_CA NULL
+#define XENIA_DISPLAY_GAMMA_LABEL_CA "Mostra Gamma (Cal reiniciar)"
+#define XENIA_DISPLAY_GAMMA_LABEL_CAT_CA "Gamma (Reinicia)"
 #define XENIA_DISPLAY_GAMMA_INFO_0_CA NULL
 #define OPTION_VAL_0_XENIA_DISPLAY_GAMMA_CA "Lineal"
 #define OPTION_VAL_1_XENIA_DISPLAY_GAMMA_CA NULL
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_CA NULL
-#define XENIA_AUDIO_ENABLED_LABEL_CA NULL
+#define XENIA_AUDIO_ENABLED_LABEL_CA "Sortida d’Àudio"
 #define XENIA_AUDIO_ENABLED_INFO_0_CA NULL
-#define XENIA_MUTE_LABEL_CA NULL
-#define XENIA_MUTE_LABEL_CAT_CA "Silencia"
-#define XENIA_MUTE_INFO_0_CA NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_CA NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_CA "Canals d'àudio (Reiniciar)"
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_CA NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_CA NULL
 #define OPTION_VAL_STEREO_CA "Estèreo"
 #define OPTION_VAL_5_1_CA NULL
-#define XENIA_XMA_DECODER_LABEL_CA NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_CA NULL
+#define XENIA_XMA_DECODER_LABEL_CA "Decodificador XMA (Cal reiniciar)"
 #define XENIA_XMA_DECODER_INFO_0_CA NULL
-#define OPTION_VAL_NEW_CA NULL
-#define OPTION_VAL_OLD_CA NULL
-#define OPTION_VAL_MASTER_CA NULL
-#define OPTION_VAL_FAKE_CA NULL
+#define OPTION_VAL_NEW_CA "Nou (Per defecte)"
+#define OPTION_VAL_OLD_CA "Vell"
+#define OPTION_VAL_MASTER_CA "Mestre"
+#define OPTION_VAL_FAKE_CA "Fals (silencia)"
 #define XENIA_DEDICATED_XMA_THREAD_LABEL_CA NULL
-#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_CA NULL
+#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_CA "Fil XMA (Cal reiniciar)"
 #define XENIA_DEDICATED_XMA_THREAD_INFO_0_CA NULL
 #define XENIA_ENABLE_XMP_LABEL_CA NULL
 #define XENIA_ENABLE_XMP_LABEL_CAT_CA NULL
 #define XENIA_ENABLE_XMP_INFO_0_CA NULL
 #define XENIA_XMP_DEFAULT_VOLUME_LABEL_CA NULL
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_CA NULL
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_CA "Volum XMP (Cal reiniciar)"
 #define XENIA_XMP_DEFAULT_VOLUME_INFO_0_CA NULL
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_CA NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_CA NULL
@@ -4584,34 +4312,26 @@ struct retro_core_options_v2 options_bg = {
 #define OPTION_VAL_40_CA NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_CA NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_CA NULL
-#define OPTION_VAL_70_CA NULL
+#define OPTION_VAL_70_CA "70% (Per defecte)"
 #define OPTION_VAL_80_CA NULL
 #define OPTION_VAL_90_CA NULL
-#define OPTION_VAL_100_CA "100% (Per defecte)"
-#define XENIA_TIME_SCALAR_LABEL_CA NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_CA NULL
-#define XENIA_TIME_SCALAR_INFO_0_CA NULL
-#define OPTION_VAL_0_25_CA NULL
-#define OPTION_VAL_0_5_CA NULL
-#define OPTION_VAL_1_0_CA NULL
-#define OPTION_VAL_2_0_CA NULL
-#define OPTION_VAL_4_0_CA NULL
+#define OPTION_VAL_100_CA NULL
 #define XENIA_TITLE_UPDATES_LABEL_CA NULL
-#define XENIA_TITLE_UPDATES_LABEL_CAT_CA NULL
+#define XENIA_TITLE_UPDATES_LABEL_CAT_CA "Refresca títols (Cal reiniciar)"
 #define XENIA_TITLE_UPDATES_INFO_0_CA NULL
 #define XENIA_APPLY_PATCHES_LABEL_CA NULL
-#define XENIA_APPLY_PATCHES_LABEL_CAT_CA "Correccions"
+#define XENIA_APPLY_PATCHES_LABEL_CAT_CA "Correccions (Cal reiniciar)"
 #define XENIA_APPLY_PATCHES_INFO_0_CA NULL
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_CA NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_CA NULL
-#define XENIA_LICENSE_MASK_LABEL_CA NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_CA "Llicència"
+#define XENIA_LICENSE_MASK_LABEL_CA "Màscara de llicència (Cal reiniciar)"
+#define XENIA_LICENSE_MASK_LABEL_CAT_CA "Llicència (Cal reiniciar)"
 #define XENIA_LICENSE_MASK_INFO_0_CA NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_CA "Cap"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_CA "Complet"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_CA "Tots"
-#define XENIA_USER_LANGUAGE_LABEL_CA NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_CA "Llengua"
+#define XENIA_USER_LANGUAGE_LABEL_CA "Llengua de l'usuari (Cal reiniciar)"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_CA "Llengua (Cal reiniciar)"
 #define XENIA_USER_LANGUAGE_INFO_0_CA NULL
 #define OPTION_VAL_ENGLISH_CA "Anglès"
 #define OPTION_VAL_JAPANESE_CA "Japonès"
@@ -4623,44 +4343,50 @@ struct retro_core_options_v2 options_bg = {
 #define OPTION_VAL_TCHINESE_CA NULL
 #define OPTION_VAL_PORTUGUESE_CA "Portuguès"
 #define OPTION_VAL_SCHINESE_CA NULL
-#define OPTION_VAL_POLISH_CA NULL
+#define OPTION_VAL_POLISH_CA "Polonès"
 #define OPTION_VAL_RUSSIAN_CA "Rus"
-#define XENIA_USER_COUNTRY_LABEL_CA NULL
-#define XENIA_USER_COUNTRY_LABEL_CAT_CA NULL
+#define XENIA_USER_COUNTRY_LABEL_CA "País de l'usuari (Cal reiniciar)"
+#define XENIA_USER_COUNTRY_LABEL_CAT_CA "País (Cal reiniciar)"
 #define XENIA_USER_COUNTRY_INFO_0_CA NULL
-#define OPTION_VAL_UNITED_STATES_CA NULL
-#define OPTION_VAL_GREAT_BRITAIN_CA NULL
+#define OPTION_VAL_UNITED_STATES_CA "Estats Units"
+#define OPTION_VAL_GREAT_BRITAIN_CA "Gran Bretanya"
 #define OPTION_VAL_JAPAN_CA "Japó"
-#define OPTION_VAL_GERMANY_CA NULL
-#define OPTION_VAL_FRANCE_CA NULL
-#define OPTION_VAL_SPAIN_CA NULL
-#define OPTION_VAL_ITALY_CA NULL
-#define OPTION_VAL_AUSTRALIA_CA NULL
-#define OPTION_VAL_CANADA_CA NULL
-#define OPTION_VAL_BRAZIL_CA NULL
-#define OPTION_VAL_KOREA_CA NULL
-#define OPTION_VAL_CHINA_CA NULL
-#define OPTION_VAL_MEXICO_CA NULL
-#define OPTION_VAL_NETHERLANDS_CA NULL
-#define OPTION_VAL_RUSSIA_CA NULL
-#define OPTION_VAL_SWEDEN_CA NULL
-#define OPTION_VAL_POLAND_CA NULL
+#define OPTION_VAL_GERMANY_CA "Alemanya"
+#define OPTION_VAL_FRANCE_CA "França"
+#define OPTION_VAL_SPAIN_CA "Espanya"
+#define OPTION_VAL_ITALY_CA "Itàlia"
+#define OPTION_VAL_AUSTRALIA_CA "Austràlia"
+#define OPTION_VAL_CANADA_CA "Canadà"
+#define OPTION_VAL_BRAZIL_CA "Brasil"
+#define OPTION_VAL_KOREA_CA "Corea"
+#define OPTION_VAL_CHINA_CA "Xina"
+#define OPTION_VAL_MEXICO_CA "Mèxic"
+#define OPTION_VAL_NETHERLANDS_CA "Països Baixos"
+#define OPTION_VAL_RUSSIA_CA "Rússia"
+#define OPTION_VAL_SWEDEN_CA "Suècia"
+#define OPTION_VAL_POLAND_CA "Polònia"
 #define OPTION_VAL_PORTUGAL_CA NULL
 #define OPTION_VAL_TAIWAN_CA NULL
 #define OPTION_VAL_HONG_KONG_CA NULL
+#define XENIA_LOG_LEVEL_LABEL_CA "Nivell del registre"
+#define XENIA_LOG_LEVEL_INFO_0_CA NULL
+#define OPTION_VAL_ERROR_CA "Només els errors"
+#define OPTION_VAL_WARN_CA "Advertència"
+#define OPTION_VAL_INFO_CA "Informació"
+#define OPTION_VAL_DEBUG_CA "Depurador"
 #define XENIA_PROTECT_ZERO_LABEL_CA NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_CA NULL
 #define XENIA_PROTECT_ZERO_INFO_0_CA NULL
 #define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CA NULL
-#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CAT_CA NULL
+#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CAT_CA "Neteja la memòria intermèdia de la targeta gràfica"
 #define XENIA_CLEAR_MEMORY_PAGE_STATE_INFO_0_CA NULL
 #define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CA NULL
 #define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_CA NULL
 #define XENIA_DISABLE_CONTEXT_PROMOTION_INFO_0_CA NULL
-#define OPTION_VAL_DISABLED_XENIA_DISABLE_CONTEXT_PROMOTION_CA NULL
+#define OPTION_VAL_DISABLED_XENIA_DISABLE_CONTEXT_PROMOTION_CA "Desactivat (Normal)"
 #define OPTION_VAL_ENABLED_XENIA_DISABLE_CONTEXT_PROMOTION_CA NULL
 #define XENIA_MOUNT_CACHE_LABEL_CA NULL
-#define XENIA_MOUNT_CACHE_LABEL_CAT_CA NULL
+#define XENIA_MOUNT_CACHE_LABEL_CAT_CA "Memòria cau Mount (Cal reiniciar)"
 #define XENIA_MOUNT_CACHE_INFO_0_CA NULL
 #define XENIA_MOUNT_SCRATCH_LABEL_CA NULL
 #define XENIA_MOUNT_SCRATCH_LABEL_CAT_CA NULL
@@ -4668,33 +4394,33 @@ struct retro_core_options_v2 options_bg = {
 #define XENIA_OCCLUSION_QUERY_LABEL_CA NULL
 #define XENIA_OCCLUSION_QUERY_INFO_0_CA NULL
 #define OPTION_VAL_FAST_CA "Ràpida"
-#define OPTION_VAL_FAKE_XENIA_OCCLUSION_QUERY_CA NULL
+#define OPTION_VAL_FAKE_XENIA_OCCLUSION_QUERY_CA "Fals"
 #define OPTION_VAL_FAST_ALT_CA NULL
 #define OPTION_VAL_STRICT_CA "Estricte"
 #define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CA NULL
 #define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_CA NULL
 #define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_INFO_0_CA NULL
 #define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CA NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CAT_CA NULL
+#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CAT_CA "Llindar inferior"
 #define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_INFO_0_CA NULL
 #define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_CA NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_CAT_CA NULL
+#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_CAT_CA "Llindar superior"
 #define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_INFO_0_CA NULL
 #define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_CA NULL
-#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_CAT_CA NULL
+#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_CAT_CA "Shader de biaix de profunditat"
 #define XENIA_DEPTH_BIAS_SHADER_OFFSET_INFO_0_CA NULL
 #define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_CA "Llindar d'escala de resolució"
-#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_CAT_CA NULL
+#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_CAT_CA "Llindar d'escala"
 #define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_INFO_0_CA NULL
-#define OPTION_VAL_0_XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_CA NULL
+#define OPTION_VAL_0_XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_CA "0 (escala-ho tot)"
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CA NULL
-#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CAT_CA NULL
+#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CAT_CA "Càrregues no vàlides"
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_INFO_0_CA NULL
 #define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CA NULL
 #define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_CA NULL
 #define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_CA NULL
 #define XENIA_FORCE_DEPTH_CLAMP_LABEL_CA NULL
-#define XENIA_FORCE_DEPTH_CLAMP_LABEL_CAT_CA NULL
+#define XENIA_FORCE_DEPTH_CLAMP_LABEL_CAT_CA "Limitació de profunditat"
 #define XENIA_FORCE_DEPTH_CLAMP_INFO_0_CA NULL
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CA NULL
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CAT_CA NULL
@@ -4702,19 +4428,12 @@ struct retro_core_options_v2 options_bg = {
 #define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CA NULL
 #define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_CA NULL
 #define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_CA NULL
-#define XENIA_SCRIBBLE_HEAP_LABEL_CA NULL
+#define XENIA_SCRIBBLE_HEAP_LABEL_CA "Pila d'esborranys"
 #define XENIA_SCRIBBLE_HEAP_INFO_0_CA NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CA NULL
-#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_CA NULL
+#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_CA "Valor de l'esborrany"
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_CA NULL
-#define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_CA NULL
-#define XENIA_LOG_LEVEL_LABEL_CA NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_CA NULL
-#define XENIA_LOG_LEVEL_INFO_0_CA NULL
-#define OPTION_VAL_ERROR_CA NULL
-#define OPTION_VAL_WARN_CA "Advertència"
-#define OPTION_VAL_INFO_CA "Informació"
-#define OPTION_VAL_DEBUG_CA "Depurador"
+#define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_CA "0 (aleatori)"
 
 struct retro_core_option_v2_category option_cats_ca[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_CA,
@@ -4727,8 +4446,6 @@ struct retro_core_option_v2_category option_cats_ca[] = {
       CATEGORY_EMULATION_INFO_0_CA },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_CA,
       CATEGORY_COMPATIBILITY_INFO_0_CA },
-    { "Debug", CATEGORY_DEBUG_LABEL_CA,
-      CATEGORY_DEBUG_INFO_0_CA },
     { "patches", CATEGORY_PATCHES_LABEL_CA,
       CATEGORY_PATCHES_INFO_0_CA },
     { NULL, NULL, NULL }
@@ -4740,7 +4457,7 @@ struct retro_core_option_v2_definition option_defs_ca[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_CA,
-        XENIA_GRAPHICS_API_LABEL_CAT_CA,
+        XENIA_GRAPHICS_API_LABEL_CA,
         XENIA_GRAPHICS_API_INFO_0_CA,
         NULL,
         "Graphics",
@@ -4874,20 +4591,6 @@ struct retro_core_option_v2_definition option_defs_ca[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CA,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_CA,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_CA,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -5027,23 +4730,9 @@ struct retro_core_option_v2_definition option_defs_ca[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_CA,
-        XENIA_MUTE_LABEL_CAT_CA,
-        XENIA_MUTE_INFO_0_CA,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_CA },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_CA,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_CA,
+        XENIA_AUDIO_CHANNELS_LABEL_CA,
         XENIA_AUDIO_CHANNELS_INFO_0_CA,
         NULL,
         "Audio",
@@ -5057,7 +4746,7 @@ struct retro_core_option_v2_definition option_defs_ca[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_CA,
-        XENIA_XMA_DECODER_LABEL_CAT_CA,
+        XENIA_XMA_DECODER_LABEL_CA,
         XENIA_XMA_DECODER_INFO_0_CA,
         NULL,
         "Audio",
@@ -5119,28 +4808,11 @@ struct retro_core_option_v2_definition option_defs_ca[] = {
             { "100", OPTION_VAL_100_CA },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_CA,
-        XENIA_TIME_SCALAR_LABEL_CAT_CA,
-        XENIA_TIME_SCALAR_INFO_0_CA,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_CA },
-            { "0.5",  OPTION_VAL_0_5_CA },
-            { "1.0",  OPTION_VAL_1_0_CA },
-            { "2.0",  OPTION_VAL_2_0_CA },
-            { "4.0",  OPTION_VAL_4_0_CA },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_CA,
@@ -5183,6 +4855,9 @@ struct retro_core_option_v2_definition option_defs_ca[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_CA,
@@ -5196,7 +4871,7 @@ struct retro_core_option_v2_definition option_defs_ca[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_CA },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -5253,6 +4928,22 @@ struct retro_core_option_v2_definition option_defs_ca[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_CA,
+        XENIA_LOG_LEVEL_LABEL_CA,
+        XENIA_LOG_LEVEL_INFO_0_CA,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_CA },
+            { "warn",  OPTION_VAL_WARN_CA },
+            { "info",  OPTION_VAL_INFO_CA },
+            { "debug", OPTION_VAL_DEBUG_CA },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -5518,22 +5209,6 @@ struct retro_core_option_v2_definition option_defs_ca[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_CA,
-        XENIA_LOG_LEVEL_LABEL_CAT_CA,
-        XENIA_LOG_LEVEL_INFO_0_CA,
-        NULL,
-        OPTION_VAL_DEBUG_CA,
-        {
-            { "error", OPTION_VAL_ERROR_CA },
-            { "warn",  OPTION_VAL_WARN_CA },
-            { "info",  OPTION_VAL_INFO_CA },
-            { "debug", OPTION_VAL_DEBUG_CA },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -5544,34 +5219,31 @@ struct retro_core_options_v2 options_ca = {
 
 /* RETRO_LANGUAGE_CHS */
 
-#define CATEGORY_GRAPHICS_LABEL_CHS NULL
-#define CATEGORY_GRAPHICS_INFO_0_CHS NULL
-#define CATEGORY_VIDEO_LABEL_CHS NULL
-#define CATEGORY_VIDEO_INFO_0_CHS NULL
-#define CATEGORY_AUDIO_LABEL_CHS NULL
-#define CATEGORY_AUDIO_INFO_0_CHS NULL
-#define CATEGORY_EMULATION_LABEL_CHS NULL
-#define CATEGORY_EMULATION_INFO_0_CHS NULL
+#define CATEGORY_GRAPHICS_LABEL_CHS "图形设置"
+#define CATEGORY_GRAPHICS_INFO_0_CHS "GPU 后端、分辨率缩放、渲染目标路径、纹理过滤。"
+#define CATEGORY_VIDEO_LABEL_CHS "视频设置"
+#define CATEGORY_VIDEO_INFO_0_CHS "显示分辨率、画面比例、视频制式、伽玛值。"
+#define CATEGORY_AUDIO_LABEL_CHS "音频设置"
+#define CATEGORY_AUDIO_INFO_0_CHS "音频输出、XMA 解码器、音乐播放器。"
+#define CATEGORY_EMULATION_LABEL_CHS "模拟设置"
+#define CATEGORY_EMULATION_INFO_0_CHS "运行速度、语言、国家/地区、授权许可证、补丁、日志等级。"
 #define CATEGORY_COMPATIBILITY_LABEL_CHS "游戏兼容性设置"
-#define CATEGORY_COMPATIBILITY_INFO_0_CHS NULL
-#define CATEGORY_DEBUG_LABEL_CHS NULL
-#define CATEGORY_DEBUG_INFO_0_CHS NULL
-#define CATEGORY_PATCHES_LABEL_CHS NULL
-#define CATEGORY_PATCHES_INFO_0_CHS NULL
-#define XENIA_GRAPHICS_API_LABEL_CHS NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_CHS "图形 API"
-#define XENIA_GRAPHICS_API_INFO_0_CHS NULL
+#define CATEGORY_COMPATIBILITY_INFO_0_CHS "针对特定游戏的 Hack 修复、内存及缓存/暂存挂载。"
+#define CATEGORY_PATCHES_LABEL_CHS "补丁管理器"
+#define CATEGORY_PATCHES_INFO_0_CHS "来自 Xenia Edge 数据库的该版本游戏专用补丁。修改将在下次启动时生效。"
+#define XENIA_GRAPHICS_API_LABEL_CHS "图形 API (需重启)"
+#define XENIA_GRAPHICS_API_INFO_0_CHS "Xenia 用于模拟 Xbox 360 GPU 的图形后端，以及核心向 RetroArch 请求的渲染上下文：在允许的情况下，RetroArch 会自动切换视频驱动以匹配此设置（设置 > 视频 > 输出）。重新加载游戏内容时生效。"
 #define OPTION_VAL_VULKAN_CHS NULL
 #define OPTION_VAL_D3D12_CHS NULL
-#define XENIA_RENDER_TARGET_PATH_LABEL_CHS NULL
-#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_CHS NULL
-#define XENIA_RENDER_TARGET_PATH_INFO_0_CHS NULL
+#define XENIA_RENDER_TARGET_PATH_LABEL_CHS "渲染目标路径 (需重启)"
+#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_CHS "渲染目标路径 (需重启)"
+#define XENIA_RENDER_TARGET_PATH_INFO_0_CHS "选择渲染目标模拟模式。\n性能：使用带有固定功能混合的宿主渲染目标。\n精确：使用像素着色器互锁 / 光栅化器顺序视图 (ROV)。"
 #define OPTION_VAL_PERFORMANCE_CHS "性能"
-#define OPTION_VAL_ACCURACY_CHS NULL
-#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CHS NULL
-#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_CHS "渲染分辨率缩放"
-#define XENIA_DRAW_RESOLUTION_SCALE_INFO_0_CHS NULL
-#define OPTION_VAL_1_CHS NULL
+#define OPTION_VAL_ACCURACY_CHS "精确"
+#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CHS "绘制分辨率缩放 (需重启)"
+#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_CHS "分辨率缩放 (需重启)"
+#define XENIA_DRAW_RESOLUTION_SCALE_INFO_0_CHS "缩放内部渲染分辨率。较高的数值可提升画质，但需要更强劲的 GPU 性能。需要重启生效。"
+#define OPTION_VAL_1_CHS "1x (原生 720p)"
 #define OPTION_VAL_2_CHS NULL
 #define OPTION_VAL_3_CHS NULL
 #define OPTION_VAL_4_CHS NULL
@@ -5580,45 +5252,42 @@ struct retro_core_options_v2 options_ca = {
 #define OPTION_VAL_7_CHS NULL
 #define OPTION_VAL_8_CHS NULL
 #define XENIA_ANISOTROPIC_FILTERING_LABEL_CHS "各向异性过滤"
-#define XENIA_ANISOTROPIC_FILTERING_LABEL_CAT_CHS NULL
-#define XENIA_ANISOTROPIC_FILTERING_INFO_0_CHS NULL
-#define OPTION_VAL_1_XENIA_ANISOTROPIC_FILTERING_CHS NULL
+#define XENIA_ANISOTROPIC_FILTERING_LABEL_CAT_CHS "各向异性过滤"
+#define XENIA_ANISOTROPIC_FILTERING_INFO_0_CHS "强制覆盖所有纹理的各向异性过滤等级。“默认”将使用游戏自带的设置。"
+#define OPTION_VAL_1_XENIA_ANISOTROPIC_FILTERING_CHS "默认 (游戏自带)"
 #define OPTION_VAL_1_XENIA_ANISOTROPIC_FILTERING_0_CHS NULL
 #define OPTION_VAL_4_XENIA_ANISOTROPIC_FILTERING_CHS NULL
-#define XENIA_ASYNC_SHADER_COMPILATION_LABEL_CHS NULL
-#define XENIA_ASYNC_SHADER_COMPILATION_LABEL_CAT_CHS NULL
-#define XENIA_ASYNC_SHADER_COMPILATION_INFO_0_CHS NULL
-#define XENIA_READBACK_RESOLVE_LABEL_CHS NULL
-#define XENIA_READBACK_RESOLVE_LABEL_CAT_CHS NULL
-#define XENIA_READBACK_RESOLVE_INFO_0_CHS NULL
-#define XENIA_STORE_SHADERS_LABEL_CHS NULL
-#define XENIA_STORE_SHADERS_LABEL_CAT_CHS NULL
-#define XENIA_STORE_SHADERS_INFO_0_CHS NULL
-#define XENIA_HALF_PIXEL_OFFSET_LABEL_CHS NULL
-#define XENIA_HALF_PIXEL_OFFSET_LABEL_CAT_CHS NULL
-#define XENIA_HALF_PIXEL_OFFSET_INFO_0_CHS NULL
-#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CHS NULL
-#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_CHS NULL
-#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_CHS NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CHS NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_CHS NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_CHS NULL
-#define XENIA_DISPLAY_REFRESH_LABEL_CHS NULL
-#define XENIA_DISPLAY_REFRESH_LABEL_CAT_CHS NULL
-#define XENIA_DISPLAY_REFRESH_INFO_0_CHS NULL
+#define XENIA_ASYNC_SHADER_COMPILATION_LABEL_CHS "异步着色器编译"
+#define XENIA_ASYNC_SHADER_COMPILATION_LABEL_CAT_CHS "异步着色器"
+#define XENIA_ASYNC_SHADER_COMPILATION_INFO_0_CHS "在后台线程中编译着色器。可减少游戏卡顿，但可能会导致短暂的画面渲染异常。"
+#define XENIA_READBACK_RESOLVE_LABEL_CHS "回读解析 (Readback Resolve)"
+#define XENIA_READBACK_RESOLVE_LABEL_CAT_CHS "回读解析"
+#define XENIA_READBACK_RESOLVE_INFO_0_CHS "当 CPU 访问时，将“渲染至纹理”的输出结果回写复制至客户机内存。关闭此项会导致需要回读该数据的游戏运行异常。"
+#define XENIA_STORE_SHADERS_LABEL_CHS "保存着色器 (需重启)"
+#define XENIA_STORE_SHADERS_LABEL_CAT_CHS "着色器缓存 (需重启)"
+#define XENIA_STORE_SHADERS_INFO_0_CHS "持久化保存已编译的着色器，以避免后续运行时因重新编译导致的卡顿。"
+#define XENIA_HALF_PIXEL_OFFSET_LABEL_CHS "半像素偏移值"
+#define XENIA_HALF_PIXEL_OFFSET_LABEL_CAT_CHS "半像素"
+#define XENIA_HALF_PIXEL_OFFSET_INFO_0_CHS "开启 Direct3D 9 风格的半像素偏移。适用于绝大多数游戏；若画面出现错位或模糊现象请将其禁用。"
+#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CHS "允许无效抓取常量"
+#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_CHS "无效抓取常量"
+#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_CHS "允许类型无效的纹理/顶点抓取常量。可能修复部分游戏的崩溃问题，但总体上不够稳定安全。"
+#define XENIA_DISPLAY_REFRESH_LABEL_CHS "模拟显示刷新率"
+#define XENIA_DISPLAY_REFRESH_LABEL_CAT_CHS "显示刷新率"
+#define XENIA_DISPLAY_REFRESH_INFO_0_CHS "游戏识别到的电视刷新率（效果对应独立版选项）。NTSC (60 Hz) 为原生主机设置；PAL (50 Hz) 对应 PAL 制式电视（游戏以每秒 50 帧运行）。“解锁帧率”选项开启时将覆盖此设置。"
 #define OPTION_VAL_60_CHS "NTSC（60Hz）"
 #define OPTION_VAL_50_CHS "PAL（50Hz）"
-#define XENIA_WAIT_FOR_FRAME_LABEL_CHS NULL
-#define XENIA_WAIT_FOR_FRAME_INFO_0_CHS NULL
-#define XENIA_UNLOCK_FRAMERATE_LABEL_CHS NULL
-#define XENIA_UNLOCK_FRAMERATE_INFO_0_CHS NULL
-#define OPTION_VAL_ENABLED_CHS NULL
-#define OPTION_VAL_30TO60_CHS NULL
-#define OPTION_VAL_120_CHS NULL
-#define OPTION_VAL_UNCAPPED_CHS NULL
-#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CHS NULL
-#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_CHS NULL
-#define XENIA_INTERNAL_DISPLAY_RESOLUTION_INFO_0_CHS NULL
+#define XENIA_WAIT_FOR_FRAME_LABEL_CHS "[Libretro] 帧等待"
+#define XENIA_WAIT_FOR_FRAME_INFO_0_CHS "减少 1 帧的输入延迟，但可能会引发游戏卡顿。建议在强劲的硬件配置或运行轻量级游戏时开启。"
+#define XENIA_UNLOCK_FRAMERATE_LABEL_CHS "解锁帧率"
+#define XENIA_UNLOCK_FRAMERATE_INFO_0_CHS "仅适用于逻辑不与帧率绑定的游戏，否则会导致游戏运行加速。“30 帧游戏提升至 60 帧”：RetroArch 每渲染一帧插入两次场消隐 (vblank)；“60 帧游戏提升至 120 帧”：核心以每秒 120 帧运行（需同步配置好 RetroArch 及显示器）；“不设上限”：场消隐触发速度尽可能达到极值；“列表中列出的游戏”：按 system/Xenia-Edge/xenia_framerate_unlock.txt 中指定的帧率运行（若包含该游戏）。可在游戏运行期间修改。"
+#define OPTION_VAL_ENABLED_CHS "列表中列出的游戏"
+#define OPTION_VAL_30TO60_CHS "30 帧游戏提升至 60 帧"
+#define OPTION_VAL_120_CHS "60 帧游戏提升至 120 帧"
+#define OPTION_VAL_UNCAPPED_CHS "不设上限"
+#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CHS "内部显示分辨率 (需重启)"
+#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_CHS "显示分辨率 (需重启)"
+#define XENIA_INTERNAL_DISPLAY_RESOLUTION_INFO_0_CHS "允许支持多分辨率的游戏以指定的特定分辨率进行渲染。并非所有游戏均支持该选项。"
 #define OPTION_VAL_0_CHS NULL
 #define OPTION_VAL_1_XENIA_INTERNAL_DISPLAY_RESOLUTION_CHS NULL
 #define OPTION_VAL_2_XENIA_INTERNAL_DISPLAY_RESOLUTION_CHS NULL
@@ -5627,57 +5296,51 @@ struct retro_core_options_v2 options_ca = {
 #define OPTION_VAL_5_XENIA_INTERNAL_DISPLAY_RESOLUTION_CHS NULL
 #define OPTION_VAL_6_XENIA_INTERNAL_DISPLAY_RESOLUTION_CHS NULL
 #define OPTION_VAL_7_XENIA_INTERNAL_DISPLAY_RESOLUTION_CHS NULL
-#define OPTION_VAL_8_XENIA_INTERNAL_DISPLAY_RESOLUTION_CHS NULL
+#define OPTION_VAL_8_XENIA_INTERNAL_DISPLAY_RESOLUTION_CHS "1280x720 (默认)"
 #define OPTION_VAL_9_CHS NULL
 #define OPTION_VAL_10_CHS NULL
 #define OPTION_VAL_11_CHS NULL
 #define OPTION_VAL_12_CHS NULL
 #define OPTION_VAL_13_CHS NULL
-#define OPTION_VAL_14_CHS NULL
+#define OPTION_VAL_14_CHS "1920x340"
 #define OPTION_VAL_15_CHS NULL
-#define XENIA_WIDESCREEN_LABEL_CHS "宽高比"
-#define XENIA_WIDESCREEN_INFO_0_CHS NULL
-#define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_CHS NULL
+#define XENIA_WIDESCREEN_LABEL_CHS "纵横比 (重启)"
+#define XENIA_WIDESCREEN_INFO_0_CHS "主机设定的宽高比以及图像的显示比例。仅部分 Xbox 360 游戏原生支持 4:3 画面。"
+#define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_CHS "16:9 (默认)"
 #define OPTION_VAL_DISABLED_CHS NULL
-#define XENIA_VIDEO_STANDARD_LABEL_CHS NULL
-#define XENIA_VIDEO_STANDARD_LABEL_CAT_CHS NULL
-#define XENIA_VIDEO_STANDARD_INFO_0_CHS NULL
+#define XENIA_VIDEO_STANDARD_LABEL_CHS "视频标准 (重启)"
+#define XENIA_VIDEO_STANDARD_LABEL_CAT_CHS "信号 (重启)"
+#define XENIA_VIDEO_STANDARD_INFO_0_CHS "选择视频信号标准/制式。会影响区域检测。"
 #define OPTION_VAL_1_XENIA_VIDEO_STANDARD_CHS NULL
 #define OPTION_VAL_2_XENIA_VIDEO_STANDARD_CHS "NTSC-J（日本）"
 #define OPTION_VAL_3_XENIA_VIDEO_STANDARD_CHS NULL
-#define XENIA_DISPLAY_GAMMA_LABEL_CHS NULL
-#define XENIA_DISPLAY_GAMMA_LABEL_CAT_CHS "伽马值（Gamma）"
-#define XENIA_DISPLAY_GAMMA_INFO_0_CHS NULL
+#define XENIA_DISPLAY_GAMMA_LABEL_CHS "显示伽玛值 (需重启)"
+#define XENIA_DISPLAY_GAMMA_LABEL_CAT_CHS "伽玛值 (需重启)"
+#define XENIA_DISPLAY_GAMMA_INFO_0_CHS "选择显示伽玛曲线。\n在现代显示器上，BT.709 (HDTV) 最接近原版 Xbox 360 的色彩表现。"
 #define OPTION_VAL_0_XENIA_DISPLAY_GAMMA_CHS "线性"
 #define OPTION_VAL_1_XENIA_DISPLAY_GAMMA_CHS NULL
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_CHS NULL
-#define XENIA_AUDIO_ENABLED_LABEL_CHS NULL
-#define XENIA_AUDIO_ENABLED_INFO_0_CHS NULL
-#define XENIA_MUTE_LABEL_CHS NULL
-#define XENIA_MUTE_LABEL_CAT_CHS "静音"
-#define XENIA_MUTE_INFO_0_CHS NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_CHS NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CHS NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_CHS NULL
-#define XENIA_AUDIO_CHANNELS_INFO_0_CHS NULL
+#define XENIA_AUDIO_ENABLED_LABEL_CHS "音频输出"
+#define XENIA_AUDIO_ENABLED_INFO_0_CHS "启用或禁用音频处理和输出。"
+#define XENIA_AUDIO_CHANNELS_LABEL_CHS "音频声道数 (需重启)   "
+#define XENIA_AUDIO_CHANNELS_INFO_0_CHS "立体声：将主机的 5.1 声道向下混合为双声道。5.1 环绕声：将完整六声道传输至 RetroArch，由其音频输出布局决定直接输出至各扬声器或向下混合。需要 RetroArch 支持多声道音频输出，否则保持立体声。"
 #define OPTION_VAL_STEREO_CHS "立体声"
-#define OPTION_VAL_5_1_CHS NULL
-#define XENIA_XMA_DECODER_LABEL_CHS NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_CHS NULL
-#define XENIA_XMA_DECODER_INFO_0_CHS NULL
-#define OPTION_VAL_NEW_CHS NULL
-#define OPTION_VAL_OLD_CHS NULL
-#define OPTION_VAL_MASTER_CHS NULL
-#define OPTION_VAL_FAKE_CHS NULL
-#define XENIA_DEDICATED_XMA_THREAD_LABEL_CHS NULL
-#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_CHS NULL
-#define XENIA_DEDICATED_XMA_THREAD_INFO_0_CHS NULL
-#define XENIA_ENABLE_XMP_LABEL_CHS NULL
-#define XENIA_ENABLE_XMP_LABEL_CAT_CHS NULL
-#define XENIA_ENABLE_XMP_INFO_0_CHS NULL
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CHS NULL
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_CHS NULL
-#define XENIA_XMP_DEFAULT_VOLUME_INFO_0_CHS NULL
+#define OPTION_VAL_5_1_CHS "环绕声5.1"
+#define XENIA_XMA_DECODER_LABEL_CHS "XMA 解码器(需重启)"
+#define XENIA_XMA_DECODER_INFO_0_CHS "选择 XMA 音频解码器的实现方式。若特定游戏出现声音异常或破音，可尝试切换其他选项。"
+#define OPTION_VAL_NEW_CHS "新版 (默认)"
+#define OPTION_VAL_OLD_CHS "旧版"
+#define OPTION_VAL_MASTER_CHS "主分支 (Master)"
+#define OPTION_VAL_FAKE_CHS "伪解码 (静音)"
+#define XENIA_DEDICATED_XMA_THREAD_LABEL_CHS "专用 XMA 线程 (需重启)"
+#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_CHS "XMA 线程 (需重启)"
+#define XENIA_DEDICATED_XMA_THREAD_INFO_0_CHS "使用独立线程进行 XMA 音频解码。可能会提高音频运行性能。"
+#define XENIA_ENABLE_XMP_LABEL_CHS "音乐播放器 (XMP)"
+#define XENIA_ENABLE_XMP_LABEL_CAT_CHS "XMP 音乐播放器"
+#define XENIA_ENABLE_XMP_INFO_0_CHS "启用 Xbox 音乐播放器以支持背景音乐播放。"
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CHS "音乐播放器音量 (需重启)"
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_CHS "XMP 音量 (需重启)"
+#define XENIA_XMP_DEFAULT_VOLUME_INFO_0_CHS "游戏未单独设定时的默认背景音乐音量。"
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_CHS NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_CHS NULL
 #define OPTION_VAL_20_CHS NULL
@@ -5685,35 +5348,27 @@ struct retro_core_options_v2 options_ca = {
 #define OPTION_VAL_40_CHS NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_CHS NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_CHS NULL
-#define OPTION_VAL_70_CHS NULL
+#define OPTION_VAL_70_CHS "70% (默认)"
 #define OPTION_VAL_80_CHS NULL
 #define OPTION_VAL_90_CHS NULL
-#define OPTION_VAL_100_CHS "100%（默认）"
-#define XENIA_TIME_SCALAR_LABEL_CHS NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_CHS NULL
-#define XENIA_TIME_SCALAR_INFO_0_CHS NULL
-#define OPTION_VAL_0_25_CHS NULL
-#define OPTION_VAL_0_5_CHS NULL
-#define OPTION_VAL_1_0_CHS NULL
-#define OPTION_VAL_2_0_CHS NULL
-#define OPTION_VAL_4_0_CHS NULL
-#define XENIA_TITLE_UPDATES_LABEL_CHS NULL
-#define XENIA_TITLE_UPDATES_LABEL_CAT_CHS NULL
-#define XENIA_TITLE_UPDATES_INFO_0_CHS NULL
-#define XENIA_APPLY_PATCHES_LABEL_CHS NULL
-#define XENIA_APPLY_PATCHES_LABEL_CAT_CHS "补丁"
-#define XENIA_APPLY_PATCHES_INFO_0_CHS NULL
-#define XENIA_DIALOG_NOTIFICATIONS_LABEL_CHS NULL
-#define XENIA_DIALOG_NOTIFICATIONS_INFO_0_CHS NULL
-#define XENIA_LICENSE_MASK_LABEL_CHS NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_CHS "许可证"
-#define XENIA_LICENSE_MASK_INFO_0_CHS NULL
+#define OPTION_VAL_100_CHS NULL
+#define XENIA_TITLE_UPDATES_LABEL_CHS "应用游戏更新补丁 (需重启)"
+#define XENIA_TITLE_UPDATES_LABEL_CAT_CHS "游戏更新(重启)"
+#define XENIA_TITLE_UPDATES_INFO_0_CHS "若游戏内容目录中包含更新补丁文件，则自动应用。"
+#define XENIA_APPLY_PATCHES_LABEL_CHS "应用游戏修改补丁 (需重启)"
+#define XENIA_APPLY_PATCHES_LABEL_CAT_CHS "游戏补丁 (需重启)"
+#define XENIA_APPLY_PATCHES_INFO_0_CHS "开启自定义游戏补丁/修改功能。"
+#define XENIA_DIALOG_NOTIFICATIONS_LABEL_CHS "对话框弹窗通知"
+#define XENIA_DIALOG_NOTIFICATIONS_INFO_0_CHS "游戏弹出的系统对话框（带按键的提示框）在核心中无独立窗口展示，因此核心会自动对其进行应答，并以通知形式显示对话框标题和回应结果。禁用此项将隐藏此类通知提示，但对话框仍会以相同方式自动应答，且 Xenia 日志中仍会记录。"
+#define XENIA_LICENSE_MASK_LABEL_CHS "授权许可证掩码 (需重启)"
+#define XENIA_LICENSE_MASK_LABEL_CAT_CHS "授权许可证 (需重启)"
+#define XENIA_LICENSE_MASK_INFO_0_CHS "设置已激活内容（DLC、完整版游戏）的授权许可证掩码。\n无：无许可证。完整：使用首个许可证。全部：激活所有许可证。"
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_CHS "无"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_CHS "全双工"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_CHS "全部"
-#define XENIA_USER_LANGUAGE_LABEL_CHS NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_CHS "语言"
-#define XENIA_USER_LANGUAGE_INFO_0_CHS NULL
+#define XENIA_USER_LANGUAGE_LABEL_CHS "用户语言 (需重启)"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_CHS "语言 (需重启)"
+#define XENIA_USER_LANGUAGE_INFO_0_CHS "设置模拟主机的系统语言。"
 #define OPTION_VAL_ENGLISH_CHS "英语"
 #define OPTION_VAL_JAPANESE_CHS "日语"
 #define OPTION_VAL_GERMAN_CHS "德语"
@@ -5721,101 +5376,100 @@ struct retro_core_options_v2 options_ca = {
 #define OPTION_VAL_SPANISH_CHS "西班牙语"
 #define OPTION_VAL_ITALIAN_CHS "意大利语"
 #define OPTION_VAL_KOREAN_CHS "韩语"
-#define OPTION_VAL_TCHINESE_CHS NULL
+#define OPTION_VAL_TCHINESE_CHS "繁体中文"
 #define OPTION_VAL_PORTUGUESE_CHS "葡萄牙语"
-#define OPTION_VAL_SCHINESE_CHS NULL
-#define OPTION_VAL_POLISH_CHS NULL
+#define OPTION_VAL_SCHINESE_CHS "简体中文"
+#define OPTION_VAL_POLISH_CHS "波兰语"
 #define OPTION_VAL_RUSSIAN_CHS "俄语"
-#define XENIA_USER_COUNTRY_LABEL_CHS NULL
-#define XENIA_USER_COUNTRY_LABEL_CAT_CHS NULL
-#define XENIA_USER_COUNTRY_INFO_0_CHS NULL
-#define OPTION_VAL_UNITED_STATES_CHS NULL
-#define OPTION_VAL_GREAT_BRITAIN_CHS NULL
+#define XENIA_USER_COUNTRY_LABEL_CHS "用户国家/地区 (需重启)"
+#define XENIA_USER_COUNTRY_LABEL_CAT_CHS "国家 (重启)"
+#define XENIA_USER_COUNTRY_INFO_0_CHS "设置模拟主机的国家/地区"
+#define OPTION_VAL_UNITED_STATES_CHS "美国"
+#define OPTION_VAL_GREAT_BRITAIN_CHS "英国"
 #define OPTION_VAL_JAPAN_CHS "日本"
-#define OPTION_VAL_GERMANY_CHS NULL
-#define OPTION_VAL_FRANCE_CHS NULL
-#define OPTION_VAL_SPAIN_CHS NULL
-#define OPTION_VAL_ITALY_CHS NULL
-#define OPTION_VAL_AUSTRALIA_CHS NULL
-#define OPTION_VAL_CANADA_CHS NULL
-#define OPTION_VAL_BRAZIL_CHS NULL
-#define OPTION_VAL_KOREA_CHS NULL
-#define OPTION_VAL_CHINA_CHS NULL
-#define OPTION_VAL_MEXICO_CHS NULL
-#define OPTION_VAL_NETHERLANDS_CHS NULL
-#define OPTION_VAL_RUSSIA_CHS NULL
-#define OPTION_VAL_SWEDEN_CHS NULL
-#define OPTION_VAL_POLAND_CHS NULL
-#define OPTION_VAL_PORTUGAL_CHS NULL
-#define OPTION_VAL_TAIWAN_CHS NULL
-#define OPTION_VAL_HONG_KONG_CHS NULL
-#define XENIA_PROTECT_ZERO_LABEL_CHS NULL
-#define XENIA_PROTECT_ZERO_LABEL_CAT_CHS NULL
-#define XENIA_PROTECT_ZERO_INFO_0_CHS NULL
-#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CHS NULL
-#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CAT_CHS NULL
-#define XENIA_CLEAR_MEMORY_PAGE_STATE_INFO_0_CHS NULL
-#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CHS NULL
-#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_CHS NULL
-#define XENIA_DISABLE_CONTEXT_PROMOTION_INFO_0_CHS NULL
-#define OPTION_VAL_DISABLED_XENIA_DISABLE_CONTEXT_PROMOTION_CHS NULL
-#define OPTION_VAL_ENABLED_XENIA_DISABLE_CONTEXT_PROMOTION_CHS NULL
-#define XENIA_MOUNT_CACHE_LABEL_CHS NULL
-#define XENIA_MOUNT_CACHE_LABEL_CAT_CHS NULL
-#define XENIA_MOUNT_CACHE_INFO_0_CHS NULL
-#define XENIA_MOUNT_SCRATCH_LABEL_CHS NULL
-#define XENIA_MOUNT_SCRATCH_LABEL_CAT_CHS NULL
-#define XENIA_MOUNT_SCRATCH_INFO_0_CHS NULL
-#define XENIA_OCCLUSION_QUERY_LABEL_CHS NULL
-#define XENIA_OCCLUSION_QUERY_INFO_0_CHS NULL
-#define OPTION_VAL_FAST_CHS "快"
-#define OPTION_VAL_FAKE_XENIA_OCCLUSION_QUERY_CHS NULL
-#define OPTION_VAL_FAST_ALT_CHS NULL
-#define OPTION_VAL_STRICT_CHS "严格"
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CHS NULL
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_CHS NULL
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_INFO_0_CHS NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CHS NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CAT_CHS NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_INFO_0_CHS NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_CHS NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_CAT_CHS NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_INFO_0_CHS NULL
-#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_CHS NULL
-#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_CAT_CHS NULL
-#define XENIA_DEPTH_BIAS_SHADER_OFFSET_INFO_0_CHS NULL
-#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_CHS "分辨率缩放阈值"
-#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_CAT_CHS NULL
-#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_INFO_0_CHS NULL
-#define OPTION_VAL_0_XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_CHS NULL
-#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CHS NULL
-#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CAT_CHS NULL
-#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_INFO_0_CHS NULL
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CHS NULL
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_CHS NULL
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_CHS NULL
-#define XENIA_FORCE_DEPTH_CLAMP_LABEL_CHS NULL
-#define XENIA_FORCE_DEPTH_CLAMP_LABEL_CAT_CHS NULL
-#define XENIA_FORCE_DEPTH_CLAMP_INFO_0_CHS NULL
-#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CHS NULL
-#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CAT_CHS NULL
-#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_INFO_0_CHS NULL
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CHS NULL
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_CHS NULL
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_CHS NULL
-#define XENIA_SCRIBBLE_HEAP_LABEL_CHS NULL
-#define XENIA_SCRIBBLE_HEAP_INFO_0_CHS NULL
-#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CHS NULL
-#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_CHS NULL
-#define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_CHS NULL
-#define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_CHS NULL
-#define XENIA_LOG_LEVEL_LABEL_CHS NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_CHS NULL
-#define XENIA_LOG_LEVEL_INFO_0_CHS NULL
-#define OPTION_VAL_ERROR_CHS NULL
+#define OPTION_VAL_GERMANY_CHS "德国"
+#define OPTION_VAL_FRANCE_CHS "法国"
+#define OPTION_VAL_SPAIN_CHS "西班牙"
+#define OPTION_VAL_ITALY_CHS "意大利"
+#define OPTION_VAL_AUSTRALIA_CHS "澳大利亚"
+#define OPTION_VAL_CANADA_CHS "加拿大"
+#define OPTION_VAL_BRAZIL_CHS "巴西"
+#define OPTION_VAL_KOREA_CHS "韩国"
+#define OPTION_VAL_CHINA_CHS "中国"
+#define OPTION_VAL_MEXICO_CHS "墨西哥"
+#define OPTION_VAL_NETHERLANDS_CHS "荷兰"
+#define OPTION_VAL_RUSSIA_CHS "俄罗斯"
+#define OPTION_VAL_SWEDEN_CHS "瑞典"
+#define OPTION_VAL_POLAND_CHS "波兰"
+#define OPTION_VAL_PORTUGAL_CHS "葡萄牙"
+#define OPTION_VAL_TAIWAN_CHS "中国台湾"
+#define OPTION_VAL_HONG_KONG_CHS "中国香港"
+#define XENIA_LOG_LEVEL_LABEL_CHS "日志记录级别"
+#define XENIA_LOG_LEVEL_INFO_0_CHS "设置日志输出的详细程度"
+#define OPTION_VAL_ERROR_CHS "仅错误"
 #define OPTION_VAL_WARN_CHS "警告"
 #define OPTION_VAL_INFO_CHS "信息"
 #define OPTION_VAL_DEBUG_CHS "调试"
+#define XENIA_PROTECT_ZERO_LABEL_CHS "保护零页 (需重启)"
+#define XENIA_PROTECT_ZERO_LABEL_CAT_CHS "保护零页 (需重启)"
+#define XENIA_PROTECT_ZERO_INFO_0_CHS "保护内存零页免受读写操作。若游戏在启动时崩溃，请尝试禁用此项。"
+#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CHS "清除 GPU 内存页面状态"
+#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CAT_CHS "清除 GPU 缓存"
+#define XENIA_CLEAR_MEMORY_PAGE_STATE_INFO_0_CHS "刷新 GPU 写入数据的内存页状态。默认关闭（与独立版一致）；部分游戏需要开启此项才能正确渲染画面（如《山脊赛车 6》以及 xenia-manager 优化设置列表中的其他游戏）。"
+#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CHS "禁用上下文提升 (需重启)"
+#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_CHS "禁用上下文提升 (需重启)"
+#define XENIA_DISABLE_CONTEXT_PROMOTION_INFO_0_CHS "禁用上下文提升 (Context Promotion) CPU 优化。部分体育类游戏可能需要开启此选项以修复异常，但会降低运行性能。"
+#define OPTION_VAL_DISABLED_XENIA_DISABLE_CONTEXT_PROMOTION_CHS "关闭 (正常)"
+#define OPTION_VAL_ENABLED_XENIA_DISABLE_CONTEXT_PROMOTION_CHS "开启 (体育游戏修复)"
+#define XENIA_MOUNT_CACHE_LABEL_CHS "挂载缓存分区 (重启)"
+#define XENIA_MOUNT_CACHE_LABEL_CAT_CHS "缓存挂载(重启)"
+#define XENIA_MOUNT_CACHE_INFO_0_CHS "启用缓存分区挂载。一些游戏需要。"
+#define XENIA_MOUNT_SCRATCH_LABEL_CHS "挂载暂存分区 (需重启)"
+#define XENIA_MOUNT_SCRATCH_LABEL_CAT_CHS "挂载暂存分区 (需重启)"
+#define XENIA_MOUNT_SCRATCH_INFO_0_CHS "启用暂存 (Scratch) 分区挂载。部分游戏运行必需。"
+#define XENIA_OCCLUSION_QUERY_LABEL_CHS "遮挡查询 (需重启)"
+#define XENIA_OCCLUSION_QUERY_INFO_0_CHS "控制遮挡查询（如镜头光晕、剔除、自动曝光等特效）的处理方式。“快速 (默认)”：无需等待直接查询 GPU；“伪造”：写入预设的假结果；“快速备用”：保留缓存的零值结果；“严格”：同步等待 GPU 完成计算，最为精确。"
+#define OPTION_VAL_FAST_CHS "快"
+#define OPTION_VAL_FAKE_XENIA_OCCLUSION_QUERY_CHS "伪造"
+#define OPTION_VAL_FAST_ALT_CHS "快速备用"
+#define OPTION_VAL_STRICT_CHS "严格"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CHS "遮挡查询完整计数器 (需重启)"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_CHS "完整计数器 (需重启)"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_INFO_0_CHS "在着色器中模拟 ZFail、StencilFail 以及总遮挡计数器。少数游戏需要此选项才能正常渲染，但会消耗额外的性能。"
+#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CHS "伪造遮挡查询下限阈值"
+#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CAT_CHS "伪造下限"
+#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_INFO_0_CHS "当伪造遮挡查询时写入的伪造采样数下限。设为 -1 时不写入任何数据（这会导致部分游戏无限等待）。"
+#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_CHS "伪造遮挡查询上限阈值"
+#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_CAT_CHS "伪造上限"
+#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_INFO_0_CHS "当伪造遮挡查询时写入的伪造采样数上限。"
+#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_CHS "通过着色器处理深度偏移"
+#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_CAT_CHS "着色器深度偏移"
+#define XENIA_DEPTH_BIAS_SHADER_OFFSET_INFO_0_CHS "通过着色器路由多边形偏移贴图的绘制，而非使用宿主机的深度偏移。可修复部分游戏中的贴图深度闪烁/Z-轴冲突 (Z-fighting) 问题。"
+#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_CHS "分辨率缩放阈值"
+#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_CAT_CHS "缩放阈值"
+#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_INFO_0_CHS "像素间距等于或低于此数值的渲染目标将不会被分辨率缩放放大。可修复部分特效在缩放后渲染异常的问题。"
+#define OPTION_VAL_0_XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_CHS "0（缩放全部）"
+#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CHS "允许无效上传范围"
+#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CAT_CHS "无效上传"
+#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_INFO_0_CHS "允许游戏从被标记为不可访问的内存页中读取数据。"
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CHS "伽玛渲染目标模拟为 UNORM16 (需重启)"
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_CHS "伽玛 UNORM16 (需重启)"
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_CHS "当宿主机不支持 8 位分段伽玛时，使用每个分量 16 位的方式来模拟伽玛渲染目标。若游戏色彩显示异常请将其关闭。"
+#define XENIA_FORCE_DEPTH_CLAMP_LABEL_CHS "强制深度截取 (Depth Clamp)"
+#define XENIA_FORCE_DEPTH_CLAMP_LABEL_CAT_CHS "深度截取"
+#define XENIA_FORCE_DEPTH_CLAMP_INFO_0_CHS "使用宿主机的深度截取，替代近平面与远平面裁剪。"
+#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CHS "忽略范围分配的偏移量"
+#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CAT_CHS "范围分配偏移"
+#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_INFO_0_CHS "针对提供了指定范围的物理内存分配，忽略其 4 KB 的偏移量。少数游戏运行必需。"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CHS "遇到未实现指令时断点中断 (需重启)"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_CHS "未实现指令中断 (需重启)"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_CHS "当游戏运行到 Xenia 尚未实现的 CPU 指令时暂停运行。在 Libretro 核心中这会导致 RetroArch 直接退出；关闭此项可尝试忽略并让此类游戏继续运行。"
+#define XENIA_SCRIBBLE_HEAP_LABEL_CHS "堆内存填充测试 (Scribble Heap)"
+#define XENIA_SCRIBBLE_HEAP_INFO_0_CHS "使用特定数值填充新分配的堆内存，适用于依赖特定内存残存数据的游戏。"
+#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CHS "堆内存填充数值"
+#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_CHS "堆内存填充值"
+#define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_CHS "设置“堆内存填充”所写入内存的指定数值。设为 0 表示填充随机值。"
+#define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_CHS "0（随机）"
 
 struct retro_core_option_v2_category option_cats_chs[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_CHS,
@@ -5828,8 +5482,6 @@ struct retro_core_option_v2_category option_cats_chs[] = {
       CATEGORY_EMULATION_INFO_0_CHS },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_CHS,
       CATEGORY_COMPATIBILITY_INFO_0_CHS },
-    { "Debug", CATEGORY_DEBUG_LABEL_CHS,
-      CATEGORY_DEBUG_INFO_0_CHS },
     { "patches", CATEGORY_PATCHES_LABEL_CHS,
       CATEGORY_PATCHES_INFO_0_CHS },
     { NULL, NULL, NULL }
@@ -5841,7 +5493,7 @@ struct retro_core_option_v2_definition option_defs_chs[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_CHS,
-        XENIA_GRAPHICS_API_LABEL_CAT_CHS,
+        XENIA_GRAPHICS_API_LABEL_CHS,
         XENIA_GRAPHICS_API_INFO_0_CHS,
         NULL,
         "Graphics",
@@ -5975,20 +5627,6 @@ struct retro_core_option_v2_definition option_defs_chs[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CHS,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_CHS,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_CHS,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -6128,23 +5766,9 @@ struct retro_core_option_v2_definition option_defs_chs[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_CHS,
-        XENIA_MUTE_LABEL_CAT_CHS,
-        XENIA_MUTE_INFO_0_CHS,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_CHS },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_CHS,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_CHS,
+        XENIA_AUDIO_CHANNELS_LABEL_CHS,
         XENIA_AUDIO_CHANNELS_INFO_0_CHS,
         NULL,
         "Audio",
@@ -6158,7 +5782,7 @@ struct retro_core_option_v2_definition option_defs_chs[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_CHS,
-        XENIA_XMA_DECODER_LABEL_CAT_CHS,
+        XENIA_XMA_DECODER_LABEL_CHS,
         XENIA_XMA_DECODER_INFO_0_CHS,
         NULL,
         "Audio",
@@ -6220,28 +5844,11 @@ struct retro_core_option_v2_definition option_defs_chs[] = {
             { "100", OPTION_VAL_100_CHS },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_CHS,
-        XENIA_TIME_SCALAR_LABEL_CAT_CHS,
-        XENIA_TIME_SCALAR_INFO_0_CHS,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_CHS },
-            { "0.5",  OPTION_VAL_0_5_CHS },
-            { "1.0",  OPTION_VAL_1_0_CHS },
-            { "2.0",  OPTION_VAL_2_0_CHS },
-            { "4.0",  OPTION_VAL_4_0_CHS },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_CHS,
@@ -6284,6 +5891,9 @@ struct retro_core_option_v2_definition option_defs_chs[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_CHS,
@@ -6297,7 +5907,7 @@ struct retro_core_option_v2_definition option_defs_chs[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_CHS },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -6354,6 +5964,22 @@ struct retro_core_option_v2_definition option_defs_chs[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_CHS,
+        XENIA_LOG_LEVEL_LABEL_CHS,
+        XENIA_LOG_LEVEL_INFO_0_CHS,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_CHS },
+            { "warn",  OPTION_VAL_WARN_CHS },
+            { "info",  OPTION_VAL_INFO_CHS },
+            { "debug", OPTION_VAL_DEBUG_CHS },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -6619,22 +6245,6 @@ struct retro_core_option_v2_definition option_defs_chs[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_CHS,
-        XENIA_LOG_LEVEL_LABEL_CAT_CHS,
-        XENIA_LOG_LEVEL_INFO_0_CHS,
-        NULL,
-        OPTION_VAL_DEBUG_CHS,
-        {
-            { "error", OPTION_VAL_ERROR_CHS },
-            { "warn",  OPTION_VAL_WARN_CHS },
-            { "info",  OPTION_VAL_INFO_CHS },
-            { "debug", OPTION_VAL_DEBUG_CHS },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -6655,12 +6265,9 @@ struct retro_core_options_v2 options_chs = {
 #define CATEGORY_EMULATION_INFO_0_CHT NULL
 #define CATEGORY_COMPATIBILITY_LABEL_CHT NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_CHT NULL
-#define CATEGORY_DEBUG_LABEL_CHT NULL
-#define CATEGORY_DEBUG_INFO_0_CHT NULL
 #define CATEGORY_PATCHES_LABEL_CHT NULL
 #define CATEGORY_PATCHES_INFO_0_CHT NULL
 #define XENIA_GRAPHICS_API_LABEL_CHT NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_CHT NULL
 #define XENIA_GRAPHICS_API_INFO_0_CHT NULL
 #define OPTION_VAL_VULKAN_CHT NULL
 #define OPTION_VAL_D3D12_CHT NULL
@@ -6701,9 +6308,6 @@ struct retro_core_options_v2 options_chs = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CHT NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_CHT NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_CHT NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CHT NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_CHT NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_CHT NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CHT NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_CHT NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_CHT NULL
@@ -6736,7 +6340,7 @@ struct retro_core_options_v2 options_chs = {
 #define OPTION_VAL_13_CHT NULL
 #define OPTION_VAL_14_CHT NULL
 #define OPTION_VAL_15_CHT NULL
-#define XENIA_WIDESCREEN_LABEL_CHT "寬高比"
+#define XENIA_WIDESCREEN_LABEL_CHT NULL
 #define XENIA_WIDESCREEN_INFO_0_CHT NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_CHT NULL
 #define OPTION_VAL_DISABLED_CHT NULL
@@ -6754,17 +6358,11 @@ struct retro_core_options_v2 options_chs = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_CHT NULL
 #define XENIA_AUDIO_ENABLED_LABEL_CHT NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_CHT NULL
-#define XENIA_MUTE_LABEL_CHT NULL
-#define XENIA_MUTE_LABEL_CAT_CHT "靜音"
-#define XENIA_MUTE_INFO_0_CHT NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_CHT NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_CHT NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_CHT NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_CHT NULL
 #define OPTION_VAL_STEREO_CHT "立體聲"
 #define OPTION_VAL_5_1_CHT NULL
 #define XENIA_XMA_DECODER_LABEL_CHT NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_CHT NULL
 #define XENIA_XMA_DECODER_INFO_0_CHT NULL
 #define OPTION_VAL_NEW_CHT NULL
 #define OPTION_VAL_OLD_CHT NULL
@@ -6789,15 +6387,7 @@ struct retro_core_options_v2 options_chs = {
 #define OPTION_VAL_70_CHT NULL
 #define OPTION_VAL_80_CHT NULL
 #define OPTION_VAL_90_CHT NULL
-#define OPTION_VAL_100_CHT "100% (預設)"
-#define XENIA_TIME_SCALAR_LABEL_CHT NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_CHT NULL
-#define XENIA_TIME_SCALAR_INFO_0_CHT NULL
-#define OPTION_VAL_0_25_CHT NULL
-#define OPTION_VAL_0_5_CHT NULL
-#define OPTION_VAL_1_0_CHT NULL
-#define OPTION_VAL_2_0_CHT NULL
-#define OPTION_VAL_4_0_CHT NULL
+#define OPTION_VAL_100_CHT NULL
 #define XENIA_TITLE_UPDATES_LABEL_CHT NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_CHT NULL
 #define XENIA_TITLE_UPDATES_INFO_0_CHT NULL
@@ -6807,13 +6397,13 @@ struct retro_core_options_v2 options_chs = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_CHT NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_CHT NULL
 #define XENIA_LICENSE_MASK_LABEL_CHT NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_CHT "授權"
+#define XENIA_LICENSE_MASK_LABEL_CAT_CHT NULL
 #define XENIA_LICENSE_MASK_INFO_0_CHT NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_CHT "無"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_CHT "全部"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_CHT "全部"
 #define XENIA_USER_LANGUAGE_LABEL_CHT NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_CHT "語言"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_CHT NULL
 #define XENIA_USER_LANGUAGE_INFO_0_CHT NULL
 #define OPTION_VAL_ENGLISH_CHT "英語"
 #define OPTION_VAL_JAPANESE_CHT "日語"
@@ -6850,6 +6440,12 @@ struct retro_core_options_v2 options_chs = {
 #define OPTION_VAL_PORTUGAL_CHT NULL
 #define OPTION_VAL_TAIWAN_CHT NULL
 #define OPTION_VAL_HONG_KONG_CHT NULL
+#define XENIA_LOG_LEVEL_LABEL_CHT NULL
+#define XENIA_LOG_LEVEL_INFO_0_CHT NULL
+#define OPTION_VAL_ERROR_CHT NULL
+#define OPTION_VAL_WARN_CHT "警告"
+#define OPTION_VAL_INFO_CHT "資訊"
+#define OPTION_VAL_DEBUG_CHT NULL
 #define XENIA_PROTECT_ZERO_LABEL_CHT NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_CHT NULL
 #define XENIA_PROTECT_ZERO_INFO_0_CHT NULL
@@ -6910,13 +6506,6 @@ struct retro_core_options_v2 options_chs = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_CHT NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_CHT NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_CHT NULL
-#define XENIA_LOG_LEVEL_LABEL_CHT NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_CHT NULL
-#define XENIA_LOG_LEVEL_INFO_0_CHT NULL
-#define OPTION_VAL_ERROR_CHT NULL
-#define OPTION_VAL_WARN_CHT "警告"
-#define OPTION_VAL_INFO_CHT "資訊"
-#define OPTION_VAL_DEBUG_CHT NULL
 
 struct retro_core_option_v2_category option_cats_cht[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_CHT,
@@ -6929,8 +6518,6 @@ struct retro_core_option_v2_category option_cats_cht[] = {
       CATEGORY_EMULATION_INFO_0_CHT },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_CHT,
       CATEGORY_COMPATIBILITY_INFO_0_CHT },
-    { "Debug", CATEGORY_DEBUG_LABEL_CHT,
-      CATEGORY_DEBUG_INFO_0_CHT },
     { "patches", CATEGORY_PATCHES_LABEL_CHT,
       CATEGORY_PATCHES_INFO_0_CHT },
     { NULL, NULL, NULL }
@@ -6942,7 +6529,7 @@ struct retro_core_option_v2_definition option_defs_cht[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_CHT,
-        XENIA_GRAPHICS_API_LABEL_CAT_CHT,
+        XENIA_GRAPHICS_API_LABEL_CHT,
         XENIA_GRAPHICS_API_INFO_0_CHT,
         NULL,
         "Graphics",
@@ -7076,20 +6663,6 @@ struct retro_core_option_v2_definition option_defs_cht[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CHT,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_CHT,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_CHT,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -7229,23 +6802,9 @@ struct retro_core_option_v2_definition option_defs_cht[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_CHT,
-        XENIA_MUTE_LABEL_CAT_CHT,
-        XENIA_MUTE_INFO_0_CHT,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_CHT },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_CHT,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_CHT,
+        XENIA_AUDIO_CHANNELS_LABEL_CHT,
         XENIA_AUDIO_CHANNELS_INFO_0_CHT,
         NULL,
         "Audio",
@@ -7259,7 +6818,7 @@ struct retro_core_option_v2_definition option_defs_cht[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_CHT,
-        XENIA_XMA_DECODER_LABEL_CAT_CHT,
+        XENIA_XMA_DECODER_LABEL_CHT,
         XENIA_XMA_DECODER_INFO_0_CHT,
         NULL,
         "Audio",
@@ -7321,28 +6880,11 @@ struct retro_core_option_v2_definition option_defs_cht[] = {
             { "100", OPTION_VAL_100_CHT },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_CHT,
-        XENIA_TIME_SCALAR_LABEL_CAT_CHT,
-        XENIA_TIME_SCALAR_INFO_0_CHT,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_CHT },
-            { "0.5",  OPTION_VAL_0_5_CHT },
-            { "1.0",  OPTION_VAL_1_0_CHT },
-            { "2.0",  OPTION_VAL_2_0_CHT },
-            { "4.0",  OPTION_VAL_4_0_CHT },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_CHT,
@@ -7385,6 +6927,9 @@ struct retro_core_option_v2_definition option_defs_cht[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_CHT,
@@ -7398,7 +6943,7 @@ struct retro_core_option_v2_definition option_defs_cht[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_CHT },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -7455,6 +7000,22 @@ struct retro_core_option_v2_definition option_defs_cht[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_CHT,
+        XENIA_LOG_LEVEL_LABEL_CHT,
+        XENIA_LOG_LEVEL_INFO_0_CHT,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_CHT },
+            { "warn",  OPTION_VAL_WARN_CHT },
+            { "info",  OPTION_VAL_INFO_CHT },
+            { "debug", OPTION_VAL_DEBUG_CHT },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -7720,22 +7281,6 @@ struct retro_core_option_v2_definition option_defs_cht[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_CHT,
-        XENIA_LOG_LEVEL_LABEL_CAT_CHT,
-        XENIA_LOG_LEVEL_INFO_0_CHT,
-        NULL,
-        OPTION_VAL_DEBUG_CHT,
-        {
-            { "error", OPTION_VAL_ERROR_CHT },
-            { "warn",  OPTION_VAL_WARN_CHT },
-            { "info",  OPTION_VAL_INFO_CHT },
-            { "debug", OPTION_VAL_DEBUG_CHT },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -7756,12 +7301,9 @@ struct retro_core_options_v2 options_cht = {
 #define CATEGORY_EMULATION_INFO_0_CS NULL
 #define CATEGORY_COMPATIBILITY_LABEL_CS NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_CS NULL
-#define CATEGORY_DEBUG_LABEL_CS NULL
-#define CATEGORY_DEBUG_INFO_0_CS NULL
 #define CATEGORY_PATCHES_LABEL_CS NULL
 #define CATEGORY_PATCHES_INFO_0_CS NULL
 #define XENIA_GRAPHICS_API_LABEL_CS NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_CS NULL
 #define XENIA_GRAPHICS_API_INFO_0_CS NULL
 #define OPTION_VAL_VULKAN_CS NULL
 #define OPTION_VAL_D3D12_CS NULL
@@ -7802,9 +7344,6 @@ struct retro_core_options_v2 options_cht = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CS NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_CS NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_CS NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CS NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_CS NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_CS NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CS NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_CS NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_CS NULL
@@ -7837,7 +7376,7 @@ struct retro_core_options_v2 options_cht = {
 #define OPTION_VAL_13_CS NULL
 #define OPTION_VAL_14_CS NULL
 #define OPTION_VAL_15_CS NULL
-#define XENIA_WIDESCREEN_LABEL_CS "Poměr stran"
+#define XENIA_WIDESCREEN_LABEL_CS NULL
 #define XENIA_WIDESCREEN_INFO_0_CS NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_CS NULL
 #define OPTION_VAL_DISABLED_CS NULL
@@ -7855,17 +7394,11 @@ struct retro_core_options_v2 options_cht = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_CS NULL
 #define XENIA_AUDIO_ENABLED_LABEL_CS NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_CS NULL
-#define XENIA_MUTE_LABEL_CS NULL
-#define XENIA_MUTE_LABEL_CAT_CS "Ztlumit"
-#define XENIA_MUTE_INFO_0_CS NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_CS NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_CS NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_CS NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_CS NULL
 #define OPTION_VAL_STEREO_CS NULL
 #define OPTION_VAL_5_1_CS NULL
 #define XENIA_XMA_DECODER_LABEL_CS NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_CS NULL
 #define XENIA_XMA_DECODER_INFO_0_CS NULL
 #define OPTION_VAL_NEW_CS NULL
 #define OPTION_VAL_OLD_CS NULL
@@ -7890,15 +7423,7 @@ struct retro_core_options_v2 options_cht = {
 #define OPTION_VAL_70_CS NULL
 #define OPTION_VAL_80_CS NULL
 #define OPTION_VAL_90_CS NULL
-#define OPTION_VAL_100_CS "100% (výchozí)"
-#define XENIA_TIME_SCALAR_LABEL_CS NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_CS NULL
-#define XENIA_TIME_SCALAR_INFO_0_CS NULL
-#define OPTION_VAL_0_25_CS NULL
-#define OPTION_VAL_0_5_CS NULL
-#define OPTION_VAL_1_0_CS NULL
-#define OPTION_VAL_2_0_CS NULL
-#define OPTION_VAL_4_0_CS NULL
+#define OPTION_VAL_100_CS NULL
 #define XENIA_TITLE_UPDATES_LABEL_CS NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_CS NULL
 #define XENIA_TITLE_UPDATES_INFO_0_CS NULL
@@ -7908,13 +7433,13 @@ struct retro_core_options_v2 options_cht = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_CS NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_CS NULL
 #define XENIA_LICENSE_MASK_LABEL_CS NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_CS "Licence"
+#define XENIA_LICENSE_MASK_LABEL_CAT_CS NULL
 #define XENIA_LICENSE_MASK_INFO_0_CS NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_CS "Žádné"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_CS "Plné"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_CS "Vše"
 #define XENIA_USER_LANGUAGE_LABEL_CS NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_CS "Jazyk"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_CS NULL
 #define XENIA_USER_LANGUAGE_INFO_0_CS NULL
 #define OPTION_VAL_ENGLISH_CS "Angličtina"
 #define OPTION_VAL_JAPANESE_CS "Japonština"
@@ -7951,6 +7476,12 @@ struct retro_core_options_v2 options_cht = {
 #define OPTION_VAL_PORTUGAL_CS NULL
 #define OPTION_VAL_TAIWAN_CS NULL
 #define OPTION_VAL_HONG_KONG_CS NULL
+#define XENIA_LOG_LEVEL_LABEL_CS NULL
+#define XENIA_LOG_LEVEL_INFO_0_CS NULL
+#define OPTION_VAL_ERROR_CS NULL
+#define OPTION_VAL_WARN_CS "Varování"
+#define OPTION_VAL_INFO_CS "Informace"
+#define OPTION_VAL_DEBUG_CS NULL
 #define XENIA_PROTECT_ZERO_LABEL_CS NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_CS NULL
 #define XENIA_PROTECT_ZERO_INFO_0_CS NULL
@@ -8011,13 +7542,6 @@ struct retro_core_options_v2 options_cht = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_CS NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_CS NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_CS NULL
-#define XENIA_LOG_LEVEL_LABEL_CS NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_CS NULL
-#define XENIA_LOG_LEVEL_INFO_0_CS NULL
-#define OPTION_VAL_ERROR_CS NULL
-#define OPTION_VAL_WARN_CS "Varování"
-#define OPTION_VAL_INFO_CS "Informace"
-#define OPTION_VAL_DEBUG_CS NULL
 
 struct retro_core_option_v2_category option_cats_cs[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_CS,
@@ -8030,8 +7554,6 @@ struct retro_core_option_v2_category option_cats_cs[] = {
       CATEGORY_EMULATION_INFO_0_CS },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_CS,
       CATEGORY_COMPATIBILITY_INFO_0_CS },
-    { "Debug", CATEGORY_DEBUG_LABEL_CS,
-      CATEGORY_DEBUG_INFO_0_CS },
     { "patches", CATEGORY_PATCHES_LABEL_CS,
       CATEGORY_PATCHES_INFO_0_CS },
     { NULL, NULL, NULL }
@@ -8043,7 +7565,7 @@ struct retro_core_option_v2_definition option_defs_cs[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_CS,
-        XENIA_GRAPHICS_API_LABEL_CAT_CS,
+        XENIA_GRAPHICS_API_LABEL_CS,
         XENIA_GRAPHICS_API_INFO_0_CS,
         NULL,
         "Graphics",
@@ -8177,20 +7699,6 @@ struct retro_core_option_v2_definition option_defs_cs[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CS,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_CS,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_CS,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -8330,23 +7838,9 @@ struct retro_core_option_v2_definition option_defs_cs[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_CS,
-        XENIA_MUTE_LABEL_CAT_CS,
-        XENIA_MUTE_INFO_0_CS,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_CS },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_CS,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_CS,
+        XENIA_AUDIO_CHANNELS_LABEL_CS,
         XENIA_AUDIO_CHANNELS_INFO_0_CS,
         NULL,
         "Audio",
@@ -8360,7 +7854,7 @@ struct retro_core_option_v2_definition option_defs_cs[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_CS,
-        XENIA_XMA_DECODER_LABEL_CAT_CS,
+        XENIA_XMA_DECODER_LABEL_CS,
         XENIA_XMA_DECODER_INFO_0_CS,
         NULL,
         "Audio",
@@ -8422,28 +7916,11 @@ struct retro_core_option_v2_definition option_defs_cs[] = {
             { "100", OPTION_VAL_100_CS },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_CS,
-        XENIA_TIME_SCALAR_LABEL_CAT_CS,
-        XENIA_TIME_SCALAR_INFO_0_CS,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_CS },
-            { "0.5",  OPTION_VAL_0_5_CS },
-            { "1.0",  OPTION_VAL_1_0_CS },
-            { "2.0",  OPTION_VAL_2_0_CS },
-            { "4.0",  OPTION_VAL_4_0_CS },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_CS,
@@ -8486,6 +7963,9 @@ struct retro_core_option_v2_definition option_defs_cs[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_CS,
@@ -8499,7 +7979,7 @@ struct retro_core_option_v2_definition option_defs_cs[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_CS },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -8556,6 +8036,22 @@ struct retro_core_option_v2_definition option_defs_cs[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_CS,
+        XENIA_LOG_LEVEL_LABEL_CS,
+        XENIA_LOG_LEVEL_INFO_0_CS,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_CS },
+            { "warn",  OPTION_VAL_WARN_CS },
+            { "info",  OPTION_VAL_INFO_CS },
+            { "debug", OPTION_VAL_DEBUG_CS },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -8821,22 +8317,6 @@ struct retro_core_option_v2_definition option_defs_cs[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_CS,
-        XENIA_LOG_LEVEL_LABEL_CAT_CS,
-        XENIA_LOG_LEVEL_INFO_0_CS,
-        NULL,
-        OPTION_VAL_DEBUG_CS,
-        {
-            { "error", OPTION_VAL_ERROR_CS },
-            { "warn",  OPTION_VAL_WARN_CS },
-            { "info",  OPTION_VAL_INFO_CS },
-            { "debug", OPTION_VAL_DEBUG_CS },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -8857,12 +8337,9 @@ struct retro_core_options_v2 options_cs = {
 #define CATEGORY_EMULATION_INFO_0_CY NULL
 #define CATEGORY_COMPATIBILITY_LABEL_CY NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_CY NULL
-#define CATEGORY_DEBUG_LABEL_CY NULL
-#define CATEGORY_DEBUG_INFO_0_CY NULL
 #define CATEGORY_PATCHES_LABEL_CY NULL
 #define CATEGORY_PATCHES_INFO_0_CY NULL
 #define XENIA_GRAPHICS_API_LABEL_CY NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_CY NULL
 #define XENIA_GRAPHICS_API_INFO_0_CY NULL
 #define OPTION_VAL_VULKAN_CY NULL
 #define OPTION_VAL_D3D12_CY NULL
@@ -8903,9 +8380,6 @@ struct retro_core_options_v2 options_cs = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CY NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_CY NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_CY NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CY NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_CY NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_CY NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CY NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_CY NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_CY NULL
@@ -8956,17 +8430,11 @@ struct retro_core_options_v2 options_cs = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_CY NULL
 #define XENIA_AUDIO_ENABLED_LABEL_CY NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_CY NULL
-#define XENIA_MUTE_LABEL_CY NULL
-#define XENIA_MUTE_LABEL_CAT_CY "Distawi"
-#define XENIA_MUTE_INFO_0_CY NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_CY NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_CY NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_CY NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_CY NULL
 #define OPTION_VAL_STEREO_CY NULL
 #define OPTION_VAL_5_1_CY NULL
 #define XENIA_XMA_DECODER_LABEL_CY NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_CY NULL
 #define XENIA_XMA_DECODER_INFO_0_CY NULL
 #define OPTION_VAL_NEW_CY NULL
 #define OPTION_VAL_OLD_CY NULL
@@ -8992,14 +8460,6 @@ struct retro_core_options_v2 options_cs = {
 #define OPTION_VAL_80_CY NULL
 #define OPTION_VAL_90_CY NULL
 #define OPTION_VAL_100_CY NULL
-#define XENIA_TIME_SCALAR_LABEL_CY NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_CY NULL
-#define XENIA_TIME_SCALAR_INFO_0_CY NULL
-#define OPTION_VAL_0_25_CY NULL
-#define OPTION_VAL_0_5_CY NULL
-#define OPTION_VAL_1_0_CY NULL
-#define OPTION_VAL_2_0_CY NULL
-#define OPTION_VAL_4_0_CY NULL
 #define XENIA_TITLE_UPDATES_LABEL_CY NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_CY NULL
 #define XENIA_TITLE_UPDATES_INFO_0_CY NULL
@@ -9009,7 +8469,7 @@ struct retro_core_options_v2 options_cs = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_CY NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_CY NULL
 #define XENIA_LICENSE_MASK_LABEL_CY NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_CY "Trwydded"
+#define XENIA_LICENSE_MASK_LABEL_CAT_CY NULL
 #define XENIA_LICENSE_MASK_INFO_0_CY NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_CY "Dim"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_CY NULL
@@ -9052,6 +8512,12 @@ struct retro_core_options_v2 options_cs = {
 #define OPTION_VAL_PORTUGAL_CY NULL
 #define OPTION_VAL_TAIWAN_CY NULL
 #define OPTION_VAL_HONG_KONG_CY NULL
+#define XENIA_LOG_LEVEL_LABEL_CY NULL
+#define XENIA_LOG_LEVEL_INFO_0_CY NULL
+#define OPTION_VAL_ERROR_CY NULL
+#define OPTION_VAL_WARN_CY NULL
+#define OPTION_VAL_INFO_CY "Gwybodaeth"
+#define OPTION_VAL_DEBUG_CY NULL
 #define XENIA_PROTECT_ZERO_LABEL_CY NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_CY NULL
 #define XENIA_PROTECT_ZERO_INFO_0_CY NULL
@@ -9112,13 +8578,6 @@ struct retro_core_options_v2 options_cs = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_CY NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_CY NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_CY NULL
-#define XENIA_LOG_LEVEL_LABEL_CY NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_CY NULL
-#define XENIA_LOG_LEVEL_INFO_0_CY NULL
-#define OPTION_VAL_ERROR_CY NULL
-#define OPTION_VAL_WARN_CY NULL
-#define OPTION_VAL_INFO_CY "Gwybodaeth"
-#define OPTION_VAL_DEBUG_CY NULL
 
 struct retro_core_option_v2_category option_cats_cy[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_CY,
@@ -9131,8 +8590,6 @@ struct retro_core_option_v2_category option_cats_cy[] = {
       CATEGORY_EMULATION_INFO_0_CY },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_CY,
       CATEGORY_COMPATIBILITY_INFO_0_CY },
-    { "Debug", CATEGORY_DEBUG_LABEL_CY,
-      CATEGORY_DEBUG_INFO_0_CY },
     { "patches", CATEGORY_PATCHES_LABEL_CY,
       CATEGORY_PATCHES_INFO_0_CY },
     { NULL, NULL, NULL }
@@ -9144,7 +8601,7 @@ struct retro_core_option_v2_definition option_defs_cy[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_CY,
-        XENIA_GRAPHICS_API_LABEL_CAT_CY,
+        XENIA_GRAPHICS_API_LABEL_CY,
         XENIA_GRAPHICS_API_INFO_0_CY,
         NULL,
         "Graphics",
@@ -9278,20 +8735,6 @@ struct retro_core_option_v2_definition option_defs_cy[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CY,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_CY,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_CY,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -9431,23 +8874,9 @@ struct retro_core_option_v2_definition option_defs_cy[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_CY,
-        XENIA_MUTE_LABEL_CAT_CY,
-        XENIA_MUTE_INFO_0_CY,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_CY },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_CY,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_CY,
+        XENIA_AUDIO_CHANNELS_LABEL_CY,
         XENIA_AUDIO_CHANNELS_INFO_0_CY,
         NULL,
         "Audio",
@@ -9461,7 +8890,7 @@ struct retro_core_option_v2_definition option_defs_cy[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_CY,
-        XENIA_XMA_DECODER_LABEL_CAT_CY,
+        XENIA_XMA_DECODER_LABEL_CY,
         XENIA_XMA_DECODER_INFO_0_CY,
         NULL,
         "Audio",
@@ -9523,28 +8952,11 @@ struct retro_core_option_v2_definition option_defs_cy[] = {
             { "100", OPTION_VAL_100_CY },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_CY,
-        XENIA_TIME_SCALAR_LABEL_CAT_CY,
-        XENIA_TIME_SCALAR_INFO_0_CY,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_CY },
-            { "0.5",  OPTION_VAL_0_5_CY },
-            { "1.0",  OPTION_VAL_1_0_CY },
-            { "2.0",  OPTION_VAL_2_0_CY },
-            { "4.0",  OPTION_VAL_4_0_CY },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_CY,
@@ -9587,6 +8999,9 @@ struct retro_core_option_v2_definition option_defs_cy[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_CY,
@@ -9600,7 +9015,7 @@ struct retro_core_option_v2_definition option_defs_cy[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_CY },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -9657,6 +9072,22 @@ struct retro_core_option_v2_definition option_defs_cy[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_CY,
+        XENIA_LOG_LEVEL_LABEL_CY,
+        XENIA_LOG_LEVEL_INFO_0_CY,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_CY },
+            { "warn",  OPTION_VAL_WARN_CY },
+            { "info",  OPTION_VAL_INFO_CY },
+            { "debug", OPTION_VAL_DEBUG_CY },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -9922,22 +9353,6 @@ struct retro_core_option_v2_definition option_defs_cy[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_CY,
-        XENIA_LOG_LEVEL_LABEL_CAT_CY,
-        XENIA_LOG_LEVEL_INFO_0_CY,
-        NULL,
-        OPTION_VAL_DEBUG_CY,
-        {
-            { "error", OPTION_VAL_ERROR_CY },
-            { "warn",  OPTION_VAL_WARN_CY },
-            { "info",  OPTION_VAL_INFO_CY },
-            { "debug", OPTION_VAL_DEBUG_CY },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -9958,12 +9373,9 @@ struct retro_core_options_v2 options_cy = {
 #define CATEGORY_EMULATION_INFO_0_DA NULL
 #define CATEGORY_COMPATIBILITY_LABEL_DA NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_DA NULL
-#define CATEGORY_DEBUG_LABEL_DA NULL
-#define CATEGORY_DEBUG_INFO_0_DA NULL
 #define CATEGORY_PATCHES_LABEL_DA NULL
 #define CATEGORY_PATCHES_INFO_0_DA NULL
 #define XENIA_GRAPHICS_API_LABEL_DA NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_DA NULL
 #define XENIA_GRAPHICS_API_INFO_0_DA NULL
 #define OPTION_VAL_VULKAN_DA NULL
 #define OPTION_VAL_D3D12_DA NULL
@@ -10004,9 +9416,6 @@ struct retro_core_options_v2 options_cy = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_DA NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_DA NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_DA NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_DA NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_DA NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_DA NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_DA NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_DA NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_DA NULL
@@ -10057,17 +9466,11 @@ struct retro_core_options_v2 options_cy = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_DA NULL
 #define XENIA_AUDIO_ENABLED_LABEL_DA NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_DA NULL
-#define XENIA_MUTE_LABEL_DA NULL
-#define XENIA_MUTE_LABEL_CAT_DA NULL
-#define XENIA_MUTE_INFO_0_DA NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_DA NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_DA NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_DA NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_DA NULL
 #define OPTION_VAL_STEREO_DA NULL
 #define OPTION_VAL_5_1_DA NULL
 #define XENIA_XMA_DECODER_LABEL_DA NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_DA NULL
 #define XENIA_XMA_DECODER_INFO_0_DA NULL
 #define OPTION_VAL_NEW_DA NULL
 #define OPTION_VAL_OLD_DA NULL
@@ -10093,14 +9496,6 @@ struct retro_core_options_v2 options_cy = {
 #define OPTION_VAL_80_DA NULL
 #define OPTION_VAL_90_DA NULL
 #define OPTION_VAL_100_DA NULL
-#define XENIA_TIME_SCALAR_LABEL_DA NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_DA NULL
-#define XENIA_TIME_SCALAR_INFO_0_DA NULL
-#define OPTION_VAL_0_25_DA NULL
-#define OPTION_VAL_0_5_DA NULL
-#define OPTION_VAL_1_0_DA NULL
-#define OPTION_VAL_2_0_DA NULL
-#define OPTION_VAL_4_0_DA NULL
 #define XENIA_TITLE_UPDATES_LABEL_DA NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_DA NULL
 #define XENIA_TITLE_UPDATES_INFO_0_DA NULL
@@ -10110,7 +9505,7 @@ struct retro_core_options_v2 options_cy = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_DA NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_DA NULL
 #define XENIA_LICENSE_MASK_LABEL_DA NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_DA "Licens"
+#define XENIA_LICENSE_MASK_LABEL_CAT_DA NULL
 #define XENIA_LICENSE_MASK_INFO_0_DA NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_DA NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_DA NULL
@@ -10153,6 +9548,12 @@ struct retro_core_options_v2 options_cy = {
 #define OPTION_VAL_PORTUGAL_DA NULL
 #define OPTION_VAL_TAIWAN_DA NULL
 #define OPTION_VAL_HONG_KONG_DA NULL
+#define XENIA_LOG_LEVEL_LABEL_DA NULL
+#define XENIA_LOG_LEVEL_INFO_0_DA NULL
+#define OPTION_VAL_ERROR_DA NULL
+#define OPTION_VAL_WARN_DA NULL
+#define OPTION_VAL_INFO_DA NULL
+#define OPTION_VAL_DEBUG_DA NULL
 #define XENIA_PROTECT_ZERO_LABEL_DA NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_DA NULL
 #define XENIA_PROTECT_ZERO_INFO_0_DA NULL
@@ -10213,13 +9614,6 @@ struct retro_core_options_v2 options_cy = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_DA NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_DA NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_DA NULL
-#define XENIA_LOG_LEVEL_LABEL_DA NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_DA NULL
-#define XENIA_LOG_LEVEL_INFO_0_DA NULL
-#define OPTION_VAL_ERROR_DA NULL
-#define OPTION_VAL_WARN_DA NULL
-#define OPTION_VAL_INFO_DA NULL
-#define OPTION_VAL_DEBUG_DA NULL
 
 struct retro_core_option_v2_category option_cats_da[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_DA,
@@ -10232,8 +9626,6 @@ struct retro_core_option_v2_category option_cats_da[] = {
       CATEGORY_EMULATION_INFO_0_DA },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_DA,
       CATEGORY_COMPATIBILITY_INFO_0_DA },
-    { "Debug", CATEGORY_DEBUG_LABEL_DA,
-      CATEGORY_DEBUG_INFO_0_DA },
     { "patches", CATEGORY_PATCHES_LABEL_DA,
       CATEGORY_PATCHES_INFO_0_DA },
     { NULL, NULL, NULL }
@@ -10245,7 +9637,7 @@ struct retro_core_option_v2_definition option_defs_da[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_DA,
-        XENIA_GRAPHICS_API_LABEL_CAT_DA,
+        XENIA_GRAPHICS_API_LABEL_DA,
         XENIA_GRAPHICS_API_INFO_0_DA,
         NULL,
         "Graphics",
@@ -10379,20 +9771,6 @@ struct retro_core_option_v2_definition option_defs_da[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_DA,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_DA,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_DA,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -10532,23 +9910,9 @@ struct retro_core_option_v2_definition option_defs_da[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_DA,
-        XENIA_MUTE_LABEL_CAT_DA,
-        XENIA_MUTE_INFO_0_DA,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_DA },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_DA,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_DA,
+        XENIA_AUDIO_CHANNELS_LABEL_DA,
         XENIA_AUDIO_CHANNELS_INFO_0_DA,
         NULL,
         "Audio",
@@ -10562,7 +9926,7 @@ struct retro_core_option_v2_definition option_defs_da[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_DA,
-        XENIA_XMA_DECODER_LABEL_CAT_DA,
+        XENIA_XMA_DECODER_LABEL_DA,
         XENIA_XMA_DECODER_INFO_0_DA,
         NULL,
         "Audio",
@@ -10624,28 +9988,11 @@ struct retro_core_option_v2_definition option_defs_da[] = {
             { "100", OPTION_VAL_100_DA },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_DA,
-        XENIA_TIME_SCALAR_LABEL_CAT_DA,
-        XENIA_TIME_SCALAR_INFO_0_DA,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_DA },
-            { "0.5",  OPTION_VAL_0_5_DA },
-            { "1.0",  OPTION_VAL_1_0_DA },
-            { "2.0",  OPTION_VAL_2_0_DA },
-            { "4.0",  OPTION_VAL_4_0_DA },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_DA,
@@ -10688,6 +10035,9 @@ struct retro_core_option_v2_definition option_defs_da[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_DA,
@@ -10701,7 +10051,7 @@ struct retro_core_option_v2_definition option_defs_da[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_DA },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -10758,6 +10108,22 @@ struct retro_core_option_v2_definition option_defs_da[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_DA,
+        XENIA_LOG_LEVEL_LABEL_DA,
+        XENIA_LOG_LEVEL_INFO_0_DA,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_DA },
+            { "warn",  OPTION_VAL_WARN_DA },
+            { "info",  OPTION_VAL_INFO_DA },
+            { "debug", OPTION_VAL_DEBUG_DA },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -11023,22 +10389,6 @@ struct retro_core_option_v2_definition option_defs_da[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_DA,
-        XENIA_LOG_LEVEL_LABEL_CAT_DA,
-        XENIA_LOG_LEVEL_INFO_0_DA,
-        NULL,
-        OPTION_VAL_DEBUG_DA,
-        {
-            { "error", OPTION_VAL_ERROR_DA },
-            { "warn",  OPTION_VAL_WARN_DA },
-            { "info",  OPTION_VAL_INFO_DA },
-            { "debug", OPTION_VAL_DEBUG_DA },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -11056,25 +10406,22 @@ struct retro_core_options_v2 options_da = {
 #define CATEGORY_AUDIO_LABEL_DE "Audioeinstellungen"
 #define CATEGORY_AUDIO_INFO_0_DE "Audioausgabe, XMA-Decoder, Musikplayer."
 #define CATEGORY_EMULATION_LABEL_DE "Emulationseinstellungen"
-#define CATEGORY_EMULATION_INFO_0_DE "Geschwindigkeit, Sprache, Land, Lizenzen, Patches."
+#define CATEGORY_EMULATION_INFO_0_DE "Geschwindigkeit, Sprache, Land, Lizenzen, Patches, Protokollierungsstufe."
 #define CATEGORY_COMPATIBILITY_LABEL_DE "Kompatibilitätseinstellungen"
 #define CATEGORY_COMPATIBILITY_INFO_0_DE "Spielbezogene Hacks, Speicher, Cache-/Scratch-Mounts."
-#define CATEGORY_DEBUG_LABEL_DE "Debugeinstellungen"
-#define CATEGORY_DEBUG_INFO_0_DE "Protokollierungsstufe."
 #define CATEGORY_PATCHES_LABEL_DE "Patch-Verwaltung"
 #define CATEGORY_PATCHES_INFO_0_DE "Patches für diese Spielversion aus Xenia Edges Game-Patches. Änderungen werden beim nächsten Start übernommen."
 #define XENIA_GRAPHICS_API_LABEL_DE "Grafik-API (Neustart)"
-#define XENIA_GRAPHICS_API_LABEL_CAT_DE "Grafik-API"
 #define XENIA_GRAPHICS_API_INFO_0_DE "GPU-Backend, mit dem Xenia die Xbox-360-GPU emuliert, und Kontext, den der Core bei RetroArch anfordert: RetroArch passt den Videotreiber entsprechend an, sofern dies zulässig ist (Einstellungen > Video > Ausgabe). Wird beim erneuten Laden des Inhalts wirksam."
 #define OPTION_VAL_VULKAN_DE NULL
 #define OPTION_VAL_D3D12_DE NULL
-#define XENIA_RENDER_TARGET_PATH_LABEL_DE "Renderzielpfad"
-#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_DE "RT-Pfad"
+#define XENIA_RENDER_TARGET_PATH_LABEL_DE "Renderzielpfad (Neustart)"
+#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_DE "RT-Pfad (Neustart)"
 #define XENIA_RENDER_TARGET_PATH_INFO_0_DE "Renderziel-Emulationsmodus auswählen.\nLeistung: Host-Renderziele mit Fixed-Function-Blending.\nGenauigkeit: Synchronisierung im Pixelshader / geordnete Rasterizeransichten."
 #define OPTION_VAL_PERFORMANCE_DE "Leistung"
 #define OPTION_VAL_ACCURACY_DE "Genauigkeit"
 #define XENIA_DRAW_RESOLUTION_SCALE_LABEL_DE "Skalierung der Renderauflösung (Neustart erforderlich)"
-#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_DE "Auflösungsskalierung"
+#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_DE "Auflösungsskalierung (Neustart)"
 #define XENIA_DRAW_RESOLUTION_SCALE_INFO_0_DE "Skaliert die interne Renderauflösung. Höhere Werte verbessern die Bildqualität, benötigen aber mehr GPU-Leistung. Ein Neustart ist erforderlich."
 #define OPTION_VAL_1_DE "1× (720p nativ)"
 #define OPTION_VAL_2_DE "2× (1440p)"
@@ -11096,41 +10443,38 @@ struct retro_core_options_v2 options_da = {
 #define XENIA_READBACK_RESOLVE_LABEL_DE "Aufbereitung beim Auslesen"
 #define XENIA_READBACK_RESOLVE_LABEL_CAT_DE "Auslesen"
 #define XENIA_READBACK_RESOLVE_INFO_0_DE "Render-to-Texture-Ausgabe beim Zugriff durch die CPU zurück in den Gastspeicher kopieren. Bei Deaktivierung funktionieren Spiele nicht, die diese Daten zurücklesen."
-#define XENIA_STORE_SHADERS_LABEL_DE "Shader speichern"
-#define XENIA_STORE_SHADERS_LABEL_CAT_DE "Shadercache"
+#define XENIA_STORE_SHADERS_LABEL_DE "Shader speichern (Neustart)"
+#define XENIA_STORE_SHADERS_LABEL_CAT_DE "Shadercache (Neustart)"
 #define XENIA_STORE_SHADERS_INFO_0_DE "Kompilierte Shader dauerhaft speichern, um Ruckler durch erneute Kompilierung bei späteren Starts zu vermeiden."
 #define XENIA_HALF_PIXEL_OFFSET_LABEL_DE "Halbpixel-Offset"
 #define XENIA_HALF_PIXEL_OFFSET_LABEL_CAT_DE "Halbpixel"
 #define XENIA_HALF_PIXEL_OFFSET_INFO_0_DE "D3D9-artigen Halbpixel-Offset aktivieren. Für die meisten Spiele geeignet. Deaktivieren, wenn die Darstellung verschoben oder unscharf ist."
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_DE "Ungültige Fetch-Konstanten zulassen"
-#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_DE NULL
-#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_DE NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_DE NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_DE NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_DE NULL
-#define XENIA_DISPLAY_REFRESH_LABEL_DE NULL
-#define XENIA_DISPLAY_REFRESH_LABEL_CAT_DE NULL
-#define XENIA_DISPLAY_REFRESH_INFO_0_DE NULL
+#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_DE "Ungültiger Fetch"
+#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_DE "Texture-/Vertex-Fetch-Konstanten mit ungültigem Typ zulassen. Kann Abstürze in einigen Spielen beheben, ist aber generell unsicher."
+#define XENIA_DISPLAY_REFRESH_LABEL_DE "Emulierte Bildwiederholfrequenz"
+#define XENIA_DISPLAY_REFRESH_LABEL_CAT_DE "Bildwiederholfrequenz des Bildschirms"
+#define XENIA_DISPLAY_REFRESH_INFO_0_DE "Bildwiederholfrequenz des Fernsehers, an dem das Spiel laut eigener Annahme läuft, wie bei der entsprechenden Option in der Standalone-Version. NTSC (60 Hz) entspricht der Konsole. PAL (50 Hz) entspricht einem PAL-Fernseher: Spiele laufen mit 50 Frames pro Sekunde. Bildrate entsperren setzt diese Einstellung außer Kraft."
 #define OPTION_VAL_60_DE "NTSC (60 Hz)"
 #define OPTION_VAL_50_DE "PAL (50 Hz)"
-#define XENIA_WAIT_FOR_FRAME_LABEL_DE NULL
-#define XENIA_WAIT_FOR_FRAME_INFO_0_DE NULL
-#define XENIA_UNLOCK_FRAMERATE_LABEL_DE NULL
-#define XENIA_UNLOCK_FRAMERATE_INFO_0_DE NULL
+#define XENIA_WAIT_FOR_FRAME_LABEL_DE "[Libretro] Auf Frame warten"
+#define XENIA_WAIT_FOR_FRAME_INFO_0_DE "Verringert die Eingabelatenz um 1 Frame, kann aber zu Rucklern im Spiel führen. Empfohlen für leistungsstarke Hardware und/oder wenig anspruchsvolle Spiele."
+#define XENIA_UNLOCK_FRAMERATE_LABEL_DE "Bildrate entsperren"
+#define XENIA_UNLOCK_FRAMERATE_INFO_0_DE "Nur bei Spielen verwenden, deren Spiellogik nicht an die Bildrate gekoppelt ist; andernfalls laufen sie zu schnell. Bei 30-fps-Spielen mit 60 fps: zwei VBlanks pro von RetroArch angezeigtem Frame. Bei 60-fps-Spielen mit 120 fps: Der Core läuft mit 120 Frames pro Sekunde (RetroArch und Bildschirm entsprechend einstellen). Unbegrenzt: VBlanks so schnell wie möglich. Bei aufgelisteten Spielen wird dem laufenden Spiel die in system/Xenia-Edge/xenia_framerate_unlock.txt angegebene Bildrate vorgegeben. Lässt sich während des Spiels ändern."
 #define OPTION_VAL_ENABLED_DE "Aufgeführte Spiele"
 #define OPTION_VAL_30TO60_DE "30-fps-Spiele bei 60"
 #define OPTION_VAL_120_DE "60-fps-Spiele bei 120"
 #define OPTION_VAL_UNCAPPED_DE "Unbegrenzt"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_DE "Interne Bildschirmauflösung (Neustart)"
-#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_DE "Bildschirmauflösung"
-#define XENIA_INTERNAL_DISPLAY_RESOLUTION_INFO_0_DE NULL
-#define OPTION_VAL_0_DE "640 x 480"
+#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_DE "Bildschirmauflösung (Neustart)"
+#define XENIA_INTERNAL_DISPLAY_RESOLUTION_INFO_0_DE "Spielen, die mehrere Auflösungen unterstützen, das Rendern mit einer bestimmten Auflösung ermöglichen. Nicht alle Spiele unterstützen diese Funktion."
+#define OPTION_VAL_0_DE "640 × 480"
 #define OPTION_VAL_1_XENIA_INTERNAL_DISPLAY_RESOLUTION_DE "640 × 576"
 #define OPTION_VAL_2_XENIA_INTERNAL_DISPLAY_RESOLUTION_DE "720 × 480"
 #define OPTION_VAL_3_XENIA_INTERNAL_DISPLAY_RESOLUTION_DE "720 × 576"
-#define OPTION_VAL_4_XENIA_INTERNAL_DISPLAY_RESOLUTION_DE "800 x 600"
+#define OPTION_VAL_4_XENIA_INTERNAL_DISPLAY_RESOLUTION_DE "800 × 600"
 #define OPTION_VAL_5_XENIA_INTERNAL_DISPLAY_RESOLUTION_DE "848 × 480"
-#define OPTION_VAL_6_XENIA_INTERNAL_DISPLAY_RESOLUTION_DE "1024 x 768"
+#define OPTION_VAL_6_XENIA_INTERNAL_DISPLAY_RESOLUTION_DE "1024 × 768"
 #define OPTION_VAL_7_XENIA_INTERNAL_DISPLAY_RESOLUTION_DE "1152 × 864"
 #define OPTION_VAL_8_XENIA_INTERNAL_DISPLAY_RESOLUTION_DE "1280 × 720 (Standard)"
 #define OPTION_VAL_9_DE "1280 × 768"
@@ -11140,49 +10484,43 @@ struct retro_core_options_v2 options_da = {
 #define OPTION_VAL_13_DE "1680 × 1050"
 #define OPTION_VAL_14_DE "1920 × 540"
 #define OPTION_VAL_15_DE "1920 × 1080"
-#define XENIA_WIDESCREEN_LABEL_DE "Bildseitenverhältnis"
+#define XENIA_WIDESCREEN_LABEL_DE "Seitenverhältnis (Neustart)"
 #define XENIA_WIDESCREEN_INFO_0_DE "Das Seitenverhältnis, auf das die Konsole eingestellt ist und in dem das Bild angezeigt wird. Nur einige Xbox-360-Spiele unterstützen nativ 4:3."
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_DE "16:9 (Standard)"
 #define OPTION_VAL_DISABLED_DE NULL
-#define XENIA_VIDEO_STANDARD_LABEL_DE "Videostandard"
-#define XENIA_VIDEO_STANDARD_LABEL_CAT_DE NULL
+#define XENIA_VIDEO_STANDARD_LABEL_DE "Videostandard (Neustart)"
+#define XENIA_VIDEO_STANDARD_LABEL_CAT_DE "Signal (Neustart)"
 #define XENIA_VIDEO_STANDARD_INFO_0_DE "Videosignalstandard auswählen. Beeinflusst die Erkennung der Region."
 #define OPTION_VAL_1_XENIA_VIDEO_STANDARD_DE NULL
 #define OPTION_VAL_2_XENIA_VIDEO_STANDARD_DE NULL
 #define OPTION_VAL_3_XENIA_VIDEO_STANDARD_DE NULL
-#define XENIA_DISPLAY_GAMMA_LABEL_DE "Anzeigegamma"
-#define XENIA_DISPLAY_GAMMA_LABEL_CAT_DE NULL
+#define XENIA_DISPLAY_GAMMA_LABEL_DE "Anzeigegamma (Neustart)"
+#define XENIA_DISPLAY_GAMMA_LABEL_CAT_DE "Gamma (Neustart)"
 #define XENIA_DISPLAY_GAMMA_INFO_0_DE "Anzeigegammakurve auswählen.\nBT.709 (HDTV) kommt der Xbox 360 auf modernen Bildschirmen am nächsten."
 #define OPTION_VAL_0_XENIA_DISPLAY_GAMMA_DE NULL
 #define OPTION_VAL_1_XENIA_DISPLAY_GAMMA_DE NULL
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_DE NULL
 #define XENIA_AUDIO_ENABLED_LABEL_DE "Audioausgabe"
 #define XENIA_AUDIO_ENABLED_INFO_0_DE "Audioverarbeitung und -ausgabe aktivieren oder deaktivieren."
-#define XENIA_MUTE_LABEL_DE "Audio stummschalten"
-#define XENIA_MUTE_LABEL_CAT_DE "Stummschalten"
-#define XENIA_MUTE_INFO_0_DE "Alle Audioausgaben stummschalten, während die Audioverarbeitung aktiv bleibt."
-#define OPTION_VAL_ENABLED_XENIA_MUTE_DE "Aktiviert (Stummgeschaltet)"
 #define XENIA_AUDIO_CHANNELS_LABEL_DE "Audiokanäle (Neustart erforderlich)"
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_DE "Audiokanäle"
 #define XENIA_AUDIO_CHANNELS_INFO_0_DE "Stereo: Der 5.1-Ton der Konsole wird auf zwei Kanäle heruntergemischt. Surround 5.1: Alle sechs Kanäle werden an RetroArch ausgegeben. Das Audioausgabelayout von RetroArch entscheidet dann zwischen Lautsprecherausgabe und Heruntermischen. Erfordert eine RetroArch-Version mit Mehrkanal-Audioausgabe; andernfalls bleibt Stereo aktiviert."
 #define OPTION_VAL_STEREO_DE NULL
 #define OPTION_VAL_5_1_DE NULL
 #define XENIA_XMA_DECODER_LABEL_DE "XMA-Decoder (Neustart erforderlich)"
-#define XENIA_XMA_DECODER_LABEL_CAT_DE "XMA-Decoder"
 #define XENIA_XMA_DECODER_INFO_0_DE "XMA-Audiodecoder-Implementierung auswählen. Bei Audioproblemen in einem bestimmten Spiel eine andere Option ausprobieren."
 #define OPTION_VAL_NEW_DE "Neu (Standard)"
 #define OPTION_VAL_OLD_DE "Alt"
 #define OPTION_VAL_MASTER_DE NULL
 #define OPTION_VAL_FAKE_DE "Simuliert (Stille)"
-#define XENIA_DEDICATED_XMA_THREAD_LABEL_DE "Eigener XMA-Thread"
-#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_DE NULL
-#define XENIA_DEDICATED_XMA_THREAD_INFO_0_DE NULL
-#define XENIA_ENABLE_XMP_LABEL_DE NULL
+#define XENIA_DEDICATED_XMA_THREAD_LABEL_DE "Separater XMA-Thread (Neustart)"
+#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_DE "XMA-Thread (Neustart)"
+#define XENIA_DEDICATED_XMA_THREAD_INFO_0_DE "Einen separaten Thread für die XMA-Audiodekodierung verwenden. Kann die Audioleistung verbessern."
+#define XENIA_ENABLE_XMP_LABEL_DE "Musikplayer (XMP)"
 #define XENIA_ENABLE_XMP_LABEL_CAT_DE NULL
-#define XENIA_ENABLE_XMP_INFO_0_DE NULL
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_DE NULL
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_DE NULL
-#define XENIA_XMP_DEFAULT_VOLUME_INFO_0_DE NULL
+#define XENIA_ENABLE_XMP_INFO_0_DE "Den Xbox-Musikplayer für die Musikwiedergabe im Hintergrund aktivieren."
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_DE "Musikplayer-Lautstärke (Neustart)"
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_DE "XMP-Lautstärke (Neustart)"
+#define XENIA_XMP_DEFAULT_VOLUME_INFO_0_DE "Standardlautstärke der Musik, wenn das Spiel keine Lautstärke vorgibt."
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_DE "0 %"
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_DE "10 %"
 #define OPTION_VAL_20_DE "20 %"
@@ -11190,35 +10528,27 @@ struct retro_core_options_v2 options_da = {
 #define OPTION_VAL_40_DE "40 %"
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_DE "50 %"
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_DE "60 %"
-#define OPTION_VAL_70_DE "70 %"
+#define OPTION_VAL_70_DE "70 % (Standard)"
 #define OPTION_VAL_80_DE "80 %"
 #define OPTION_VAL_90_DE "90 %"
-#define OPTION_VAL_100_DE "100 % (Standard)"
-#define XENIA_TIME_SCALAR_LABEL_DE NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_DE NULL
-#define XENIA_TIME_SCALAR_INFO_0_DE NULL
-#define OPTION_VAL_0_25_DE NULL
-#define OPTION_VAL_0_5_DE NULL
-#define OPTION_VAL_1_0_DE NULL
-#define OPTION_VAL_2_0_DE NULL
-#define OPTION_VAL_4_0_DE NULL
-#define XENIA_TITLE_UPDATES_LABEL_DE NULL
-#define XENIA_TITLE_UPDATES_LABEL_CAT_DE NULL
-#define XENIA_TITLE_UPDATES_INFO_0_DE NULL
-#define XENIA_APPLY_PATCHES_LABEL_DE NULL
-#define XENIA_APPLY_PATCHES_LABEL_CAT_DE NULL
-#define XENIA_APPLY_PATCHES_INFO_0_DE NULL
-#define XENIA_DIALOG_NOTIFICATIONS_LABEL_DE NULL
-#define XENIA_DIALOG_NOTIFICATIONS_INFO_0_DE NULL
-#define XENIA_LICENSE_MASK_LABEL_DE NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_DE "Lizenz"
-#define XENIA_LICENSE_MASK_INFO_0_DE NULL
+#define OPTION_VAL_100_DE "100 %"
+#define XENIA_TITLE_UPDATES_LABEL_DE "Titelupdates anwenden (Neustart)"
+#define XENIA_TITLE_UPDATES_LABEL_CAT_DE "Titelupdates (Neustart)"
+#define XENIA_TITLE_UPDATES_INFO_0_DE "Titelupdate-Patches anwenden, falls im Inhalteverzeichnis vorhanden."
+#define XENIA_APPLY_PATCHES_LABEL_DE "Spielpatches anwenden (Neustart)"
+#define XENIA_APPLY_PATCHES_LABEL_CAT_DE "Patches (Neustart)"
+#define XENIA_APPLY_PATCHES_INFO_0_DE "Benutzerdefinierte Funktionen zum Patchen von Spielen aktivieren."
+#define XENIA_DIALOG_NOTIFICATIONS_LABEL_DE "Dialogbenachrichtigungen"
+#define XENIA_DIALOG_NOTIFICATIONS_INFO_0_DE "Ein vom Spiel geöffnetes Systemdialogfeld (Meldungsfenster mit Schaltflächen) wird im Core nicht als Fenster angezeigt. Daher beantwortet der Core den Dialog und zeigt dessen Titel sowie die gegebene Antwort als Benachrichtigung an. Bei deaktivierter Option werden diese Benachrichtigungen ausgeblendet; die Dialoge werden weiterhin auf dieselbe Weise beantwortet und im Xenia-Protokoll aufgezeichnet."
+#define XENIA_LICENSE_MASK_LABEL_DE "Lizenzmaske (Neustart)"
+#define XENIA_LICENSE_MASK_LABEL_CAT_DE "Lizenz (Neustart)"
+#define XENIA_LICENSE_MASK_INFO_0_DE "Lizenzmaske für aktivierte Inhalte (DLC, Vollversion) festlegen.\nKeine: keine Lizenzen. Voll: erste Lizenz. Alle: alle Lizenzen."
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_DE "Nein"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_DE "Voll"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_DE "Alle"
-#define XENIA_USER_LANGUAGE_LABEL_DE NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_DE "Sprache"
-#define XENIA_USER_LANGUAGE_INFO_0_DE NULL
+#define XENIA_USER_LANGUAGE_LABEL_DE "Benutzersprache (Neustart)"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_DE "Sprache (Neustart)"
+#define XENIA_USER_LANGUAGE_INFO_0_DE "Sprache der emulierten Konsole festlegen."
 #define OPTION_VAL_ENGLISH_DE "Englisch"
 #define OPTION_VAL_JAPANESE_DE "Japanisch"
 #define OPTION_VAL_GERMAN_DE "Deutsch"
@@ -11226,101 +10556,100 @@ struct retro_core_options_v2 options_da = {
 #define OPTION_VAL_SPANISH_DE "Spanisch"
 #define OPTION_VAL_ITALIAN_DE "Italienisch"
 #define OPTION_VAL_KOREAN_DE "Koreanisch"
-#define OPTION_VAL_TCHINESE_DE NULL
+#define OPTION_VAL_TCHINESE_DE "Traditionelles Chinesisch"
 #define OPTION_VAL_PORTUGUESE_DE "Portugiesisch"
-#define OPTION_VAL_SCHINESE_DE NULL
-#define OPTION_VAL_POLISH_DE NULL
+#define OPTION_VAL_SCHINESE_DE "Vereinfachtes Chinesisch"
+#define OPTION_VAL_POLISH_DE "Polnisch"
 #define OPTION_VAL_RUSSIAN_DE "Russisch"
-#define XENIA_USER_COUNTRY_LABEL_DE NULL
-#define XENIA_USER_COUNTRY_LABEL_CAT_DE NULL
-#define XENIA_USER_COUNTRY_INFO_0_DE NULL
-#define OPTION_VAL_UNITED_STATES_DE NULL
-#define OPTION_VAL_GREAT_BRITAIN_DE NULL
+#define XENIA_USER_COUNTRY_LABEL_DE "Land des Benutzers (Neustart)"
+#define XENIA_USER_COUNTRY_LABEL_CAT_DE "Land (Neustart)"
+#define XENIA_USER_COUNTRY_INFO_0_DE "Land/Region der emulierten Konsole festlegen."
+#define OPTION_VAL_UNITED_STATES_DE "Vereinigte Staaten"
+#define OPTION_VAL_GREAT_BRITAIN_DE "Großbritannien"
 #define OPTION_VAL_JAPAN_DE NULL
-#define OPTION_VAL_GERMANY_DE NULL
-#define OPTION_VAL_FRANCE_DE NULL
-#define OPTION_VAL_SPAIN_DE NULL
-#define OPTION_VAL_ITALY_DE NULL
-#define OPTION_VAL_AUSTRALIA_DE NULL
-#define OPTION_VAL_CANADA_DE NULL
-#define OPTION_VAL_BRAZIL_DE NULL
+#define OPTION_VAL_GERMANY_DE "Deutschland"
+#define OPTION_VAL_FRANCE_DE "Frankreich"
+#define OPTION_VAL_SPAIN_DE "Spanien"
+#define OPTION_VAL_ITALY_DE "Italien"
+#define OPTION_VAL_AUSTRALIA_DE "Australien"
+#define OPTION_VAL_CANADA_DE "Kanada"
+#define OPTION_VAL_BRAZIL_DE "Brasilien"
 #define OPTION_VAL_KOREA_DE NULL
 #define OPTION_VAL_CHINA_DE NULL
-#define OPTION_VAL_MEXICO_DE NULL
-#define OPTION_VAL_NETHERLANDS_DE NULL
-#define OPTION_VAL_RUSSIA_DE NULL
-#define OPTION_VAL_SWEDEN_DE NULL
-#define OPTION_VAL_POLAND_DE NULL
+#define OPTION_VAL_MEXICO_DE "Mexiko"
+#define OPTION_VAL_NETHERLANDS_DE "Niederlande"
+#define OPTION_VAL_RUSSIA_DE "Russland"
+#define OPTION_VAL_SWEDEN_DE "Schweden"
+#define OPTION_VAL_POLAND_DE "Polen"
 #define OPTION_VAL_PORTUGAL_DE NULL
 #define OPTION_VAL_TAIWAN_DE NULL
-#define OPTION_VAL_HONG_KONG_DE NULL
-#define XENIA_PROTECT_ZERO_LABEL_DE NULL
-#define XENIA_PROTECT_ZERO_LABEL_CAT_DE NULL
-#define XENIA_PROTECT_ZERO_INFO_0_DE NULL
-#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_DE NULL
-#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CAT_DE NULL
-#define XENIA_CLEAR_MEMORY_PAGE_STATE_INFO_0_DE NULL
-#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_DE NULL
-#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_DE NULL
-#define XENIA_DISABLE_CONTEXT_PROMOTION_INFO_0_DE NULL
-#define OPTION_VAL_DISABLED_XENIA_DISABLE_CONTEXT_PROMOTION_DE NULL
-#define OPTION_VAL_ENABLED_XENIA_DISABLE_CONTEXT_PROMOTION_DE NULL
-#define XENIA_MOUNT_CACHE_LABEL_DE NULL
-#define XENIA_MOUNT_CACHE_LABEL_CAT_DE NULL
-#define XENIA_MOUNT_CACHE_INFO_0_DE NULL
-#define XENIA_MOUNT_SCRATCH_LABEL_DE NULL
-#define XENIA_MOUNT_SCRATCH_LABEL_CAT_DE NULL
-#define XENIA_MOUNT_SCRATCH_INFO_0_DE NULL
-#define XENIA_OCCLUSION_QUERY_LABEL_DE NULL
-#define XENIA_OCCLUSION_QUERY_INFO_0_DE NULL
-#define OPTION_VAL_FAST_DE "Schnell"
-#define OPTION_VAL_FAKE_XENIA_OCCLUSION_QUERY_DE NULL
-#define OPTION_VAL_FAST_ALT_DE NULL
-#define OPTION_VAL_STRICT_DE "Streng"
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_DE NULL
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_DE NULL
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_INFO_0_DE NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_DE NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CAT_DE NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_INFO_0_DE NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_DE NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_CAT_DE NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_INFO_0_DE NULL
-#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_DE NULL
-#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_CAT_DE NULL
-#define XENIA_DEPTH_BIAS_SHADER_OFFSET_INFO_0_DE NULL
-#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_DE "Schwellenwert für die Auflösungsskalierung"
-#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_CAT_DE NULL
-#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_INFO_0_DE NULL
-#define OPTION_VAL_0_XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_DE NULL
-#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_DE NULL
-#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CAT_DE NULL
-#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_INFO_0_DE NULL
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_DE NULL
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_DE NULL
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_DE NULL
-#define XENIA_FORCE_DEPTH_CLAMP_LABEL_DE NULL
-#define XENIA_FORCE_DEPTH_CLAMP_LABEL_CAT_DE NULL
-#define XENIA_FORCE_DEPTH_CLAMP_INFO_0_DE NULL
-#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_DE NULL
-#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CAT_DE NULL
-#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_INFO_0_DE NULL
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_DE NULL
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_DE NULL
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_DE NULL
-#define XENIA_SCRIBBLE_HEAP_LABEL_DE NULL
-#define XENIA_SCRIBBLE_HEAP_INFO_0_DE NULL
-#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_DE NULL
-#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_DE NULL
-#define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_DE NULL
-#define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_DE NULL
-#define XENIA_LOG_LEVEL_LABEL_DE NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_DE NULL
-#define XENIA_LOG_LEVEL_INFO_0_DE NULL
-#define OPTION_VAL_ERROR_DE NULL
+#define OPTION_VAL_HONG_KONG_DE "Hongkong"
+#define XENIA_LOG_LEVEL_LABEL_DE "Protokollstufe"
+#define XENIA_LOG_LEVEL_INFO_0_DE "Ausführlichkeit der Protokollausgabe festlegen."
+#define OPTION_VAL_ERROR_DE "Nur Fehler"
 #define OPTION_VAL_WARN_DE "Warnung"
 #define OPTION_VAL_INFO_DE NULL
 #define OPTION_VAL_DEBUG_DE "Debuggen"
+#define XENIA_PROTECT_ZERO_LABEL_DE "Nullseite schützen (Neustart)"
+#define XENIA_PROTECT_ZERO_LABEL_CAT_DE "Nullbereich schützen (Neustart)"
+#define XENIA_PROTECT_ZERO_INFO_0_DE "Lese- und Schreibzugriffe auf die Nullseite verhindern. Deaktivieren, wenn ein Spiel beim Start abstürzt."
+#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_DE "Status der GPU-Speicherseiten zurücksetzen"
+#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CAT_DE "GPU-Cache leeren"
+#define XENIA_CLEAR_MEMORY_PAGE_STATE_INFO_0_DE "Status der Speicherseiten mit von der GPU geschriebenen Daten aktualisieren. Standardmäßig deaktiviert, wie in der Standalone-Version. Für die korrekte Darstellung muss die Option bei einigen Spielen aktiviert sein (Ridge Racer 6 und weitere Spiele in der Liste der optimierten Einstellungen von xenia-manager)."
+#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_DE "Kontextpromotion deaktivieren (Neustart)"
+#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_DE "Keine Kontextpromotion (Neustart)"
+#define XENIA_DISABLE_CONTEXT_PROMOTION_INFO_0_DE "CPU-Optimierung für die Kontextpromotion deaktivieren. Bei einigen Sportspielen möglicherweise erforderlich, verringert aber die Leistung."
+#define OPTION_VAL_DISABLED_XENIA_DISABLE_CONTEXT_PROMOTION_DE "Deaktiviert (Normal)"
+#define OPTION_VAL_ENABLED_XENIA_DISABLE_CONTEXT_PROMOTION_DE "Aktiviert (Korrektur für Sportspiele)"
+#define XENIA_MOUNT_CACHE_LABEL_DE "Cache-Partition einbinden (Neustart)"
+#define XENIA_MOUNT_CACHE_LABEL_CAT_DE "Cache einbinden (Neustart)"
+#define XENIA_MOUNT_CACHE_INFO_0_DE "Einbinden der Cache-Partition aktivieren. Für einige Spiele erforderlich."
+#define XENIA_MOUNT_SCRATCH_LABEL_DE "Scratch-Partition einbinden (Neustart)"
+#define XENIA_MOUNT_SCRATCH_LABEL_CAT_DE "Scratch einbinden (Neustart)"
+#define XENIA_MOUNT_SCRATCH_INFO_0_DE "Einbinden der Scratch-Partition aktivieren. Für einige Spiele erforderlich."
+#define XENIA_OCCLUSION_QUERY_LABEL_DE "Okklusionsabfrage (Neustart)"
+#define XENIA_OCCLUSION_QUERY_INFO_0_DE "Legt fest, wie Okklusionsabfragen (Linsenreflexe, Sichtbarkeitsprüfung, automatische Belichtung) beantwortet werden. „Schnell“ (Standard) fragt die GPU ab, ohne auf eine Antwort zu warten; „Simuliert“ liefert ein erfundenes Ergebnis; „Schnell – alternativ“ behält Ergebnisse mit dem Wert 0 im Cache; „Strikt“ wartet auf die GPU und ist am genauesten."
+#define OPTION_VAL_FAST_DE "Schnell"
+#define OPTION_VAL_FAKE_XENIA_OCCLUSION_QUERY_DE "Simuliert"
+#define OPTION_VAL_FAST_ALT_DE "Schnell – alternativ"
+#define OPTION_VAL_STRICT_DE "Streng"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_DE "Vollständige Zähler für Okklusionsabfragen (Neustart)"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_DE "Vollständige Zähler (Neustart)"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_INFO_0_DE "Die Okklusionszähler ZFail, StencilFail und Total in Shadern emulieren. Für einige Spiele erforderlich, verringert aber die Leistung."
+#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_DE "Untere Schwelle für simulierte Okklusion"
+#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CAT_DE "Untere Schwelle simulieren"
+#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_INFO_0_DE "Unterer Grenzwert der simulierten Sample-Anzahl, die bei simulierten Okklusionsabfragen geschrieben wird. -1 schreibt keinen Wert (manche Spiele warten dann endlos)."
+#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_DE "Obere Schwelle für simulierte Okklusion"
+#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_CAT_DE "Obere Schwelle simulieren"
+#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_INFO_0_DE "Obere Grenzwert der simulierten Sample-Anzahl, die bei simulierten Okklusionsabfragen geschrieben wird."
+#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_DE "Tiefenversatz per Shader"
+#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_CAT_DE "Tiefenversatz-Shader"
+#define XENIA_DEPTH_BIAS_SHADER_OFFSET_INFO_0_DE "Decal-Zeichenvorgänge über den Shader statt über den hostseitigen Tiefenversatz mit Polygonversatz ausführen. Behebt Z-Fighting bei Decals in einigen Spielen."
+#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_DE "Schwellenwert für die Auflösungsskalierung"
+#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_CAT_DE "Skalierungsschwelle"
+#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_INFO_0_DE "Renderziele mit einer Zeilenlänge von höchstens diesem Wert in Pixeln werden nicht mit dem Auflösungsskalierungsfaktor hochskaliert. Behebt Fehler bei einigen Effekten, die durch die Skalierung beeinträchtigt werden."
+#define OPTION_VAL_0_XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_DE "0 (alle skalieren)"
+#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_DE "Ungültigen Uploadbereich zulassen"
+#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CAT_DE "Ungültige Uploads"
+#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_INFO_0_DE "Spielen das Lesen von Daten aus als nicht zugänglich markierten Speicherseiten erlauben."
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_DE "Gamma-Renderziel als UNORM16 (Neustart)"
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_DE "Gamma-UNORM16 (Neustart)"
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_DE "Gamma-Renderziele mit 16 Bit pro Komponente emulieren, wenn das Hostsystem keine stückweise Gamma-Korrektur mit 8 Bit unterstützt. Deaktivieren, wenn die Farben in einem Spiel falsch aussehen."
+#define XENIA_FORCE_DEPTH_CLAMP_LABEL_DE "Tiefenbegrenzung erzwingen"
+#define XENIA_FORCE_DEPTH_CLAMP_LABEL_CAT_DE "Tiefenbegrenzung (Depth Clamp)"
+#define XENIA_FORCE_DEPTH_CLAMP_INFO_0_DE "Hostseitige Tiefenbegrenzung statt Beschneidung an der Nah- und Fernebene verwenden."
+#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_DE "Offset bei Bereichszuweisungen ignorieren"
+#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CAT_DE "Bereichszuweisungen"
+#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_INFO_0_DE "Den 4-KB-Offset bei physischen Speicherzuweisungen mit angegebenem Bereich ignorieren. Für einige Spiele erforderlich."
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_DE "Bei nicht implementierten Befehlen anhalten (Neustart)"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_DE "Nicht implementierte Befehle abfangen (Neustart)"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_DE "Anhalten, wenn ein Spiel einen von Xenia nicht implementierten CPU-Befehl ausführt. Bei Verwendung als Core wird dadurch RetroArch beendet. Deaktivieren, damit solche Spiele weiterlaufen."
+#define XENIA_SCRIBBLE_HEAP_LABEL_DE "Scribble-Heap"
+#define XENIA_SCRIBBLE_HEAP_INFO_0_DE "Neu zugewiesenen Heap-Speicher mit einem Wert füllen – für Spiele, die auf den dort verbliebenen Speicherinhalt angewiesen sind."
+#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_DE "Scribble-Heap-Wert"
+#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_DE "Scribble-Wert"
+#define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_DE "Wert, mit dem der Scribble-Heap den Speicher füllt. 0 steht für einen Zufallswert."
+#define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_DE "0 (zufällig)"
 
 struct retro_core_option_v2_category option_cats_de[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_DE,
@@ -11333,8 +10662,6 @@ struct retro_core_option_v2_category option_cats_de[] = {
       CATEGORY_EMULATION_INFO_0_DE },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_DE,
       CATEGORY_COMPATIBILITY_INFO_0_DE },
-    { "Debug", CATEGORY_DEBUG_LABEL_DE,
-      CATEGORY_DEBUG_INFO_0_DE },
     { "patches", CATEGORY_PATCHES_LABEL_DE,
       CATEGORY_PATCHES_INFO_0_DE },
     { NULL, NULL, NULL }
@@ -11346,7 +10673,7 @@ struct retro_core_option_v2_definition option_defs_de[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_DE,
-        XENIA_GRAPHICS_API_LABEL_CAT_DE,
+        XENIA_GRAPHICS_API_LABEL_DE,
         XENIA_GRAPHICS_API_INFO_0_DE,
         NULL,
         "Graphics",
@@ -11480,20 +10807,6 @@ struct retro_core_option_v2_definition option_defs_de[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_DE,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_DE,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_DE,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -11633,23 +10946,9 @@ struct retro_core_option_v2_definition option_defs_de[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_DE,
-        XENIA_MUTE_LABEL_CAT_DE,
-        XENIA_MUTE_INFO_0_DE,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_DE },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_DE,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_DE,
+        XENIA_AUDIO_CHANNELS_LABEL_DE,
         XENIA_AUDIO_CHANNELS_INFO_0_DE,
         NULL,
         "Audio",
@@ -11663,7 +10962,7 @@ struct retro_core_option_v2_definition option_defs_de[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_DE,
-        XENIA_XMA_DECODER_LABEL_CAT_DE,
+        XENIA_XMA_DECODER_LABEL_DE,
         XENIA_XMA_DECODER_INFO_0_DE,
         NULL,
         "Audio",
@@ -11725,28 +11024,11 @@ struct retro_core_option_v2_definition option_defs_de[] = {
             { "100", OPTION_VAL_100_DE },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_DE,
-        XENIA_TIME_SCALAR_LABEL_CAT_DE,
-        XENIA_TIME_SCALAR_INFO_0_DE,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_DE },
-            { "0.5",  OPTION_VAL_0_5_DE },
-            { "1.0",  OPTION_VAL_1_0_DE },
-            { "2.0",  OPTION_VAL_2_0_DE },
-            { "4.0",  OPTION_VAL_4_0_DE },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_DE,
@@ -11789,6 +11071,9 @@ struct retro_core_option_v2_definition option_defs_de[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_DE,
@@ -11802,7 +11087,7 @@ struct retro_core_option_v2_definition option_defs_de[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_DE },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -11859,6 +11144,22 @@ struct retro_core_option_v2_definition option_defs_de[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_DE,
+        XENIA_LOG_LEVEL_LABEL_DE,
+        XENIA_LOG_LEVEL_INFO_0_DE,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_DE },
+            { "warn",  OPTION_VAL_WARN_DE },
+            { "info",  OPTION_VAL_INFO_DE },
+            { "debug", OPTION_VAL_DEBUG_DE },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -12124,22 +11425,6 @@ struct retro_core_option_v2_definition option_defs_de[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_DE,
-        XENIA_LOG_LEVEL_LABEL_CAT_DE,
-        XENIA_LOG_LEVEL_INFO_0_DE,
-        NULL,
-        OPTION_VAL_DEBUG_DE,
-        {
-            { "error", OPTION_VAL_ERROR_DE },
-            { "warn",  OPTION_VAL_WARN_DE },
-            { "info",  OPTION_VAL_INFO_DE },
-            { "debug", OPTION_VAL_DEBUG_DE },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -12160,12 +11445,9 @@ struct retro_core_options_v2 options_de = {
 #define CATEGORY_EMULATION_INFO_0_EL NULL
 #define CATEGORY_COMPATIBILITY_LABEL_EL NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_EL NULL
-#define CATEGORY_DEBUG_LABEL_EL NULL
-#define CATEGORY_DEBUG_INFO_0_EL NULL
 #define CATEGORY_PATCHES_LABEL_EL NULL
 #define CATEGORY_PATCHES_INFO_0_EL NULL
 #define XENIA_GRAPHICS_API_LABEL_EL NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_EL NULL
 #define XENIA_GRAPHICS_API_INFO_0_EL NULL
 #define OPTION_VAL_VULKAN_EL NULL
 #define OPTION_VAL_D3D12_EL NULL
@@ -12206,9 +11488,6 @@ struct retro_core_options_v2 options_de = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_EL NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_EL NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_EL NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_EL NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_EL NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_EL NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_EL NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_EL NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_EL NULL
@@ -12241,7 +11520,7 @@ struct retro_core_options_v2 options_de = {
 #define OPTION_VAL_13_EL NULL
 #define OPTION_VAL_14_EL NULL
 #define OPTION_VAL_15_EL NULL
-#define XENIA_WIDESCREEN_LABEL_EL "Αναλογία Οθόνης"
+#define XENIA_WIDESCREEN_LABEL_EL NULL
 #define XENIA_WIDESCREEN_INFO_0_EL NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_EL NULL
 #define OPTION_VAL_DISABLED_EL NULL
@@ -12259,17 +11538,11 @@ struct retro_core_options_v2 options_de = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_EL NULL
 #define XENIA_AUDIO_ENABLED_LABEL_EL NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_EL NULL
-#define XENIA_MUTE_LABEL_EL NULL
-#define XENIA_MUTE_LABEL_CAT_EL "Σίγαση Ήχου"
-#define XENIA_MUTE_INFO_0_EL NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_EL NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_EL NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_EL NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_EL NULL
 #define OPTION_VAL_STEREO_EL NULL
 #define OPTION_VAL_5_1_EL NULL
 #define XENIA_XMA_DECODER_LABEL_EL NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_EL NULL
 #define XENIA_XMA_DECODER_INFO_0_EL NULL
 #define OPTION_VAL_NEW_EL NULL
 #define OPTION_VAL_OLD_EL NULL
@@ -12294,15 +11567,7 @@ struct retro_core_options_v2 options_de = {
 #define OPTION_VAL_70_EL NULL
 #define OPTION_VAL_80_EL "το 80%"
 #define OPTION_VAL_90_EL NULL
-#define OPTION_VAL_100_EL "100% (Προεπιλογή)"
-#define XENIA_TIME_SCALAR_LABEL_EL NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_EL NULL
-#define XENIA_TIME_SCALAR_INFO_0_EL NULL
-#define OPTION_VAL_0_25_EL NULL
-#define OPTION_VAL_0_5_EL NULL
-#define OPTION_VAL_1_0_EL NULL
-#define OPTION_VAL_2_0_EL NULL
-#define OPTION_VAL_4_0_EL NULL
+#define OPTION_VAL_100_EL NULL
 #define XENIA_TITLE_UPDATES_LABEL_EL NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_EL NULL
 #define XENIA_TITLE_UPDATES_INFO_0_EL NULL
@@ -12312,13 +11577,13 @@ struct retro_core_options_v2 options_de = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_EL NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_EL NULL
 #define XENIA_LICENSE_MASK_LABEL_EL NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_EL "Άδεια(ες)"
+#define XENIA_LICENSE_MASK_LABEL_CAT_EL NULL
 #define XENIA_LICENSE_MASK_INFO_0_EL NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_EL "Κανείς"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_EL NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_EL "Όλα"
 #define XENIA_USER_LANGUAGE_LABEL_EL NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_EL "Γλώσσα"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_EL NULL
 #define XENIA_USER_LANGUAGE_INFO_0_EL NULL
 #define OPTION_VAL_ENGLISH_EL "Αγγλικά"
 #define OPTION_VAL_JAPANESE_EL "Ιαπωνικά"
@@ -12355,6 +11620,12 @@ struct retro_core_options_v2 options_de = {
 #define OPTION_VAL_PORTUGAL_EL NULL
 #define OPTION_VAL_TAIWAN_EL NULL
 #define OPTION_VAL_HONG_KONG_EL NULL
+#define XENIA_LOG_LEVEL_LABEL_EL NULL
+#define XENIA_LOG_LEVEL_INFO_0_EL NULL
+#define OPTION_VAL_ERROR_EL NULL
+#define OPTION_VAL_WARN_EL NULL
+#define OPTION_VAL_INFO_EL "Πληροφορίες"
+#define OPTION_VAL_DEBUG_EL NULL
 #define XENIA_PROTECT_ZERO_LABEL_EL NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_EL NULL
 #define XENIA_PROTECT_ZERO_INFO_0_EL NULL
@@ -12415,13 +11686,6 @@ struct retro_core_options_v2 options_de = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_EL NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_EL NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_EL NULL
-#define XENIA_LOG_LEVEL_LABEL_EL NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_EL NULL
-#define XENIA_LOG_LEVEL_INFO_0_EL NULL
-#define OPTION_VAL_ERROR_EL NULL
-#define OPTION_VAL_WARN_EL NULL
-#define OPTION_VAL_INFO_EL "Πληροφορίες"
-#define OPTION_VAL_DEBUG_EL NULL
 
 struct retro_core_option_v2_category option_cats_el[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_EL,
@@ -12434,8 +11698,6 @@ struct retro_core_option_v2_category option_cats_el[] = {
       CATEGORY_EMULATION_INFO_0_EL },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_EL,
       CATEGORY_COMPATIBILITY_INFO_0_EL },
-    { "Debug", CATEGORY_DEBUG_LABEL_EL,
-      CATEGORY_DEBUG_INFO_0_EL },
     { "patches", CATEGORY_PATCHES_LABEL_EL,
       CATEGORY_PATCHES_INFO_0_EL },
     { NULL, NULL, NULL }
@@ -12447,7 +11709,7 @@ struct retro_core_option_v2_definition option_defs_el[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_EL,
-        XENIA_GRAPHICS_API_LABEL_CAT_EL,
+        XENIA_GRAPHICS_API_LABEL_EL,
         XENIA_GRAPHICS_API_INFO_0_EL,
         NULL,
         "Graphics",
@@ -12581,20 +11843,6 @@ struct retro_core_option_v2_definition option_defs_el[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_EL,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_EL,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_EL,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -12734,23 +11982,9 @@ struct retro_core_option_v2_definition option_defs_el[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_EL,
-        XENIA_MUTE_LABEL_CAT_EL,
-        XENIA_MUTE_INFO_0_EL,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_EL },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_EL,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_EL,
+        XENIA_AUDIO_CHANNELS_LABEL_EL,
         XENIA_AUDIO_CHANNELS_INFO_0_EL,
         NULL,
         "Audio",
@@ -12764,7 +11998,7 @@ struct retro_core_option_v2_definition option_defs_el[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_EL,
-        XENIA_XMA_DECODER_LABEL_CAT_EL,
+        XENIA_XMA_DECODER_LABEL_EL,
         XENIA_XMA_DECODER_INFO_0_EL,
         NULL,
         "Audio",
@@ -12826,28 +12060,11 @@ struct retro_core_option_v2_definition option_defs_el[] = {
             { "100", OPTION_VAL_100_EL },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_EL,
-        XENIA_TIME_SCALAR_LABEL_CAT_EL,
-        XENIA_TIME_SCALAR_INFO_0_EL,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_EL },
-            { "0.5",  OPTION_VAL_0_5_EL },
-            { "1.0",  OPTION_VAL_1_0_EL },
-            { "2.0",  OPTION_VAL_2_0_EL },
-            { "4.0",  OPTION_VAL_4_0_EL },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_EL,
@@ -12890,6 +12107,9 @@ struct retro_core_option_v2_definition option_defs_el[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_EL,
@@ -12903,7 +12123,7 @@ struct retro_core_option_v2_definition option_defs_el[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_EL },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -12960,6 +12180,22 @@ struct retro_core_option_v2_definition option_defs_el[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_EL,
+        XENIA_LOG_LEVEL_LABEL_EL,
+        XENIA_LOG_LEVEL_INFO_0_EL,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_EL },
+            { "warn",  OPTION_VAL_WARN_EL },
+            { "info",  OPTION_VAL_INFO_EL },
+            { "debug", OPTION_VAL_DEBUG_EL },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -13225,22 +12461,6 @@ struct retro_core_option_v2_definition option_defs_el[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_EL,
-        XENIA_LOG_LEVEL_LABEL_CAT_EL,
-        XENIA_LOG_LEVEL_INFO_0_EL,
-        NULL,
-        OPTION_VAL_DEBUG_EL,
-        {
-            { "error", OPTION_VAL_ERROR_EL },
-            { "warn",  OPTION_VAL_WARN_EL },
-            { "info",  OPTION_VAL_INFO_EL },
-            { "debug", OPTION_VAL_DEBUG_EL },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -13261,12 +12481,9 @@ struct retro_core_options_v2 options_el = {
 #define CATEGORY_EMULATION_INFO_0_EN NULL
 #define CATEGORY_COMPATIBILITY_LABEL_EN NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_EN NULL
-#define CATEGORY_DEBUG_LABEL_EN NULL
-#define CATEGORY_DEBUG_INFO_0_EN NULL
 #define CATEGORY_PATCHES_LABEL_EN NULL
 #define CATEGORY_PATCHES_INFO_0_EN NULL
 #define XENIA_GRAPHICS_API_LABEL_EN NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_EN NULL
 #define XENIA_GRAPHICS_API_INFO_0_EN NULL
 #define OPTION_VAL_VULKAN_EN NULL
 #define OPTION_VAL_D3D12_EN NULL
@@ -13307,9 +12524,6 @@ struct retro_core_options_v2 options_el = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_EN NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_EN NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_EN NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_EN NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_EN NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_EN NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_EN NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_EN NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_EN NULL
@@ -13360,17 +12574,11 @@ struct retro_core_options_v2 options_el = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_EN NULL
 #define XENIA_AUDIO_ENABLED_LABEL_EN NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_EN NULL
-#define XENIA_MUTE_LABEL_EN NULL
-#define XENIA_MUTE_LABEL_CAT_EN NULL
-#define XENIA_MUTE_INFO_0_EN NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_EN NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_EN NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_EN NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_EN NULL
 #define OPTION_VAL_STEREO_EN NULL
 #define OPTION_VAL_5_1_EN NULL
 #define XENIA_XMA_DECODER_LABEL_EN NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_EN NULL
 #define XENIA_XMA_DECODER_INFO_0_EN NULL
 #define OPTION_VAL_NEW_EN NULL
 #define OPTION_VAL_OLD_EN NULL
@@ -13396,14 +12604,6 @@ struct retro_core_options_v2 options_el = {
 #define OPTION_VAL_80_EN NULL
 #define OPTION_VAL_90_EN NULL
 #define OPTION_VAL_100_EN NULL
-#define XENIA_TIME_SCALAR_LABEL_EN NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_EN NULL
-#define XENIA_TIME_SCALAR_INFO_0_EN NULL
-#define OPTION_VAL_0_25_EN NULL
-#define OPTION_VAL_0_5_EN NULL
-#define OPTION_VAL_1_0_EN NULL
-#define OPTION_VAL_2_0_EN NULL
-#define OPTION_VAL_4_0_EN NULL
 #define XENIA_TITLE_UPDATES_LABEL_EN NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_EN NULL
 #define XENIA_TITLE_UPDATES_INFO_0_EN NULL
@@ -13413,7 +12613,7 @@ struct retro_core_options_v2 options_el = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_EN NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_EN NULL
 #define XENIA_LICENSE_MASK_LABEL_EN NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_EN "Licence"
+#define XENIA_LICENSE_MASK_LABEL_CAT_EN NULL
 #define XENIA_LICENSE_MASK_INFO_0_EN NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_EN NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_EN NULL
@@ -13456,6 +12656,12 @@ struct retro_core_options_v2 options_el = {
 #define OPTION_VAL_PORTUGAL_EN NULL
 #define OPTION_VAL_TAIWAN_EN NULL
 #define OPTION_VAL_HONG_KONG_EN NULL
+#define XENIA_LOG_LEVEL_LABEL_EN NULL
+#define XENIA_LOG_LEVEL_INFO_0_EN NULL
+#define OPTION_VAL_ERROR_EN NULL
+#define OPTION_VAL_WARN_EN NULL
+#define OPTION_VAL_INFO_EN NULL
+#define OPTION_VAL_DEBUG_EN NULL
 #define XENIA_PROTECT_ZERO_LABEL_EN NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_EN NULL
 #define XENIA_PROTECT_ZERO_INFO_0_EN NULL
@@ -13516,13 +12722,6 @@ struct retro_core_options_v2 options_el = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_EN NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_EN NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_EN NULL
-#define XENIA_LOG_LEVEL_LABEL_EN NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_EN NULL
-#define XENIA_LOG_LEVEL_INFO_0_EN NULL
-#define OPTION_VAL_ERROR_EN NULL
-#define OPTION_VAL_WARN_EN NULL
-#define OPTION_VAL_INFO_EN NULL
-#define OPTION_VAL_DEBUG_EN NULL
 
 struct retro_core_option_v2_category option_cats_en[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_EN,
@@ -13535,8 +12734,6 @@ struct retro_core_option_v2_category option_cats_en[] = {
       CATEGORY_EMULATION_INFO_0_EN },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_EN,
       CATEGORY_COMPATIBILITY_INFO_0_EN },
-    { "Debug", CATEGORY_DEBUG_LABEL_EN,
-      CATEGORY_DEBUG_INFO_0_EN },
     { "patches", CATEGORY_PATCHES_LABEL_EN,
       CATEGORY_PATCHES_INFO_0_EN },
     { NULL, NULL, NULL }
@@ -13548,7 +12745,7 @@ struct retro_core_option_v2_definition option_defs_en[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_EN,
-        XENIA_GRAPHICS_API_LABEL_CAT_EN,
+        XENIA_GRAPHICS_API_LABEL_EN,
         XENIA_GRAPHICS_API_INFO_0_EN,
         NULL,
         "Graphics",
@@ -13682,20 +12879,6 @@ struct retro_core_option_v2_definition option_defs_en[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_EN,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_EN,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_EN,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -13835,23 +13018,9 @@ struct retro_core_option_v2_definition option_defs_en[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_EN,
-        XENIA_MUTE_LABEL_CAT_EN,
-        XENIA_MUTE_INFO_0_EN,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_EN },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_EN,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_EN,
+        XENIA_AUDIO_CHANNELS_LABEL_EN,
         XENIA_AUDIO_CHANNELS_INFO_0_EN,
         NULL,
         "Audio",
@@ -13865,7 +13034,7 @@ struct retro_core_option_v2_definition option_defs_en[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_EN,
-        XENIA_XMA_DECODER_LABEL_CAT_EN,
+        XENIA_XMA_DECODER_LABEL_EN,
         XENIA_XMA_DECODER_INFO_0_EN,
         NULL,
         "Audio",
@@ -13927,28 +13096,11 @@ struct retro_core_option_v2_definition option_defs_en[] = {
             { "100", OPTION_VAL_100_EN },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_EN,
-        XENIA_TIME_SCALAR_LABEL_CAT_EN,
-        XENIA_TIME_SCALAR_INFO_0_EN,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_EN },
-            { "0.5",  OPTION_VAL_0_5_EN },
-            { "1.0",  OPTION_VAL_1_0_EN },
-            { "2.0",  OPTION_VAL_2_0_EN },
-            { "4.0",  OPTION_VAL_4_0_EN },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_EN,
@@ -13991,6 +13143,9 @@ struct retro_core_option_v2_definition option_defs_en[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_EN,
@@ -14004,7 +13159,7 @@ struct retro_core_option_v2_definition option_defs_en[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_EN },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -14061,6 +13216,22 @@ struct retro_core_option_v2_definition option_defs_en[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_EN,
+        XENIA_LOG_LEVEL_LABEL_EN,
+        XENIA_LOG_LEVEL_INFO_0_EN,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_EN },
+            { "warn",  OPTION_VAL_WARN_EN },
+            { "info",  OPTION_VAL_INFO_EN },
+            { "debug", OPTION_VAL_DEBUG_EN },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -14326,22 +13497,6 @@ struct retro_core_option_v2_definition option_defs_en[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_EN,
-        XENIA_LOG_LEVEL_LABEL_CAT_EN,
-        XENIA_LOG_LEVEL_INFO_0_EN,
-        NULL,
-        OPTION_VAL_DEBUG_EN,
-        {
-            { "error", OPTION_VAL_ERROR_EN },
-            { "warn",  OPTION_VAL_WARN_EN },
-            { "info",  OPTION_VAL_INFO_EN },
-            { "debug", OPTION_VAL_DEBUG_EN },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -14362,12 +13517,9 @@ struct retro_core_options_v2 options_en = {
 #define CATEGORY_EMULATION_INFO_0_EO NULL
 #define CATEGORY_COMPATIBILITY_LABEL_EO NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_EO NULL
-#define CATEGORY_DEBUG_LABEL_EO NULL
-#define CATEGORY_DEBUG_INFO_0_EO NULL
 #define CATEGORY_PATCHES_LABEL_EO NULL
 #define CATEGORY_PATCHES_INFO_0_EO NULL
 #define XENIA_GRAPHICS_API_LABEL_EO NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_EO NULL
 #define XENIA_GRAPHICS_API_INFO_0_EO NULL
 #define OPTION_VAL_VULKAN_EO NULL
 #define OPTION_VAL_D3D12_EO NULL
@@ -14408,9 +13560,6 @@ struct retro_core_options_v2 options_en = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_EO NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_EO NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_EO NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_EO NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_EO NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_EO NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_EO NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_EO NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_EO NULL
@@ -14443,7 +13592,7 @@ struct retro_core_options_v2 options_en = {
 #define OPTION_VAL_13_EO NULL
 #define OPTION_VAL_14_EO NULL
 #define OPTION_VAL_15_EO NULL
-#define XENIA_WIDESCREEN_LABEL_EO "Bilda proporcio"
+#define XENIA_WIDESCREEN_LABEL_EO NULL
 #define XENIA_WIDESCREEN_INFO_0_EO NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_EO NULL
 #define OPTION_VAL_DISABLED_EO NULL
@@ -14461,17 +13610,11 @@ struct retro_core_options_v2 options_en = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_EO NULL
 #define XENIA_AUDIO_ENABLED_LABEL_EO NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_EO NULL
-#define XENIA_MUTE_LABEL_EO NULL
-#define XENIA_MUTE_LABEL_CAT_EO "Silentigi"
-#define XENIA_MUTE_INFO_0_EO NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_EO NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_EO NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_EO NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_EO NULL
 #define OPTION_VAL_STEREO_EO "Dukanala"
 #define OPTION_VAL_5_1_EO NULL
 #define XENIA_XMA_DECODER_LABEL_EO NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_EO NULL
 #define XENIA_XMA_DECODER_INFO_0_EO NULL
 #define OPTION_VAL_NEW_EO NULL
 #define OPTION_VAL_OLD_EO NULL
@@ -14496,15 +13639,7 @@ struct retro_core_options_v2 options_en = {
 #define OPTION_VAL_70_EO NULL
 #define OPTION_VAL_80_EO NULL
 #define OPTION_VAL_90_EO NULL
-#define OPTION_VAL_100_EO "100% (defaŭlte)"
-#define XENIA_TIME_SCALAR_LABEL_EO NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_EO NULL
-#define XENIA_TIME_SCALAR_INFO_0_EO NULL
-#define OPTION_VAL_0_25_EO NULL
-#define OPTION_VAL_0_5_EO NULL
-#define OPTION_VAL_1_0_EO NULL
-#define OPTION_VAL_2_0_EO NULL
-#define OPTION_VAL_4_0_EO NULL
+#define OPTION_VAL_100_EO NULL
 #define XENIA_TITLE_UPDATES_LABEL_EO NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_EO NULL
 #define XENIA_TITLE_UPDATES_INFO_0_EO NULL
@@ -14514,13 +13649,13 @@ struct retro_core_options_v2 options_en = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_EO NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_EO NULL
 #define XENIA_LICENSE_MASK_LABEL_EO NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_EO "Permesilo"
+#define XENIA_LICENSE_MASK_LABEL_CAT_EO NULL
 #define XENIA_LICENSE_MASK_INFO_0_EO NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_EO "Neniom"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_EO "Plena"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_EO "Ĉiuj"
 #define XENIA_USER_LANGUAGE_LABEL_EO NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_EO "Lingvo"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_EO NULL
 #define XENIA_USER_LANGUAGE_INFO_0_EO NULL
 #define OPTION_VAL_ENGLISH_EO "Angla"
 #define OPTION_VAL_JAPANESE_EO "Japana"
@@ -14557,6 +13692,12 @@ struct retro_core_options_v2 options_en = {
 #define OPTION_VAL_PORTUGAL_EO NULL
 #define OPTION_VAL_TAIWAN_EO NULL
 #define OPTION_VAL_HONG_KONG_EO NULL
+#define XENIA_LOG_LEVEL_LABEL_EO NULL
+#define XENIA_LOG_LEVEL_INFO_0_EO NULL
+#define OPTION_VAL_ERROR_EO NULL
+#define OPTION_VAL_WARN_EO "Averto"
+#define OPTION_VAL_INFO_EO "Informojn"
+#define OPTION_VAL_DEBUG_EO NULL
 #define XENIA_PROTECT_ZERO_LABEL_EO NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_EO NULL
 #define XENIA_PROTECT_ZERO_INFO_0_EO NULL
@@ -14617,13 +13758,6 @@ struct retro_core_options_v2 options_en = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_EO NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_EO NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_EO NULL
-#define XENIA_LOG_LEVEL_LABEL_EO NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_EO NULL
-#define XENIA_LOG_LEVEL_INFO_0_EO NULL
-#define OPTION_VAL_ERROR_EO NULL
-#define OPTION_VAL_WARN_EO "Averto"
-#define OPTION_VAL_INFO_EO "Informojn"
-#define OPTION_VAL_DEBUG_EO NULL
 
 struct retro_core_option_v2_category option_cats_eo[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_EO,
@@ -14636,8 +13770,6 @@ struct retro_core_option_v2_category option_cats_eo[] = {
       CATEGORY_EMULATION_INFO_0_EO },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_EO,
       CATEGORY_COMPATIBILITY_INFO_0_EO },
-    { "Debug", CATEGORY_DEBUG_LABEL_EO,
-      CATEGORY_DEBUG_INFO_0_EO },
     { "patches", CATEGORY_PATCHES_LABEL_EO,
       CATEGORY_PATCHES_INFO_0_EO },
     { NULL, NULL, NULL }
@@ -14649,7 +13781,7 @@ struct retro_core_option_v2_definition option_defs_eo[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_EO,
-        XENIA_GRAPHICS_API_LABEL_CAT_EO,
+        XENIA_GRAPHICS_API_LABEL_EO,
         XENIA_GRAPHICS_API_INFO_0_EO,
         NULL,
         "Graphics",
@@ -14783,20 +13915,6 @@ struct retro_core_option_v2_definition option_defs_eo[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_EO,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_EO,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_EO,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -14936,23 +14054,9 @@ struct retro_core_option_v2_definition option_defs_eo[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_EO,
-        XENIA_MUTE_LABEL_CAT_EO,
-        XENIA_MUTE_INFO_0_EO,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_EO },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_EO,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_EO,
+        XENIA_AUDIO_CHANNELS_LABEL_EO,
         XENIA_AUDIO_CHANNELS_INFO_0_EO,
         NULL,
         "Audio",
@@ -14966,7 +14070,7 @@ struct retro_core_option_v2_definition option_defs_eo[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_EO,
-        XENIA_XMA_DECODER_LABEL_CAT_EO,
+        XENIA_XMA_DECODER_LABEL_EO,
         XENIA_XMA_DECODER_INFO_0_EO,
         NULL,
         "Audio",
@@ -15028,28 +14132,11 @@ struct retro_core_option_v2_definition option_defs_eo[] = {
             { "100", OPTION_VAL_100_EO },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_EO,
-        XENIA_TIME_SCALAR_LABEL_CAT_EO,
-        XENIA_TIME_SCALAR_INFO_0_EO,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_EO },
-            { "0.5",  OPTION_VAL_0_5_EO },
-            { "1.0",  OPTION_VAL_1_0_EO },
-            { "2.0",  OPTION_VAL_2_0_EO },
-            { "4.0",  OPTION_VAL_4_0_EO },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_EO,
@@ -15092,6 +14179,9 @@ struct retro_core_option_v2_definition option_defs_eo[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_EO,
@@ -15105,7 +14195,7 @@ struct retro_core_option_v2_definition option_defs_eo[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_EO },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -15162,6 +14252,22 @@ struct retro_core_option_v2_definition option_defs_eo[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_EO,
+        XENIA_LOG_LEVEL_LABEL_EO,
+        XENIA_LOG_LEVEL_INFO_0_EO,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_EO },
+            { "warn",  OPTION_VAL_WARN_EO },
+            { "info",  OPTION_VAL_INFO_EO },
+            { "debug", OPTION_VAL_DEBUG_EO },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -15427,22 +14533,6 @@ struct retro_core_option_v2_definition option_defs_eo[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_EO,
-        XENIA_LOG_LEVEL_LABEL_CAT_EO,
-        XENIA_LOG_LEVEL_INFO_0_EO,
-        NULL,
-        OPTION_VAL_DEBUG_EO,
-        {
-            { "error", OPTION_VAL_ERROR_EO },
-            { "warn",  OPTION_VAL_WARN_EO },
-            { "info",  OPTION_VAL_INFO_EO },
-            { "debug", OPTION_VAL_DEBUG_EO },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -15453,140 +14543,128 @@ struct retro_core_options_v2 options_eo = {
 
 /* RETRO_LANGUAGE_ES */
 
-#define CATEGORY_GRAPHICS_LABEL_ES NULL
-#define CATEGORY_GRAPHICS_INFO_0_ES NULL
-#define CATEGORY_VIDEO_LABEL_ES NULL
-#define CATEGORY_VIDEO_INFO_0_ES NULL
-#define CATEGORY_AUDIO_LABEL_ES NULL
-#define CATEGORY_AUDIO_INFO_0_ES NULL
-#define CATEGORY_EMULATION_LABEL_ES NULL
-#define CATEGORY_EMULATION_INFO_0_ES NULL
+#define CATEGORY_GRAPHICS_LABEL_ES "Ajustes de gráficos"
+#define CATEGORY_GRAPHICS_INFO_0_ES "Back-end de la GPU, escala de resolución, ruta de objetivo de renderización, filtros."
+#define CATEGORY_VIDEO_LABEL_ES "Ajustes de vídeo"
+#define CATEGORY_VIDEO_INFO_0_ES "Resolución de imagen, relación de aspecto, estándar de vídeo, gamma."
+#define CATEGORY_AUDIO_LABEL_ES "Ajustes de audio"
+#define CATEGORY_AUDIO_INFO_0_ES "Salida de audio, decodificador XMA, reproductor de música."
+#define CATEGORY_EMULATION_LABEL_ES "Ajustes de emulación"
+#define CATEGORY_EMULATION_INFO_0_ES "Velocidad, idioma, país, licencias, parches, nivel de registro."
 #define CATEGORY_COMPATIBILITY_LABEL_ES "Ajustes de compatibilidad"
-#define CATEGORY_COMPATIBILITY_INFO_0_ES NULL
-#define CATEGORY_DEBUG_LABEL_ES NULL
-#define CATEGORY_DEBUG_INFO_0_ES NULL
-#define CATEGORY_PATCHES_LABEL_ES NULL
-#define CATEGORY_PATCHES_INFO_0_ES NULL
-#define XENIA_GRAPHICS_API_LABEL_ES NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_ES "API de gráficos"
-#define XENIA_GRAPHICS_API_INFO_0_ES NULL
+#define CATEGORY_COMPATIBILITY_INFO_0_ES "Hacks para juegos, memoria, montado de caché y \"scratch\"."
+#define CATEGORY_PATCHES_LABEL_ES "Administrador de parches"
+#define CATEGORY_PATCHES_INFO_0_ES "Los parches para juegos tomados de Xenia Edge para esta versión concreta. Los cambios se aplicarán en el siguiente arranque."
+#define XENIA_GRAPHICS_API_LABEL_ES "API de gráficos (es necesario reiniciar)"
+#define XENIA_GRAPHICS_API_INFO_0_ES "Selecciona el back-end de la GPU con el que Xenia emulará la GPU de Xbox 360 y el contexto que solicitará el núcleo a RetroArch: este último cambiará su controlador de vídeo al seleccionado aquí si se le permite (Ajustes > Vídeo > Salida). Los cambios se aplicarán al volver a cargar un contenido."
 #define OPTION_VAL_VULKAN_ES NULL
 #define OPTION_VAL_D3D12_ES NULL
-#define XENIA_RENDER_TARGET_PATH_LABEL_ES NULL
-#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_ES NULL
-#define XENIA_RENDER_TARGET_PATH_INFO_0_ES NULL
+#define XENIA_RENDER_TARGET_PATH_LABEL_ES "Ruta de objetivo de renderizado (RT, es necesario reiniciar)"
+#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_ES "Ruta de RT (es necesario reiniciar)"
+#define XENIA_RENDER_TARGET_PATH_INFO_0_ES "Selecciona el modo de emulación de los objetivos de renderizado.\nRendimiento: aloja los objetivos de renderizado usando mezclas de funciones fijas.\nPrecisión: conexión de pixel shaders y vistas ordenadas según rasterizador."
 #define OPTION_VAL_PERFORMANCE_ES "Rendimiento"
 #define OPTION_VAL_ACCURACY_ES "Precisión"
-#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_ES NULL
-#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_ES "Escala de resolución"
-#define XENIA_DRAW_RESOLUTION_SCALE_INFO_0_ES NULL
-#define OPTION_VAL_1_ES "1x (nativo 720p)"
-#define OPTION_VAL_2_ES NULL
-#define OPTION_VAL_3_ES NULL
-#define OPTION_VAL_4_ES NULL
-#define OPTION_VAL_5_ES NULL
-#define OPTION_VAL_6_ES NULL
-#define OPTION_VAL_7_ES NULL
-#define OPTION_VAL_8_ES NULL
+#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_ES "Escala de resolución de dibujado (es necesario reiniciar)"
+#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_ES "Escala de resolución (es necesario reiniciar)"
+#define XENIA_DRAW_RESOLUTION_SCALE_INFO_0_ES "Cambia la escala de la resolución interna de renderizado. Un valor más alto mejorará la calidad visual, pero necesitará una GPU más potente. Es necesario reiniciar."
+#define OPTION_VAL_1_ES "× 1 (nativa a 720p)"
+#define OPTION_VAL_2_ES "× 2 (1440p)"
+#define OPTION_VAL_3_ES "× 3 (2160p/4K)"
+#define OPTION_VAL_4_ES "× 4"
+#define OPTION_VAL_5_ES "× 5"
+#define OPTION_VAL_6_ES "× 6"
+#define OPTION_VAL_7_ES "× 7"
+#define OPTION_VAL_8_ES "× 8"
 #define XENIA_ANISOTROPIC_FILTERING_LABEL_ES "Filtrado anisotrópico"
-#define XENIA_ANISOTROPIC_FILTERING_LABEL_CAT_ES "Anisotrópico"
-#define XENIA_ANISOTROPIC_FILTERING_INFO_0_ES NULL
-#define OPTION_VAL_1_XENIA_ANISOTROPIC_FILTERING_ES NULL
-#define OPTION_VAL_1_XENIA_ANISOTROPIC_FILTERING_0_ES NULL
-#define OPTION_VAL_4_XENIA_ANISOTROPIC_FILTERING_ES NULL
-#define XENIA_ASYNC_SHADER_COMPILATION_LABEL_ES NULL
-#define XENIA_ASYNC_SHADER_COMPILATION_LABEL_CAT_ES NULL
-#define XENIA_ASYNC_SHADER_COMPILATION_INFO_0_ES NULL
-#define XENIA_READBACK_RESOLVE_LABEL_ES NULL
-#define XENIA_READBACK_RESOLVE_LABEL_CAT_ES NULL
-#define XENIA_READBACK_RESOLVE_INFO_0_ES NULL
-#define XENIA_STORE_SHADERS_LABEL_ES NULL
-#define XENIA_STORE_SHADERS_LABEL_CAT_ES NULL
-#define XENIA_STORE_SHADERS_INFO_0_ES NULL
-#define XENIA_HALF_PIXEL_OFFSET_LABEL_ES NULL
-#define XENIA_HALF_PIXEL_OFFSET_LABEL_CAT_ES NULL
-#define XENIA_HALF_PIXEL_OFFSET_INFO_0_ES NULL
-#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_ES NULL
-#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_ES NULL
-#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_ES NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_ES NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_ES NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_ES NULL
-#define XENIA_DISPLAY_REFRESH_LABEL_ES NULL
-#define XENIA_DISPLAY_REFRESH_LABEL_CAT_ES NULL
-#define XENIA_DISPLAY_REFRESH_INFO_0_ES NULL
+#define XENIA_ANISOTROPIC_FILTERING_LABEL_CAT_ES "Anisotropía"
+#define XENIA_ANISOTROPIC_FILTERING_INFO_0_ES "Fuerza el mismo nivel de filtrado anisotrópico en todas las texturas. El valor predeterminado utilizará la configuración de cada juego."
+#define OPTION_VAL_1_XENIA_ANISOTROPIC_FILTERING_ES "Valor predeterminado (juego)"
+#define OPTION_VAL_1_XENIA_ANISOTROPIC_FILTERING_0_ES "× 2"
+#define OPTION_VAL_4_XENIA_ANISOTROPIC_FILTERING_ES "× 16"
+#define XENIA_ASYNC_SHADER_COMPILATION_LABEL_ES "Compilación asincrónica de shaders"
+#define XENIA_ASYNC_SHADER_COMPILATION_LABEL_CAT_ES "Shaders asíncronos"
+#define XENIA_ASYNC_SHADER_COMPILATION_INFO_0_ES "Compila los shaders en hilos de CPU en un segundo plano. Reducirá los tirones, pero podría provocar breves artefactos de renderizado."
+#define XENIA_READBACK_RESOLVE_LABEL_ES "Solución de cotejado de texturas"
+#define XENIA_READBACK_RESOLVE_LABEL_CAT_ES "Cotejado de texturas"
+#define XENIA_READBACK_RESOLVE_INFO_0_ES "Copia las imágenes renderizadas a textura de vuelta a la RAM invitada cuando la CPU quiera acceder a las mismas. Si desactivas esta opción, fallarán aquellos juegos que necesiten el cotejado."
+#define XENIA_STORE_SHADERS_LABEL_ES "Almacenamiento de shaders (es necesario reiniciar)"
+#define XENIA_STORE_SHADERS_LABEL_CAT_ES "Caché de shaders (es necesario reiniciar)"
+#define XENIA_STORE_SHADERS_INFO_0_ES "Almacena los shaders compilados de forma persistente para evitar que haya tirones por recompilación en las partidas posteriores."
+#define XENIA_HALF_PIXEL_OFFSET_LABEL_ES "Compensación de medio píxel"
+#define XENIA_HALF_PIXEL_OFFSET_LABEL_CAT_ES "Medio píxel"
+#define XENIA_HALF_PIXEL_OFFSET_INFO_0_ES "Activa la compensación de medio píxel tipo D3D9. Ideal para la mayoría de juegos. Desactiva esta opción si la imagen renderizada se muestra borrosa."
+#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_ES "Permitir captura de constantes no válidas"
+#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_ES "Capturas no válidas"
+#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_ES "Permite la captura de constantes de texturas y vértices con tipos no válidos. Podría arreglar los cuelgues en juegos, pero no es una opción muy segura."
+#define XENIA_DISPLAY_REFRESH_LABEL_ES "Frecuencia de actualización de imagen emulada"
+#define XENIA_DISPLAY_REFRESH_LABEL_CAT_ES "Frecuencia de actualización de imagen"
+#define XENIA_DISPLAY_REFRESH_INFO_0_ES "La frecuencia de actualización de la pantalla que el juego creerá que hay, tal y como se comporta la opción de la aplicación independiente. NTSC (60 Hz) es el valor de la consola. PAL (50 Hz) es el valor de un televisor PAL: los juegos se ejecutarán a 50 fotogramas por segundo. Desbloquear velocidad de fotogramas ignorará este límite."
 #define OPTION_VAL_60_ES "NTSC (60 Hz)"
 #define OPTION_VAL_50_ES "PAL (50 Hz)"
-#define XENIA_WAIT_FOR_FRAME_LABEL_ES NULL
-#define XENIA_WAIT_FOR_FRAME_INFO_0_ES NULL
-#define XENIA_UNLOCK_FRAMERATE_LABEL_ES NULL
-#define XENIA_UNLOCK_FRAMERATE_INFO_0_ES NULL
-#define OPTION_VAL_ENABLED_ES NULL
-#define OPTION_VAL_30TO60_ES NULL
-#define OPTION_VAL_120_ES NULL
-#define OPTION_VAL_UNCAPPED_ES NULL
-#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_ES NULL
-#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_ES NULL
-#define XENIA_INTERNAL_DISPLAY_RESOLUTION_INFO_0_ES NULL
+#define XENIA_WAIT_FOR_FRAME_LABEL_ES "[Libretro] Esperar a fotograma"
+#define XENIA_WAIT_FOR_FRAME_INFO_0_ES "Elimina un fotograma de retraso de entrada con el posible coste de que el juego se ralentice. Recomendado con equipos potentes o juegos que consuman pocos recursos."
+#define XENIA_UNLOCK_FRAMERATE_LABEL_ES "Desbloquear velocidad de fotogramas"
+#define XENIA_UNLOCK_FRAMERATE_INFO_0_ES "Utiliza esta opción solo con aquellos juegos cuya lógica no esté vinculada a su velocidad de fotogramas, porque si lo está, se ejecutarán demasiado rápido. Juegos de 30 FPS a 60: habrá dos VBLANKs por cada fotograma mostrado por RetroArch. Juegos de 60 FPS a 120: el núcleo se ejecutará a 120 fotogramas por segundo (debes configurar RetroArch y tu pantalla para mostrarlos). Sin límite: renderiza todos los VBLANKs posibles. Juegos de la lista: utiliza la frecuencia que indique el archivo system/Xenia-Edge/xenia_framerate_unlock.txt al juego que se esté ejecutando, si es que está indicada. Esta opción puede cambiarse en mitad de una partida."
+#define OPTION_VAL_ENABLED_ES "Juegos de la lista"
+#define OPTION_VAL_30TO60_ES "Juegos de 30 FPS a 60"
+#define OPTION_VAL_120_ES "Juegos de 60 FPS a 120"
+#define OPTION_VAL_UNCAPPED_ES "Sin límite"
+#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_ES "Resolución de imagen interna (es necesario reiniciar)"
+#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_ES "Resolución de imagen (es necesario reiniciar)"
+#define XENIA_INTERNAL_DISPLAY_RESOLUTION_INFO_0_ES "Permite que aquellos juegos compatibles con varias resoluciones se rendericen a una concreta. No todos los juegos son compatibles con esta opción."
 #define OPTION_VAL_0_ES "640 × 480"
-#define OPTION_VAL_1_XENIA_INTERNAL_DISPLAY_RESOLUTION_ES NULL
-#define OPTION_VAL_2_XENIA_INTERNAL_DISPLAY_RESOLUTION_ES NULL
-#define OPTION_VAL_3_XENIA_INTERNAL_DISPLAY_RESOLUTION_ES NULL
+#define OPTION_VAL_1_XENIA_INTERNAL_DISPLAY_RESOLUTION_ES "640 × 576"
+#define OPTION_VAL_2_XENIA_INTERNAL_DISPLAY_RESOLUTION_ES "720 × 480"
+#define OPTION_VAL_3_XENIA_INTERNAL_DISPLAY_RESOLUTION_ES "720 × 576"
 #define OPTION_VAL_4_XENIA_INTERNAL_DISPLAY_RESOLUTION_ES "800 × 600"
-#define OPTION_VAL_5_XENIA_INTERNAL_DISPLAY_RESOLUTION_ES NULL
+#define OPTION_VAL_5_XENIA_INTERNAL_DISPLAY_RESOLUTION_ES "848 × 480"
 #define OPTION_VAL_6_XENIA_INTERNAL_DISPLAY_RESOLUTION_ES "1024 × 768"
-#define OPTION_VAL_7_XENIA_INTERNAL_DISPLAY_RESOLUTION_ES NULL
-#define OPTION_VAL_8_XENIA_INTERNAL_DISPLAY_RESOLUTION_ES "1280x720 (por defecto)"
-#define OPTION_VAL_9_ES NULL
-#define OPTION_VAL_10_ES NULL
-#define OPTION_VAL_11_ES NULL
-#define OPTION_VAL_12_ES NULL
-#define OPTION_VAL_13_ES NULL
-#define OPTION_VAL_14_ES NULL
+#define OPTION_VAL_7_XENIA_INTERNAL_DISPLAY_RESOLUTION_ES "1152 × 864"
+#define OPTION_VAL_8_XENIA_INTERNAL_DISPLAY_RESOLUTION_ES "1280 × 720 (predeterminada)"
+#define OPTION_VAL_9_ES "1280 × 768"
+#define OPTION_VAL_10_ES "1280 × 1024"
+#define OPTION_VAL_11_ES "1360 × 768"
+#define OPTION_VAL_12_ES "1440 × 900"
+#define OPTION_VAL_13_ES "1680 × 1050"
+#define OPTION_VAL_14_ES "1920 × 540"
 #define OPTION_VAL_15_ES "1920 × 1080"
-#define XENIA_WIDESCREEN_LABEL_ES "Relación de aspecto"
-#define XENIA_WIDESCREEN_INFO_0_ES NULL
-#define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_ES "16:9 (por defecto)"
+#define XENIA_WIDESCREEN_LABEL_ES "Relación de aspecto (es necesario reiniciar)"
+#define XENIA_WIDESCREEN_INFO_0_ES "Establece la relación de aspecto de la consola, que se usará para mostrar la imagen. Solo algunos juegos de Xbox 360 son compatibles con soporte nativo de 4:3."
+#define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_ES "16:9 (predeterminada)"
 #define OPTION_VAL_DISABLED_ES NULL
-#define XENIA_VIDEO_STANDARD_LABEL_ES "Estándar de vídeo"
-#define XENIA_VIDEO_STANDARD_LABEL_CAT_ES "Señal"
-#define XENIA_VIDEO_STANDARD_INFO_0_ES NULL
+#define XENIA_VIDEO_STANDARD_LABEL_ES "Estándar de vídeo (es necesario reiniciar)"
+#define XENIA_VIDEO_STANDARD_LABEL_CAT_ES "Señal (es necesario reiniciar)"
+#define XENIA_VIDEO_STANDARD_INFO_0_ES "Selecciona el estándar de la señal de vídeo. Afecta a la detección de región."
 #define OPTION_VAL_1_XENIA_VIDEO_STANDARD_ES NULL
 #define OPTION_VAL_2_XENIA_VIDEO_STANDARD_ES "NTSC-J (Japón)"
 #define OPTION_VAL_3_XENIA_VIDEO_STANDARD_ES NULL
-#define XENIA_DISPLAY_GAMMA_LABEL_ES NULL
-#define XENIA_DISPLAY_GAMMA_LABEL_CAT_ES NULL
-#define XENIA_DISPLAY_GAMMA_INFO_0_ES NULL
+#define XENIA_DISPLAY_GAMMA_LABEL_ES "Gamma de imagen (es necesario reiniciar)"
+#define XENIA_DISPLAY_GAMMA_LABEL_CAT_ES "Gamma (es necesario reiniciar)"
+#define XENIA_DISPLAY_GAMMA_INFO_0_ES "Selecciona la curva de gamma de la imagen.\nBT.709 (HDTV) es la más aproximada a la de una Xbox 360 mostrada con una pantalla moderna."
 #define OPTION_VAL_0_XENIA_DISPLAY_GAMMA_ES "Lineal"
 #define OPTION_VAL_1_XENIA_DISPLAY_GAMMA_ES NULL
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_ES NULL
 #define XENIA_AUDIO_ENABLED_LABEL_ES "Salida de audio"
-#define XENIA_AUDIO_ENABLED_INFO_0_ES NULL
-#define XENIA_MUTE_LABEL_ES NULL
-#define XENIA_MUTE_LABEL_CAT_ES "Silenciar"
-#define XENIA_MUTE_INFO_0_ES NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_ES NULL
+#define XENIA_AUDIO_ENABLED_INFO_0_ES "Activa o desactiva la señal y procesamiento de audio."
 #define XENIA_AUDIO_CHANNELS_LABEL_ES "Canales de audio (es necesario reiniciar)"
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_ES NULL
-#define XENIA_AUDIO_CHANNELS_INFO_0_ES NULL
+#define XENIA_AUDIO_CHANNELS_INFO_0_ES "Estéreo: mezcla la señal 5.1 de la consola a dos canales. 5.1 Surround: muestra los seis canales a RetroArch, que decidirá según su disposición de salida de audio si propagarlos a los altavoces o remezclarlos. Es necesaria una versión de RetroArch con salida de audio multicanal, en caso contrario, la señal será estéreo."
 #define OPTION_VAL_STEREO_ES "Estéreo"
 #define OPTION_VAL_5_1_ES "5.1 Surround"
-#define XENIA_XMA_DECODER_LABEL_ES NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_ES NULL
-#define XENIA_XMA_DECODER_INFO_0_ES NULL
-#define OPTION_VAL_NEW_ES NULL
-#define OPTION_VAL_OLD_ES NULL
-#define OPTION_VAL_MASTER_ES NULL
-#define OPTION_VAL_FAKE_ES NULL
-#define XENIA_DEDICATED_XMA_THREAD_LABEL_ES NULL
-#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_ES NULL
-#define XENIA_DEDICATED_XMA_THREAD_INFO_0_ES NULL
-#define XENIA_ENABLE_XMP_LABEL_ES NULL
+#define XENIA_XMA_DECODER_LABEL_ES "Decodificador XMA (es necesario reiniciar)"
+#define XENIA_XMA_DECODER_INFO_0_ES "Selecciona la implementación del decodificador de audio en formato XMA. Si el audio suena roto en un juego concreto, prueba a elegir otra opción."
+#define OPTION_VAL_NEW_ES "Nuevo (predeterminado)"
+#define OPTION_VAL_OLD_ES "Antiguo"
+#define OPTION_VAL_MASTER_ES "Maestro"
+#define OPTION_VAL_FAKE_ES "Falso (silenciar)"
+#define XENIA_DEDICATED_XMA_THREAD_LABEL_ES "Hilo dedicado a XMA (es necesario reiniciar)"
+#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_ES "Hilo para XMA (es necesario reiniciar)"
+#define XENIA_DEDICATED_XMA_THREAD_INFO_0_ES "Utiliza un hilo dedicado a descodificar los audios en formato XMA. Podría mejorar el rendimiento del audio."
+#define XENIA_ENABLE_XMP_LABEL_ES "Reproductor de música (XMP)"
 #define XENIA_ENABLE_XMP_LABEL_CAT_ES NULL
-#define XENIA_ENABLE_XMP_INFO_0_ES NULL
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_ES NULL
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_ES NULL
-#define XENIA_XMP_DEFAULT_VOLUME_INFO_0_ES NULL
+#define XENIA_ENABLE_XMP_INFO_0_ES "Activa el reproductor de música de Xbox para poner música de fondo."
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_ES "Volumen del reproductor de música (es necesario reiniciar)"
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_ES "Volumen del XMP (es necesario reiniciar)"
+#define XENIA_XMP_DEFAULT_VOLUME_INFO_0_ES "Establece el volumen predeterminado de la música (si el juego no lo establece antes)."
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_ES "0 %"
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_ES "10 %"
 #define OPTION_VAL_20_ES "20 %"
@@ -15594,35 +14672,27 @@ struct retro_core_options_v2 options_eo = {
 #define OPTION_VAL_40_ES "40 %"
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_ES "50 %"
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_ES "60 %"
-#define OPTION_VAL_70_ES "70 %"
+#define OPTION_VAL_70_ES "70 % (valor predeterminado)"
 #define OPTION_VAL_80_ES "80 %"
 #define OPTION_VAL_90_ES "90 %"
-#define OPTION_VAL_100_ES "100 % (por defecto)"
-#define XENIA_TIME_SCALAR_LABEL_ES NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_ES NULL
-#define XENIA_TIME_SCALAR_INFO_0_ES NULL
-#define OPTION_VAL_0_25_ES NULL
-#define OPTION_VAL_0_5_ES NULL
-#define OPTION_VAL_1_0_ES "1.0x (normal)"
-#define OPTION_VAL_2_0_ES NULL
-#define OPTION_VAL_4_0_ES NULL
-#define XENIA_TITLE_UPDATES_LABEL_ES NULL
-#define XENIA_TITLE_UPDATES_LABEL_CAT_ES NULL
-#define XENIA_TITLE_UPDATES_INFO_0_ES NULL
-#define XENIA_APPLY_PATCHES_LABEL_ES NULL
-#define XENIA_APPLY_PATCHES_LABEL_CAT_ES "Parches"
-#define XENIA_APPLY_PATCHES_INFO_0_ES NULL
-#define XENIA_DIALOG_NOTIFICATIONS_LABEL_ES NULL
-#define XENIA_DIALOG_NOTIFICATIONS_INFO_0_ES NULL
-#define XENIA_LICENSE_MASK_LABEL_ES NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_ES "Licencia"
-#define XENIA_LICENSE_MASK_INFO_0_ES NULL
-#define OPTION_VAL_0_XENIA_LICENSE_MASK_ES "No compartir"
+#define OPTION_VAL_100_ES "100 %"
+#define XENIA_TITLE_UPDATES_LABEL_ES "Aplicar actualizaciones (es necesario reiniciar)"
+#define XENIA_TITLE_UPDATES_LABEL_CAT_ES "Actualizaciones de títulos (es necesario reiniciar)"
+#define XENIA_TITLE_UPDATES_INFO_0_ES "Aplica aquellas actualizaciones de títulos que estén disponibles en el directorio de contenidos."
+#define XENIA_APPLY_PATCHES_LABEL_ES "Aplicar parches de juegos (es necesario reiniciar)"
+#define XENIA_APPLY_PATCHES_LABEL_CAT_ES "Parches (es necesario reiniciar)"
+#define XENIA_APPLY_PATCHES_INFO_0_ES "Activa los parches personalizados para cada juego."
+#define XENIA_DIALOG_NOTIFICATIONS_LABEL_ES "Ventanas de notificaciones"
+#define XENIA_DIALOG_NOTIFICATIONS_INFO_0_ES "Aquellas ventanas del sistema que abra un juego (mensajes con botones) no tienen ventanas en el núcleo, así que este responderá mostrando el título de la ventana y la respuesta en forma de notificación. Desactiva esta opción para ocultar dichas notificaciones, las ventanas seguirán recibiendo las mismas respuestas y el registro de Xenia seguirá registrándolas."
+#define XENIA_LICENSE_MASK_LABEL_ES "Máscara de licencia (es necesario reiniciar)"
+#define XENIA_LICENSE_MASK_LABEL_CAT_ES "Licencia (es necesario reiniciar)"
+#define XENIA_LICENSE_MASK_INFO_0_ES "Establece la máscara de licencia para los contenidos activados (contenidos descargables y versiones completas).\nNinguna: no habrá licencias. Completa: usará la primera licencia. Todas: todas las licencias."
+#define OPTION_VAL_0_XENIA_LICENSE_MASK_ES "Ninguna"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_ES "Completa"
-#define OPTION_VAL_1_XENIA_LICENSE_MASK_0_ES "Todos"
-#define XENIA_USER_LANGUAGE_LABEL_ES NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_ES "Idioma"
-#define XENIA_USER_LANGUAGE_INFO_0_ES NULL
+#define OPTION_VAL_1_XENIA_LICENSE_MASK_0_ES "Todas"
+#define XENIA_USER_LANGUAGE_LABEL_ES "Idioma del usuario (es necesario reiniciar)"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_ES "Idioma (es necesario reiniciar)"
+#define XENIA_USER_LANGUAGE_INFO_0_ES "Establece el idioma de la consola emulada."
 #define OPTION_VAL_ENGLISH_ES "Inglés"
 #define OPTION_VAL_JAPANESE_ES "Japonés"
 #define OPTION_VAL_GERMAN_ES "Alemán"
@@ -15630,14 +14700,14 @@ struct retro_core_options_v2 options_eo = {
 #define OPTION_VAL_SPANISH_ES "Español"
 #define OPTION_VAL_ITALIAN_ES "Italiano"
 #define OPTION_VAL_KOREAN_ES "Coreano"
-#define OPTION_VAL_TCHINESE_ES NULL
+#define OPTION_VAL_TCHINESE_ES "Chino tradicional"
 #define OPTION_VAL_PORTUGUESE_ES "Portugués"
-#define OPTION_VAL_SCHINESE_ES NULL
+#define OPTION_VAL_SCHINESE_ES "Chino simplificado"
 #define OPTION_VAL_POLISH_ES "Polaco"
 #define OPTION_VAL_RUSSIAN_ES "Ruso"
-#define XENIA_USER_COUNTRY_LABEL_ES "País del usuario"
-#define XENIA_USER_COUNTRY_LABEL_CAT_ES "País"
-#define XENIA_USER_COUNTRY_INFO_0_ES NULL
+#define XENIA_USER_COUNTRY_LABEL_ES "País del usuario (es necesario reiniciar)"
+#define XENIA_USER_COUNTRY_LABEL_CAT_ES "País (es necesario reiniciar)"
+#define XENIA_USER_COUNTRY_INFO_0_ES "Establece el país y la región de la consola emulada."
 #define OPTION_VAL_UNITED_STATES_ES "Estados Unidos"
 #define OPTION_VAL_GREAT_BRITAIN_ES "Gran Bretaña"
 #define OPTION_VAL_JAPAN_ES "Japón"
@@ -15651,80 +14721,79 @@ struct retro_core_options_v2 options_eo = {
 #define OPTION_VAL_KOREA_ES "Corea"
 #define OPTION_VAL_CHINA_ES NULL
 #define OPTION_VAL_MEXICO_ES "México"
-#define OPTION_VAL_NETHERLANDS_ES NULL
+#define OPTION_VAL_NETHERLANDS_ES "Países Bajos"
 #define OPTION_VAL_RUSSIA_ES "Rusia"
 #define OPTION_VAL_SWEDEN_ES "Suecia"
 #define OPTION_VAL_POLAND_ES "Polonia"
 #define OPTION_VAL_PORTUGAL_ES NULL
 #define OPTION_VAL_TAIWAN_ES "Taiwán"
 #define OPTION_VAL_HONG_KONG_ES NULL
-#define XENIA_PROTECT_ZERO_LABEL_ES NULL
-#define XENIA_PROTECT_ZERO_LABEL_CAT_ES NULL
-#define XENIA_PROTECT_ZERO_INFO_0_ES NULL
-#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_ES NULL
-#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CAT_ES NULL
-#define XENIA_CLEAR_MEMORY_PAGE_STATE_INFO_0_ES NULL
-#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_ES NULL
-#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_ES NULL
-#define XENIA_DISABLE_CONTEXT_PROMOTION_INFO_0_ES NULL
-#define OPTION_VAL_DISABLED_XENIA_DISABLE_CONTEXT_PROMOTION_ES NULL
-#define OPTION_VAL_ENABLED_XENIA_DISABLE_CONTEXT_PROMOTION_ES NULL
-#define XENIA_MOUNT_CACHE_LABEL_ES NULL
-#define XENIA_MOUNT_CACHE_LABEL_CAT_ES NULL
-#define XENIA_MOUNT_CACHE_INFO_0_ES NULL
-#define XENIA_MOUNT_SCRATCH_LABEL_ES NULL
-#define XENIA_MOUNT_SCRATCH_LABEL_CAT_ES NULL
-#define XENIA_MOUNT_SCRATCH_INFO_0_ES NULL
-#define XENIA_OCCLUSION_QUERY_LABEL_ES NULL
-#define XENIA_OCCLUSION_QUERY_INFO_0_ES NULL
-#define OPTION_VAL_FAST_ES "Rápida"
-#define OPTION_VAL_FAKE_XENIA_OCCLUSION_QUERY_ES NULL
-#define OPTION_VAL_FAST_ALT_ES NULL
-#define OPTION_VAL_STRICT_ES "Estricta"
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_ES NULL
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_ES NULL
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_INFO_0_ES NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_ES NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CAT_ES NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_INFO_0_ES NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_ES NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_CAT_ES NULL
-#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_INFO_0_ES NULL
-#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_ES NULL
-#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_CAT_ES NULL
-#define XENIA_DEPTH_BIAS_SHADER_OFFSET_INFO_0_ES NULL
-#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_ES "Umbral de escala de resolución"
-#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_CAT_ES NULL
-#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_INFO_0_ES NULL
-#define OPTION_VAL_0_XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_ES NULL
-#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_ES NULL
-#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CAT_ES NULL
-#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_INFO_0_ES NULL
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_ES NULL
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_ES NULL
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_ES NULL
-#define XENIA_FORCE_DEPTH_CLAMP_LABEL_ES NULL
-#define XENIA_FORCE_DEPTH_CLAMP_LABEL_CAT_ES NULL
-#define XENIA_FORCE_DEPTH_CLAMP_INFO_0_ES NULL
-#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_ES NULL
-#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CAT_ES NULL
-#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_INFO_0_ES NULL
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_ES NULL
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_ES NULL
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_ES NULL
-#define XENIA_SCRIBBLE_HEAP_LABEL_ES NULL
-#define XENIA_SCRIBBLE_HEAP_INFO_0_ES NULL
-#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_ES NULL
-#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_ES NULL
-#define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_ES NULL
-#define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_ES NULL
-#define XENIA_LOG_LEVEL_LABEL_ES NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_ES NULL
-#define XENIA_LOG_LEVEL_INFO_0_ES NULL
-#define OPTION_VAL_ERROR_ES NULL
+#define XENIA_LOG_LEVEL_LABEL_ES "Nivel de registro"
+#define XENIA_LOG_LEVEL_INFO_0_ES "Establece el nivel de detalle de la salida del registro."
+#define OPTION_VAL_ERROR_ES "Solo errores"
 #define OPTION_VAL_WARN_ES "Advertencia"
 #define OPTION_VAL_INFO_ES "Información"
 #define OPTION_VAL_DEBUG_ES "Depuración"
+#define XENIA_PROTECT_ZERO_LABEL_ES "Proteger la página cero (es necesario reiniciar)"
+#define XENIA_PROTECT_ZERO_LABEL_CAT_ES "Proteger la página cero (es necesario reiniciar)"
+#define XENIA_PROTECT_ZERO_INFO_0_ES "Protege la página cero contra lecturas y escrituras. Desactiva esta opción si un juego se cuelga al arrancar."
+#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_ES "Borrar estado de paginación de memoria de la GPU"
+#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CAT_ES "Borrar caché de GPU"
+#define XENIA_CLEAR_MEMORY_PAGE_STATE_INFO_0_ES "Actualiza el estado de las páginas de memoria en los datos escritos a la GPU. Esta opción está desactivada por defecto, al igual que en la aplicación independiente, algunos juegos necesitan que esté activada para renderizarse correctamente (Ridge Racer 6 y los juegos indicados en la lista de ajustes optimizados de xenia-manager)."
+#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_ES "Desactivar promoción de contextos (es necesario reiniciar)"
+#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_ES "Desactivar promoción de Ctx (es necesario reiniciar)"
+#define XENIA_DISABLE_CONTEXT_PROMOTION_INFO_0_ES "Desactiva la optimización de promoción de contextos de la CPU. Necesario para algunos juegos deportivos, pero reducirá el rendimiento."
+#define OPTION_VAL_DISABLED_XENIA_DISABLE_CONTEXT_PROMOTION_ES "Desactivada (normal)"
+#define OPTION_VAL_ENABLED_XENIA_DISABLE_CONTEXT_PROMOTION_ES "Activada (arreglo para juegos deportivos)"
+#define XENIA_MOUNT_CACHE_LABEL_ES "Montar partición de caché (es necesario reiniciar)"
+#define XENIA_MOUNT_CACHE_LABEL_CAT_ES "Montar caché (es necesario reiniciar)"
+#define XENIA_MOUNT_CACHE_INFO_0_ES "Activa el montado de la partición de caché. Necesaria para algunos juegos."
+#define XENIA_MOUNT_SCRATCH_LABEL_ES "Montar partición de \"scratch\" (es necesario reiniciar)"
+#define XENIA_MOUNT_SCRATCH_LABEL_CAT_ES "Montar \"scratch\" (es necesario reiniciar)"
+#define XENIA_MOUNT_SCRATCH_INFO_0_ES "Activa el montado de la partición de \"scratch\". Necesaria para algunos juegos."
+#define XENIA_OCCLUSION_QUERY_LABEL_ES "Consultas de oclusión (es necesario reiniciar)"
+#define XENIA_OCCLUSION_QUERY_INFO_0_ES "Establece la forma de responder a las consultas de oculisón (destellos de lente, orden de renderizado, autoexposición). Rápidas (el valor predeterminado) envían las solicitudes a la GPU sin esperar; Falsas escriben un resultado inventado, Rápidas (alt.) guarda en caché los resultados con valor cero, Estrictas esperan a que la GPU conteste y es la opción más fiel."
+#define OPTION_VAL_FAST_ES "Rápidas"
+#define OPTION_VAL_FAKE_XENIA_OCCLUSION_QUERY_ES "Falsas"
+#define OPTION_VAL_FAST_ALT_ES "Falsas (alt.)"
+#define OPTION_VAL_STRICT_ES "Estrictas"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_ES "Contadores completos para las consultas de oclusión (es necesario reiniciar)"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_ES "Contadores completos (es necesario reiniciar)"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_INFO_0_ES "Emula los contadores de oclusión ZFail, StencilFail y Total usando shaders. Algunos juegos necesitan esta opción, afecta al rendimiento."
+#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_ES "Umbral inferior de la oclusión falsa"
+#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CAT_ES "Umbral inferior de la oclusión falsa"
+#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_INFO_0_ES "El valor mínimo del recuento de muestras falso que se escribirá al falsear las consultas de oclusión. Elige -1 para que no se escriban (y algunos juegos se quedarán esperando eternamente)."
+#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_ES "Umbral superior de la oclusión falsa"
+#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_CAT_ES "Umbral superior de la oclusión falsa"
+#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_INFO_0_ES "El valor máximo del recuento de muestras falso que se escribirá al falsear las consultas de oclusión."
+#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_ES "Compensar profundidad con shaders"
+#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_CAT_ES "Compensar profundidad con shaders"
+#define XENIA_DEPTH_BIAS_SHADER_OFFSET_INFO_0_ES "Redirige los dibujados de las marcas superpuestas con desplazamiento sobre polígonos a los shaders, en vez de utilizar la compensación de profundidad del equipo. Corrige el \"Z-fighting\" (distorsión entre polígonos) de las marcas en algunos juegos."
+#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_ES "Umbral de escala de resolución"
+#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_CAT_ES "Umbral de escala"
+#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_INFO_0_ES "Los objetivos de renderizado con un valor igual o inferior a este valor no serán reescalados por el factor de escala de la resolución. Corrige algunos efectos que fallan al ser escalados."
+#define OPTION_VAL_0_XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_ES "0 (reescalar todo)"
+#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_ES "Permitir rangos de cargas no válidos"
+#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CAT_ES "Cargas no válidas"
+#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_INFO_0_ES "Permite que los juegos puedan leer datos de aquellas páginas que estén marcadas como sin acceso."
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_ES "Objetivo de renderizado de gamma UNORM16 (es necesario reiniciar)"
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_ES "Gamma UNORM16 (es necesario reiniciar)"
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_ES "Emula los objetivos de renderizado de gamma a 16 bits por componente en aquellos casos en los que el equipo no pueda mostrar gammas fragmentados de 8 bits. Desactiva esta opción si los colores de un juego se muestran mal."
+#define XENIA_FORCE_DEPTH_CLAMP_LABEL_ES "Forzar limitación de profundidad"
+#define XENIA_FORCE_DEPTH_CLAMP_LABEL_CAT_ES "Limitación de profundidad"
+#define XENIA_FORCE_DEPTH_CLAMP_INFO_0_ES "Utiliza la limitación de profundidad del equipo en lugar del recortado de planos cercanos y lejanos."
+#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_ES "Ignorar compensación de rangos asignados"
+#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CAT_ES "Rangos asignados"
+#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_INFO_0_ES "Ignora la compensación de 4 KB para asignación de memoria física con un rango personalizado. Algunos juegos necesitan usar esta opción."
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_ES "Interrumpir al leer instrucciones no implementadas (es necesario reiniciar)"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_ES "Interrumpir al leer no implementadas (es necesario reiniciar)"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_ES "Detener el juego cuando ejecute una instrucción de CPU que no esté implementada en Xenia. En el caso de un núcleo de RetroArch, se cerrará la aplicación, así que desactiva esta opción para que esos juegos sigan funcionando."
+#define XENIA_SCRIBBLE_HEAP_LABEL_ES "Montón de scribble"
+#define XENIA_SCRIBBLE_HEAP_INFO_0_ES "Llena los montones de memoria recién asignados con un valor para aquellos juegos que dependan de lo que quede."
+#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_ES "Valor del montón de scribble"
+#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_ES "Valor de scribble"
+#define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_ES "El valor con el que la opción Montón de scribble llenará la memoria. Selecciona 0 para introducir un valor al azar."
+#define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_ES "0 (al azar)"
 
 struct retro_core_option_v2_category option_cats_es[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_ES,
@@ -15737,8 +14806,6 @@ struct retro_core_option_v2_category option_cats_es[] = {
       CATEGORY_EMULATION_INFO_0_ES },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_ES,
       CATEGORY_COMPATIBILITY_INFO_0_ES },
-    { "Debug", CATEGORY_DEBUG_LABEL_ES,
-      CATEGORY_DEBUG_INFO_0_ES },
     { "patches", CATEGORY_PATCHES_LABEL_ES,
       CATEGORY_PATCHES_INFO_0_ES },
     { NULL, NULL, NULL }
@@ -15750,7 +14817,7 @@ struct retro_core_option_v2_definition option_defs_es[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_ES,
-        XENIA_GRAPHICS_API_LABEL_CAT_ES,
+        XENIA_GRAPHICS_API_LABEL_ES,
         XENIA_GRAPHICS_API_INFO_0_ES,
         NULL,
         "Graphics",
@@ -15884,20 +14951,6 @@ struct retro_core_option_v2_definition option_defs_es[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_ES,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_ES,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_ES,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -16037,23 +15090,9 @@ struct retro_core_option_v2_definition option_defs_es[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_ES,
-        XENIA_MUTE_LABEL_CAT_ES,
-        XENIA_MUTE_INFO_0_ES,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_ES },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_ES,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_ES,
+        XENIA_AUDIO_CHANNELS_LABEL_ES,
         XENIA_AUDIO_CHANNELS_INFO_0_ES,
         NULL,
         "Audio",
@@ -16067,7 +15106,7 @@ struct retro_core_option_v2_definition option_defs_es[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_ES,
-        XENIA_XMA_DECODER_LABEL_CAT_ES,
+        XENIA_XMA_DECODER_LABEL_ES,
         XENIA_XMA_DECODER_INFO_0_ES,
         NULL,
         "Audio",
@@ -16129,28 +15168,11 @@ struct retro_core_option_v2_definition option_defs_es[] = {
             { "100", OPTION_VAL_100_ES },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_ES,
-        XENIA_TIME_SCALAR_LABEL_CAT_ES,
-        XENIA_TIME_SCALAR_INFO_0_ES,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_ES },
-            { "0.5",  OPTION_VAL_0_5_ES },
-            { "1.0",  OPTION_VAL_1_0_ES },
-            { "2.0",  OPTION_VAL_2_0_ES },
-            { "4.0",  OPTION_VAL_4_0_ES },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_ES,
@@ -16193,6 +15215,9 @@ struct retro_core_option_v2_definition option_defs_es[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_ES,
@@ -16206,7 +15231,7 @@ struct retro_core_option_v2_definition option_defs_es[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_ES },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -16263,6 +15288,22 @@ struct retro_core_option_v2_definition option_defs_es[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_ES,
+        XENIA_LOG_LEVEL_LABEL_ES,
+        XENIA_LOG_LEVEL_INFO_0_ES,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_ES },
+            { "warn",  OPTION_VAL_WARN_ES },
+            { "info",  OPTION_VAL_INFO_ES },
+            { "debug", OPTION_VAL_DEBUG_ES },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -16528,22 +15569,6 @@ struct retro_core_option_v2_definition option_defs_es[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_ES,
-        XENIA_LOG_LEVEL_LABEL_CAT_ES,
-        XENIA_LOG_LEVEL_INFO_0_ES,
-        NULL,
-        OPTION_VAL_DEBUG_ES,
-        {
-            { "error", OPTION_VAL_ERROR_ES },
-            { "warn",  OPTION_VAL_WARN_ES },
-            { "info",  OPTION_VAL_INFO_ES },
-            { "debug", OPTION_VAL_DEBUG_ES },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -16564,12 +15589,9 @@ struct retro_core_options_v2 options_es = {
 #define CATEGORY_EMULATION_INFO_0_FA NULL
 #define CATEGORY_COMPATIBILITY_LABEL_FA NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_FA NULL
-#define CATEGORY_DEBUG_LABEL_FA NULL
-#define CATEGORY_DEBUG_INFO_0_FA NULL
 #define CATEGORY_PATCHES_LABEL_FA NULL
 #define CATEGORY_PATCHES_INFO_0_FA NULL
 #define XENIA_GRAPHICS_API_LABEL_FA NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_FA NULL
 #define XENIA_GRAPHICS_API_INFO_0_FA NULL
 #define OPTION_VAL_VULKAN_FA NULL
 #define OPTION_VAL_D3D12_FA NULL
@@ -16610,9 +15632,6 @@ struct retro_core_options_v2 options_es = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_FA NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_FA NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_FA NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_FA NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_FA NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_FA NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_FA NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_FA NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_FA NULL
@@ -16645,7 +15664,7 @@ struct retro_core_options_v2 options_es = {
 #define OPTION_VAL_13_FA NULL
 #define OPTION_VAL_14_FA NULL
 #define OPTION_VAL_15_FA "۱۹۲۰x۱۰۸۰"
-#define XENIA_WIDESCREEN_LABEL_FA "نسبت تصویر"
+#define XENIA_WIDESCREEN_LABEL_FA NULL
 #define XENIA_WIDESCREEN_INFO_0_FA NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_FA NULL
 #define OPTION_VAL_DISABLED_FA NULL
@@ -16663,17 +15682,11 @@ struct retro_core_options_v2 options_es = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_FA NULL
 #define XENIA_AUDIO_ENABLED_LABEL_FA NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_FA NULL
-#define XENIA_MUTE_LABEL_FA NULL
-#define XENIA_MUTE_LABEL_CAT_FA "ساکت"
-#define XENIA_MUTE_INFO_0_FA NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_FA NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_FA NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_FA NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_FA NULL
 #define OPTION_VAL_STEREO_FA NULL
 #define OPTION_VAL_5_1_FA NULL
 #define XENIA_XMA_DECODER_LABEL_FA NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_FA NULL
 #define XENIA_XMA_DECODER_INFO_0_FA NULL
 #define OPTION_VAL_NEW_FA NULL
 #define OPTION_VAL_OLD_FA NULL
@@ -16699,14 +15712,6 @@ struct retro_core_options_v2 options_es = {
 #define OPTION_VAL_80_FA NULL
 #define OPTION_VAL_90_FA NULL
 #define OPTION_VAL_100_FA NULL
-#define XENIA_TIME_SCALAR_LABEL_FA NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_FA NULL
-#define XENIA_TIME_SCALAR_INFO_0_FA NULL
-#define OPTION_VAL_0_25_FA NULL
-#define OPTION_VAL_0_5_FA NULL
-#define OPTION_VAL_1_0_FA NULL
-#define OPTION_VAL_2_0_FA NULL
-#define OPTION_VAL_4_0_FA NULL
 #define XENIA_TITLE_UPDATES_LABEL_FA NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_FA NULL
 #define XENIA_TITLE_UPDATES_INFO_0_FA NULL
@@ -16716,13 +15721,13 @@ struct retro_core_options_v2 options_es = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_FA NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_FA NULL
 #define XENIA_LICENSE_MASK_LABEL_FA NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_FA "گواهینامه"
+#define XENIA_LICENSE_MASK_LABEL_CAT_FA NULL
 #define XENIA_LICENSE_MASK_INFO_0_FA NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_FA "هیچکدام"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_FA NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_FA NULL
 #define XENIA_USER_LANGUAGE_LABEL_FA NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_FA "زبان"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_FA NULL
 #define XENIA_USER_LANGUAGE_INFO_0_FA NULL
 #define OPTION_VAL_ENGLISH_FA NULL
 #define OPTION_VAL_JAPANESE_FA NULL
@@ -16759,6 +15764,12 @@ struct retro_core_options_v2 options_es = {
 #define OPTION_VAL_PORTUGAL_FA NULL
 #define OPTION_VAL_TAIWAN_FA NULL
 #define OPTION_VAL_HONG_KONG_FA NULL
+#define XENIA_LOG_LEVEL_LABEL_FA NULL
+#define XENIA_LOG_LEVEL_INFO_0_FA NULL
+#define OPTION_VAL_ERROR_FA NULL
+#define OPTION_VAL_WARN_FA NULL
+#define OPTION_VAL_INFO_FA "اطلاعات"
+#define OPTION_VAL_DEBUG_FA NULL
 #define XENIA_PROTECT_ZERO_LABEL_FA NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_FA NULL
 #define XENIA_PROTECT_ZERO_INFO_0_FA NULL
@@ -16819,13 +15830,6 @@ struct retro_core_options_v2 options_es = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_FA NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_FA NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_FA NULL
-#define XENIA_LOG_LEVEL_LABEL_FA NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_FA NULL
-#define XENIA_LOG_LEVEL_INFO_0_FA NULL
-#define OPTION_VAL_ERROR_FA NULL
-#define OPTION_VAL_WARN_FA NULL
-#define OPTION_VAL_INFO_FA "اطلاعات"
-#define OPTION_VAL_DEBUG_FA NULL
 
 struct retro_core_option_v2_category option_cats_fa[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_FA,
@@ -16838,8 +15842,6 @@ struct retro_core_option_v2_category option_cats_fa[] = {
       CATEGORY_EMULATION_INFO_0_FA },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_FA,
       CATEGORY_COMPATIBILITY_INFO_0_FA },
-    { "Debug", CATEGORY_DEBUG_LABEL_FA,
-      CATEGORY_DEBUG_INFO_0_FA },
     { "patches", CATEGORY_PATCHES_LABEL_FA,
       CATEGORY_PATCHES_INFO_0_FA },
     { NULL, NULL, NULL }
@@ -16851,7 +15853,7 @@ struct retro_core_option_v2_definition option_defs_fa[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_FA,
-        XENIA_GRAPHICS_API_LABEL_CAT_FA,
+        XENIA_GRAPHICS_API_LABEL_FA,
         XENIA_GRAPHICS_API_INFO_0_FA,
         NULL,
         "Graphics",
@@ -16985,20 +15987,6 @@ struct retro_core_option_v2_definition option_defs_fa[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_FA,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_FA,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_FA,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -17138,23 +16126,9 @@ struct retro_core_option_v2_definition option_defs_fa[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_FA,
-        XENIA_MUTE_LABEL_CAT_FA,
-        XENIA_MUTE_INFO_0_FA,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_FA },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_FA,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_FA,
+        XENIA_AUDIO_CHANNELS_LABEL_FA,
         XENIA_AUDIO_CHANNELS_INFO_0_FA,
         NULL,
         "Audio",
@@ -17168,7 +16142,7 @@ struct retro_core_option_v2_definition option_defs_fa[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_FA,
-        XENIA_XMA_DECODER_LABEL_CAT_FA,
+        XENIA_XMA_DECODER_LABEL_FA,
         XENIA_XMA_DECODER_INFO_0_FA,
         NULL,
         "Audio",
@@ -17230,28 +16204,11 @@ struct retro_core_option_v2_definition option_defs_fa[] = {
             { "100", OPTION_VAL_100_FA },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_FA,
-        XENIA_TIME_SCALAR_LABEL_CAT_FA,
-        XENIA_TIME_SCALAR_INFO_0_FA,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_FA },
-            { "0.5",  OPTION_VAL_0_5_FA },
-            { "1.0",  OPTION_VAL_1_0_FA },
-            { "2.0",  OPTION_VAL_2_0_FA },
-            { "4.0",  OPTION_VAL_4_0_FA },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_FA,
@@ -17294,6 +16251,9 @@ struct retro_core_option_v2_definition option_defs_fa[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_FA,
@@ -17307,7 +16267,7 @@ struct retro_core_option_v2_definition option_defs_fa[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_FA },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -17364,6 +16324,22 @@ struct retro_core_option_v2_definition option_defs_fa[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_FA,
+        XENIA_LOG_LEVEL_LABEL_FA,
+        XENIA_LOG_LEVEL_INFO_0_FA,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_FA },
+            { "warn",  OPTION_VAL_WARN_FA },
+            { "info",  OPTION_VAL_INFO_FA },
+            { "debug", OPTION_VAL_DEBUG_FA },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -17629,22 +16605,6 @@ struct retro_core_option_v2_definition option_defs_fa[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_FA,
-        XENIA_LOG_LEVEL_LABEL_CAT_FA,
-        XENIA_LOG_LEVEL_INFO_0_FA,
-        NULL,
-        OPTION_VAL_DEBUG_FA,
-        {
-            { "error", OPTION_VAL_ERROR_FA },
-            { "warn",  OPTION_VAL_WARN_FA },
-            { "info",  OPTION_VAL_INFO_FA },
-            { "debug", OPTION_VAL_DEBUG_FA },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -17665,12 +16625,9 @@ struct retro_core_options_v2 options_fa = {
 #define CATEGORY_EMULATION_INFO_0_FI NULL
 #define CATEGORY_COMPATIBILITY_LABEL_FI NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_FI NULL
-#define CATEGORY_DEBUG_LABEL_FI NULL
-#define CATEGORY_DEBUG_INFO_0_FI NULL
 #define CATEGORY_PATCHES_LABEL_FI NULL
 #define CATEGORY_PATCHES_INFO_0_FI NULL
 #define XENIA_GRAPHICS_API_LABEL_FI NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_FI NULL
 #define XENIA_GRAPHICS_API_INFO_0_FI NULL
 #define OPTION_VAL_VULKAN_FI NULL
 #define OPTION_VAL_D3D12_FI NULL
@@ -17711,9 +16668,6 @@ struct retro_core_options_v2 options_fa = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_FI NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_FI NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_FI NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_FI NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_FI NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_FI NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_FI NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_FI NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_FI NULL
@@ -17746,7 +16700,7 @@ struct retro_core_options_v2 options_fa = {
 #define OPTION_VAL_13_FI NULL
 #define OPTION_VAL_14_FI NULL
 #define OPTION_VAL_15_FI "1920 x 1080"
-#define XENIA_WIDESCREEN_LABEL_FI "Kuvasuhde"
+#define XENIA_WIDESCREEN_LABEL_FI NULL
 #define XENIA_WIDESCREEN_INFO_0_FI NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_FI NULL
 #define OPTION_VAL_DISABLED_FI NULL
@@ -17764,17 +16718,11 @@ struct retro_core_options_v2 options_fa = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_FI NULL
 #define XENIA_AUDIO_ENABLED_LABEL_FI NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_FI NULL
-#define XENIA_MUTE_LABEL_FI NULL
-#define XENIA_MUTE_LABEL_CAT_FI "Mykistä"
-#define XENIA_MUTE_INFO_0_FI NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_FI NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_FI NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_FI NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_FI NULL
 #define OPTION_VAL_STEREO_FI NULL
 #define OPTION_VAL_5_1_FI NULL
 #define XENIA_XMA_DECODER_LABEL_FI NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_FI NULL
 #define XENIA_XMA_DECODER_INFO_0_FI NULL
 #define OPTION_VAL_NEW_FI NULL
 #define OPTION_VAL_OLD_FI NULL
@@ -17796,18 +16744,10 @@ struct retro_core_options_v2 options_fa = {
 #define OPTION_VAL_40_FI "40 %"
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_FI "50 %"
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_FI "60 %"
-#define OPTION_VAL_70_FI "70 %"
+#define OPTION_VAL_70_FI NULL
 #define OPTION_VAL_80_FI "80 %"
 #define OPTION_VAL_90_FI "90 %"
-#define OPTION_VAL_100_FI "100 % (Oletus)"
-#define XENIA_TIME_SCALAR_LABEL_FI NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_FI NULL
-#define XENIA_TIME_SCALAR_INFO_0_FI NULL
-#define OPTION_VAL_0_25_FI NULL
-#define OPTION_VAL_0_5_FI NULL
-#define OPTION_VAL_1_0_FI NULL
-#define OPTION_VAL_2_0_FI NULL
-#define OPTION_VAL_4_0_FI NULL
+#define OPTION_VAL_100_FI "100 %"
 #define XENIA_TITLE_UPDATES_LABEL_FI NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_FI NULL
 #define XENIA_TITLE_UPDATES_INFO_0_FI NULL
@@ -17817,13 +16757,13 @@ struct retro_core_options_v2 options_fa = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_FI NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_FI NULL
 #define XENIA_LICENSE_MASK_LABEL_FI NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_FI "Lisenssi"
+#define XENIA_LICENSE_MASK_LABEL_CAT_FI NULL
 #define XENIA_LICENSE_MASK_INFO_0_FI NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_FI "Ei mitään"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_FI "Täysi"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_FI "Kaikki"
 #define XENIA_USER_LANGUAGE_LABEL_FI NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_FI "Kieli"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_FI NULL
 #define XENIA_USER_LANGUAGE_INFO_0_FI NULL
 #define OPTION_VAL_ENGLISH_FI NULL
 #define OPTION_VAL_JAPANESE_FI NULL
@@ -17860,6 +16800,12 @@ struct retro_core_options_v2 options_fa = {
 #define OPTION_VAL_PORTUGAL_FI NULL
 #define OPTION_VAL_TAIWAN_FI NULL
 #define OPTION_VAL_HONG_KONG_FI NULL
+#define XENIA_LOG_LEVEL_LABEL_FI NULL
+#define XENIA_LOG_LEVEL_INFO_0_FI NULL
+#define OPTION_VAL_ERROR_FI NULL
+#define OPTION_VAL_WARN_FI "Varoitus"
+#define OPTION_VAL_INFO_FI "Tiedot"
+#define OPTION_VAL_DEBUG_FI NULL
 #define XENIA_PROTECT_ZERO_LABEL_FI NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_FI NULL
 #define XENIA_PROTECT_ZERO_INFO_0_FI NULL
@@ -17920,13 +16866,6 @@ struct retro_core_options_v2 options_fa = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_FI NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_FI NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_FI NULL
-#define XENIA_LOG_LEVEL_LABEL_FI NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_FI NULL
-#define XENIA_LOG_LEVEL_INFO_0_FI NULL
-#define OPTION_VAL_ERROR_FI NULL
-#define OPTION_VAL_WARN_FI "Varoitus"
-#define OPTION_VAL_INFO_FI "Tiedot"
-#define OPTION_VAL_DEBUG_FI NULL
 
 struct retro_core_option_v2_category option_cats_fi[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_FI,
@@ -17939,8 +16878,6 @@ struct retro_core_option_v2_category option_cats_fi[] = {
       CATEGORY_EMULATION_INFO_0_FI },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_FI,
       CATEGORY_COMPATIBILITY_INFO_0_FI },
-    { "Debug", CATEGORY_DEBUG_LABEL_FI,
-      CATEGORY_DEBUG_INFO_0_FI },
     { "patches", CATEGORY_PATCHES_LABEL_FI,
       CATEGORY_PATCHES_INFO_0_FI },
     { NULL, NULL, NULL }
@@ -17952,7 +16889,7 @@ struct retro_core_option_v2_definition option_defs_fi[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_FI,
-        XENIA_GRAPHICS_API_LABEL_CAT_FI,
+        XENIA_GRAPHICS_API_LABEL_FI,
         XENIA_GRAPHICS_API_INFO_0_FI,
         NULL,
         "Graphics",
@@ -18086,20 +17023,6 @@ struct retro_core_option_v2_definition option_defs_fi[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_FI,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_FI,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_FI,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -18239,23 +17162,9 @@ struct retro_core_option_v2_definition option_defs_fi[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_FI,
-        XENIA_MUTE_LABEL_CAT_FI,
-        XENIA_MUTE_INFO_0_FI,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_FI },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_FI,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_FI,
+        XENIA_AUDIO_CHANNELS_LABEL_FI,
         XENIA_AUDIO_CHANNELS_INFO_0_FI,
         NULL,
         "Audio",
@@ -18269,7 +17178,7 @@ struct retro_core_option_v2_definition option_defs_fi[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_FI,
-        XENIA_XMA_DECODER_LABEL_CAT_FI,
+        XENIA_XMA_DECODER_LABEL_FI,
         XENIA_XMA_DECODER_INFO_0_FI,
         NULL,
         "Audio",
@@ -18331,28 +17240,11 @@ struct retro_core_option_v2_definition option_defs_fi[] = {
             { "100", OPTION_VAL_100_FI },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_FI,
-        XENIA_TIME_SCALAR_LABEL_CAT_FI,
-        XENIA_TIME_SCALAR_INFO_0_FI,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_FI },
-            { "0.5",  OPTION_VAL_0_5_FI },
-            { "1.0",  OPTION_VAL_1_0_FI },
-            { "2.0",  OPTION_VAL_2_0_FI },
-            { "4.0",  OPTION_VAL_4_0_FI },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_FI,
@@ -18395,6 +17287,9 @@ struct retro_core_option_v2_definition option_defs_fi[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_FI,
@@ -18408,7 +17303,7 @@ struct retro_core_option_v2_definition option_defs_fi[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_FI },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -18465,6 +17360,22 @@ struct retro_core_option_v2_definition option_defs_fi[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_FI,
+        XENIA_LOG_LEVEL_LABEL_FI,
+        XENIA_LOG_LEVEL_INFO_0_FI,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_FI },
+            { "warn",  OPTION_VAL_WARN_FI },
+            { "info",  OPTION_VAL_INFO_FI },
+            { "debug", OPTION_VAL_DEBUG_FI },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -18730,22 +17641,6 @@ struct retro_core_option_v2_definition option_defs_fi[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_FI,
-        XENIA_LOG_LEVEL_LABEL_CAT_FI,
-        XENIA_LOG_LEVEL_INFO_0_FI,
-        NULL,
-        OPTION_VAL_DEBUG_FI,
-        {
-            { "error", OPTION_VAL_ERROR_FI },
-            { "warn",  OPTION_VAL_WARN_FI },
-            { "info",  OPTION_VAL_INFO_FI },
-            { "debug", OPTION_VAL_DEBUG_FI },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -18763,25 +17658,22 @@ struct retro_core_options_v2 options_fi = {
 #define CATEGORY_AUDIO_LABEL_FR "Réglages audio"
 #define CATEGORY_AUDIO_INFO_0_FR "Sortie audio, décodeur XMA, lecteur de musique."
 #define CATEGORY_EMULATION_LABEL_FR "Réglages d'émulation"
-#define CATEGORY_EMULATION_INFO_0_FR "Vitesse, langue, pays, licences, correctifs."
+#define CATEGORY_EMULATION_INFO_0_FR NULL
 #define CATEGORY_COMPATIBILITY_LABEL_FR "Réglages de compatibilité"
 #define CATEGORY_COMPATIBILITY_INFO_0_FR "Hacks de jeux, mémoire, points de montage pour cache/fichiers temporaires."
-#define CATEGORY_DEBUG_LABEL_FR "Réglages de débogage"
-#define CATEGORY_DEBUG_INFO_0_FR "Niveau de verbosité des journaux."
 #define CATEGORY_PATCHES_LABEL_FR "Gestionnaire de correctifs"
 #define CATEGORY_PATCHES_INFO_0_FR "Les correctifs issus de Xenia Edge's game-patches pour cette version du jeu. La modification prend effet au prochain lancement."
 #define XENIA_GRAPHICS_API_LABEL_FR "API graphique (redémarrage)"
-#define XENIA_GRAPHICS_API_LABEL_CAT_FR "API graphique"
 #define XENIA_GRAPHICS_API_INFO_0_FR "Le moteur de rendu processeur graphique utilisé par Xenia pour émuler le processeur graphique de la Xbox 360, ainsi que le contexte que le cœur réclame à RetroArch : RetroArch adapte son pilote vidéo en conséquence lorsque cela est possible (Réglages > Vidéo > Sortie). Ce changement s'applique lors du rechargement du contenu."
 #define OPTION_VAL_VULKAN_FR NULL
 #define OPTION_VAL_D3D12_FR NULL
-#define XENIA_RENDER_TARGET_PATH_LABEL_FR "Chemin de la cible de rendu"
-#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_FR "Chemin RT"
+#define XENIA_RENDER_TARGET_PATH_LABEL_FR NULL
+#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_FR NULL
 #define XENIA_RENDER_TARGET_PATH_INFO_0_FR "Sélectionner le mode d'émulation de la cible de rendu.\nPerformances : cibles de rendu de l'hôte avec fusion à fonction fixe.\nPrécision : verrouillage de nuanceur de pixels / vues ordonnées par le rastériseur."
 #define OPTION_VAL_PERFORMANCE_FR "Performances"
 #define OPTION_VAL_ACCURACY_FR "Précision"
 #define XENIA_DRAW_RESOLUTION_SCALE_LABEL_FR "Échelle de résolution du rendu (redémarrage)"
-#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_FR "Échelle de résolution"
+#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_FR NULL
 #define XENIA_DRAW_RESOLUTION_SCALE_INFO_0_FR "Ajuster la résolution de rendu interne. Des valeurs plus élevées améliorent la qualité de l'image mais nécessitent davantage de puissance processeur graphique. Nécessite un redémarrage."
 #define OPTION_VAL_1_FR "x1 (720p natif)"
 #define OPTION_VAL_2_FR "x2 (1440p)"
@@ -18803,8 +17695,8 @@ struct retro_core_options_v2 options_fi = {
 #define XENIA_READBACK_RESOLVE_LABEL_FR "Résolution de la relecture"
 #define XENIA_READBACK_RESOLVE_LABEL_CAT_FR "Relecture"
 #define XENIA_READBACK_RESOLVE_INFO_0_FR "Copier la sortie du rendu vers texture dans la RAM de la machine invitée lorsque le processeur y accède. Désactiver cette option empêche le fonctionnement des jeux qui lisent ces données en retour."
-#define XENIA_STORE_SHADERS_LABEL_FR "Stocker les shaders"
-#define XENIA_STORE_SHADERS_LABEL_CAT_FR "Cache de shaders"
+#define XENIA_STORE_SHADERS_LABEL_FR NULL
+#define XENIA_STORE_SHADERS_LABEL_CAT_FR NULL
 #define XENIA_STORE_SHADERS_INFO_0_FR "Stocker les shaders compilés de manière persistante pour éviter les saccades dues à la recompilation lors des exécutions ultérieures."
 #define XENIA_HALF_PIXEL_OFFSET_LABEL_FR "Décalage d'un demi-pixel"
 #define XENIA_HALF_PIXEL_OFFSET_LABEL_CAT_FR "Demi-pixel"
@@ -18812,16 +17704,13 @@ struct retro_core_options_v2 options_fi = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_FR "Autoriser les constantes de récupération invalides"
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_FR "Récupération invalide"
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_FR "Autorise les constantes de récupération de texture/sommet (vertex) ayant un type invalide. Cela peut corriger des plantages dans certains jeux, mais reste généralement risqué."
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_FR "Fuzzy Alpha Epsilon (Correctif NVIDIA)"
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_FR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_FR "Utiliser une comparaison alpha approximative pour éviter le scintillement sur les processeurs graphiques NVIDIA."
 #define XENIA_DISPLAY_REFRESH_LABEL_FR "Fréquence de rafraîchissement de l'affichage émulé"
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_FR "Fréquence de rafraîchissement de l'écran"
 #define XENIA_DISPLAY_REFRESH_INFO_0_FR "La fréquence de rafraîchissement du téléviseur que le jeu croit utiliser, comme l'option de la version autonome. NTSC (60 Hz) correspond à la console. PAL (50 Hz) correspond à un téléviseur PAL : les jeux tournent à 50 images par seconde. Débloquer la fréquence d'images outrepasse ce réglage."
 #define OPTION_VAL_60_FR "NTSC (60 Hz)"
 #define OPTION_VAL_50_FR "PAL (50 Hz)"
-#define XENIA_WAIT_FOR_FRAME_LABEL_FR "Attendre l'image du jeu"
-#define XENIA_WAIT_FOR_FRAME_INFO_0_FR "Supprime une image de latence d'entrée, au risque de ralentir le jeu."
+#define XENIA_WAIT_FOR_FRAME_LABEL_FR NULL
+#define XENIA_WAIT_FOR_FRAME_INFO_0_FR NULL
 #define XENIA_UNLOCK_FRAMERATE_LABEL_FR "Débloquer la fréquence d'images"
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_FR NULL
 #define OPTION_VAL_ENABLED_FR NULL
@@ -18847,7 +17736,7 @@ struct retro_core_options_v2 options_fi = {
 #define OPTION_VAL_13_FR NULL
 #define OPTION_VAL_14_FR NULL
 #define OPTION_VAL_15_FR "1920 x 1080"
-#define XENIA_WIDESCREEN_LABEL_FR "Rapport d'aspect"
+#define XENIA_WIDESCREEN_LABEL_FR NULL
 #define XENIA_WIDESCREEN_INFO_0_FR NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_FR NULL
 #define OPTION_VAL_DISABLED_FR NULL
@@ -18865,17 +17754,11 @@ struct retro_core_options_v2 options_fi = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_FR NULL
 #define XENIA_AUDIO_ENABLED_LABEL_FR NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_FR NULL
-#define XENIA_MUTE_LABEL_FR NULL
-#define XENIA_MUTE_LABEL_CAT_FR "Muet"
-#define XENIA_MUTE_INFO_0_FR NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_FR NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_FR "Canaux audio (redémarrer)"
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_FR NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_FR NULL
 #define OPTION_VAL_STEREO_FR "Stéréo"
 #define OPTION_VAL_5_1_FR NULL
 #define XENIA_XMA_DECODER_LABEL_FR NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_FR NULL
 #define XENIA_XMA_DECODER_INFO_0_FR NULL
 #define OPTION_VAL_NEW_FR NULL
 #define OPTION_VAL_OLD_FR NULL
@@ -18897,34 +17780,26 @@ struct retro_core_options_v2 options_fi = {
 #define OPTION_VAL_40_FR "40 %"
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_FR "50 %"
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_FR "60 %"
-#define OPTION_VAL_70_FR "70 %"
+#define OPTION_VAL_70_FR NULL
 #define OPTION_VAL_80_FR "80 %"
 #define OPTION_VAL_90_FR "90 %"
-#define OPTION_VAL_100_FR "100 % (par défaut)"
-#define XENIA_TIME_SCALAR_LABEL_FR NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_FR NULL
-#define XENIA_TIME_SCALAR_INFO_0_FR NULL
-#define OPTION_VAL_0_25_FR NULL
-#define OPTION_VAL_0_5_FR NULL
-#define OPTION_VAL_1_0_FR NULL
-#define OPTION_VAL_2_0_FR NULL
-#define OPTION_VAL_4_0_FR NULL
+#define OPTION_VAL_100_FR "100 %"
 #define XENIA_TITLE_UPDATES_LABEL_FR NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_FR NULL
 #define XENIA_TITLE_UPDATES_INFO_0_FR NULL
 #define XENIA_APPLY_PATCHES_LABEL_FR NULL
-#define XENIA_APPLY_PATCHES_LABEL_CAT_FR "Correctifs"
+#define XENIA_APPLY_PATCHES_LABEL_CAT_FR NULL
 #define XENIA_APPLY_PATCHES_INFO_0_FR NULL
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_FR NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_FR NULL
 #define XENIA_LICENSE_MASK_LABEL_FR NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_FR "Licence "
+#define XENIA_LICENSE_MASK_LABEL_CAT_FR NULL
 #define XENIA_LICENSE_MASK_INFO_0_FR NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_FR "Ne pas partager"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_FR "Complète"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_FR "Tous"
 #define XENIA_USER_LANGUAGE_LABEL_FR NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_FR "Langue "
+#define XENIA_USER_LANGUAGE_LABEL_CAT_FR NULL
 #define XENIA_USER_LANGUAGE_INFO_0_FR NULL
 #define OPTION_VAL_ENGLISH_FR "Anglais"
 #define OPTION_VAL_JAPANESE_FR "Japonais"
@@ -18961,6 +17836,12 @@ struct retro_core_options_v2 options_fi = {
 #define OPTION_VAL_PORTUGAL_FR NULL
 #define OPTION_VAL_TAIWAN_FR NULL
 #define OPTION_VAL_HONG_KONG_FR NULL
+#define XENIA_LOG_LEVEL_LABEL_FR NULL
+#define XENIA_LOG_LEVEL_INFO_0_FR NULL
+#define OPTION_VAL_ERROR_FR NULL
+#define OPTION_VAL_WARN_FR "Attention"
+#define OPTION_VAL_INFO_FR NULL
+#define OPTION_VAL_DEBUG_FR "Déboguer"
 #define XENIA_PROTECT_ZERO_LABEL_FR NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_FR NULL
 #define XENIA_PROTECT_ZERO_INFO_0_FR NULL
@@ -19021,13 +17902,6 @@ struct retro_core_options_v2 options_fi = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_FR NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_FR NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_FR NULL
-#define XENIA_LOG_LEVEL_LABEL_FR NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_FR NULL
-#define XENIA_LOG_LEVEL_INFO_0_FR NULL
-#define OPTION_VAL_ERROR_FR NULL
-#define OPTION_VAL_WARN_FR "Attention"
-#define OPTION_VAL_INFO_FR NULL
-#define OPTION_VAL_DEBUG_FR "Déboguer"
 
 struct retro_core_option_v2_category option_cats_fr[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_FR,
@@ -19040,8 +17914,6 @@ struct retro_core_option_v2_category option_cats_fr[] = {
       CATEGORY_EMULATION_INFO_0_FR },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_FR,
       CATEGORY_COMPATIBILITY_INFO_0_FR },
-    { "Debug", CATEGORY_DEBUG_LABEL_FR,
-      CATEGORY_DEBUG_INFO_0_FR },
     { "patches", CATEGORY_PATCHES_LABEL_FR,
       CATEGORY_PATCHES_INFO_0_FR },
     { NULL, NULL, NULL }
@@ -19053,7 +17925,7 @@ struct retro_core_option_v2_definition option_defs_fr[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_FR,
-        XENIA_GRAPHICS_API_LABEL_CAT_FR,
+        XENIA_GRAPHICS_API_LABEL_FR,
         XENIA_GRAPHICS_API_INFO_0_FR,
         NULL,
         "Graphics",
@@ -19187,20 +18059,6 @@ struct retro_core_option_v2_definition option_defs_fr[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_FR,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_FR,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_FR,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -19340,23 +18198,9 @@ struct retro_core_option_v2_definition option_defs_fr[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_FR,
-        XENIA_MUTE_LABEL_CAT_FR,
-        XENIA_MUTE_INFO_0_FR,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_FR },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_FR,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_FR,
+        XENIA_AUDIO_CHANNELS_LABEL_FR,
         XENIA_AUDIO_CHANNELS_INFO_0_FR,
         NULL,
         "Audio",
@@ -19370,7 +18214,7 @@ struct retro_core_option_v2_definition option_defs_fr[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_FR,
-        XENIA_XMA_DECODER_LABEL_CAT_FR,
+        XENIA_XMA_DECODER_LABEL_FR,
         XENIA_XMA_DECODER_INFO_0_FR,
         NULL,
         "Audio",
@@ -19432,28 +18276,11 @@ struct retro_core_option_v2_definition option_defs_fr[] = {
             { "100", OPTION_VAL_100_FR },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_FR,
-        XENIA_TIME_SCALAR_LABEL_CAT_FR,
-        XENIA_TIME_SCALAR_INFO_0_FR,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_FR },
-            { "0.5",  OPTION_VAL_0_5_FR },
-            { "1.0",  OPTION_VAL_1_0_FR },
-            { "2.0",  OPTION_VAL_2_0_FR },
-            { "4.0",  OPTION_VAL_4_0_FR },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_FR,
@@ -19496,6 +18323,9 @@ struct retro_core_option_v2_definition option_defs_fr[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_FR,
@@ -19509,7 +18339,7 @@ struct retro_core_option_v2_definition option_defs_fr[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_FR },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -19566,6 +18396,22 @@ struct retro_core_option_v2_definition option_defs_fr[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_FR,
+        XENIA_LOG_LEVEL_LABEL_FR,
+        XENIA_LOG_LEVEL_INFO_0_FR,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_FR },
+            { "warn",  OPTION_VAL_WARN_FR },
+            { "info",  OPTION_VAL_INFO_FR },
+            { "debug", OPTION_VAL_DEBUG_FR },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -19831,22 +18677,6 @@ struct retro_core_option_v2_definition option_defs_fr[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_FR,
-        XENIA_LOG_LEVEL_LABEL_CAT_FR,
-        XENIA_LOG_LEVEL_INFO_0_FR,
-        NULL,
-        OPTION_VAL_DEBUG_FR,
-        {
-            { "error", OPTION_VAL_ERROR_FR },
-            { "warn",  OPTION_VAL_WARN_FR },
-            { "info",  OPTION_VAL_INFO_FR },
-            { "debug", OPTION_VAL_DEBUG_FR },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -19864,25 +18694,22 @@ struct retro_core_options_v2 options_fr = {
 #define CATEGORY_AUDIO_LABEL_GA "Socruithe Fuaime"
 #define CATEGORY_AUDIO_INFO_0_GA "Aschur fuaime, díchódóir XMA, seinnteoir ceoil."
 #define CATEGORY_EMULATION_LABEL_GA "Socruithe Aithrise"
-#define CATEGORY_EMULATION_INFO_0_GA "Luas, teanga, tír, ceadúnais, paistí."
+#define CATEGORY_EMULATION_INFO_0_GA "Luas, teanga, tír, ceadúnais, paistí, leibhéal loga."
 #define CATEGORY_COMPATIBILITY_LABEL_GA "Socruithe Comhoiriúnachta"
 #define CATEGORY_COMPATIBILITY_INFO_0_GA "Hacks in aghaidh an chluiche, cuimhne, agus pointí gléasta taisce nó cuimhne shealadaí."
-#define CATEGORY_DEBUG_LABEL_GA "Socruithe Dífhabhtaithe"
-#define CATEGORY_DEBUG_INFO_0_GA "Mionsonraíocht an loga."
 #define CATEGORY_PATCHES_LABEL_GA "Bainisteoir Paistí"
 #define CATEGORY_PATCHES_INFO_0_GA "Is iad seo paistí an chluiche ó bhailiúchán Xenia Edge, don leagan seo den chluiche. Cuirfear an t-athrú i bhfeidhm an chéad uair eile a sheoltar an cluiche."
 #define XENIA_GRAPHICS_API_LABEL_GA "API Grafaice (Atosaigh)"
-#define XENIA_GRAPHICS_API_LABEL_CAT_GA "API Grafaice"
 #define XENIA_GRAPHICS_API_INFO_0_GA "Seo an cúlsraith GPU a úsáideann Xenia chun GPU an Xbox 360 a aithris, agus an comhthéacs a iarrann an croíleacán ar RetroArch: athraíonn RetroArch a thiománaí físe chun teacht leis sin nuair a cheadaítear é (Socruithe > Físeán > Aschur). Cuirtear i bhfeidhm é nuair a luchtófar an t-ábhar arís."
 #define OPTION_VAL_VULKAN_GA NULL
 #define OPTION_VAL_D3D12_GA NULL
-#define XENIA_RENDER_TARGET_PATH_LABEL_GA "Conair na Sprioc-rindreála"
-#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_GA "Conair RT"
+#define XENIA_RENDER_TARGET_PATH_LABEL_GA "Conair Sprioc-rindreála (Atosaigh)"
+#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_GA "Conair Athshocraithe (Athshocrú)"
 #define XENIA_RENDER_TARGET_PATH_INFO_0_GA "Roghnaigh mód insamhalta na sprice rindreála.\nFeidhmíocht: spriocanna rindreála óstacha le cumasc feidhme seasta.\nCruinneas: glasáil idir scáthóirí picteilíní / radhairc ordaithe ag an rasteraitheoir."
 #define OPTION_VAL_PERFORMANCE_GA "Feidhmíocht"
 #define OPTION_VAL_ACCURACY_GA "Cruinneas"
 #define XENIA_DRAW_RESOLUTION_SCALE_LABEL_GA "Scála Réitigh Rindreála (Atosaigh)"
-#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_GA "Scála Réitigh"
+#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_GA "Scála Réitigh (Atosaigh)"
 #define XENIA_DRAW_RESOLUTION_SCALE_INFO_0_GA "Scálaigh an taifeach rindreála inmheánaigh. Feabhsaíonn luachanna níos airde cáilíocht na híomhá ach teastaíonn níos mó cumhachta GPU uathu. Teastaíonn atosú."
 #define OPTION_VAL_1_GA "1x (720p dúchais)"
 #define OPTION_VAL_2_GA NULL
@@ -19904,8 +18731,8 @@ struct retro_core_options_v2 options_fr = {
 #define XENIA_READBACK_RESOLVE_LABEL_GA "Réiteach Athléitheoireachta"
 #define XENIA_READBACK_RESOLVE_LABEL_CAT_GA "Athléamh"
 #define XENIA_READBACK_RESOLVE_INFO_0_GA "Cóipeáil an t-aschur \"render-to-texture\" ar ais go dtí RAM an aoi nuair a dhéanann an LAP rochtain air. Má bhíonn sé múchta, cuirtear isteach ar chluichí a léann an t-aschur sin ar ais."
-#define XENIA_STORE_SHADERS_LABEL_GA "Stóráil Scáthaitheoirí"
-#define XENIA_STORE_SHADERS_LABEL_CAT_GA "Taisce Scáthaitheora"
+#define XENIA_STORE_SHADERS_LABEL_GA "Stóráil Scáthóirí (Atosaigh)"
+#define XENIA_STORE_SHADERS_LABEL_CAT_GA "Taisce Scáthóirí (Atosaigh)"
 #define XENIA_STORE_SHADERS_INFO_0_GA "Stóráil scáthóirí tiomsaithe go buan chun moill de bharr aththiomsaithe a sheachaint le linn rithanna ina dhiaidh sin."
 #define XENIA_HALF_PIXEL_OFFSET_LABEL_GA "Fritháireamh Leathphixel"
 #define XENIA_HALF_PIXEL_OFFSET_LABEL_CAT_GA "Leathphixel"
@@ -19913,16 +18740,13 @@ struct retro_core_options_v2 options_fr = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_GA "Ceadaigh tairisigh aisghabhála neamhbhailí"
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_GA "Afchtaráil Neamhbhailí"
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_GA "Ceadaigh tairisigh aisghabhála uigeachta/veirteics a bhfuil cineál neamhbhailí acu. D’fhéadfadh sé seo tuairteanna i gcluichí áirithe a réiteach, ach níl sé sábháilte de ghnáth."
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_GA "Fuzzy Alpha Epsilon (Ceartúchán NVIDIA)"
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_GA "Alfa Dhoiléir"
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_GA "Úsáid comparáid alfa neasach chun cosc ​​a chur ar chreathadh ar GPUanna NVIDIA."
 #define XENIA_DISPLAY_REFRESH_LABEL_GA "Ráta Athnuachana Taispeána Aithrise"
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_GA "Ráta Athnuachana an Taispeántais"
 #define XENIA_DISPLAY_REFRESH_INFO_0_GA "Ráta athnuachana na teilifíse a cheapann an cluiche atá in úsáid (mar rogha neamhspleách). Is é NTSC (60 Hz) an ráta atá ag an gconsól féin. Baineann PAL (50 Hz) le teilifís PAL: ritheann cluichí ag 50 fráma sa soicind. Sáraíonn an rogha \"Unlock Framerate\" é seo."
 #define OPTION_VAL_60_GA NULL
 #define OPTION_VAL_50_GA NULL
-#define XENIA_WAIT_FOR_FRAME_LABEL_GA "Fan le fráma an chluiche"
-#define XENIA_WAIT_FOR_FRAME_INFO_0_GA "Baintear moill ionchuir de fhráma amháin, ar chostas a d’fhéadfadh a bheith ann go mbeidh an cluiche ag rith níos moille."
+#define XENIA_WAIT_FOR_FRAME_LABEL_GA "[Libretro] Fanacht Fráma"
+#define XENIA_WAIT_FOR_FRAME_INFO_0_GA "Baineann sé moill ionchuir de fhráma amháin, ach d’fhéadfadh sé a bheith ina chúis le stadaí sa chluiche. Molta do chrua-earraí cumhachtacha agus/nó cluichí éadroma."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_GA "Díghlasáil an ráta frámaí"
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_GA "Ní bhaineann sé seo ach le cluichí nach bhfuil a loighic nasctha lena ráta frámaí; murach sin, rithfeadh siad ró-thapa. Cluichí 30 fps á rith ag 60 fps: dhá 'vblank' (tréimhse bhánaithe ingearach) do gach fráma a thaispeánann RetroArch. Cluichí 60 fps á rith ag 120 fps: an croí ag rith ag 120 fráma sa soicind (ní mór RetroArch agus an scáileán a chumrú chuige sin). Gan teorainn: 'vblanks' chomh tapa agus is féidir. Cluichí liostaithe: úsáidtear an ráta a shonraítear sa chomhad `xenia_framerate_unlock.txt` (in Xenia-Edge) don chluiche atá á rith, má tá sé liostaithe ann. Is féidir an socrú a athrú agus an cluiche ag rith."
 #define OPTION_VAL_ENABLED_GA "Cluichí liostaithe"
@@ -19930,7 +18754,7 @@ struct retro_core_options_v2 options_fr = {
 #define OPTION_VAL_120_GA "Cluichí 60 fps ag 120"
 #define OPTION_VAL_UNCAPPED_GA "Gan teorainn uasteorann"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_GA "Taifeach an Taispeántais Inmheánaigh (Atosaigh)"
-#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_GA "Taifeach an taispeántais"
+#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_GA "Taifeach an Taispeántais (Atosaigh)"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_INFO_0_GA "Ceadaigh do chluichí a thacaíonn le taifigh éagsúla rindreáil a dhéanamh ag taifeach ar leith. Ní thacaíonn gach cluiche leis seo."
 #define OPTION_VAL_0_GA NULL
 #define OPTION_VAL_1_XENIA_INTERNAL_DISPLAY_RESOLUTION_GA NULL
@@ -19948,48 +18772,42 @@ struct retro_core_options_v2 options_fr = {
 #define OPTION_VAL_13_GA NULL
 #define OPTION_VAL_14_GA NULL
 #define OPTION_VAL_15_GA NULL
-#define XENIA_WIDESCREEN_LABEL_GA "Cóimheas Gnéithe"
+#define XENIA_WIDESCREEN_LABEL_GA "Cóimheas Gné (Atosaigh)"
 #define XENIA_WIDESCREEN_INFO_0_GA "An cóimheas gné atá socraithe don chonsól, agus an ceann a úsáidtear chun an íomhá a thaispeáint. Ní thacaíonn ach cuid de na cluichí Xbox 360 leis an gcóimheas 4:3 go dúchais."
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_GA "16:9 (réamhshocrú)"
 #define OPTION_VAL_DISABLED_GA NULL
-#define XENIA_VIDEO_STANDARD_LABEL_GA "Caighdeán Físe"
-#define XENIA_VIDEO_STANDARD_LABEL_CAT_GA "Comhartha"
+#define XENIA_VIDEO_STANDARD_LABEL_GA "Caighdeán Físe (Atosaigh)"
+#define XENIA_VIDEO_STANDARD_LABEL_CAT_GA "Comhartha (Atosaigh)"
 #define XENIA_VIDEO_STANDARD_INFO_0_GA "Roghnaigh an caighdeán comhartha físe. Bíonn tionchar aige ar bhrath an réigiúin."
 #define OPTION_VAL_1_XENIA_VIDEO_STANDARD_GA NULL
 #define OPTION_VAL_2_XENIA_VIDEO_STANDARD_GA "NTSC-J (An tSeapáin)"
 #define OPTION_VAL_3_XENIA_VIDEO_STANDARD_GA NULL
-#define XENIA_DISPLAY_GAMMA_LABEL_GA "Gáma an Taispeántais"
-#define XENIA_DISPLAY_GAMMA_LABEL_CAT_GA "Gáma"
+#define XENIA_DISPLAY_GAMMA_LABEL_GA "Gáma an Taispeántais (Atosaigh)"
+#define XENIA_DISPLAY_GAMMA_LABEL_CAT_GA "Gamma (Atosaigh)"
 #define XENIA_DISPLAY_GAMMA_INFO_0_GA "Roghnaigh cuar gáma an taispeántais.\nIs é BT.709 (HDTV) an ceann is gaire don Xbox 360 ar thaispeántas nua-aimseartha."
 #define OPTION_VAL_0_XENIA_DISPLAY_GAMMA_GA "Líneach"
 #define OPTION_VAL_1_XENIA_DISPLAY_GAMMA_GA NULL
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_GA NULL
 #define XENIA_AUDIO_ENABLED_LABEL_GA "Aschur Fuaime"
 #define XENIA_AUDIO_ENABLED_INFO_0_GA "Cumasaigh nó díchumasaigh próiseáil agus aschur fuaime."
-#define XENIA_MUTE_LABEL_GA "Balbhaigh an Fuaim"
-#define XENIA_MUTE_LABEL_CAT_GA "Balbhaigh"
-#define XENIA_MUTE_INFO_0_GA "Cuir gach aschur fuaime ar balbh agus próiseáil fuaime á coinneáil gníomhach."
-#define OPTION_VAL_ENABLED_XENIA_MUTE_GA "Cumasaithe (Balbhaithe)"
 #define XENIA_AUDIO_CHANNELS_LABEL_GA "Cainéil Fuaime (Atosaigh)"
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_GA "Cainéil Fuaime"
 #define XENIA_AUDIO_CHANNELS_INFO_0_GA "Steiréó: comhcheanglaítear fuaim 5.1 an chonsóil ina dhá chainéal. Fuaim Thimpeallach 5.1: cuirtear na sé chainéal ar fad chuig RetroArch, agus socraíonn cumraíocht aschuir fuaime an chláir sin ansin cé acu a úsáidfear callairí nó an comhcheangal go steiréó. Teastaíonn leagan de RetroArch a thacaíonn le haschur fuaime ilchainéil; murach sin, fanfaidh an fhuaim ina steiréó."
 #define OPTION_VAL_STEREO_GA "Steiréó"
 #define OPTION_VAL_5_1_GA "Fuaim thimpeallach 5.1"
 #define XENIA_XMA_DECODER_LABEL_GA "Díchódóir XMA (Atosaigh)"
-#define XENIA_XMA_DECODER_LABEL_CAT_GA "Díchódóir XMA"
 #define XENIA_XMA_DECODER_INFO_0_GA "Roghnaigh an cur i bhfeidhm do dhíchódóir fuaime XMA. Bain triail as rogha eile má bhíonn fadhbanna leis an bhfuaim i gcluiche áirithe."
 #define OPTION_VAL_NEW_GA "Nua (Réamhshocrú)"
 #define OPTION_VAL_OLD_GA "Sean"
 #define OPTION_VAL_MASTER_GA "Máistir"
 #define OPTION_VAL_FAKE_GA "Bréagach (Ciúnas)"
-#define XENIA_DEDICATED_XMA_THREAD_LABEL_GA "Snáithe tiomnaithe XMA"
-#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_GA "Snáithe XMA"
+#define XENIA_DEDICATED_XMA_THREAD_LABEL_GA "Snáithe Tiomnaithe XMA (Atosaigh)"
+#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_GA "Snáithe XMA (Atosaigh)"
 #define XENIA_DEDICATED_XMA_THREAD_INFO_0_GA "Bain úsáid as snáithe tiomnaithe le haghaidh díchódú fuaime XMA. D’fhéadfadh sé feidhmíocht fuaime a fheabhsú."
 #define XENIA_ENABLE_XMP_LABEL_GA "Seinnteoir Ceoil (XMP)"
 #define XENIA_ENABLE_XMP_LABEL_CAT_GA NULL
 #define XENIA_ENABLE_XMP_INFO_0_GA "Cumasaigh an tSeinnteoir Ceoil Xbox chun ceol a sheinm sa chúlra."
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_GA "Airde fuaime an tseinnteora ceoil"
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_GA "Toirt XMP"
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_GA "Airde an Imreora Ceoil (Atosaigh)"
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_GA "Imleabhar XMP (Atosaigh)"
 #define XENIA_XMP_DEFAULT_VOLUME_INFO_0_GA "Toirt réamhshocraithe an cheoil mura socraíonn an cluiche é."
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_GA NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_GA NULL
@@ -19998,34 +18816,26 @@ struct retro_core_options_v2 options_fr = {
 #define OPTION_VAL_40_GA NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_GA NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_GA NULL
-#define OPTION_VAL_70_GA NULL
+#define OPTION_VAL_70_GA "70% (Réamhshocrú)"
 #define OPTION_VAL_80_GA NULL
 #define OPTION_VAL_90_GA NULL
-#define OPTION_VAL_100_GA "100% (Réamhshocrú)"
-#define XENIA_TIME_SCALAR_LABEL_GA "Luas Aithrise"
-#define XENIA_TIME_SCALAR_LABEL_CAT_GA "Luas"
-#define XENIA_TIME_SCALAR_INFO_0_GA "Rialaigh luas an insamhalta. Is é 1.0x an gnáthluas."
-#define OPTION_VAL_0_25_GA NULL
-#define OPTION_VAL_0_5_GA NULL
-#define OPTION_VAL_1_0_GA "1.0x (Gnáth)"
-#define OPTION_VAL_2_0_GA NULL
-#define OPTION_VAL_4_0_GA NULL
-#define XENIA_TITLE_UPDATES_LABEL_GA "Cuir Nuashonruithe Teidil i bhFeidhm"
-#define XENIA_TITLE_UPDATES_LABEL_CAT_GA "Nuashonruithe Teidil"
+#define OPTION_VAL_100_GA NULL
+#define XENIA_TITLE_UPDATES_LABEL_GA "Cuir Nuashonruithe Teidil i bhFeidhm (Atosaigh)"
+#define XENIA_TITLE_UPDATES_LABEL_CAT_GA "Nuashonruithe Teidil (Atosaigh)"
 #define XENIA_TITLE_UPDATES_INFO_0_GA "Cuir paistí nuashonraithe teidil i bhfeidhm má tá siad ar fáil i bhfillteán an ábhair."
-#define XENIA_APPLY_PATCHES_LABEL_GA "Cuir paistí cluiche i bhfeidhm"
-#define XENIA_APPLY_PATCHES_LABEL_CAT_GA "Paistí"
+#define XENIA_APPLY_PATCHES_LABEL_GA "Cuir paistí cluiche i bhfeidhm (Atosaigh)"
+#define XENIA_APPLY_PATCHES_LABEL_CAT_GA "Paistí (Atosaigh)"
 #define XENIA_APPLY_PATCHES_INFO_0_GA "Cumasaigh feidhmiúlacht paisteála saincheaptha don chluiche."
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_GA "Fógraí Bosca Dialóige"
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_GA "Ní bhíonn fuinneog ag an gcroíleacán do bhosca dialóige córais a osclaíonn cluiche (bosca teachtaireachta le cnaipí); dá bhrí sin, freagraíonn an croíleacán dó agus taispeánann sé teideal an bhosca dialóige agus an freagra a tugadh mar fhógra. Má dhéantar an ghné seo a dhíghníomhachtú, cuirtear na fógraí sin i bhfolach; freagraítear na boscaí dialóige ar an gcaoi chéanna, agus déanann logchomhad Xenia taifead orthu fós."
-#define XENIA_LICENSE_MASK_LABEL_GA "Masc Ceadúnais"
-#define XENIA_LICENSE_MASK_LABEL_CAT_GA "Ceadúnas"
+#define XENIA_LICENSE_MASK_LABEL_GA "Masc Ceadúnais (Atosaigh)"
+#define XENIA_LICENSE_MASK_LABEL_CAT_GA "Ceadúnas (Atosaigh)"
 #define XENIA_LICENSE_MASK_INFO_0_GA "Socraigh masc na gceadúnas don ábhar gníomhachtaithe (DLC, leagan iomlán). \nNone: gan aon cheadúnas. Full: an chéad cheadúnas. All: gach ceadúnas."
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_GA "Dada"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_GA "Lán"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_GA "Gach"
-#define XENIA_USER_LANGUAGE_LABEL_GA "Teanga an Úsáideora"
-#define XENIA_USER_LANGUAGE_LABEL_CAT_GA "Teanga"
+#define XENIA_USER_LANGUAGE_LABEL_GA "Teanga an Úsáideora (Atosaigh)"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_GA "Teanga (Atosaigh)"
 #define XENIA_USER_LANGUAGE_INFO_0_GA "Socraigh teanga an chonsóil insamhlaithe."
 #define OPTION_VAL_ENGLISH_GA "Béarla"
 #define OPTION_VAL_JAPANESE_GA "Seapáinis"
@@ -20039,8 +18849,8 @@ struct retro_core_options_v2 options_fr = {
 #define OPTION_VAL_SCHINESE_GA "Sínis Simplithe"
 #define OPTION_VAL_POLISH_GA "Polainnis"
 #define OPTION_VAL_RUSSIAN_GA "Rúisis"
-#define XENIA_USER_COUNTRY_LABEL_GA "Tír an Úsáideora"
-#define XENIA_USER_COUNTRY_LABEL_CAT_GA "Tír"
+#define XENIA_USER_COUNTRY_LABEL_GA "Tír an Úsáideora (Atosaigh)"
+#define XENIA_USER_COUNTRY_LABEL_CAT_GA "Tír (Atosaigh)"
 #define XENIA_USER_COUNTRY_INFO_0_GA "Socraigh tír/réigiún an chonsóil insamhlatha."
 #define OPTION_VAL_UNITED_STATES_GA "Stáit Aontaithe"
 #define OPTION_VAL_GREAT_BRITAIN_GA "An Bhreatain Mhór"
@@ -20062,31 +18872,37 @@ struct retro_core_options_v2 options_fr = {
 #define OPTION_VAL_PORTUGAL_GA "An Phortaingéil"
 #define OPTION_VAL_TAIWAN_GA "An Téaváin"
 #define OPTION_VAL_HONG_KONG_GA "Hong Cong"
-#define XENIA_PROTECT_ZERO_LABEL_GA "Cosain an Leathanach Nialasach"
-#define XENIA_PROTECT_ZERO_LABEL_CAT_GA "Cosain an Nialas"
+#define XENIA_LOG_LEVEL_LABEL_GA "Leibhéal an Loga"
+#define XENIA_LOG_LEVEL_INFO_0_GA "Socraigh leibhéal mionsonraí an aschuir logála."
+#define OPTION_VAL_ERROR_GA "Earráid Amháin"
+#define OPTION_VAL_WARN_GA "Rabhadh"
+#define OPTION_VAL_INFO_GA "Eolas"
+#define OPTION_VAL_DEBUG_GA "Dífhabhtaigh"
+#define XENIA_PROTECT_ZERO_LABEL_GA "Cosain an Leathanach Nialasach (Atosaigh)"
+#define XENIA_PROTECT_ZERO_LABEL_CAT_GA "Cosain an Nialas (Atosaigh)"
 #define XENIA_PROTECT_ZERO_INFO_0_GA "Cosain an leathanach nialasach ar oibríochtaí léite agus scríofa. Díchumasaigh é má thuairteálann cluiche agus é á sheoladh."
 #define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_GA "Glan Staid Leathanach Cuimhne an GPU"
 #define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CAT_GA "Glan Taisce an GPU"
 #define XENIA_CLEAR_MEMORY_PAGE_STATE_INFO_0_GA "Athnuaigh staid na leathanach cuimhne le haghaidh sonraí a scríobh an GPU. Bíonn sé múchta de réamhshocrú, mar a bhíonn i gcás córais neamhspleácha; bíonn sé ag teastáil ó chuid de na cluichí chun iad a rindreáil i gceart (Ridge Racer 6, agus cluichí eile atá ar liosta socruithe optamaithe xenia-manager)."
-#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_GA "Díchumasaigh Cur Chun Cinn Comhthéacs"
-#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_GA "Cur chun cinn gan Ctx"
+#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_GA "Díchumasaigh Cur Chun Cinn Comhthéacs (Atosaigh)"
+#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_GA "Cur Chun Cinn Gan Ctx (Atosaigh)"
 #define XENIA_DISABLE_CONTEXT_PROMOTION_INFO_0_GA "Díchumasaigh an optamúchán LAP do chur chun cinn comhthéacs. D’fhéadfadh sé a bheith riachtanach do chuid cluichí spóirt, ach laghdaíonn sé an fheidhmíocht."
 #define OPTION_VAL_DISABLED_XENIA_DISABLE_CONTEXT_PROMOTION_GA "Díchumasaithe (Gnáth)"
 #define OPTION_VAL_ENABLED_XENIA_DISABLE_CONTEXT_PROMOTION_GA "Cumasaithe (Socrú Spóirt)"
-#define XENIA_MOUNT_CACHE_LABEL_GA "Gléas an Deighleáin Taisce"
-#define XENIA_MOUNT_CACHE_LABEL_CAT_GA "Feisteas Taisce"
+#define XENIA_MOUNT_CACHE_LABEL_GA "Gléas an Deighilt Taisce (Atosaigh)"
+#define XENIA_MOUNT_CACHE_LABEL_CAT_GA "Gléasadh Taisce (Atosaigh)"
 #define XENIA_MOUNT_CACHE_INFO_0_GA "Cumasaigh gléasadh na deighilte taisce. Riachtanach do chuid cluichí áirithe."
-#define XENIA_MOUNT_SCRATCH_LABEL_GA "Feistigh Deighilt Scratch"
-#define XENIA_MOUNT_SCRATCH_LABEL_CAT_GA "Gléas Feistithe Simplí"
+#define XENIA_MOUNT_SCRATCH_LABEL_GA "Ceangail Deighilt Scratch (Atosaigh)"
+#define XENIA_MOUNT_SCRATCH_LABEL_CAT_GA "Suiteáil ón tús (Atosaigh)"
 #define XENIA_MOUNT_SCRATCH_INFO_0_GA "Cumasaigh gléasadh na deighilte 'scratch'. Riachtanach do chuid cluichí áirithe."
-#define XENIA_OCCLUSION_QUERY_LABEL_GA "Ceistíocht Bacainne"
+#define XENIA_OCCLUSION_QUERY_LABEL_GA "Ceistíocht Bacainne (Atosaigh)"
 #define XENIA_OCCLUSION_QUERY_INFO_0_GA "An chaoi a bhfreagraítear fiosrúcháin occlúis (lasracha lionsa, culling, uath-nochtadh). Déanann *Fast* (an réamhshocrú) fiosrú ar an GPU gan fanacht; scríobhann *Fake* toradh bréige; coinníonn *Fast-alt* torthaí nialasacha atá taiscthe; fanann *Strict* leis an GPU, agus is é an ceann is cruinne é."
 #define OPTION_VAL_FAST_GA "Tapa"
 #define OPTION_VAL_FAKE_XENIA_OCCLUSION_QUERY_GA "Bréagach"
 #define OPTION_VAL_FAST_ALT_GA "Malartú tapa"
 #define OPTION_VAL_STRICT_GA "Dian"
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_GA "Lán-chuntair Fiosrúcháin Occlusion"
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_GA "Cuntair Iomlána"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_GA "Lánchuntair Fiosrúcháin Occlusion (Atosaigh)"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_GA "Cuntair Lána (Atosaigh)"
 #define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_INFO_0_GA "Déan aithris ar na cuntóirí ZFail, StencilFail agus Total occlusion i scáthóirí. Bíonn gá ag cluichí áirithe leo; bíonn tionchar aige sin ar an bhfeidhmíocht."
 #define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_GA "Íos-tairseach na hIata Bréige"
 #define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CAT_GA "Íochtar Bréige"
@@ -20104,8 +18920,8 @@ struct retro_core_options_v2 options_fr = {
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_GA "Ceadaigh Raon Uaslódála Neamhbhailí"
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CAT_GA "Uaslódálacha Neamhbhailí"
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_INFO_0_GA "Ceadaigh do chluichí sonraí a léamh ó leathanaigh atá marcáilte mar leathanaigh gan rochtain."
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_GA "Sprioc-rindreála Gamma mar UNORM16"
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_GA NULL
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_GA "Sprioc-rindreála Gamma mar UNORM16 (Atosaigh)"
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_GA "Gamma UNORM16 (Atosaigh)"
 #define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_GA "Déan aithris ar spriocanna rindreála gamma le 16 giotán in aghaidh na comhpháirte i gcás nach féidir leis an óstchóras gamma 8 ngiotán de réir codán a láimhseáil. Múch an ghné seo má bhíonn cuma mhícheart ar na dathanna i gcluiche."
 #define XENIA_FORCE_DEPTH_CLAMP_LABEL_GA "Clampa Doimhneachta Fórsa"
 #define XENIA_FORCE_DEPTH_CLAMP_LABEL_CAT_GA "Teanntán Doimhneachta"
@@ -20113,8 +18929,8 @@ struct retro_core_options_v2 options_fr = {
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_GA "Déan neamhaird den fhritháireamh do leithdháiltí raoin"
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CAT_GA "Leithdháiltí Raoin"
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_INFO_0_GA "Déan neamhaird den fhritháireamh 4 KB le haghaidh leithdháiltí fisiceacha nuair a bhíonn raon sonraithe ann. Tá sé seo ag teastáil le haghaidh roinnt cluichí."
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_GA "Cuir stad ag treoracha nach bhfuil curtha i bhfeidhm"
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_GA "Sos gan chur i bhfeidhm"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_GA "Stad ag Treoracha nach bhfuil Curtha i bhFeidhm (Atosaigh)"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_GA "Briseadh Gan Cur i bhFeidhm (Atosaigh)"
 #define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_GA "Stad nuair a ritheann cluiche treoir LAP nach gcuireann Xenia i bhfeidhm. I gcás croíleacáin a chuireann deireadh le RetroArch, díchumasaigh an socrú sin chun ligean do na cluichí sin leanúint ar aghaidh."
 #define XENIA_SCRIBBLE_HEAP_LABEL_GA "Carn Scríbhneoireachta"
 #define XENIA_SCRIBBLE_HEAP_INFO_0_GA "Líon cuimhne *heap* a leithdháileadh le déanaí le luach, le haghaidh cluichí a bhraitheann ar an méid atá fágtha ann."
@@ -20122,13 +18938,6 @@ struct retro_core_options_v2 options_fr = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_GA "Luach na Scríbhneoireachta Gasta"
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_GA "An luach a líonann Scribble Heap an chuimhne leis. Is luach randamach é 0."
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_GA "0 (randamach)"
-#define XENIA_LOG_LEVEL_LABEL_GA "Leibhéal an Loga"
-#define XENIA_LOG_LEVEL_LABEL_CAT_GA "Leibhéal"
-#define XENIA_LOG_LEVEL_INFO_0_GA "Socraigh leibhéal mionsonraí an aschuir logála."
-#define OPTION_VAL_ERROR_GA "Earráid Amháin"
-#define OPTION_VAL_WARN_GA "Rabhadh"
-#define OPTION_VAL_INFO_GA "Eolas"
-#define OPTION_VAL_DEBUG_GA "Dífhabhtaigh"
 
 struct retro_core_option_v2_category option_cats_ga[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_GA,
@@ -20141,8 +18950,6 @@ struct retro_core_option_v2_category option_cats_ga[] = {
       CATEGORY_EMULATION_INFO_0_GA },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_GA,
       CATEGORY_COMPATIBILITY_INFO_0_GA },
-    { "Debug", CATEGORY_DEBUG_LABEL_GA,
-      CATEGORY_DEBUG_INFO_0_GA },
     { "patches", CATEGORY_PATCHES_LABEL_GA,
       CATEGORY_PATCHES_INFO_0_GA },
     { NULL, NULL, NULL }
@@ -20154,7 +18961,7 @@ struct retro_core_option_v2_definition option_defs_ga[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_GA,
-        XENIA_GRAPHICS_API_LABEL_CAT_GA,
+        XENIA_GRAPHICS_API_LABEL_GA,
         XENIA_GRAPHICS_API_INFO_0_GA,
         NULL,
         "Graphics",
@@ -20288,20 +19095,6 @@ struct retro_core_option_v2_definition option_defs_ga[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_GA,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_GA,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_GA,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -20441,23 +19234,9 @@ struct retro_core_option_v2_definition option_defs_ga[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_GA,
-        XENIA_MUTE_LABEL_CAT_GA,
-        XENIA_MUTE_INFO_0_GA,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_GA },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_GA,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_GA,
+        XENIA_AUDIO_CHANNELS_LABEL_GA,
         XENIA_AUDIO_CHANNELS_INFO_0_GA,
         NULL,
         "Audio",
@@ -20471,7 +19250,7 @@ struct retro_core_option_v2_definition option_defs_ga[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_GA,
-        XENIA_XMA_DECODER_LABEL_CAT_GA,
+        XENIA_XMA_DECODER_LABEL_GA,
         XENIA_XMA_DECODER_INFO_0_GA,
         NULL,
         "Audio",
@@ -20533,28 +19312,11 @@ struct retro_core_option_v2_definition option_defs_ga[] = {
             { "100", OPTION_VAL_100_GA },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_GA,
-        XENIA_TIME_SCALAR_LABEL_CAT_GA,
-        XENIA_TIME_SCALAR_INFO_0_GA,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_GA },
-            { "0.5",  OPTION_VAL_0_5_GA },
-            { "1.0",  OPTION_VAL_1_0_GA },
-            { "2.0",  OPTION_VAL_2_0_GA },
-            { "4.0",  OPTION_VAL_4_0_GA },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_GA,
@@ -20597,6 +19359,9 @@ struct retro_core_option_v2_definition option_defs_ga[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_GA,
@@ -20610,7 +19375,7 @@ struct retro_core_option_v2_definition option_defs_ga[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_GA },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -20667,6 +19432,22 @@ struct retro_core_option_v2_definition option_defs_ga[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_GA,
+        XENIA_LOG_LEVEL_LABEL_GA,
+        XENIA_LOG_LEVEL_INFO_0_GA,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_GA },
+            { "warn",  OPTION_VAL_WARN_GA },
+            { "info",  OPTION_VAL_INFO_GA },
+            { "debug", OPTION_VAL_DEBUG_GA },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -20932,22 +19713,6 @@ struct retro_core_option_v2_definition option_defs_ga[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_GA,
-        XENIA_LOG_LEVEL_LABEL_CAT_GA,
-        XENIA_LOG_LEVEL_INFO_0_GA,
-        NULL,
-        OPTION_VAL_DEBUG_GA,
-        {
-            { "error", OPTION_VAL_ERROR_GA },
-            { "warn",  OPTION_VAL_WARN_GA },
-            { "info",  OPTION_VAL_INFO_GA },
-            { "debug", OPTION_VAL_DEBUG_GA },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -20968,12 +19733,9 @@ struct retro_core_options_v2 options_ga = {
 #define CATEGORY_EMULATION_INFO_0_GL NULL
 #define CATEGORY_COMPATIBILITY_LABEL_GL "Axustes de compatibilidade"
 #define CATEGORY_COMPATIBILITY_INFO_0_GL NULL
-#define CATEGORY_DEBUG_LABEL_GL NULL
-#define CATEGORY_DEBUG_INFO_0_GL NULL
 #define CATEGORY_PATCHES_LABEL_GL NULL
 #define CATEGORY_PATCHES_INFO_0_GL NULL
 #define XENIA_GRAPHICS_API_LABEL_GL NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_GL NULL
 #define XENIA_GRAPHICS_API_INFO_0_GL NULL
 #define OPTION_VAL_VULKAN_GL NULL
 #define OPTION_VAL_D3D12_GL NULL
@@ -21014,9 +19776,6 @@ struct retro_core_options_v2 options_ga = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_GL NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_GL NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_GL NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_GL NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_GL NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_GL NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_GL NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_GL NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_GL NULL
@@ -21049,7 +19808,7 @@ struct retro_core_options_v2 options_ga = {
 #define OPTION_VAL_13_GL NULL
 #define OPTION_VAL_14_GL NULL
 #define OPTION_VAL_15_GL NULL
-#define XENIA_WIDESCREEN_LABEL_GL "Relación de aspecto"
+#define XENIA_WIDESCREEN_LABEL_GL NULL
 #define XENIA_WIDESCREEN_INFO_0_GL NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_GL NULL
 #define OPTION_VAL_DISABLED_GL NULL
@@ -21067,17 +19826,11 @@ struct retro_core_options_v2 options_ga = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_GL NULL
 #define XENIA_AUDIO_ENABLED_LABEL_GL NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_GL NULL
-#define XENIA_MUTE_LABEL_GL NULL
-#define XENIA_MUTE_LABEL_CAT_GL "Acalar"
-#define XENIA_MUTE_INFO_0_GL NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_GL NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_GL NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_GL NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_GL NULL
 #define OPTION_VAL_STEREO_GL "Estéreo"
 #define OPTION_VAL_5_1_GL NULL
 #define XENIA_XMA_DECODER_LABEL_GL NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_GL NULL
 #define XENIA_XMA_DECODER_INFO_0_GL NULL
 #define OPTION_VAL_NEW_GL NULL
 #define OPTION_VAL_OLD_GL NULL
@@ -21102,15 +19855,7 @@ struct retro_core_options_v2 options_ga = {
 #define OPTION_VAL_70_GL NULL
 #define OPTION_VAL_80_GL NULL
 #define OPTION_VAL_90_GL NULL
-#define OPTION_VAL_100_GL "100 % (predeterminado)"
-#define XENIA_TIME_SCALAR_LABEL_GL NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_GL NULL
-#define XENIA_TIME_SCALAR_INFO_0_GL NULL
-#define OPTION_VAL_0_25_GL NULL
-#define OPTION_VAL_0_5_GL NULL
-#define OPTION_VAL_1_0_GL NULL
-#define OPTION_VAL_2_0_GL NULL
-#define OPTION_VAL_4_0_GL NULL
+#define OPTION_VAL_100_GL NULL
 #define XENIA_TITLE_UPDATES_LABEL_GL NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_GL NULL
 #define XENIA_TITLE_UPDATES_INFO_0_GL NULL
@@ -21120,13 +19865,13 @@ struct retro_core_options_v2 options_ga = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_GL NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_GL NULL
 #define XENIA_LICENSE_MASK_LABEL_GL NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_GL "Licenza"
+#define XENIA_LICENSE_MASK_LABEL_CAT_GL NULL
 #define XENIA_LICENSE_MASK_INFO_0_GL NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_GL "Ningún"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_GL "Cheo"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_GL "Todo"
 #define XENIA_USER_LANGUAGE_LABEL_GL NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_GL "Idioma"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_GL NULL
 #define XENIA_USER_LANGUAGE_INFO_0_GL NULL
 #define OPTION_VAL_ENGLISH_GL "Inglés"
 #define OPTION_VAL_JAPANESE_GL "Xaponés"
@@ -21163,6 +19908,12 @@ struct retro_core_options_v2 options_ga = {
 #define OPTION_VAL_PORTUGAL_GL NULL
 #define OPTION_VAL_TAIWAN_GL NULL
 #define OPTION_VAL_HONG_KONG_GL NULL
+#define XENIA_LOG_LEVEL_LABEL_GL NULL
+#define XENIA_LOG_LEVEL_INFO_0_GL NULL
+#define OPTION_VAL_ERROR_GL NULL
+#define OPTION_VAL_WARN_GL "Aviso"
+#define OPTION_VAL_INFO_GL "Información"
+#define OPTION_VAL_DEBUG_GL NULL
 #define XENIA_PROTECT_ZERO_LABEL_GL NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_GL NULL
 #define XENIA_PROTECT_ZERO_INFO_0_GL NULL
@@ -21223,13 +19974,6 @@ struct retro_core_options_v2 options_ga = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_GL NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_GL NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_GL NULL
-#define XENIA_LOG_LEVEL_LABEL_GL NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_GL NULL
-#define XENIA_LOG_LEVEL_INFO_0_GL NULL
-#define OPTION_VAL_ERROR_GL NULL
-#define OPTION_VAL_WARN_GL "Aviso"
-#define OPTION_VAL_INFO_GL "Información"
-#define OPTION_VAL_DEBUG_GL NULL
 
 struct retro_core_option_v2_category option_cats_gl[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_GL,
@@ -21242,8 +19986,6 @@ struct retro_core_option_v2_category option_cats_gl[] = {
       CATEGORY_EMULATION_INFO_0_GL },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_GL,
       CATEGORY_COMPATIBILITY_INFO_0_GL },
-    { "Debug", CATEGORY_DEBUG_LABEL_GL,
-      CATEGORY_DEBUG_INFO_0_GL },
     { "patches", CATEGORY_PATCHES_LABEL_GL,
       CATEGORY_PATCHES_INFO_0_GL },
     { NULL, NULL, NULL }
@@ -21255,7 +19997,7 @@ struct retro_core_option_v2_definition option_defs_gl[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_GL,
-        XENIA_GRAPHICS_API_LABEL_CAT_GL,
+        XENIA_GRAPHICS_API_LABEL_GL,
         XENIA_GRAPHICS_API_INFO_0_GL,
         NULL,
         "Graphics",
@@ -21389,20 +20131,6 @@ struct retro_core_option_v2_definition option_defs_gl[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_GL,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_GL,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_GL,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -21542,23 +20270,9 @@ struct retro_core_option_v2_definition option_defs_gl[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_GL,
-        XENIA_MUTE_LABEL_CAT_GL,
-        XENIA_MUTE_INFO_0_GL,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_GL },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_GL,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_GL,
+        XENIA_AUDIO_CHANNELS_LABEL_GL,
         XENIA_AUDIO_CHANNELS_INFO_0_GL,
         NULL,
         "Audio",
@@ -21572,7 +20286,7 @@ struct retro_core_option_v2_definition option_defs_gl[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_GL,
-        XENIA_XMA_DECODER_LABEL_CAT_GL,
+        XENIA_XMA_DECODER_LABEL_GL,
         XENIA_XMA_DECODER_INFO_0_GL,
         NULL,
         "Audio",
@@ -21634,28 +20348,11 @@ struct retro_core_option_v2_definition option_defs_gl[] = {
             { "100", OPTION_VAL_100_GL },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_GL,
-        XENIA_TIME_SCALAR_LABEL_CAT_GL,
-        XENIA_TIME_SCALAR_INFO_0_GL,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_GL },
-            { "0.5",  OPTION_VAL_0_5_GL },
-            { "1.0",  OPTION_VAL_1_0_GL },
-            { "2.0",  OPTION_VAL_2_0_GL },
-            { "4.0",  OPTION_VAL_4_0_GL },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_GL,
@@ -21698,6 +20395,9 @@ struct retro_core_option_v2_definition option_defs_gl[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_GL,
@@ -21711,7 +20411,7 @@ struct retro_core_option_v2_definition option_defs_gl[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_GL },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -21768,6 +20468,22 @@ struct retro_core_option_v2_definition option_defs_gl[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_GL,
+        XENIA_LOG_LEVEL_LABEL_GL,
+        XENIA_LOG_LEVEL_INFO_0_GL,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_GL },
+            { "warn",  OPTION_VAL_WARN_GL },
+            { "info",  OPTION_VAL_INFO_GL },
+            { "debug", OPTION_VAL_DEBUG_GL },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -22033,22 +20749,6 @@ struct retro_core_option_v2_definition option_defs_gl[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_GL,
-        XENIA_LOG_LEVEL_LABEL_CAT_GL,
-        XENIA_LOG_LEVEL_INFO_0_GL,
-        NULL,
-        OPTION_VAL_DEBUG_GL,
-        {
-            { "error", OPTION_VAL_ERROR_GL },
-            { "warn",  OPTION_VAL_WARN_GL },
-            { "info",  OPTION_VAL_INFO_GL },
-            { "debug", OPTION_VAL_DEBUG_GL },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -22069,12 +20769,9 @@ struct retro_core_options_v2 options_gl = {
 #define CATEGORY_EMULATION_INFO_0_HE NULL
 #define CATEGORY_COMPATIBILITY_LABEL_HE NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_HE NULL
-#define CATEGORY_DEBUG_LABEL_HE NULL
-#define CATEGORY_DEBUG_INFO_0_HE NULL
 #define CATEGORY_PATCHES_LABEL_HE NULL
 #define CATEGORY_PATCHES_INFO_0_HE NULL
 #define XENIA_GRAPHICS_API_LABEL_HE NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_HE NULL
 #define XENIA_GRAPHICS_API_INFO_0_HE NULL
 #define OPTION_VAL_VULKAN_HE NULL
 #define OPTION_VAL_D3D12_HE NULL
@@ -22115,9 +20812,6 @@ struct retro_core_options_v2 options_gl = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_HE NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_HE NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_HE NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_HE NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_HE NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_HE NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_HE NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_HE NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_HE NULL
@@ -22150,7 +20844,7 @@ struct retro_core_options_v2 options_gl = {
 #define OPTION_VAL_13_HE NULL
 #define OPTION_VAL_14_HE NULL
 #define OPTION_VAL_15_HE NULL
-#define XENIA_WIDESCREEN_LABEL_HE "יחס גובה-רוחב"
+#define XENIA_WIDESCREEN_LABEL_HE NULL
 #define XENIA_WIDESCREEN_INFO_0_HE NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_HE NULL
 #define OPTION_VAL_DISABLED_HE NULL
@@ -22168,17 +20862,11 @@ struct retro_core_options_v2 options_gl = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_HE NULL
 #define XENIA_AUDIO_ENABLED_LABEL_HE NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_HE NULL
-#define XENIA_MUTE_LABEL_HE NULL
-#define XENIA_MUTE_LABEL_CAT_HE "השתק"
-#define XENIA_MUTE_INFO_0_HE NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_HE NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_HE NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_HE NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_HE NULL
 #define OPTION_VAL_STEREO_HE NULL
 #define OPTION_VAL_5_1_HE NULL
 #define XENIA_XMA_DECODER_LABEL_HE NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_HE NULL
 #define XENIA_XMA_DECODER_INFO_0_HE NULL
 #define OPTION_VAL_NEW_HE NULL
 #define OPTION_VAL_OLD_HE NULL
@@ -22204,14 +20892,6 @@ struct retro_core_options_v2 options_gl = {
 #define OPTION_VAL_80_HE NULL
 #define OPTION_VAL_90_HE NULL
 #define OPTION_VAL_100_HE NULL
-#define XENIA_TIME_SCALAR_LABEL_HE NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_HE NULL
-#define XENIA_TIME_SCALAR_INFO_0_HE NULL
-#define OPTION_VAL_0_25_HE NULL
-#define OPTION_VAL_0_5_HE NULL
-#define OPTION_VAL_1_0_HE NULL
-#define OPTION_VAL_2_0_HE NULL
-#define OPTION_VAL_4_0_HE NULL
 #define XENIA_TITLE_UPDATES_LABEL_HE NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_HE NULL
 #define XENIA_TITLE_UPDATES_INFO_0_HE NULL
@@ -22221,7 +20901,7 @@ struct retro_core_options_v2 options_gl = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_HE NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_HE NULL
 #define XENIA_LICENSE_MASK_LABEL_HE NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_HE "רישיון"
+#define XENIA_LICENSE_MASK_LABEL_CAT_HE NULL
 #define XENIA_LICENSE_MASK_INFO_0_HE NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_HE NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_HE NULL
@@ -22264,6 +20944,12 @@ struct retro_core_options_v2 options_gl = {
 #define OPTION_VAL_PORTUGAL_HE NULL
 #define OPTION_VAL_TAIWAN_HE NULL
 #define OPTION_VAL_HONG_KONG_HE NULL
+#define XENIA_LOG_LEVEL_LABEL_HE NULL
+#define XENIA_LOG_LEVEL_INFO_0_HE NULL
+#define OPTION_VAL_ERROR_HE NULL
+#define OPTION_VAL_WARN_HE NULL
+#define OPTION_VAL_INFO_HE "מידע"
+#define OPTION_VAL_DEBUG_HE NULL
 #define XENIA_PROTECT_ZERO_LABEL_HE NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_HE NULL
 #define XENIA_PROTECT_ZERO_INFO_0_HE NULL
@@ -22324,13 +21010,6 @@ struct retro_core_options_v2 options_gl = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_HE NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_HE NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_HE NULL
-#define XENIA_LOG_LEVEL_LABEL_HE NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_HE NULL
-#define XENIA_LOG_LEVEL_INFO_0_HE NULL
-#define OPTION_VAL_ERROR_HE NULL
-#define OPTION_VAL_WARN_HE NULL
-#define OPTION_VAL_INFO_HE "מידע"
-#define OPTION_VAL_DEBUG_HE NULL
 
 struct retro_core_option_v2_category option_cats_he[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_HE,
@@ -22343,8 +21022,6 @@ struct retro_core_option_v2_category option_cats_he[] = {
       CATEGORY_EMULATION_INFO_0_HE },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_HE,
       CATEGORY_COMPATIBILITY_INFO_0_HE },
-    { "Debug", CATEGORY_DEBUG_LABEL_HE,
-      CATEGORY_DEBUG_INFO_0_HE },
     { "patches", CATEGORY_PATCHES_LABEL_HE,
       CATEGORY_PATCHES_INFO_0_HE },
     { NULL, NULL, NULL }
@@ -22356,7 +21033,7 @@ struct retro_core_option_v2_definition option_defs_he[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_HE,
-        XENIA_GRAPHICS_API_LABEL_CAT_HE,
+        XENIA_GRAPHICS_API_LABEL_HE,
         XENIA_GRAPHICS_API_INFO_0_HE,
         NULL,
         "Graphics",
@@ -22490,20 +21167,6 @@ struct retro_core_option_v2_definition option_defs_he[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_HE,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_HE,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_HE,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -22643,23 +21306,9 @@ struct retro_core_option_v2_definition option_defs_he[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_HE,
-        XENIA_MUTE_LABEL_CAT_HE,
-        XENIA_MUTE_INFO_0_HE,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_HE },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_HE,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_HE,
+        XENIA_AUDIO_CHANNELS_LABEL_HE,
         XENIA_AUDIO_CHANNELS_INFO_0_HE,
         NULL,
         "Audio",
@@ -22673,7 +21322,7 @@ struct retro_core_option_v2_definition option_defs_he[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_HE,
-        XENIA_XMA_DECODER_LABEL_CAT_HE,
+        XENIA_XMA_DECODER_LABEL_HE,
         XENIA_XMA_DECODER_INFO_0_HE,
         NULL,
         "Audio",
@@ -22735,28 +21384,11 @@ struct retro_core_option_v2_definition option_defs_he[] = {
             { "100", OPTION_VAL_100_HE },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_HE,
-        XENIA_TIME_SCALAR_LABEL_CAT_HE,
-        XENIA_TIME_SCALAR_INFO_0_HE,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_HE },
-            { "0.5",  OPTION_VAL_0_5_HE },
-            { "1.0",  OPTION_VAL_1_0_HE },
-            { "2.0",  OPTION_VAL_2_0_HE },
-            { "4.0",  OPTION_VAL_4_0_HE },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_HE,
@@ -22799,6 +21431,9 @@ struct retro_core_option_v2_definition option_defs_he[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_HE,
@@ -22812,7 +21447,7 @@ struct retro_core_option_v2_definition option_defs_he[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_HE },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -22869,6 +21504,22 @@ struct retro_core_option_v2_definition option_defs_he[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_HE,
+        XENIA_LOG_LEVEL_LABEL_HE,
+        XENIA_LOG_LEVEL_INFO_0_HE,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_HE },
+            { "warn",  OPTION_VAL_WARN_HE },
+            { "info",  OPTION_VAL_INFO_HE },
+            { "debug", OPTION_VAL_DEBUG_HE },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -23134,22 +21785,6 @@ struct retro_core_option_v2_definition option_defs_he[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_HE,
-        XENIA_LOG_LEVEL_LABEL_CAT_HE,
-        XENIA_LOG_LEVEL_INFO_0_HE,
-        NULL,
-        OPTION_VAL_DEBUG_HE,
-        {
-            { "error", OPTION_VAL_ERROR_HE },
-            { "warn",  OPTION_VAL_WARN_HE },
-            { "info",  OPTION_VAL_INFO_HE },
-            { "debug", OPTION_VAL_DEBUG_HE },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -23170,12 +21805,9 @@ struct retro_core_options_v2 options_he = {
 #define CATEGORY_EMULATION_INFO_0_HR NULL
 #define CATEGORY_COMPATIBILITY_LABEL_HR NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_HR NULL
-#define CATEGORY_DEBUG_LABEL_HR NULL
-#define CATEGORY_DEBUG_INFO_0_HR NULL
 #define CATEGORY_PATCHES_LABEL_HR NULL
 #define CATEGORY_PATCHES_INFO_0_HR NULL
 #define XENIA_GRAPHICS_API_LABEL_HR NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_HR NULL
 #define XENIA_GRAPHICS_API_INFO_0_HR NULL
 #define OPTION_VAL_VULKAN_HR NULL
 #define OPTION_VAL_D3D12_HR NULL
@@ -23216,9 +21848,6 @@ struct retro_core_options_v2 options_he = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_HR NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_HR NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_HR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_HR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_HR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_HR NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_HR NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_HR NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_HR NULL
@@ -23251,7 +21880,7 @@ struct retro_core_options_v2 options_he = {
 #define OPTION_VAL_13_HR NULL
 #define OPTION_VAL_14_HR NULL
 #define OPTION_VAL_15_HR NULL
-#define XENIA_WIDESCREEN_LABEL_HR "Omjer slike"
+#define XENIA_WIDESCREEN_LABEL_HR NULL
 #define XENIA_WIDESCREEN_INFO_0_HR NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_HR NULL
 #define OPTION_VAL_DISABLED_HR NULL
@@ -23269,17 +21898,11 @@ struct retro_core_options_v2 options_he = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_HR NULL
 #define XENIA_AUDIO_ENABLED_LABEL_HR NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_HR NULL
-#define XENIA_MUTE_LABEL_HR NULL
-#define XENIA_MUTE_LABEL_CAT_HR NULL
-#define XENIA_MUTE_INFO_0_HR NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_HR NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_HR NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_HR NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_HR NULL
 #define OPTION_VAL_STEREO_HR NULL
 #define OPTION_VAL_5_1_HR NULL
 #define XENIA_XMA_DECODER_LABEL_HR NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_HR NULL
 #define XENIA_XMA_DECODER_INFO_0_HR NULL
 #define OPTION_VAL_NEW_HR NULL
 #define OPTION_VAL_OLD_HR NULL
@@ -23305,14 +21928,6 @@ struct retro_core_options_v2 options_he = {
 #define OPTION_VAL_80_HR NULL
 #define OPTION_VAL_90_HR NULL
 #define OPTION_VAL_100_HR NULL
-#define XENIA_TIME_SCALAR_LABEL_HR NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_HR NULL
-#define XENIA_TIME_SCALAR_INFO_0_HR NULL
-#define OPTION_VAL_0_25_HR NULL
-#define OPTION_VAL_0_5_HR NULL
-#define OPTION_VAL_1_0_HR NULL
-#define OPTION_VAL_2_0_HR NULL
-#define OPTION_VAL_4_0_HR NULL
 #define XENIA_TITLE_UPDATES_LABEL_HR NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_HR NULL
 #define XENIA_TITLE_UPDATES_INFO_0_HR NULL
@@ -23322,13 +21937,13 @@ struct retro_core_options_v2 options_he = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_HR NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_HR NULL
 #define XENIA_LICENSE_MASK_LABEL_HR NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_HR "Licenca"
+#define XENIA_LICENSE_MASK_LABEL_CAT_HR NULL
 #define XENIA_LICENSE_MASK_INFO_0_HR NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_HR "Ništa"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_HR NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_HR NULL
 #define XENIA_USER_LANGUAGE_LABEL_HR NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_HR "Jezik"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_HR NULL
 #define XENIA_USER_LANGUAGE_INFO_0_HR NULL
 #define OPTION_VAL_ENGLISH_HR "Engleski"
 #define OPTION_VAL_JAPANESE_HR "Japanski"
@@ -23365,6 +21980,12 @@ struct retro_core_options_v2 options_he = {
 #define OPTION_VAL_PORTUGAL_HR NULL
 #define OPTION_VAL_TAIWAN_HR NULL
 #define OPTION_VAL_HONG_KONG_HR NULL
+#define XENIA_LOG_LEVEL_LABEL_HR NULL
+#define XENIA_LOG_LEVEL_INFO_0_HR NULL
+#define OPTION_VAL_ERROR_HR NULL
+#define OPTION_VAL_WARN_HR NULL
+#define OPTION_VAL_INFO_HR "Informacije"
+#define OPTION_VAL_DEBUG_HR NULL
 #define XENIA_PROTECT_ZERO_LABEL_HR NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_HR NULL
 #define XENIA_PROTECT_ZERO_INFO_0_HR NULL
@@ -23425,13 +22046,6 @@ struct retro_core_options_v2 options_he = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_HR NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_HR NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_HR NULL
-#define XENIA_LOG_LEVEL_LABEL_HR NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_HR NULL
-#define XENIA_LOG_LEVEL_INFO_0_HR NULL
-#define OPTION_VAL_ERROR_HR NULL
-#define OPTION_VAL_WARN_HR NULL
-#define OPTION_VAL_INFO_HR "Informacije"
-#define OPTION_VAL_DEBUG_HR NULL
 
 struct retro_core_option_v2_category option_cats_hr[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_HR,
@@ -23444,8 +22058,6 @@ struct retro_core_option_v2_category option_cats_hr[] = {
       CATEGORY_EMULATION_INFO_0_HR },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_HR,
       CATEGORY_COMPATIBILITY_INFO_0_HR },
-    { "Debug", CATEGORY_DEBUG_LABEL_HR,
-      CATEGORY_DEBUG_INFO_0_HR },
     { "patches", CATEGORY_PATCHES_LABEL_HR,
       CATEGORY_PATCHES_INFO_0_HR },
     { NULL, NULL, NULL }
@@ -23457,7 +22069,7 @@ struct retro_core_option_v2_definition option_defs_hr[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_HR,
-        XENIA_GRAPHICS_API_LABEL_CAT_HR,
+        XENIA_GRAPHICS_API_LABEL_HR,
         XENIA_GRAPHICS_API_INFO_0_HR,
         NULL,
         "Graphics",
@@ -23591,20 +22203,6 @@ struct retro_core_option_v2_definition option_defs_hr[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_HR,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_HR,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_HR,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -23744,23 +22342,9 @@ struct retro_core_option_v2_definition option_defs_hr[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_HR,
-        XENIA_MUTE_LABEL_CAT_HR,
-        XENIA_MUTE_INFO_0_HR,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_HR },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_HR,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_HR,
+        XENIA_AUDIO_CHANNELS_LABEL_HR,
         XENIA_AUDIO_CHANNELS_INFO_0_HR,
         NULL,
         "Audio",
@@ -23774,7 +22358,7 @@ struct retro_core_option_v2_definition option_defs_hr[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_HR,
-        XENIA_XMA_DECODER_LABEL_CAT_HR,
+        XENIA_XMA_DECODER_LABEL_HR,
         XENIA_XMA_DECODER_INFO_0_HR,
         NULL,
         "Audio",
@@ -23836,28 +22420,11 @@ struct retro_core_option_v2_definition option_defs_hr[] = {
             { "100", OPTION_VAL_100_HR },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_HR,
-        XENIA_TIME_SCALAR_LABEL_CAT_HR,
-        XENIA_TIME_SCALAR_INFO_0_HR,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_HR },
-            { "0.5",  OPTION_VAL_0_5_HR },
-            { "1.0",  OPTION_VAL_1_0_HR },
-            { "2.0",  OPTION_VAL_2_0_HR },
-            { "4.0",  OPTION_VAL_4_0_HR },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_HR,
@@ -23900,6 +22467,9 @@ struct retro_core_option_v2_definition option_defs_hr[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_HR,
@@ -23913,7 +22483,7 @@ struct retro_core_option_v2_definition option_defs_hr[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_HR },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -23970,6 +22540,22 @@ struct retro_core_option_v2_definition option_defs_hr[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_HR,
+        XENIA_LOG_LEVEL_LABEL_HR,
+        XENIA_LOG_LEVEL_INFO_0_HR,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_HR },
+            { "warn",  OPTION_VAL_WARN_HR },
+            { "info",  OPTION_VAL_INFO_HR },
+            { "debug", OPTION_VAL_DEBUG_HR },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -24235,22 +22821,6 @@ struct retro_core_option_v2_definition option_defs_hr[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_HR,
-        XENIA_LOG_LEVEL_LABEL_CAT_HR,
-        XENIA_LOG_LEVEL_INFO_0_HR,
-        NULL,
-        OPTION_VAL_DEBUG_HR,
-        {
-            { "error", OPTION_VAL_ERROR_HR },
-            { "warn",  OPTION_VAL_WARN_HR },
-            { "info",  OPTION_VAL_INFO_HR },
-            { "debug", OPTION_VAL_DEBUG_HR },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -24271,12 +22841,9 @@ struct retro_core_options_v2 options_hr = {
 #define CATEGORY_EMULATION_INFO_0_HU NULL
 #define CATEGORY_COMPATIBILITY_LABEL_HU NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_HU NULL
-#define CATEGORY_DEBUG_LABEL_HU NULL
-#define CATEGORY_DEBUG_INFO_0_HU NULL
 #define CATEGORY_PATCHES_LABEL_HU NULL
 #define CATEGORY_PATCHES_INFO_0_HU NULL
 #define XENIA_GRAPHICS_API_LABEL_HU NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_HU NULL
 #define XENIA_GRAPHICS_API_INFO_0_HU NULL
 #define OPTION_VAL_VULKAN_HU NULL
 #define OPTION_VAL_D3D12_HU NULL
@@ -24317,9 +22884,6 @@ struct retro_core_options_v2 options_hr = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_HU NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_HU NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_HU NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_HU NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_HU NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_HU NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_HU NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_HU NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_HU NULL
@@ -24352,7 +22916,7 @@ struct retro_core_options_v2 options_hr = {
 #define OPTION_VAL_13_HU NULL
 #define OPTION_VAL_14_HU NULL
 #define OPTION_VAL_15_HU NULL
-#define XENIA_WIDESCREEN_LABEL_HU "Képarány"
+#define XENIA_WIDESCREEN_LABEL_HU NULL
 #define XENIA_WIDESCREEN_INFO_0_HU NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_HU NULL
 #define OPTION_VAL_DISABLED_HU NULL
@@ -24370,17 +22934,11 @@ struct retro_core_options_v2 options_hr = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_HU NULL
 #define XENIA_AUDIO_ENABLED_LABEL_HU NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_HU NULL
-#define XENIA_MUTE_LABEL_HU NULL
-#define XENIA_MUTE_LABEL_CAT_HU "Némítás"
-#define XENIA_MUTE_INFO_0_HU NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_HU NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_HU NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_HU NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_HU NULL
 #define OPTION_VAL_STEREO_HU "Sztereó"
 #define OPTION_VAL_5_1_HU NULL
 #define XENIA_XMA_DECODER_LABEL_HU NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_HU NULL
 #define XENIA_XMA_DECODER_INFO_0_HU NULL
 #define OPTION_VAL_NEW_HU NULL
 #define OPTION_VAL_OLD_HU NULL
@@ -24405,15 +22963,7 @@ struct retro_core_options_v2 options_hr = {
 #define OPTION_VAL_70_HU NULL
 #define OPTION_VAL_80_HU NULL
 #define OPTION_VAL_90_HU NULL
-#define OPTION_VAL_100_HU "100% (alapértelmezett)"
-#define XENIA_TIME_SCALAR_LABEL_HU NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_HU NULL
-#define XENIA_TIME_SCALAR_INFO_0_HU NULL
-#define OPTION_VAL_0_25_HU NULL
-#define OPTION_VAL_0_5_HU NULL
-#define OPTION_VAL_1_0_HU NULL
-#define OPTION_VAL_2_0_HU NULL
-#define OPTION_VAL_4_0_HU NULL
+#define OPTION_VAL_100_HU NULL
 #define XENIA_TITLE_UPDATES_LABEL_HU NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_HU NULL
 #define XENIA_TITLE_UPDATES_INFO_0_HU NULL
@@ -24423,13 +22973,13 @@ struct retro_core_options_v2 options_hr = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_HU NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_HU NULL
 #define XENIA_LICENSE_MASK_LABEL_HU NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_HU "Szoftverlicensz"
+#define XENIA_LICENSE_MASK_LABEL_CAT_HU NULL
 #define XENIA_LICENSE_MASK_INFO_0_HU NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_HU "Nincs"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_HU "Teljes"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_HU "Összes"
 #define XENIA_USER_LANGUAGE_LABEL_HU NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_HU "Nyelv"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_HU NULL
 #define XENIA_USER_LANGUAGE_INFO_0_HU NULL
 #define OPTION_VAL_ENGLISH_HU "angol"
 #define OPTION_VAL_JAPANESE_HU "japán"
@@ -24466,6 +23016,12 @@ struct retro_core_options_v2 options_hr = {
 #define OPTION_VAL_PORTUGAL_HU NULL
 #define OPTION_VAL_TAIWAN_HU NULL
 #define OPTION_VAL_HONG_KONG_HU NULL
+#define XENIA_LOG_LEVEL_LABEL_HU NULL
+#define XENIA_LOG_LEVEL_INFO_0_HU NULL
+#define OPTION_VAL_ERROR_HU NULL
+#define OPTION_VAL_WARN_HU "Figyelmeztetés"
+#define OPTION_VAL_INFO_HU "Infó"
+#define OPTION_VAL_DEBUG_HU NULL
 #define XENIA_PROTECT_ZERO_LABEL_HU NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_HU NULL
 #define XENIA_PROTECT_ZERO_INFO_0_HU NULL
@@ -24526,13 +23082,6 @@ struct retro_core_options_v2 options_hr = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_HU NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_HU NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_HU NULL
-#define XENIA_LOG_LEVEL_LABEL_HU NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_HU NULL
-#define XENIA_LOG_LEVEL_INFO_0_HU NULL
-#define OPTION_VAL_ERROR_HU NULL
-#define OPTION_VAL_WARN_HU "Figyelmeztetés"
-#define OPTION_VAL_INFO_HU "Infó"
-#define OPTION_VAL_DEBUG_HU NULL
 
 struct retro_core_option_v2_category option_cats_hu[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_HU,
@@ -24545,8 +23094,6 @@ struct retro_core_option_v2_category option_cats_hu[] = {
       CATEGORY_EMULATION_INFO_0_HU },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_HU,
       CATEGORY_COMPATIBILITY_INFO_0_HU },
-    { "Debug", CATEGORY_DEBUG_LABEL_HU,
-      CATEGORY_DEBUG_INFO_0_HU },
     { "patches", CATEGORY_PATCHES_LABEL_HU,
       CATEGORY_PATCHES_INFO_0_HU },
     { NULL, NULL, NULL }
@@ -24558,7 +23105,7 @@ struct retro_core_option_v2_definition option_defs_hu[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_HU,
-        XENIA_GRAPHICS_API_LABEL_CAT_HU,
+        XENIA_GRAPHICS_API_LABEL_HU,
         XENIA_GRAPHICS_API_INFO_0_HU,
         NULL,
         "Graphics",
@@ -24692,20 +23239,6 @@ struct retro_core_option_v2_definition option_defs_hu[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_HU,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_HU,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_HU,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -24845,23 +23378,9 @@ struct retro_core_option_v2_definition option_defs_hu[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_HU,
-        XENIA_MUTE_LABEL_CAT_HU,
-        XENIA_MUTE_INFO_0_HU,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_HU },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_HU,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_HU,
+        XENIA_AUDIO_CHANNELS_LABEL_HU,
         XENIA_AUDIO_CHANNELS_INFO_0_HU,
         NULL,
         "Audio",
@@ -24875,7 +23394,7 @@ struct retro_core_option_v2_definition option_defs_hu[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_HU,
-        XENIA_XMA_DECODER_LABEL_CAT_HU,
+        XENIA_XMA_DECODER_LABEL_HU,
         XENIA_XMA_DECODER_INFO_0_HU,
         NULL,
         "Audio",
@@ -24937,28 +23456,11 @@ struct retro_core_option_v2_definition option_defs_hu[] = {
             { "100", OPTION_VAL_100_HU },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_HU,
-        XENIA_TIME_SCALAR_LABEL_CAT_HU,
-        XENIA_TIME_SCALAR_INFO_0_HU,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_HU },
-            { "0.5",  OPTION_VAL_0_5_HU },
-            { "1.0",  OPTION_VAL_1_0_HU },
-            { "2.0",  OPTION_VAL_2_0_HU },
-            { "4.0",  OPTION_VAL_4_0_HU },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_HU,
@@ -25001,6 +23503,9 @@ struct retro_core_option_v2_definition option_defs_hu[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_HU,
@@ -25014,7 +23519,7 @@ struct retro_core_option_v2_definition option_defs_hu[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_HU },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -25071,6 +23576,22 @@ struct retro_core_option_v2_definition option_defs_hu[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_HU,
+        XENIA_LOG_LEVEL_LABEL_HU,
+        XENIA_LOG_LEVEL_INFO_0_HU,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_HU },
+            { "warn",  OPTION_VAL_WARN_HU },
+            { "info",  OPTION_VAL_INFO_HU },
+            { "debug", OPTION_VAL_DEBUG_HU },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -25336,22 +23857,6 @@ struct retro_core_option_v2_definition option_defs_hu[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_HU,
-        XENIA_LOG_LEVEL_LABEL_CAT_HU,
-        XENIA_LOG_LEVEL_INFO_0_HU,
-        NULL,
-        OPTION_VAL_DEBUG_HU,
-        {
-            { "error", OPTION_VAL_ERROR_HU },
-            { "warn",  OPTION_VAL_WARN_HU },
-            { "info",  OPTION_VAL_INFO_HU },
-            { "debug", OPTION_VAL_DEBUG_HU },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -25372,12 +23877,9 @@ struct retro_core_options_v2 options_hu = {
 #define CATEGORY_EMULATION_INFO_0_ID NULL
 #define CATEGORY_COMPATIBILITY_LABEL_ID NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_ID NULL
-#define CATEGORY_DEBUG_LABEL_ID NULL
-#define CATEGORY_DEBUG_INFO_0_ID NULL
 #define CATEGORY_PATCHES_LABEL_ID NULL
 #define CATEGORY_PATCHES_INFO_0_ID NULL
 #define XENIA_GRAPHICS_API_LABEL_ID NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_ID NULL
 #define XENIA_GRAPHICS_API_INFO_0_ID NULL
 #define OPTION_VAL_VULKAN_ID NULL
 #define OPTION_VAL_D3D12_ID NULL
@@ -25418,9 +23920,6 @@ struct retro_core_options_v2 options_hu = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_ID NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_ID NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_ID NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_ID NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_ID NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_ID NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_ID NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_ID NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_ID NULL
@@ -25453,7 +23952,7 @@ struct retro_core_options_v2 options_hu = {
 #define OPTION_VAL_13_ID NULL
 #define OPTION_VAL_14_ID NULL
 #define OPTION_VAL_15_ID NULL
-#define XENIA_WIDESCREEN_LABEL_ID "Rasio Aspek"
+#define XENIA_WIDESCREEN_LABEL_ID NULL
 #define XENIA_WIDESCREEN_INFO_0_ID NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_ID NULL
 #define OPTION_VAL_DISABLED_ID NULL
@@ -25471,17 +23970,11 @@ struct retro_core_options_v2 options_hu = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_ID NULL
 #define XENIA_AUDIO_ENABLED_LABEL_ID NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_ID NULL
-#define XENIA_MUTE_LABEL_ID NULL
-#define XENIA_MUTE_LABEL_CAT_ID "Senyapkan"
-#define XENIA_MUTE_INFO_0_ID NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_ID NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_ID NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_ID NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_ID NULL
 #define OPTION_VAL_STEREO_ID NULL
 #define OPTION_VAL_5_1_ID NULL
 #define XENIA_XMA_DECODER_LABEL_ID NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_ID NULL
 #define XENIA_XMA_DECODER_INFO_0_ID NULL
 #define OPTION_VAL_NEW_ID NULL
 #define OPTION_VAL_OLD_ID NULL
@@ -25507,14 +24000,6 @@ struct retro_core_options_v2 options_hu = {
 #define OPTION_VAL_80_ID NULL
 #define OPTION_VAL_90_ID NULL
 #define OPTION_VAL_100_ID NULL
-#define XENIA_TIME_SCALAR_LABEL_ID NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_ID NULL
-#define XENIA_TIME_SCALAR_INFO_0_ID NULL
-#define OPTION_VAL_0_25_ID NULL
-#define OPTION_VAL_0_5_ID NULL
-#define OPTION_VAL_1_0_ID NULL
-#define OPTION_VAL_2_0_ID NULL
-#define OPTION_VAL_4_0_ID NULL
 #define XENIA_TITLE_UPDATES_LABEL_ID NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_ID NULL
 #define XENIA_TITLE_UPDATES_INFO_0_ID NULL
@@ -25524,13 +24009,13 @@ struct retro_core_options_v2 options_hu = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_ID NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_ID NULL
 #define XENIA_LICENSE_MASK_LABEL_ID NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_ID "Jenis Lisensi"
+#define XENIA_LICENSE_MASK_LABEL_CAT_ID NULL
 #define XENIA_LICENSE_MASK_INFO_0_ID NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_ID "Tak ada"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_ID NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_ID NULL
 #define XENIA_USER_LANGUAGE_LABEL_ID NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_ID "Bahasa"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_ID NULL
 #define XENIA_USER_LANGUAGE_INFO_0_ID NULL
 #define OPTION_VAL_ENGLISH_ID "Bahasa Inggris"
 #define OPTION_VAL_JAPANESE_ID "Bahasa Jepang"
@@ -25567,6 +24052,12 @@ struct retro_core_options_v2 options_hu = {
 #define OPTION_VAL_PORTUGAL_ID NULL
 #define OPTION_VAL_TAIWAN_ID NULL
 #define OPTION_VAL_HONG_KONG_ID NULL
+#define XENIA_LOG_LEVEL_LABEL_ID NULL
+#define XENIA_LOG_LEVEL_INFO_0_ID NULL
+#define OPTION_VAL_ERROR_ID NULL
+#define OPTION_VAL_WARN_ID NULL
+#define OPTION_VAL_INFO_ID NULL
+#define OPTION_VAL_DEBUG_ID NULL
 #define XENIA_PROTECT_ZERO_LABEL_ID NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_ID NULL
 #define XENIA_PROTECT_ZERO_INFO_0_ID NULL
@@ -25627,13 +24118,6 @@ struct retro_core_options_v2 options_hu = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_ID NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_ID NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_ID NULL
-#define XENIA_LOG_LEVEL_LABEL_ID NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_ID NULL
-#define XENIA_LOG_LEVEL_INFO_0_ID NULL
-#define OPTION_VAL_ERROR_ID NULL
-#define OPTION_VAL_WARN_ID NULL
-#define OPTION_VAL_INFO_ID NULL
-#define OPTION_VAL_DEBUG_ID NULL
 
 struct retro_core_option_v2_category option_cats_id[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_ID,
@@ -25646,8 +24130,6 @@ struct retro_core_option_v2_category option_cats_id[] = {
       CATEGORY_EMULATION_INFO_0_ID },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_ID,
       CATEGORY_COMPATIBILITY_INFO_0_ID },
-    { "Debug", CATEGORY_DEBUG_LABEL_ID,
-      CATEGORY_DEBUG_INFO_0_ID },
     { "patches", CATEGORY_PATCHES_LABEL_ID,
       CATEGORY_PATCHES_INFO_0_ID },
     { NULL, NULL, NULL }
@@ -25659,7 +24141,7 @@ struct retro_core_option_v2_definition option_defs_id[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_ID,
-        XENIA_GRAPHICS_API_LABEL_CAT_ID,
+        XENIA_GRAPHICS_API_LABEL_ID,
         XENIA_GRAPHICS_API_INFO_0_ID,
         NULL,
         "Graphics",
@@ -25793,20 +24275,6 @@ struct retro_core_option_v2_definition option_defs_id[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_ID,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_ID,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_ID,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -25946,23 +24414,9 @@ struct retro_core_option_v2_definition option_defs_id[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_ID,
-        XENIA_MUTE_LABEL_CAT_ID,
-        XENIA_MUTE_INFO_0_ID,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_ID },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_ID,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_ID,
+        XENIA_AUDIO_CHANNELS_LABEL_ID,
         XENIA_AUDIO_CHANNELS_INFO_0_ID,
         NULL,
         "Audio",
@@ -25976,7 +24430,7 @@ struct retro_core_option_v2_definition option_defs_id[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_ID,
-        XENIA_XMA_DECODER_LABEL_CAT_ID,
+        XENIA_XMA_DECODER_LABEL_ID,
         XENIA_XMA_DECODER_INFO_0_ID,
         NULL,
         "Audio",
@@ -26038,28 +24492,11 @@ struct retro_core_option_v2_definition option_defs_id[] = {
             { "100", OPTION_VAL_100_ID },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_ID,
-        XENIA_TIME_SCALAR_LABEL_CAT_ID,
-        XENIA_TIME_SCALAR_INFO_0_ID,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_ID },
-            { "0.5",  OPTION_VAL_0_5_ID },
-            { "1.0",  OPTION_VAL_1_0_ID },
-            { "2.0",  OPTION_VAL_2_0_ID },
-            { "4.0",  OPTION_VAL_4_0_ID },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_ID,
@@ -26102,6 +24539,9 @@ struct retro_core_option_v2_definition option_defs_id[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_ID,
@@ -26115,7 +24555,7 @@ struct retro_core_option_v2_definition option_defs_id[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_ID },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -26172,6 +24612,22 @@ struct retro_core_option_v2_definition option_defs_id[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_ID,
+        XENIA_LOG_LEVEL_LABEL_ID,
+        XENIA_LOG_LEVEL_INFO_0_ID,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_ID },
+            { "warn",  OPTION_VAL_WARN_ID },
+            { "info",  OPTION_VAL_INFO_ID },
+            { "debug", OPTION_VAL_DEBUG_ID },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -26437,22 +24893,6 @@ struct retro_core_option_v2_definition option_defs_id[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_ID,
-        XENIA_LOG_LEVEL_LABEL_CAT_ID,
-        XENIA_LOG_LEVEL_INFO_0_ID,
-        NULL,
-        OPTION_VAL_DEBUG_ID,
-        {
-            { "error", OPTION_VAL_ERROR_ID },
-            { "warn",  OPTION_VAL_WARN_ID },
-            { "info",  OPTION_VAL_INFO_ID },
-            { "debug", OPTION_VAL_DEBUG_ID },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -26473,12 +24913,9 @@ struct retro_core_options_v2 options_id = {
 #define CATEGORY_EMULATION_INFO_0_IT NULL
 #define CATEGORY_COMPATIBILITY_LABEL_IT NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_IT NULL
-#define CATEGORY_DEBUG_LABEL_IT NULL
-#define CATEGORY_DEBUG_INFO_0_IT NULL
 #define CATEGORY_PATCHES_LABEL_IT NULL
 #define CATEGORY_PATCHES_INFO_0_IT NULL
 #define XENIA_GRAPHICS_API_LABEL_IT NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_IT NULL
 #define XENIA_GRAPHICS_API_INFO_0_IT NULL
 #define OPTION_VAL_VULKAN_IT NULL
 #define OPTION_VAL_D3D12_IT NULL
@@ -26519,9 +24956,6 @@ struct retro_core_options_v2 options_id = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_IT NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_IT NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_IT NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_IT NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_IT NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_IT NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_IT NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_IT NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_IT NULL
@@ -26554,7 +24988,7 @@ struct retro_core_options_v2 options_id = {
 #define OPTION_VAL_13_IT NULL
 #define OPTION_VAL_14_IT NULL
 #define OPTION_VAL_15_IT NULL
-#define XENIA_WIDESCREEN_LABEL_IT "Rapporto d'aspetto"
+#define XENIA_WIDESCREEN_LABEL_IT NULL
 #define XENIA_WIDESCREEN_INFO_0_IT NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_IT NULL
 #define OPTION_VAL_DISABLED_IT NULL
@@ -26572,17 +25006,11 @@ struct retro_core_options_v2 options_id = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_IT NULL
 #define XENIA_AUDIO_ENABLED_LABEL_IT NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_IT NULL
-#define XENIA_MUTE_LABEL_IT NULL
-#define XENIA_MUTE_LABEL_CAT_IT "Disattiva Audio"
-#define XENIA_MUTE_INFO_0_IT NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_IT NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_IT NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_IT NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_IT NULL
 #define OPTION_VAL_STEREO_IT NULL
 #define OPTION_VAL_5_1_IT NULL
 #define XENIA_XMA_DECODER_LABEL_IT NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_IT NULL
 #define XENIA_XMA_DECODER_INFO_0_IT NULL
 #define OPTION_VAL_NEW_IT NULL
 #define OPTION_VAL_OLD_IT NULL
@@ -26607,15 +25035,7 @@ struct retro_core_options_v2 options_id = {
 #define OPTION_VAL_70_IT NULL
 #define OPTION_VAL_80_IT NULL
 #define OPTION_VAL_90_IT NULL
-#define OPTION_VAL_100_IT "100%"
-#define XENIA_TIME_SCALAR_LABEL_IT NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_IT NULL
-#define XENIA_TIME_SCALAR_INFO_0_IT NULL
-#define OPTION_VAL_0_25_IT NULL
-#define OPTION_VAL_0_5_IT NULL
-#define OPTION_VAL_1_0_IT NULL
-#define OPTION_VAL_2_0_IT NULL
-#define OPTION_VAL_4_0_IT NULL
+#define OPTION_VAL_100_IT NULL
 #define XENIA_TITLE_UPDATES_LABEL_IT NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_IT NULL
 #define XENIA_TITLE_UPDATES_INFO_0_IT NULL
@@ -26625,13 +25045,13 @@ struct retro_core_options_v2 options_id = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_IT NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_IT NULL
 #define XENIA_LICENSE_MASK_LABEL_IT NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_IT "Licenza/e"
+#define XENIA_LICENSE_MASK_LABEL_CAT_IT NULL
 #define XENIA_LICENSE_MASK_INFO_0_IT NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_IT "Nessuno"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_IT "Pieno"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_IT "Tutti"
 #define XENIA_USER_LANGUAGE_LABEL_IT NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_IT "Lingua"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_IT NULL
 #define XENIA_USER_LANGUAGE_INFO_0_IT NULL
 #define OPTION_VAL_ENGLISH_IT "Inglese"
 #define OPTION_VAL_JAPANESE_IT "Giapponese"
@@ -26668,6 +25088,12 @@ struct retro_core_options_v2 options_id = {
 #define OPTION_VAL_PORTUGAL_IT NULL
 #define OPTION_VAL_TAIWAN_IT NULL
 #define OPTION_VAL_HONG_KONG_IT NULL
+#define XENIA_LOG_LEVEL_LABEL_IT NULL
+#define XENIA_LOG_LEVEL_INFO_0_IT NULL
+#define OPTION_VAL_ERROR_IT NULL
+#define OPTION_VAL_WARN_IT "Attenzione"
+#define OPTION_VAL_INFO_IT "Informazioni"
+#define OPTION_VAL_DEBUG_IT NULL
 #define XENIA_PROTECT_ZERO_LABEL_IT NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_IT NULL
 #define XENIA_PROTECT_ZERO_INFO_0_IT NULL
@@ -26728,13 +25154,6 @@ struct retro_core_options_v2 options_id = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_IT NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_IT NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_IT NULL
-#define XENIA_LOG_LEVEL_LABEL_IT NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_IT NULL
-#define XENIA_LOG_LEVEL_INFO_0_IT NULL
-#define OPTION_VAL_ERROR_IT NULL
-#define OPTION_VAL_WARN_IT "Attenzione"
-#define OPTION_VAL_INFO_IT "Informazioni"
-#define OPTION_VAL_DEBUG_IT NULL
 
 struct retro_core_option_v2_category option_cats_it[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_IT,
@@ -26747,8 +25166,6 @@ struct retro_core_option_v2_category option_cats_it[] = {
       CATEGORY_EMULATION_INFO_0_IT },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_IT,
       CATEGORY_COMPATIBILITY_INFO_0_IT },
-    { "Debug", CATEGORY_DEBUG_LABEL_IT,
-      CATEGORY_DEBUG_INFO_0_IT },
     { "patches", CATEGORY_PATCHES_LABEL_IT,
       CATEGORY_PATCHES_INFO_0_IT },
     { NULL, NULL, NULL }
@@ -26760,7 +25177,7 @@ struct retro_core_option_v2_definition option_defs_it[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_IT,
-        XENIA_GRAPHICS_API_LABEL_CAT_IT,
+        XENIA_GRAPHICS_API_LABEL_IT,
         XENIA_GRAPHICS_API_INFO_0_IT,
         NULL,
         "Graphics",
@@ -26894,20 +25311,6 @@ struct retro_core_option_v2_definition option_defs_it[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_IT,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_IT,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_IT,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -27047,23 +25450,9 @@ struct retro_core_option_v2_definition option_defs_it[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_IT,
-        XENIA_MUTE_LABEL_CAT_IT,
-        XENIA_MUTE_INFO_0_IT,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_IT },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_IT,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_IT,
+        XENIA_AUDIO_CHANNELS_LABEL_IT,
         XENIA_AUDIO_CHANNELS_INFO_0_IT,
         NULL,
         "Audio",
@@ -27077,7 +25466,7 @@ struct retro_core_option_v2_definition option_defs_it[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_IT,
-        XENIA_XMA_DECODER_LABEL_CAT_IT,
+        XENIA_XMA_DECODER_LABEL_IT,
         XENIA_XMA_DECODER_INFO_0_IT,
         NULL,
         "Audio",
@@ -27139,28 +25528,11 @@ struct retro_core_option_v2_definition option_defs_it[] = {
             { "100", OPTION_VAL_100_IT },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_IT,
-        XENIA_TIME_SCALAR_LABEL_CAT_IT,
-        XENIA_TIME_SCALAR_INFO_0_IT,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_IT },
-            { "0.5",  OPTION_VAL_0_5_IT },
-            { "1.0",  OPTION_VAL_1_0_IT },
-            { "2.0",  OPTION_VAL_2_0_IT },
-            { "4.0",  OPTION_VAL_4_0_IT },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_IT,
@@ -27203,6 +25575,9 @@ struct retro_core_option_v2_definition option_defs_it[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_IT,
@@ -27216,7 +25591,7 @@ struct retro_core_option_v2_definition option_defs_it[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_IT },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -27273,6 +25648,22 @@ struct retro_core_option_v2_definition option_defs_it[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_IT,
+        XENIA_LOG_LEVEL_LABEL_IT,
+        XENIA_LOG_LEVEL_INFO_0_IT,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_IT },
+            { "warn",  OPTION_VAL_WARN_IT },
+            { "info",  OPTION_VAL_INFO_IT },
+            { "debug", OPTION_VAL_DEBUG_IT },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -27538,22 +25929,6 @@ struct retro_core_option_v2_definition option_defs_it[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_IT,
-        XENIA_LOG_LEVEL_LABEL_CAT_IT,
-        XENIA_LOG_LEVEL_INFO_0_IT,
-        NULL,
-        OPTION_VAL_DEBUG_IT,
-        {
-            { "error", OPTION_VAL_ERROR_IT },
-            { "warn",  OPTION_VAL_WARN_IT },
-            { "info",  OPTION_VAL_INFO_IT },
-            { "debug", OPTION_VAL_DEBUG_IT },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -27574,12 +25949,9 @@ struct retro_core_options_v2 options_it = {
 #define CATEGORY_EMULATION_INFO_0_JA NULL
 #define CATEGORY_COMPATIBILITY_LABEL_JA NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_JA NULL
-#define CATEGORY_DEBUG_LABEL_JA NULL
-#define CATEGORY_DEBUG_INFO_0_JA NULL
 #define CATEGORY_PATCHES_LABEL_JA NULL
 #define CATEGORY_PATCHES_INFO_0_JA NULL
 #define XENIA_GRAPHICS_API_LABEL_JA NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_JA NULL
 #define XENIA_GRAPHICS_API_INFO_0_JA NULL
 #define OPTION_VAL_VULKAN_JA NULL
 #define OPTION_VAL_D3D12_JA NULL
@@ -27620,9 +25992,6 @@ struct retro_core_options_v2 options_it = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_JA NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_JA NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_JA NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_JA NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_JA NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_JA NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_JA NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_JA NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_JA NULL
@@ -27655,7 +26024,7 @@ struct retro_core_options_v2 options_it = {
 #define OPTION_VAL_13_JA NULL
 #define OPTION_VAL_14_JA NULL
 #define OPTION_VAL_15_JA NULL
-#define XENIA_WIDESCREEN_LABEL_JA "アスペクト比"
+#define XENIA_WIDESCREEN_LABEL_JA NULL
 #define XENIA_WIDESCREEN_INFO_0_JA NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_JA NULL
 #define OPTION_VAL_DISABLED_JA NULL
@@ -27673,17 +26042,11 @@ struct retro_core_options_v2 options_it = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_JA NULL
 #define XENIA_AUDIO_ENABLED_LABEL_JA NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_JA NULL
-#define XENIA_MUTE_LABEL_JA NULL
-#define XENIA_MUTE_LABEL_CAT_JA "消音"
-#define XENIA_MUTE_INFO_0_JA NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_JA NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_JA NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_JA NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_JA NULL
 #define OPTION_VAL_STEREO_JA "ステレオ"
 #define OPTION_VAL_5_1_JA NULL
 #define XENIA_XMA_DECODER_LABEL_JA NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_JA NULL
 #define XENIA_XMA_DECODER_INFO_0_JA NULL
 #define OPTION_VAL_NEW_JA NULL
 #define OPTION_VAL_OLD_JA NULL
@@ -27708,15 +26071,7 @@ struct retro_core_options_v2 options_it = {
 #define OPTION_VAL_70_JA NULL
 #define OPTION_VAL_80_JA NULL
 #define OPTION_VAL_90_JA NULL
-#define OPTION_VAL_100_JA "100% (デフォルト)"
-#define XENIA_TIME_SCALAR_LABEL_JA NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_JA NULL
-#define XENIA_TIME_SCALAR_INFO_0_JA NULL
-#define OPTION_VAL_0_25_JA NULL
-#define OPTION_VAL_0_5_JA NULL
-#define OPTION_VAL_1_0_JA NULL
-#define OPTION_VAL_2_0_JA NULL
-#define OPTION_VAL_4_0_JA NULL
+#define OPTION_VAL_100_JA NULL
 #define XENIA_TITLE_UPDATES_LABEL_JA NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_JA NULL
 #define XENIA_TITLE_UPDATES_INFO_0_JA NULL
@@ -27726,13 +26081,13 @@ struct retro_core_options_v2 options_it = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_JA NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_JA NULL
 #define XENIA_LICENSE_MASK_LABEL_JA NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_JA "ライセンス"
+#define XENIA_LICENSE_MASK_LABEL_CAT_JA NULL
 #define XENIA_LICENSE_MASK_INFO_0_JA NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_JA "なし"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_JA "フル"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_JA "すべて"
 #define XENIA_USER_LANGUAGE_LABEL_JA NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_JA "言語"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_JA NULL
 #define XENIA_USER_LANGUAGE_INFO_0_JA NULL
 #define OPTION_VAL_ENGLISH_JA "英語"
 #define OPTION_VAL_JAPANESE_JA "日本語"
@@ -27769,6 +26124,12 @@ struct retro_core_options_v2 options_it = {
 #define OPTION_VAL_PORTUGAL_JA NULL
 #define OPTION_VAL_TAIWAN_JA NULL
 #define OPTION_VAL_HONG_KONG_JA NULL
+#define XENIA_LOG_LEVEL_LABEL_JA NULL
+#define XENIA_LOG_LEVEL_INFO_0_JA NULL
+#define OPTION_VAL_ERROR_JA NULL
+#define OPTION_VAL_WARN_JA "警告"
+#define OPTION_VAL_INFO_JA "情報"
+#define OPTION_VAL_DEBUG_JA NULL
 #define XENIA_PROTECT_ZERO_LABEL_JA NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_JA NULL
 #define XENIA_PROTECT_ZERO_INFO_0_JA NULL
@@ -27829,13 +26190,6 @@ struct retro_core_options_v2 options_it = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_JA NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_JA NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_JA NULL
-#define XENIA_LOG_LEVEL_LABEL_JA NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_JA NULL
-#define XENIA_LOG_LEVEL_INFO_0_JA NULL
-#define OPTION_VAL_ERROR_JA NULL
-#define OPTION_VAL_WARN_JA "警告"
-#define OPTION_VAL_INFO_JA "情報"
-#define OPTION_VAL_DEBUG_JA NULL
 
 struct retro_core_option_v2_category option_cats_ja[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_JA,
@@ -27848,8 +26202,6 @@ struct retro_core_option_v2_category option_cats_ja[] = {
       CATEGORY_EMULATION_INFO_0_JA },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_JA,
       CATEGORY_COMPATIBILITY_INFO_0_JA },
-    { "Debug", CATEGORY_DEBUG_LABEL_JA,
-      CATEGORY_DEBUG_INFO_0_JA },
     { "patches", CATEGORY_PATCHES_LABEL_JA,
       CATEGORY_PATCHES_INFO_0_JA },
     { NULL, NULL, NULL }
@@ -27861,7 +26213,7 @@ struct retro_core_option_v2_definition option_defs_ja[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_JA,
-        XENIA_GRAPHICS_API_LABEL_CAT_JA,
+        XENIA_GRAPHICS_API_LABEL_JA,
         XENIA_GRAPHICS_API_INFO_0_JA,
         NULL,
         "Graphics",
@@ -27995,20 +26347,6 @@ struct retro_core_option_v2_definition option_defs_ja[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_JA,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_JA,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_JA,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -28148,23 +26486,9 @@ struct retro_core_option_v2_definition option_defs_ja[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_JA,
-        XENIA_MUTE_LABEL_CAT_JA,
-        XENIA_MUTE_INFO_0_JA,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_JA },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_JA,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_JA,
+        XENIA_AUDIO_CHANNELS_LABEL_JA,
         XENIA_AUDIO_CHANNELS_INFO_0_JA,
         NULL,
         "Audio",
@@ -28178,7 +26502,7 @@ struct retro_core_option_v2_definition option_defs_ja[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_JA,
-        XENIA_XMA_DECODER_LABEL_CAT_JA,
+        XENIA_XMA_DECODER_LABEL_JA,
         XENIA_XMA_DECODER_INFO_0_JA,
         NULL,
         "Audio",
@@ -28240,28 +26564,11 @@ struct retro_core_option_v2_definition option_defs_ja[] = {
             { "100", OPTION_VAL_100_JA },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_JA,
-        XENIA_TIME_SCALAR_LABEL_CAT_JA,
-        XENIA_TIME_SCALAR_INFO_0_JA,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_JA },
-            { "0.5",  OPTION_VAL_0_5_JA },
-            { "1.0",  OPTION_VAL_1_0_JA },
-            { "2.0",  OPTION_VAL_2_0_JA },
-            { "4.0",  OPTION_VAL_4_0_JA },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_JA,
@@ -28304,6 +26611,9 @@ struct retro_core_option_v2_definition option_defs_ja[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_JA,
@@ -28317,7 +26627,7 @@ struct retro_core_option_v2_definition option_defs_ja[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_JA },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -28374,6 +26684,22 @@ struct retro_core_option_v2_definition option_defs_ja[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_JA,
+        XENIA_LOG_LEVEL_LABEL_JA,
+        XENIA_LOG_LEVEL_INFO_0_JA,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_JA },
+            { "warn",  OPTION_VAL_WARN_JA },
+            { "info",  OPTION_VAL_INFO_JA },
+            { "debug", OPTION_VAL_DEBUG_JA },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -28639,22 +26965,6 @@ struct retro_core_option_v2_definition option_defs_ja[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_JA,
-        XENIA_LOG_LEVEL_LABEL_CAT_JA,
-        XENIA_LOG_LEVEL_INFO_0_JA,
-        NULL,
-        OPTION_VAL_DEBUG_JA,
-        {
-            { "error", OPTION_VAL_ERROR_JA },
-            { "warn",  OPTION_VAL_WARN_JA },
-            { "info",  OPTION_VAL_INFO_JA },
-            { "debug", OPTION_VAL_DEBUG_JA },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -28675,12 +26985,9 @@ struct retro_core_options_v2 options_ja = {
 #define CATEGORY_EMULATION_INFO_0_KO NULL
 #define CATEGORY_COMPATIBILITY_LABEL_KO NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_KO NULL
-#define CATEGORY_DEBUG_LABEL_KO NULL
-#define CATEGORY_DEBUG_INFO_0_KO NULL
 #define CATEGORY_PATCHES_LABEL_KO NULL
 #define CATEGORY_PATCHES_INFO_0_KO NULL
 #define XENIA_GRAPHICS_API_LABEL_KO NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_KO "그래픽스 API"
 #define XENIA_GRAPHICS_API_INFO_0_KO NULL
 #define OPTION_VAL_VULKAN_KO NULL
 #define OPTION_VAL_D3D12_KO NULL
@@ -28721,9 +27028,6 @@ struct retro_core_options_v2 options_ja = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_KO NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_KO NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_KO NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_KO NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_KO NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_KO NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_KO NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_KO NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_KO NULL
@@ -28756,7 +27060,7 @@ struct retro_core_options_v2 options_ja = {
 #define OPTION_VAL_13_KO NULL
 #define OPTION_VAL_14_KO NULL
 #define OPTION_VAL_15_KO NULL
-#define XENIA_WIDESCREEN_LABEL_KO "화면비"
+#define XENIA_WIDESCREEN_LABEL_KO NULL
 #define XENIA_WIDESCREEN_INFO_0_KO NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_KO NULL
 #define OPTION_VAL_DISABLED_KO NULL
@@ -28767,24 +27071,18 @@ struct retro_core_options_v2 options_ja = {
 #define OPTION_VAL_2_XENIA_VIDEO_STANDARD_KO "NTSC-J (일본)"
 #define OPTION_VAL_3_XENIA_VIDEO_STANDARD_KO NULL
 #define XENIA_DISPLAY_GAMMA_LABEL_KO NULL
-#define XENIA_DISPLAY_GAMMA_LABEL_CAT_KO "감마"
+#define XENIA_DISPLAY_GAMMA_LABEL_CAT_KO NULL
 #define XENIA_DISPLAY_GAMMA_INFO_0_KO NULL
 #define OPTION_VAL_0_XENIA_DISPLAY_GAMMA_KO "선형"
 #define OPTION_VAL_1_XENIA_DISPLAY_GAMMA_KO NULL
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_KO NULL
 #define XENIA_AUDIO_ENABLED_LABEL_KO NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_KO NULL
-#define XENIA_MUTE_LABEL_KO NULL
-#define XENIA_MUTE_LABEL_CAT_KO "오디오 음소거"
-#define XENIA_MUTE_INFO_0_KO NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_KO NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_KO NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_KO NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_KO NULL
 #define OPTION_VAL_STEREO_KO "스테레오"
 #define OPTION_VAL_5_1_KO NULL
 #define XENIA_XMA_DECODER_LABEL_KO NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_KO NULL
 #define XENIA_XMA_DECODER_INFO_0_KO NULL
 #define OPTION_VAL_NEW_KO NULL
 #define OPTION_VAL_OLD_KO NULL
@@ -28809,15 +27107,7 @@ struct retro_core_options_v2 options_ja = {
 #define OPTION_VAL_70_KO NULL
 #define OPTION_VAL_80_KO NULL
 #define OPTION_VAL_90_KO NULL
-#define OPTION_VAL_100_KO "100% (기본)"
-#define XENIA_TIME_SCALAR_LABEL_KO NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_KO NULL
-#define XENIA_TIME_SCALAR_INFO_0_KO NULL
-#define OPTION_VAL_0_25_KO NULL
-#define OPTION_VAL_0_5_KO NULL
-#define OPTION_VAL_1_0_KO NULL
-#define OPTION_VAL_2_0_KO NULL
-#define OPTION_VAL_4_0_KO NULL
+#define OPTION_VAL_100_KO NULL
 #define XENIA_TITLE_UPDATES_LABEL_KO NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_KO NULL
 #define XENIA_TITLE_UPDATES_INFO_0_KO NULL
@@ -28827,13 +27117,13 @@ struct retro_core_options_v2 options_ja = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_KO NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_KO NULL
 #define XENIA_LICENSE_MASK_LABEL_KO NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_KO "라이센스"
+#define XENIA_LICENSE_MASK_LABEL_CAT_KO NULL
 #define XENIA_LICENSE_MASK_INFO_0_KO NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_KO "없음"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_KO "모두"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_KO "전체"
 #define XENIA_USER_LANGUAGE_LABEL_KO NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_KO "언어"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_KO NULL
 #define XENIA_USER_LANGUAGE_INFO_0_KO NULL
 #define OPTION_VAL_ENGLISH_KO "영어"
 #define OPTION_VAL_JAPANESE_KO "일본어"
@@ -28870,6 +27160,12 @@ struct retro_core_options_v2 options_ja = {
 #define OPTION_VAL_PORTUGAL_KO NULL
 #define OPTION_VAL_TAIWAN_KO NULL
 #define OPTION_VAL_HONG_KONG_KO NULL
+#define XENIA_LOG_LEVEL_LABEL_KO NULL
+#define XENIA_LOG_LEVEL_INFO_0_KO NULL
+#define OPTION_VAL_ERROR_KO NULL
+#define OPTION_VAL_WARN_KO "경고"
+#define OPTION_VAL_INFO_KO "정보"
+#define OPTION_VAL_DEBUG_KO NULL
 #define XENIA_PROTECT_ZERO_LABEL_KO NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_KO NULL
 #define XENIA_PROTECT_ZERO_INFO_0_KO NULL
@@ -28930,13 +27226,6 @@ struct retro_core_options_v2 options_ja = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_KO NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_KO NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_KO NULL
-#define XENIA_LOG_LEVEL_LABEL_KO NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_KO NULL
-#define XENIA_LOG_LEVEL_INFO_0_KO NULL
-#define OPTION_VAL_ERROR_KO NULL
-#define OPTION_VAL_WARN_KO "경고"
-#define OPTION_VAL_INFO_KO "정보"
-#define OPTION_VAL_DEBUG_KO NULL
 
 struct retro_core_option_v2_category option_cats_ko[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_KO,
@@ -28949,8 +27238,6 @@ struct retro_core_option_v2_category option_cats_ko[] = {
       CATEGORY_EMULATION_INFO_0_KO },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_KO,
       CATEGORY_COMPATIBILITY_INFO_0_KO },
-    { "Debug", CATEGORY_DEBUG_LABEL_KO,
-      CATEGORY_DEBUG_INFO_0_KO },
     { "patches", CATEGORY_PATCHES_LABEL_KO,
       CATEGORY_PATCHES_INFO_0_KO },
     { NULL, NULL, NULL }
@@ -28962,7 +27249,7 @@ struct retro_core_option_v2_definition option_defs_ko[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_KO,
-        XENIA_GRAPHICS_API_LABEL_CAT_KO,
+        XENIA_GRAPHICS_API_LABEL_KO,
         XENIA_GRAPHICS_API_INFO_0_KO,
         NULL,
         "Graphics",
@@ -29096,20 +27383,6 @@ struct retro_core_option_v2_definition option_defs_ko[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_KO,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_KO,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_KO,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -29249,23 +27522,9 @@ struct retro_core_option_v2_definition option_defs_ko[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_KO,
-        XENIA_MUTE_LABEL_CAT_KO,
-        XENIA_MUTE_INFO_0_KO,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_KO },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_KO,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_KO,
+        XENIA_AUDIO_CHANNELS_LABEL_KO,
         XENIA_AUDIO_CHANNELS_INFO_0_KO,
         NULL,
         "Audio",
@@ -29279,7 +27538,7 @@ struct retro_core_option_v2_definition option_defs_ko[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_KO,
-        XENIA_XMA_DECODER_LABEL_CAT_KO,
+        XENIA_XMA_DECODER_LABEL_KO,
         XENIA_XMA_DECODER_INFO_0_KO,
         NULL,
         "Audio",
@@ -29341,28 +27600,11 @@ struct retro_core_option_v2_definition option_defs_ko[] = {
             { "100", OPTION_VAL_100_KO },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_KO,
-        XENIA_TIME_SCALAR_LABEL_CAT_KO,
-        XENIA_TIME_SCALAR_INFO_0_KO,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_KO },
-            { "0.5",  OPTION_VAL_0_5_KO },
-            { "1.0",  OPTION_VAL_1_0_KO },
-            { "2.0",  OPTION_VAL_2_0_KO },
-            { "4.0",  OPTION_VAL_4_0_KO },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_KO,
@@ -29405,6 +27647,9 @@ struct retro_core_option_v2_definition option_defs_ko[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_KO,
@@ -29418,7 +27663,7 @@ struct retro_core_option_v2_definition option_defs_ko[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_KO },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -29475,6 +27720,22 @@ struct retro_core_option_v2_definition option_defs_ko[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_KO,
+        XENIA_LOG_LEVEL_LABEL_KO,
+        XENIA_LOG_LEVEL_INFO_0_KO,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_KO },
+            { "warn",  OPTION_VAL_WARN_KO },
+            { "info",  OPTION_VAL_INFO_KO },
+            { "debug", OPTION_VAL_DEBUG_KO },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -29740,22 +28001,6 @@ struct retro_core_option_v2_definition option_defs_ko[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_KO,
-        XENIA_LOG_LEVEL_LABEL_CAT_KO,
-        XENIA_LOG_LEVEL_INFO_0_KO,
-        NULL,
-        OPTION_VAL_DEBUG_KO,
-        {
-            { "error", OPTION_VAL_ERROR_KO },
-            { "warn",  OPTION_VAL_WARN_KO },
-            { "info",  OPTION_VAL_INFO_KO },
-            { "debug", OPTION_VAL_DEBUG_KO },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -29776,12 +28021,9 @@ struct retro_core_options_v2 options_ko = {
 #define CATEGORY_EMULATION_INFO_0_NL NULL
 #define CATEGORY_COMPATIBILITY_LABEL_NL NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_NL NULL
-#define CATEGORY_DEBUG_LABEL_NL NULL
-#define CATEGORY_DEBUG_INFO_0_NL NULL
 #define CATEGORY_PATCHES_LABEL_NL NULL
 #define CATEGORY_PATCHES_INFO_0_NL NULL
 #define XENIA_GRAPHICS_API_LABEL_NL NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_NL NULL
 #define XENIA_GRAPHICS_API_INFO_0_NL NULL
 #define OPTION_VAL_VULKAN_NL NULL
 #define OPTION_VAL_D3D12_NL NULL
@@ -29822,9 +28064,6 @@ struct retro_core_options_v2 options_ko = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_NL NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_NL NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_NL NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_NL NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_NL NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_NL NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_NL NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_NL NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_NL NULL
@@ -29857,7 +28096,7 @@ struct retro_core_options_v2 options_ko = {
 #define OPTION_VAL_13_NL NULL
 #define OPTION_VAL_14_NL NULL
 #define OPTION_VAL_15_NL NULL
-#define XENIA_WIDESCREEN_LABEL_NL "Beeldverhouding"
+#define XENIA_WIDESCREEN_LABEL_NL NULL
 #define XENIA_WIDESCREEN_INFO_0_NL NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_NL NULL
 #define OPTION_VAL_DISABLED_NL NULL
@@ -29875,17 +28114,11 @@ struct retro_core_options_v2 options_ko = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_NL NULL
 #define XENIA_AUDIO_ENABLED_LABEL_NL NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_NL NULL
-#define XENIA_MUTE_LABEL_NL NULL
-#define XENIA_MUTE_LABEL_CAT_NL "Geluid uitzetten"
-#define XENIA_MUTE_INFO_0_NL NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_NL NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_NL NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_NL NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_NL NULL
 #define OPTION_VAL_STEREO_NL NULL
 #define OPTION_VAL_5_1_NL NULL
 #define XENIA_XMA_DECODER_LABEL_NL NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_NL NULL
 #define XENIA_XMA_DECODER_INFO_0_NL NULL
 #define OPTION_VAL_NEW_NL NULL
 #define OPTION_VAL_OLD_NL NULL
@@ -29911,14 +28144,6 @@ struct retro_core_options_v2 options_ko = {
 #define OPTION_VAL_80_NL NULL
 #define OPTION_VAL_90_NL NULL
 #define OPTION_VAL_100_NL NULL
-#define XENIA_TIME_SCALAR_LABEL_NL NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_NL NULL
-#define XENIA_TIME_SCALAR_INFO_0_NL NULL
-#define OPTION_VAL_0_25_NL NULL
-#define OPTION_VAL_0_5_NL NULL
-#define OPTION_VAL_1_0_NL NULL
-#define OPTION_VAL_2_0_NL NULL
-#define OPTION_VAL_4_0_NL NULL
 #define XENIA_TITLE_UPDATES_LABEL_NL NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_NL NULL
 #define XENIA_TITLE_UPDATES_INFO_0_NL NULL
@@ -29928,13 +28153,13 @@ struct retro_core_options_v2 options_ko = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_NL NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_NL NULL
 #define XENIA_LICENSE_MASK_LABEL_NL NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_NL "Licentie"
+#define XENIA_LICENSE_MASK_LABEL_CAT_NL NULL
 #define XENIA_LICENSE_MASK_INFO_0_NL NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_NL "Geen"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_NL NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_NL "Alle"
 #define XENIA_USER_LANGUAGE_LABEL_NL NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_NL "Taal"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_NL NULL
 #define XENIA_USER_LANGUAGE_INFO_0_NL NULL
 #define OPTION_VAL_ENGLISH_NL "Engels"
 #define OPTION_VAL_JAPANESE_NL "Japans"
@@ -29971,6 +28196,12 @@ struct retro_core_options_v2 options_ko = {
 #define OPTION_VAL_PORTUGAL_NL NULL
 #define OPTION_VAL_TAIWAN_NL NULL
 #define OPTION_VAL_HONG_KONG_NL NULL
+#define XENIA_LOG_LEVEL_LABEL_NL NULL
+#define XENIA_LOG_LEVEL_INFO_0_NL NULL
+#define OPTION_VAL_ERROR_NL NULL
+#define OPTION_VAL_WARN_NL "Waarschuwing"
+#define OPTION_VAL_INFO_NL NULL
+#define OPTION_VAL_DEBUG_NL NULL
 #define XENIA_PROTECT_ZERO_LABEL_NL NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_NL NULL
 #define XENIA_PROTECT_ZERO_INFO_0_NL NULL
@@ -30031,13 +28262,6 @@ struct retro_core_options_v2 options_ko = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_NL NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_NL NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_NL NULL
-#define XENIA_LOG_LEVEL_LABEL_NL NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_NL NULL
-#define XENIA_LOG_LEVEL_INFO_0_NL NULL
-#define OPTION_VAL_ERROR_NL NULL
-#define OPTION_VAL_WARN_NL "Waarschuwing"
-#define OPTION_VAL_INFO_NL NULL
-#define OPTION_VAL_DEBUG_NL NULL
 
 struct retro_core_option_v2_category option_cats_nl[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_NL,
@@ -30050,8 +28274,6 @@ struct retro_core_option_v2_category option_cats_nl[] = {
       CATEGORY_EMULATION_INFO_0_NL },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_NL,
       CATEGORY_COMPATIBILITY_INFO_0_NL },
-    { "Debug", CATEGORY_DEBUG_LABEL_NL,
-      CATEGORY_DEBUG_INFO_0_NL },
     { "patches", CATEGORY_PATCHES_LABEL_NL,
       CATEGORY_PATCHES_INFO_0_NL },
     { NULL, NULL, NULL }
@@ -30063,7 +28285,7 @@ struct retro_core_option_v2_definition option_defs_nl[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_NL,
-        XENIA_GRAPHICS_API_LABEL_CAT_NL,
+        XENIA_GRAPHICS_API_LABEL_NL,
         XENIA_GRAPHICS_API_INFO_0_NL,
         NULL,
         "Graphics",
@@ -30197,20 +28419,6 @@ struct retro_core_option_v2_definition option_defs_nl[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_NL,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_NL,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_NL,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -30350,23 +28558,9 @@ struct retro_core_option_v2_definition option_defs_nl[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_NL,
-        XENIA_MUTE_LABEL_CAT_NL,
-        XENIA_MUTE_INFO_0_NL,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_NL },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_NL,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_NL,
+        XENIA_AUDIO_CHANNELS_LABEL_NL,
         XENIA_AUDIO_CHANNELS_INFO_0_NL,
         NULL,
         "Audio",
@@ -30380,7 +28574,7 @@ struct retro_core_option_v2_definition option_defs_nl[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_NL,
-        XENIA_XMA_DECODER_LABEL_CAT_NL,
+        XENIA_XMA_DECODER_LABEL_NL,
         XENIA_XMA_DECODER_INFO_0_NL,
         NULL,
         "Audio",
@@ -30442,28 +28636,11 @@ struct retro_core_option_v2_definition option_defs_nl[] = {
             { "100", OPTION_VAL_100_NL },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_NL,
-        XENIA_TIME_SCALAR_LABEL_CAT_NL,
-        XENIA_TIME_SCALAR_INFO_0_NL,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_NL },
-            { "0.5",  OPTION_VAL_0_5_NL },
-            { "1.0",  OPTION_VAL_1_0_NL },
-            { "2.0",  OPTION_VAL_2_0_NL },
-            { "4.0",  OPTION_VAL_4_0_NL },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_NL,
@@ -30506,6 +28683,9 @@ struct retro_core_option_v2_definition option_defs_nl[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_NL,
@@ -30519,7 +28699,7 @@ struct retro_core_option_v2_definition option_defs_nl[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_NL },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -30576,6 +28756,22 @@ struct retro_core_option_v2_definition option_defs_nl[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_NL,
+        XENIA_LOG_LEVEL_LABEL_NL,
+        XENIA_LOG_LEVEL_INFO_0_NL,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_NL },
+            { "warn",  OPTION_VAL_WARN_NL },
+            { "info",  OPTION_VAL_INFO_NL },
+            { "debug", OPTION_VAL_DEBUG_NL },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -30841,22 +29037,6 @@ struct retro_core_option_v2_definition option_defs_nl[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_NL,
-        XENIA_LOG_LEVEL_LABEL_CAT_NL,
-        XENIA_LOG_LEVEL_INFO_0_NL,
-        NULL,
-        OPTION_VAL_DEBUG_NL,
-        {
-            { "error", OPTION_VAL_ERROR_NL },
-            { "warn",  OPTION_VAL_WARN_NL },
-            { "info",  OPTION_VAL_INFO_NL },
-            { "debug", OPTION_VAL_DEBUG_NL },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -30877,12 +29057,9 @@ struct retro_core_options_v2 options_nl = {
 #define CATEGORY_EMULATION_INFO_0_NO NULL
 #define CATEGORY_COMPATIBILITY_LABEL_NO NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_NO NULL
-#define CATEGORY_DEBUG_LABEL_NO NULL
-#define CATEGORY_DEBUG_INFO_0_NO NULL
 #define CATEGORY_PATCHES_LABEL_NO NULL
 #define CATEGORY_PATCHES_INFO_0_NO NULL
 #define XENIA_GRAPHICS_API_LABEL_NO NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_NO NULL
 #define XENIA_GRAPHICS_API_INFO_0_NO NULL
 #define OPTION_VAL_VULKAN_NO NULL
 #define OPTION_VAL_D3D12_NO NULL
@@ -30923,9 +29100,6 @@ struct retro_core_options_v2 options_nl = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_NO NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_NO NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_NO NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_NO NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_NO NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_NO NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_NO NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_NO NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_NO NULL
@@ -30958,7 +29132,7 @@ struct retro_core_options_v2 options_nl = {
 #define OPTION_VAL_13_NO NULL
 #define OPTION_VAL_14_NO NULL
 #define OPTION_VAL_15_NO NULL
-#define XENIA_WIDESCREEN_LABEL_NO "Størrelsesforhold"
+#define XENIA_WIDESCREEN_LABEL_NO NULL
 #define XENIA_WIDESCREEN_INFO_0_NO NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_NO NULL
 #define OPTION_VAL_DISABLED_NO NULL
@@ -30976,17 +29150,11 @@ struct retro_core_options_v2 options_nl = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_NO NULL
 #define XENIA_AUDIO_ENABLED_LABEL_NO NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_NO NULL
-#define XENIA_MUTE_LABEL_NO NULL
-#define XENIA_MUTE_LABEL_CAT_NO "Demp"
-#define XENIA_MUTE_INFO_0_NO NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_NO NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_NO NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_NO NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_NO NULL
 #define OPTION_VAL_STEREO_NO NULL
 #define OPTION_VAL_5_1_NO NULL
 #define XENIA_XMA_DECODER_LABEL_NO NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_NO NULL
 #define XENIA_XMA_DECODER_INFO_0_NO NULL
 #define OPTION_VAL_NEW_NO NULL
 #define OPTION_VAL_OLD_NO NULL
@@ -31012,14 +29180,6 @@ struct retro_core_options_v2 options_nl = {
 #define OPTION_VAL_80_NO NULL
 #define OPTION_VAL_90_NO NULL
 #define OPTION_VAL_100_NO NULL
-#define XENIA_TIME_SCALAR_LABEL_NO NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_NO NULL
-#define XENIA_TIME_SCALAR_INFO_0_NO NULL
-#define OPTION_VAL_0_25_NO NULL
-#define OPTION_VAL_0_5_NO NULL
-#define OPTION_VAL_1_0_NO NULL
-#define OPTION_VAL_2_0_NO NULL
-#define OPTION_VAL_4_0_NO NULL
 #define XENIA_TITLE_UPDATES_LABEL_NO NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_NO NULL
 #define XENIA_TITLE_UPDATES_INFO_0_NO NULL
@@ -31029,13 +29189,13 @@ struct retro_core_options_v2 options_nl = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_NO NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_NO NULL
 #define XENIA_LICENSE_MASK_LABEL_NO NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_NO "Lisens"
+#define XENIA_LICENSE_MASK_LABEL_CAT_NO NULL
 #define XENIA_LICENSE_MASK_INFO_0_NO NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_NO "Ingen"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_NO NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_NO "Alle"
 #define XENIA_USER_LANGUAGE_LABEL_NO NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_NO "Språk"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_NO NULL
 #define XENIA_USER_LANGUAGE_INFO_0_NO NULL
 #define OPTION_VAL_ENGLISH_NO NULL
 #define OPTION_VAL_JAPANESE_NO NULL
@@ -31072,6 +29232,12 @@ struct retro_core_options_v2 options_nl = {
 #define OPTION_VAL_PORTUGAL_NO NULL
 #define OPTION_VAL_TAIWAN_NO NULL
 #define OPTION_VAL_HONG_KONG_NO NULL
+#define XENIA_LOG_LEVEL_LABEL_NO NULL
+#define XENIA_LOG_LEVEL_INFO_0_NO NULL
+#define OPTION_VAL_ERROR_NO NULL
+#define OPTION_VAL_WARN_NO "Advarsel"
+#define OPTION_VAL_INFO_NO NULL
+#define OPTION_VAL_DEBUG_NO NULL
 #define XENIA_PROTECT_ZERO_LABEL_NO NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_NO NULL
 #define XENIA_PROTECT_ZERO_INFO_0_NO NULL
@@ -31132,13 +29298,6 @@ struct retro_core_options_v2 options_nl = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_NO NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_NO NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_NO NULL
-#define XENIA_LOG_LEVEL_LABEL_NO NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_NO NULL
-#define XENIA_LOG_LEVEL_INFO_0_NO NULL
-#define OPTION_VAL_ERROR_NO NULL
-#define OPTION_VAL_WARN_NO "Advarsel"
-#define OPTION_VAL_INFO_NO NULL
-#define OPTION_VAL_DEBUG_NO NULL
 
 struct retro_core_option_v2_category option_cats_no[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_NO,
@@ -31151,8 +29310,6 @@ struct retro_core_option_v2_category option_cats_no[] = {
       CATEGORY_EMULATION_INFO_0_NO },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_NO,
       CATEGORY_COMPATIBILITY_INFO_0_NO },
-    { "Debug", CATEGORY_DEBUG_LABEL_NO,
-      CATEGORY_DEBUG_INFO_0_NO },
     { "patches", CATEGORY_PATCHES_LABEL_NO,
       CATEGORY_PATCHES_INFO_0_NO },
     { NULL, NULL, NULL }
@@ -31164,7 +29321,7 @@ struct retro_core_option_v2_definition option_defs_no[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_NO,
-        XENIA_GRAPHICS_API_LABEL_CAT_NO,
+        XENIA_GRAPHICS_API_LABEL_NO,
         XENIA_GRAPHICS_API_INFO_0_NO,
         NULL,
         "Graphics",
@@ -31298,20 +29455,6 @@ struct retro_core_option_v2_definition option_defs_no[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_NO,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_NO,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_NO,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -31451,23 +29594,9 @@ struct retro_core_option_v2_definition option_defs_no[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_NO,
-        XENIA_MUTE_LABEL_CAT_NO,
-        XENIA_MUTE_INFO_0_NO,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_NO },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_NO,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_NO,
+        XENIA_AUDIO_CHANNELS_LABEL_NO,
         XENIA_AUDIO_CHANNELS_INFO_0_NO,
         NULL,
         "Audio",
@@ -31481,7 +29610,7 @@ struct retro_core_option_v2_definition option_defs_no[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_NO,
-        XENIA_XMA_DECODER_LABEL_CAT_NO,
+        XENIA_XMA_DECODER_LABEL_NO,
         XENIA_XMA_DECODER_INFO_0_NO,
         NULL,
         "Audio",
@@ -31543,28 +29672,11 @@ struct retro_core_option_v2_definition option_defs_no[] = {
             { "100", OPTION_VAL_100_NO },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_NO,
-        XENIA_TIME_SCALAR_LABEL_CAT_NO,
-        XENIA_TIME_SCALAR_INFO_0_NO,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_NO },
-            { "0.5",  OPTION_VAL_0_5_NO },
-            { "1.0",  OPTION_VAL_1_0_NO },
-            { "2.0",  OPTION_VAL_2_0_NO },
-            { "4.0",  OPTION_VAL_4_0_NO },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_NO,
@@ -31607,6 +29719,9 @@ struct retro_core_option_v2_definition option_defs_no[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_NO,
@@ -31620,7 +29735,7 @@ struct retro_core_option_v2_definition option_defs_no[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_NO },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -31677,6 +29792,22 @@ struct retro_core_option_v2_definition option_defs_no[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_NO,
+        XENIA_LOG_LEVEL_LABEL_NO,
+        XENIA_LOG_LEVEL_INFO_0_NO,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_NO },
+            { "warn",  OPTION_VAL_WARN_NO },
+            { "info",  OPTION_VAL_INFO_NO },
+            { "debug", OPTION_VAL_DEBUG_NO },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -31942,22 +30073,6 @@ struct retro_core_option_v2_definition option_defs_no[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_NO,
-        XENIA_LOG_LEVEL_LABEL_CAT_NO,
-        XENIA_LOG_LEVEL_INFO_0_NO,
-        NULL,
-        OPTION_VAL_DEBUG_NO,
-        {
-            { "error", OPTION_VAL_ERROR_NO },
-            { "warn",  OPTION_VAL_WARN_NO },
-            { "info",  OPTION_VAL_INFO_NO },
-            { "debug", OPTION_VAL_DEBUG_NO },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -31978,12 +30093,9 @@ struct retro_core_options_v2 options_no = {
 #define CATEGORY_EMULATION_INFO_0_OR NULL
 #define CATEGORY_COMPATIBILITY_LABEL_OR NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_OR NULL
-#define CATEGORY_DEBUG_LABEL_OR NULL
-#define CATEGORY_DEBUG_INFO_0_OR NULL
 #define CATEGORY_PATCHES_LABEL_OR NULL
 #define CATEGORY_PATCHES_INFO_0_OR NULL
 #define XENIA_GRAPHICS_API_LABEL_OR NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_OR NULL
 #define XENIA_GRAPHICS_API_INFO_0_OR NULL
 #define OPTION_VAL_VULKAN_OR NULL
 #define OPTION_VAL_D3D12_OR NULL
@@ -32024,9 +30136,6 @@ struct retro_core_options_v2 options_no = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_OR NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_OR NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_OR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_OR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_OR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_OR NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_OR NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_OR NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_OR NULL
@@ -32077,17 +30186,11 @@ struct retro_core_options_v2 options_no = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_OR NULL
 #define XENIA_AUDIO_ENABLED_LABEL_OR NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_OR NULL
-#define XENIA_MUTE_LABEL_OR NULL
-#define XENIA_MUTE_LABEL_CAT_OR NULL
-#define XENIA_MUTE_INFO_0_OR NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_OR NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_OR NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_OR NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_OR NULL
 #define OPTION_VAL_STEREO_OR NULL
 #define OPTION_VAL_5_1_OR NULL
 #define XENIA_XMA_DECODER_LABEL_OR NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_OR NULL
 #define XENIA_XMA_DECODER_INFO_0_OR NULL
 #define OPTION_VAL_NEW_OR NULL
 #define OPTION_VAL_OLD_OR NULL
@@ -32113,14 +30216,6 @@ struct retro_core_options_v2 options_no = {
 #define OPTION_VAL_80_OR NULL
 #define OPTION_VAL_90_OR NULL
 #define OPTION_VAL_100_OR NULL
-#define XENIA_TIME_SCALAR_LABEL_OR NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_OR NULL
-#define XENIA_TIME_SCALAR_INFO_0_OR NULL
-#define OPTION_VAL_0_25_OR NULL
-#define OPTION_VAL_0_5_OR NULL
-#define OPTION_VAL_1_0_OR NULL
-#define OPTION_VAL_2_0_OR NULL
-#define OPTION_VAL_4_0_OR NULL
 #define XENIA_TITLE_UPDATES_LABEL_OR NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_OR NULL
 #define XENIA_TITLE_UPDATES_INFO_0_OR NULL
@@ -32136,7 +30231,7 @@ struct retro_core_options_v2 options_no = {
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_OR NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_OR NULL
 #define XENIA_USER_LANGUAGE_LABEL_OR NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_OR "ଭାଷା"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_OR NULL
 #define XENIA_USER_LANGUAGE_INFO_0_OR NULL
 #define OPTION_VAL_ENGLISH_OR NULL
 #define OPTION_VAL_JAPANESE_OR NULL
@@ -32173,6 +30268,12 @@ struct retro_core_options_v2 options_no = {
 #define OPTION_VAL_PORTUGAL_OR NULL
 #define OPTION_VAL_TAIWAN_OR NULL
 #define OPTION_VAL_HONG_KONG_OR NULL
+#define XENIA_LOG_LEVEL_LABEL_OR NULL
+#define XENIA_LOG_LEVEL_INFO_0_OR NULL
+#define OPTION_VAL_ERROR_OR NULL
+#define OPTION_VAL_WARN_OR NULL
+#define OPTION_VAL_INFO_OR "ସୂଚନା"
+#define OPTION_VAL_DEBUG_OR NULL
 #define XENIA_PROTECT_ZERO_LABEL_OR NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_OR NULL
 #define XENIA_PROTECT_ZERO_INFO_0_OR NULL
@@ -32233,13 +30334,6 @@ struct retro_core_options_v2 options_no = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_OR NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_OR NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_OR NULL
-#define XENIA_LOG_LEVEL_LABEL_OR NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_OR NULL
-#define XENIA_LOG_LEVEL_INFO_0_OR NULL
-#define OPTION_VAL_ERROR_OR NULL
-#define OPTION_VAL_WARN_OR NULL
-#define OPTION_VAL_INFO_OR "ସୂଚନା"
-#define OPTION_VAL_DEBUG_OR NULL
 
 struct retro_core_option_v2_category option_cats_or[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_OR,
@@ -32252,8 +30346,6 @@ struct retro_core_option_v2_category option_cats_or[] = {
       CATEGORY_EMULATION_INFO_0_OR },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_OR,
       CATEGORY_COMPATIBILITY_INFO_0_OR },
-    { "Debug", CATEGORY_DEBUG_LABEL_OR,
-      CATEGORY_DEBUG_INFO_0_OR },
     { "patches", CATEGORY_PATCHES_LABEL_OR,
       CATEGORY_PATCHES_INFO_0_OR },
     { NULL, NULL, NULL }
@@ -32265,7 +30357,7 @@ struct retro_core_option_v2_definition option_defs_or[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_OR,
-        XENIA_GRAPHICS_API_LABEL_CAT_OR,
+        XENIA_GRAPHICS_API_LABEL_OR,
         XENIA_GRAPHICS_API_INFO_0_OR,
         NULL,
         "Graphics",
@@ -32399,20 +30491,6 @@ struct retro_core_option_v2_definition option_defs_or[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_OR,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_OR,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_OR,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -32552,23 +30630,9 @@ struct retro_core_option_v2_definition option_defs_or[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_OR,
-        XENIA_MUTE_LABEL_CAT_OR,
-        XENIA_MUTE_INFO_0_OR,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_OR },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_OR,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_OR,
+        XENIA_AUDIO_CHANNELS_LABEL_OR,
         XENIA_AUDIO_CHANNELS_INFO_0_OR,
         NULL,
         "Audio",
@@ -32582,7 +30646,7 @@ struct retro_core_option_v2_definition option_defs_or[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_OR,
-        XENIA_XMA_DECODER_LABEL_CAT_OR,
+        XENIA_XMA_DECODER_LABEL_OR,
         XENIA_XMA_DECODER_INFO_0_OR,
         NULL,
         "Audio",
@@ -32644,28 +30708,11 @@ struct retro_core_option_v2_definition option_defs_or[] = {
             { "100", OPTION_VAL_100_OR },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_OR,
-        XENIA_TIME_SCALAR_LABEL_CAT_OR,
-        XENIA_TIME_SCALAR_INFO_0_OR,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_OR },
-            { "0.5",  OPTION_VAL_0_5_OR },
-            { "1.0",  OPTION_VAL_1_0_OR },
-            { "2.0",  OPTION_VAL_2_0_OR },
-            { "4.0",  OPTION_VAL_4_0_OR },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_OR,
@@ -32708,6 +30755,9 @@ struct retro_core_option_v2_definition option_defs_or[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_OR,
@@ -32721,7 +30771,7 @@ struct retro_core_option_v2_definition option_defs_or[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_OR },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -32778,6 +30828,22 @@ struct retro_core_option_v2_definition option_defs_or[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_OR,
+        XENIA_LOG_LEVEL_LABEL_OR,
+        XENIA_LOG_LEVEL_INFO_0_OR,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_OR },
+            { "warn",  OPTION_VAL_WARN_OR },
+            { "info",  OPTION_VAL_INFO_OR },
+            { "debug", OPTION_VAL_DEBUG_OR },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -33043,22 +31109,6 @@ struct retro_core_option_v2_definition option_defs_or[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_OR,
-        XENIA_LOG_LEVEL_LABEL_CAT_OR,
-        XENIA_LOG_LEVEL_INFO_0_OR,
-        NULL,
-        OPTION_VAL_DEBUG_OR,
-        {
-            { "error", OPTION_VAL_ERROR_OR },
-            { "warn",  OPTION_VAL_WARN_OR },
-            { "info",  OPTION_VAL_INFO_OR },
-            { "debug", OPTION_VAL_DEBUG_OR },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -33079,12 +31129,9 @@ struct retro_core_options_v2 options_or = {
 #define CATEGORY_EMULATION_INFO_0_PL NULL
 #define CATEGORY_COMPATIBILITY_LABEL_PL "Ustawienia kompatybilności"
 #define CATEGORY_COMPATIBILITY_INFO_0_PL NULL
-#define CATEGORY_DEBUG_LABEL_PL NULL
-#define CATEGORY_DEBUG_INFO_0_PL NULL
 #define CATEGORY_PATCHES_LABEL_PL NULL
 #define CATEGORY_PATCHES_INFO_0_PL NULL
 #define XENIA_GRAPHICS_API_LABEL_PL NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_PL NULL
 #define XENIA_GRAPHICS_API_INFO_0_PL NULL
 #define OPTION_VAL_VULKAN_PL NULL
 #define OPTION_VAL_D3D12_PL NULL
@@ -33125,9 +31172,6 @@ struct retro_core_options_v2 options_or = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_PL NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_PL NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_PL NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_PL NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_PL NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_PL NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_PL NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_PL NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_PL NULL
@@ -33160,7 +31204,7 @@ struct retro_core_options_v2 options_or = {
 #define OPTION_VAL_13_PL NULL
 #define OPTION_VAL_14_PL NULL
 #define OPTION_VAL_15_PL NULL
-#define XENIA_WIDESCREEN_LABEL_PL "Współczynnik proporcji"
+#define XENIA_WIDESCREEN_LABEL_PL NULL
 #define XENIA_WIDESCREEN_INFO_0_PL NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_PL NULL
 #define OPTION_VAL_DISABLED_PL NULL
@@ -33178,17 +31222,11 @@ struct retro_core_options_v2 options_or = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_PL NULL
 #define XENIA_AUDIO_ENABLED_LABEL_PL NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_PL NULL
-#define XENIA_MUTE_LABEL_PL NULL
-#define XENIA_MUTE_LABEL_CAT_PL "Wycisz dźwięk"
-#define XENIA_MUTE_INFO_0_PL NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_PL NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_PL NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_PL NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_PL NULL
 #define OPTION_VAL_STEREO_PL NULL
 #define OPTION_VAL_5_1_PL NULL
 #define XENIA_XMA_DECODER_LABEL_PL NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_PL NULL
 #define XENIA_XMA_DECODER_INFO_0_PL NULL
 #define OPTION_VAL_NEW_PL NULL
 #define OPTION_VAL_OLD_PL NULL
@@ -33213,15 +31251,7 @@ struct retro_core_options_v2 options_or = {
 #define OPTION_VAL_70_PL NULL
 #define OPTION_VAL_80_PL "80 %"
 #define OPTION_VAL_90_PL NULL
-#define OPTION_VAL_100_PL "100% (Domyślnie)"
-#define XENIA_TIME_SCALAR_LABEL_PL NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_PL NULL
-#define XENIA_TIME_SCALAR_INFO_0_PL NULL
-#define OPTION_VAL_0_25_PL NULL
-#define OPTION_VAL_0_5_PL NULL
-#define OPTION_VAL_1_0_PL NULL
-#define OPTION_VAL_2_0_PL NULL
-#define OPTION_VAL_4_0_PL NULL
+#define OPTION_VAL_100_PL NULL
 #define XENIA_TITLE_UPDATES_LABEL_PL NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_PL NULL
 #define XENIA_TITLE_UPDATES_INFO_0_PL NULL
@@ -33231,13 +31261,13 @@ struct retro_core_options_v2 options_or = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_PL NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_PL NULL
 #define XENIA_LICENSE_MASK_LABEL_PL NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_PL "Licencja"
+#define XENIA_LICENSE_MASK_LABEL_CAT_PL NULL
 #define XENIA_LICENSE_MASK_INFO_0_PL NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_PL "Brak"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_PL "Pełny"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_PL "Wszystkie"
 #define XENIA_USER_LANGUAGE_LABEL_PL NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_PL "Język"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_PL NULL
 #define XENIA_USER_LANGUAGE_INFO_0_PL NULL
 #define OPTION_VAL_ENGLISH_PL "angielski"
 #define OPTION_VAL_JAPANESE_PL "japoński"
@@ -33274,6 +31304,12 @@ struct retro_core_options_v2 options_or = {
 #define OPTION_VAL_PORTUGAL_PL NULL
 #define OPTION_VAL_TAIWAN_PL NULL
 #define OPTION_VAL_HONG_KONG_PL NULL
+#define XENIA_LOG_LEVEL_LABEL_PL NULL
+#define XENIA_LOG_LEVEL_INFO_0_PL NULL
+#define OPTION_VAL_ERROR_PL NULL
+#define OPTION_VAL_WARN_PL "Ostrzeżenie"
+#define OPTION_VAL_INFO_PL "Informacje"
+#define OPTION_VAL_DEBUG_PL NULL
 #define XENIA_PROTECT_ZERO_LABEL_PL NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_PL NULL
 #define XENIA_PROTECT_ZERO_INFO_0_PL NULL
@@ -33334,13 +31370,6 @@ struct retro_core_options_v2 options_or = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_PL NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_PL NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_PL NULL
-#define XENIA_LOG_LEVEL_LABEL_PL NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_PL NULL
-#define XENIA_LOG_LEVEL_INFO_0_PL NULL
-#define OPTION_VAL_ERROR_PL NULL
-#define OPTION_VAL_WARN_PL "Ostrzeżenie"
-#define OPTION_VAL_INFO_PL "Informacje"
-#define OPTION_VAL_DEBUG_PL NULL
 
 struct retro_core_option_v2_category option_cats_pl[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_PL,
@@ -33353,8 +31382,6 @@ struct retro_core_option_v2_category option_cats_pl[] = {
       CATEGORY_EMULATION_INFO_0_PL },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_PL,
       CATEGORY_COMPATIBILITY_INFO_0_PL },
-    { "Debug", CATEGORY_DEBUG_LABEL_PL,
-      CATEGORY_DEBUG_INFO_0_PL },
     { "patches", CATEGORY_PATCHES_LABEL_PL,
       CATEGORY_PATCHES_INFO_0_PL },
     { NULL, NULL, NULL }
@@ -33366,7 +31393,7 @@ struct retro_core_option_v2_definition option_defs_pl[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_PL,
-        XENIA_GRAPHICS_API_LABEL_CAT_PL,
+        XENIA_GRAPHICS_API_LABEL_PL,
         XENIA_GRAPHICS_API_INFO_0_PL,
         NULL,
         "Graphics",
@@ -33500,20 +31527,6 @@ struct retro_core_option_v2_definition option_defs_pl[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_PL,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_PL,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_PL,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -33653,23 +31666,9 @@ struct retro_core_option_v2_definition option_defs_pl[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_PL,
-        XENIA_MUTE_LABEL_CAT_PL,
-        XENIA_MUTE_INFO_0_PL,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_PL },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_PL,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_PL,
+        XENIA_AUDIO_CHANNELS_LABEL_PL,
         XENIA_AUDIO_CHANNELS_INFO_0_PL,
         NULL,
         "Audio",
@@ -33683,7 +31682,7 @@ struct retro_core_option_v2_definition option_defs_pl[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_PL,
-        XENIA_XMA_DECODER_LABEL_CAT_PL,
+        XENIA_XMA_DECODER_LABEL_PL,
         XENIA_XMA_DECODER_INFO_0_PL,
         NULL,
         "Audio",
@@ -33745,28 +31744,11 @@ struct retro_core_option_v2_definition option_defs_pl[] = {
             { "100", OPTION_VAL_100_PL },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_PL,
-        XENIA_TIME_SCALAR_LABEL_CAT_PL,
-        XENIA_TIME_SCALAR_INFO_0_PL,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_PL },
-            { "0.5",  OPTION_VAL_0_5_PL },
-            { "1.0",  OPTION_VAL_1_0_PL },
-            { "2.0",  OPTION_VAL_2_0_PL },
-            { "4.0",  OPTION_VAL_4_0_PL },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_PL,
@@ -33809,6 +31791,9 @@ struct retro_core_option_v2_definition option_defs_pl[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_PL,
@@ -33822,7 +31807,7 @@ struct retro_core_option_v2_definition option_defs_pl[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_PL },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -33879,6 +31864,22 @@ struct retro_core_option_v2_definition option_defs_pl[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_PL,
+        XENIA_LOG_LEVEL_LABEL_PL,
+        XENIA_LOG_LEVEL_INFO_0_PL,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_PL },
+            { "warn",  OPTION_VAL_WARN_PL },
+            { "info",  OPTION_VAL_INFO_PL },
+            { "debug", OPTION_VAL_DEBUG_PL },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -34144,22 +32145,6 @@ struct retro_core_option_v2_definition option_defs_pl[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_PL,
-        XENIA_LOG_LEVEL_LABEL_CAT_PL,
-        XENIA_LOG_LEVEL_INFO_0_PL,
-        NULL,
-        OPTION_VAL_DEBUG_PL,
-        {
-            { "error", OPTION_VAL_ERROR_PL },
-            { "warn",  OPTION_VAL_WARN_PL },
-            { "info",  OPTION_VAL_INFO_PL },
-            { "debug", OPTION_VAL_DEBUG_PL },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -34180,12 +32165,9 @@ struct retro_core_options_v2 options_pl = {
 #define CATEGORY_EMULATION_INFO_0_PT_BR NULL
 #define CATEGORY_COMPATIBILITY_LABEL_PT_BR "Configurações de compatibilidade"
 #define CATEGORY_COMPATIBILITY_INFO_0_PT_BR NULL
-#define CATEGORY_DEBUG_LABEL_PT_BR NULL
-#define CATEGORY_DEBUG_INFO_0_PT_BR NULL
 #define CATEGORY_PATCHES_LABEL_PT_BR NULL
 #define CATEGORY_PATCHES_INFO_0_PT_BR NULL
 #define XENIA_GRAPHICS_API_LABEL_PT_BR NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_PT_BR NULL
 #define XENIA_GRAPHICS_API_INFO_0_PT_BR NULL
 #define OPTION_VAL_VULKAN_PT_BR NULL
 #define OPTION_VAL_D3D12_PT_BR NULL
@@ -34226,9 +32208,6 @@ struct retro_core_options_v2 options_pl = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_PT_BR NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_PT_BR NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_PT_BR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_PT_BR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_PT_BR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_PT_BR NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_PT_BR NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_PT_BR NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_PT_BR NULL
@@ -34261,7 +32240,7 @@ struct retro_core_options_v2 options_pl = {
 #define OPTION_VAL_13_PT_BR NULL
 #define OPTION_VAL_14_PT_BR NULL
 #define OPTION_VAL_15_PT_BR NULL
-#define XENIA_WIDESCREEN_LABEL_PT_BR "Proporção de tela"
+#define XENIA_WIDESCREEN_LABEL_PT_BR NULL
 #define XENIA_WIDESCREEN_INFO_0_PT_BR NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_PT_BR NULL
 #define OPTION_VAL_DISABLED_PT_BR NULL
@@ -34272,24 +32251,18 @@ struct retro_core_options_v2 options_pl = {
 #define OPTION_VAL_2_XENIA_VIDEO_STANDARD_PT_BR "NTSC-J (Japão)"
 #define OPTION_VAL_3_XENIA_VIDEO_STANDARD_PT_BR NULL
 #define XENIA_DISPLAY_GAMMA_LABEL_PT_BR NULL
-#define XENIA_DISPLAY_GAMMA_LABEL_CAT_PT_BR "Gama"
+#define XENIA_DISPLAY_GAMMA_LABEL_CAT_PT_BR NULL
 #define XENIA_DISPLAY_GAMMA_INFO_0_PT_BR NULL
 #define OPTION_VAL_0_XENIA_DISPLAY_GAMMA_PT_BR NULL
 #define OPTION_VAL_1_XENIA_DISPLAY_GAMMA_PT_BR NULL
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_PT_BR NULL
 #define XENIA_AUDIO_ENABLED_LABEL_PT_BR NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_PT_BR NULL
-#define XENIA_MUTE_LABEL_PT_BR NULL
-#define XENIA_MUTE_LABEL_CAT_PT_BR "Desabilitar áudio"
-#define XENIA_MUTE_INFO_0_PT_BR NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_PT_BR NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_PT_BR NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_PT_BR NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_PT_BR NULL
 #define OPTION_VAL_STEREO_PT_BR "Estéreo"
 #define OPTION_VAL_5_1_PT_BR NULL
 #define XENIA_XMA_DECODER_LABEL_PT_BR NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_PT_BR NULL
 #define XENIA_XMA_DECODER_INFO_0_PT_BR NULL
 #define OPTION_VAL_NEW_PT_BR NULL
 #define OPTION_VAL_OLD_PT_BR NULL
@@ -34314,15 +32287,7 @@ struct retro_core_options_v2 options_pl = {
 #define OPTION_VAL_70_PT_BR NULL
 #define OPTION_VAL_80_PT_BR NULL
 #define OPTION_VAL_90_PT_BR NULL
-#define OPTION_VAL_100_PT_BR "100% (padrão)"
-#define XENIA_TIME_SCALAR_LABEL_PT_BR NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_PT_BR NULL
-#define XENIA_TIME_SCALAR_INFO_0_PT_BR NULL
-#define OPTION_VAL_0_25_PT_BR NULL
-#define OPTION_VAL_0_5_PT_BR NULL
-#define OPTION_VAL_1_0_PT_BR NULL
-#define OPTION_VAL_2_0_PT_BR NULL
-#define OPTION_VAL_4_0_PT_BR NULL
+#define OPTION_VAL_100_PT_BR NULL
 #define XENIA_TITLE_UPDATES_LABEL_PT_BR NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_PT_BR NULL
 #define XENIA_TITLE_UPDATES_INFO_0_PT_BR NULL
@@ -34332,13 +32297,13 @@ struct retro_core_options_v2 options_pl = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_PT_BR NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_PT_BR NULL
 #define XENIA_LICENSE_MASK_LABEL_PT_BR NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_PT_BR "Licença"
+#define XENIA_LICENSE_MASK_LABEL_CAT_PT_BR NULL
 #define XENIA_LICENSE_MASK_INFO_0_PT_BR NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_PT_BR "Nenhum"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_PT_BR "Completa"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_PT_BR "Todas"
 #define XENIA_USER_LANGUAGE_LABEL_PT_BR NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_PT_BR "Idioma"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_PT_BR NULL
 #define XENIA_USER_LANGUAGE_INFO_0_PT_BR NULL
 #define OPTION_VAL_ENGLISH_PT_BR "Inglês"
 #define OPTION_VAL_JAPANESE_PT_BR "Japonês"
@@ -34375,6 +32340,12 @@ struct retro_core_options_v2 options_pl = {
 #define OPTION_VAL_PORTUGAL_PT_BR NULL
 #define OPTION_VAL_TAIWAN_PT_BR NULL
 #define OPTION_VAL_HONG_KONG_PT_BR NULL
+#define XENIA_LOG_LEVEL_LABEL_PT_BR NULL
+#define XENIA_LOG_LEVEL_INFO_0_PT_BR NULL
+#define OPTION_VAL_ERROR_PT_BR NULL
+#define OPTION_VAL_WARN_PT_BR "Advertência"
+#define OPTION_VAL_INFO_PT_BR "Informações"
+#define OPTION_VAL_DEBUG_PT_BR NULL
 #define XENIA_PROTECT_ZERO_LABEL_PT_BR NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_PT_BR NULL
 #define XENIA_PROTECT_ZERO_INFO_0_PT_BR NULL
@@ -34435,13 +32406,6 @@ struct retro_core_options_v2 options_pl = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_PT_BR NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_PT_BR NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_PT_BR NULL
-#define XENIA_LOG_LEVEL_LABEL_PT_BR NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_PT_BR NULL
-#define XENIA_LOG_LEVEL_INFO_0_PT_BR NULL
-#define OPTION_VAL_ERROR_PT_BR NULL
-#define OPTION_VAL_WARN_PT_BR "Advertência"
-#define OPTION_VAL_INFO_PT_BR "Informações"
-#define OPTION_VAL_DEBUG_PT_BR NULL
 
 struct retro_core_option_v2_category option_cats_pt_br[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_PT_BR,
@@ -34454,8 +32418,6 @@ struct retro_core_option_v2_category option_cats_pt_br[] = {
       CATEGORY_EMULATION_INFO_0_PT_BR },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_PT_BR,
       CATEGORY_COMPATIBILITY_INFO_0_PT_BR },
-    { "Debug", CATEGORY_DEBUG_LABEL_PT_BR,
-      CATEGORY_DEBUG_INFO_0_PT_BR },
     { "patches", CATEGORY_PATCHES_LABEL_PT_BR,
       CATEGORY_PATCHES_INFO_0_PT_BR },
     { NULL, NULL, NULL }
@@ -34467,7 +32429,7 @@ struct retro_core_option_v2_definition option_defs_pt_br[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_PT_BR,
-        XENIA_GRAPHICS_API_LABEL_CAT_PT_BR,
+        XENIA_GRAPHICS_API_LABEL_PT_BR,
         XENIA_GRAPHICS_API_INFO_0_PT_BR,
         NULL,
         "Graphics",
@@ -34601,20 +32563,6 @@ struct retro_core_option_v2_definition option_defs_pt_br[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_PT_BR,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_PT_BR,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_PT_BR,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -34754,23 +32702,9 @@ struct retro_core_option_v2_definition option_defs_pt_br[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_PT_BR,
-        XENIA_MUTE_LABEL_CAT_PT_BR,
-        XENIA_MUTE_INFO_0_PT_BR,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_PT_BR },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_PT_BR,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_PT_BR,
+        XENIA_AUDIO_CHANNELS_LABEL_PT_BR,
         XENIA_AUDIO_CHANNELS_INFO_0_PT_BR,
         NULL,
         "Audio",
@@ -34784,7 +32718,7 @@ struct retro_core_option_v2_definition option_defs_pt_br[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_PT_BR,
-        XENIA_XMA_DECODER_LABEL_CAT_PT_BR,
+        XENIA_XMA_DECODER_LABEL_PT_BR,
         XENIA_XMA_DECODER_INFO_0_PT_BR,
         NULL,
         "Audio",
@@ -34846,28 +32780,11 @@ struct retro_core_option_v2_definition option_defs_pt_br[] = {
             { "100", OPTION_VAL_100_PT_BR },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_PT_BR,
-        XENIA_TIME_SCALAR_LABEL_CAT_PT_BR,
-        XENIA_TIME_SCALAR_INFO_0_PT_BR,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_PT_BR },
-            { "0.5",  OPTION_VAL_0_5_PT_BR },
-            { "1.0",  OPTION_VAL_1_0_PT_BR },
-            { "2.0",  OPTION_VAL_2_0_PT_BR },
-            { "4.0",  OPTION_VAL_4_0_PT_BR },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_PT_BR,
@@ -34910,6 +32827,9 @@ struct retro_core_option_v2_definition option_defs_pt_br[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_PT_BR,
@@ -34923,7 +32843,7 @@ struct retro_core_option_v2_definition option_defs_pt_br[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_PT_BR },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -34980,6 +32900,22 @@ struct retro_core_option_v2_definition option_defs_pt_br[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_PT_BR,
+        XENIA_LOG_LEVEL_LABEL_PT_BR,
+        XENIA_LOG_LEVEL_INFO_0_PT_BR,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_PT_BR },
+            { "warn",  OPTION_VAL_WARN_PT_BR },
+            { "info",  OPTION_VAL_INFO_PT_BR },
+            { "debug", OPTION_VAL_DEBUG_PT_BR },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -35245,22 +33181,6 @@ struct retro_core_option_v2_definition option_defs_pt_br[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_PT_BR,
-        XENIA_LOG_LEVEL_LABEL_CAT_PT_BR,
-        XENIA_LOG_LEVEL_INFO_0_PT_BR,
-        NULL,
-        OPTION_VAL_DEBUG_PT_BR,
-        {
-            { "error", OPTION_VAL_ERROR_PT_BR },
-            { "warn",  OPTION_VAL_WARN_PT_BR },
-            { "info",  OPTION_VAL_INFO_PT_BR },
-            { "debug", OPTION_VAL_DEBUG_PT_BR },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -35281,12 +33201,9 @@ struct retro_core_options_v2 options_pt_br = {
 #define CATEGORY_EMULATION_INFO_0_PT_PT NULL
 #define CATEGORY_COMPATIBILITY_LABEL_PT_PT NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_PT_PT NULL
-#define CATEGORY_DEBUG_LABEL_PT_PT NULL
-#define CATEGORY_DEBUG_INFO_0_PT_PT NULL
 #define CATEGORY_PATCHES_LABEL_PT_PT NULL
 #define CATEGORY_PATCHES_INFO_0_PT_PT NULL
 #define XENIA_GRAPHICS_API_LABEL_PT_PT NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_PT_PT NULL
 #define XENIA_GRAPHICS_API_INFO_0_PT_PT NULL
 #define OPTION_VAL_VULKAN_PT_PT NULL
 #define OPTION_VAL_D3D12_PT_PT NULL
@@ -35327,9 +33244,6 @@ struct retro_core_options_v2 options_pt_br = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_PT_PT NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_PT_PT NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_PT_PT NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_PT_PT NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_PT_PT NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_PT_PT NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_PT_PT NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_PT_PT NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_PT_PT NULL
@@ -35362,7 +33276,7 @@ struct retro_core_options_v2 options_pt_br = {
 #define OPTION_VAL_13_PT_PT NULL
 #define OPTION_VAL_14_PT_PT NULL
 #define OPTION_VAL_15_PT_PT NULL
-#define XENIA_WIDESCREEN_LABEL_PT_PT "Proporção do ecrã"
+#define XENIA_WIDESCREEN_LABEL_PT_PT NULL
 #define XENIA_WIDESCREEN_INFO_0_PT_PT NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_PT_PT NULL
 #define OPTION_VAL_DISABLED_PT_PT NULL
@@ -35380,17 +33294,11 @@ struct retro_core_options_v2 options_pt_br = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_PT_PT NULL
 #define XENIA_AUDIO_ENABLED_LABEL_PT_PT NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_PT_PT NULL
-#define XENIA_MUTE_LABEL_PT_PT NULL
-#define XENIA_MUTE_LABEL_CAT_PT_PT "Silenciar som"
-#define XENIA_MUTE_INFO_0_PT_PT NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_PT_PT NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_PT_PT NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_PT_PT NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_PT_PT NULL
 #define OPTION_VAL_STEREO_PT_PT NULL
 #define OPTION_VAL_5_1_PT_PT NULL
 #define XENIA_XMA_DECODER_LABEL_PT_PT NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_PT_PT NULL
 #define XENIA_XMA_DECODER_INFO_0_PT_PT NULL
 #define OPTION_VAL_NEW_PT_PT NULL
 #define OPTION_VAL_OLD_PT_PT NULL
@@ -35416,14 +33324,6 @@ struct retro_core_options_v2 options_pt_br = {
 #define OPTION_VAL_80_PT_PT NULL
 #define OPTION_VAL_90_PT_PT NULL
 #define OPTION_VAL_100_PT_PT NULL
-#define XENIA_TIME_SCALAR_LABEL_PT_PT NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_PT_PT NULL
-#define XENIA_TIME_SCALAR_INFO_0_PT_PT NULL
-#define OPTION_VAL_0_25_PT_PT NULL
-#define OPTION_VAL_0_5_PT_PT NULL
-#define OPTION_VAL_1_0_PT_PT NULL
-#define OPTION_VAL_2_0_PT_PT NULL
-#define OPTION_VAL_4_0_PT_PT NULL
 #define XENIA_TITLE_UPDATES_LABEL_PT_PT NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_PT_PT NULL
 #define XENIA_TITLE_UPDATES_INFO_0_PT_PT NULL
@@ -35433,13 +33333,13 @@ struct retro_core_options_v2 options_pt_br = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_PT_PT NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_PT_PT NULL
 #define XENIA_LICENSE_MASK_LABEL_PT_PT NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_PT_PT "Licença(s)"
+#define XENIA_LICENSE_MASK_LABEL_CAT_PT_PT NULL
 #define XENIA_LICENSE_MASK_INFO_0_PT_PT NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_PT_PT "Não partilhar"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_PT_PT NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_PT_PT NULL
 #define XENIA_USER_LANGUAGE_LABEL_PT_PT NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_PT_PT "Idioma"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_PT_PT NULL
 #define XENIA_USER_LANGUAGE_INFO_0_PT_PT NULL
 #define OPTION_VAL_ENGLISH_PT_PT "Inglês"
 #define OPTION_VAL_JAPANESE_PT_PT "Japonês"
@@ -35476,6 +33376,12 @@ struct retro_core_options_v2 options_pt_br = {
 #define OPTION_VAL_PORTUGAL_PT_PT NULL
 #define OPTION_VAL_TAIWAN_PT_PT NULL
 #define OPTION_VAL_HONG_KONG_PT_PT NULL
+#define XENIA_LOG_LEVEL_LABEL_PT_PT NULL
+#define XENIA_LOG_LEVEL_INFO_0_PT_PT NULL
+#define OPTION_VAL_ERROR_PT_PT NULL
+#define OPTION_VAL_WARN_PT_PT NULL
+#define OPTION_VAL_INFO_PT_PT "Informações"
+#define OPTION_VAL_DEBUG_PT_PT NULL
 #define XENIA_PROTECT_ZERO_LABEL_PT_PT NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_PT_PT NULL
 #define XENIA_PROTECT_ZERO_INFO_0_PT_PT NULL
@@ -35536,13 +33442,6 @@ struct retro_core_options_v2 options_pt_br = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_PT_PT NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_PT_PT NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_PT_PT NULL
-#define XENIA_LOG_LEVEL_LABEL_PT_PT NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_PT_PT NULL
-#define XENIA_LOG_LEVEL_INFO_0_PT_PT NULL
-#define OPTION_VAL_ERROR_PT_PT NULL
-#define OPTION_VAL_WARN_PT_PT NULL
-#define OPTION_VAL_INFO_PT_PT "Informações"
-#define OPTION_VAL_DEBUG_PT_PT NULL
 
 struct retro_core_option_v2_category option_cats_pt_pt[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_PT_PT,
@@ -35555,8 +33454,6 @@ struct retro_core_option_v2_category option_cats_pt_pt[] = {
       CATEGORY_EMULATION_INFO_0_PT_PT },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_PT_PT,
       CATEGORY_COMPATIBILITY_INFO_0_PT_PT },
-    { "Debug", CATEGORY_DEBUG_LABEL_PT_PT,
-      CATEGORY_DEBUG_INFO_0_PT_PT },
     { "patches", CATEGORY_PATCHES_LABEL_PT_PT,
       CATEGORY_PATCHES_INFO_0_PT_PT },
     { NULL, NULL, NULL }
@@ -35568,7 +33465,7 @@ struct retro_core_option_v2_definition option_defs_pt_pt[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_PT_PT,
-        XENIA_GRAPHICS_API_LABEL_CAT_PT_PT,
+        XENIA_GRAPHICS_API_LABEL_PT_PT,
         XENIA_GRAPHICS_API_INFO_0_PT_PT,
         NULL,
         "Graphics",
@@ -35702,20 +33599,6 @@ struct retro_core_option_v2_definition option_defs_pt_pt[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_PT_PT,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_PT_PT,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_PT_PT,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -35855,23 +33738,9 @@ struct retro_core_option_v2_definition option_defs_pt_pt[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_PT_PT,
-        XENIA_MUTE_LABEL_CAT_PT_PT,
-        XENIA_MUTE_INFO_0_PT_PT,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_PT_PT },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_PT_PT,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_PT_PT,
+        XENIA_AUDIO_CHANNELS_LABEL_PT_PT,
         XENIA_AUDIO_CHANNELS_INFO_0_PT_PT,
         NULL,
         "Audio",
@@ -35885,7 +33754,7 @@ struct retro_core_option_v2_definition option_defs_pt_pt[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_PT_PT,
-        XENIA_XMA_DECODER_LABEL_CAT_PT_PT,
+        XENIA_XMA_DECODER_LABEL_PT_PT,
         XENIA_XMA_DECODER_INFO_0_PT_PT,
         NULL,
         "Audio",
@@ -35947,28 +33816,11 @@ struct retro_core_option_v2_definition option_defs_pt_pt[] = {
             { "100", OPTION_VAL_100_PT_PT },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_PT_PT,
-        XENIA_TIME_SCALAR_LABEL_CAT_PT_PT,
-        XENIA_TIME_SCALAR_INFO_0_PT_PT,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_PT_PT },
-            { "0.5",  OPTION_VAL_0_5_PT_PT },
-            { "1.0",  OPTION_VAL_1_0_PT_PT },
-            { "2.0",  OPTION_VAL_2_0_PT_PT },
-            { "4.0",  OPTION_VAL_4_0_PT_PT },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_PT_PT,
@@ -36011,6 +33863,9 @@ struct retro_core_option_v2_definition option_defs_pt_pt[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_PT_PT,
@@ -36024,7 +33879,7 @@ struct retro_core_option_v2_definition option_defs_pt_pt[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_PT_PT },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -36081,6 +33936,22 @@ struct retro_core_option_v2_definition option_defs_pt_pt[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_PT_PT,
+        XENIA_LOG_LEVEL_LABEL_PT_PT,
+        XENIA_LOG_LEVEL_INFO_0_PT_PT,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_PT_PT },
+            { "warn",  OPTION_VAL_WARN_PT_PT },
+            { "info",  OPTION_VAL_INFO_PT_PT },
+            { "debug", OPTION_VAL_DEBUG_PT_PT },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -36346,22 +34217,6 @@ struct retro_core_option_v2_definition option_defs_pt_pt[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_PT_PT,
-        XENIA_LOG_LEVEL_LABEL_CAT_PT_PT,
-        XENIA_LOG_LEVEL_INFO_0_PT_PT,
-        NULL,
-        OPTION_VAL_DEBUG_PT_PT,
-        {
-            { "error", OPTION_VAL_ERROR_PT_PT },
-            { "warn",  OPTION_VAL_WARN_PT_PT },
-            { "info",  OPTION_VAL_INFO_PT_PT },
-            { "debug", OPTION_VAL_DEBUG_PT_PT },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -36382,12 +34237,9 @@ struct retro_core_options_v2 options_pt_pt = {
 #define CATEGORY_EMULATION_INFO_0_RU NULL
 #define CATEGORY_COMPATIBILITY_LABEL_RU NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_RU NULL
-#define CATEGORY_DEBUG_LABEL_RU NULL
-#define CATEGORY_DEBUG_INFO_0_RU NULL
 #define CATEGORY_PATCHES_LABEL_RU NULL
 #define CATEGORY_PATCHES_INFO_0_RU NULL
 #define XENIA_GRAPHICS_API_LABEL_RU NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_RU NULL
 #define XENIA_GRAPHICS_API_INFO_0_RU NULL
 #define OPTION_VAL_VULKAN_RU NULL
 #define OPTION_VAL_D3D12_RU NULL
@@ -36428,9 +34280,6 @@ struct retro_core_options_v2 options_pt_pt = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_RU NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_RU NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_RU NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_RU NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_RU NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_RU NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_RU NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_RU NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_RU NULL
@@ -36463,7 +34312,7 @@ struct retro_core_options_v2 options_pt_pt = {
 #define OPTION_VAL_13_RU NULL
 #define OPTION_VAL_14_RU NULL
 #define OPTION_VAL_15_RU NULL
-#define XENIA_WIDESCREEN_LABEL_RU "Соотношение сторон"
+#define XENIA_WIDESCREEN_LABEL_RU NULL
 #define XENIA_WIDESCREEN_INFO_0_RU NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_RU NULL
 #define OPTION_VAL_DISABLED_RU NULL
@@ -36481,17 +34330,11 @@ struct retro_core_options_v2 options_pt_pt = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_RU NULL
 #define XENIA_AUDIO_ENABLED_LABEL_RU NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_RU NULL
-#define XENIA_MUTE_LABEL_RU NULL
-#define XENIA_MUTE_LABEL_CAT_RU "Заглушить звук"
-#define XENIA_MUTE_INFO_0_RU NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_RU NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_RU NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_RU NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_RU NULL
 #define OPTION_VAL_STEREO_RU "Стерео"
 #define OPTION_VAL_5_1_RU NULL
 #define XENIA_XMA_DECODER_LABEL_RU NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_RU NULL
 #define XENIA_XMA_DECODER_INFO_0_RU NULL
 #define OPTION_VAL_NEW_RU NULL
 #define OPTION_VAL_OLD_RU NULL
@@ -36516,15 +34359,7 @@ struct retro_core_options_v2 options_pt_pt = {
 #define OPTION_VAL_70_RU NULL
 #define OPTION_VAL_80_RU NULL
 #define OPTION_VAL_90_RU NULL
-#define OPTION_VAL_100_RU "100% (по умолчанию)"
-#define XENIA_TIME_SCALAR_LABEL_RU NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_RU NULL
-#define XENIA_TIME_SCALAR_INFO_0_RU NULL
-#define OPTION_VAL_0_25_RU NULL
-#define OPTION_VAL_0_5_RU NULL
-#define OPTION_VAL_1_0_RU NULL
-#define OPTION_VAL_2_0_RU NULL
-#define OPTION_VAL_4_0_RU NULL
+#define OPTION_VAL_100_RU NULL
 #define XENIA_TITLE_UPDATES_LABEL_RU NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_RU NULL
 #define XENIA_TITLE_UPDATES_INFO_0_RU NULL
@@ -36534,13 +34369,13 @@ struct retro_core_options_v2 options_pt_pt = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_RU NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_RU NULL
 #define XENIA_LICENSE_MASK_LABEL_RU NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_RU "Лицензия"
+#define XENIA_LICENSE_MASK_LABEL_CAT_RU NULL
 #define XENIA_LICENSE_MASK_INFO_0_RU NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_RU "Нет"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_RU "Полная"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_RU "Все"
 #define XENIA_USER_LANGUAGE_LABEL_RU NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_RU "Язык"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_RU NULL
 #define XENIA_USER_LANGUAGE_INFO_0_RU NULL
 #define OPTION_VAL_ENGLISH_RU "Английский"
 #define OPTION_VAL_JAPANESE_RU "Японский"
@@ -36577,6 +34412,12 @@ struct retro_core_options_v2 options_pt_pt = {
 #define OPTION_VAL_PORTUGAL_RU NULL
 #define OPTION_VAL_TAIWAN_RU NULL
 #define OPTION_VAL_HONG_KONG_RU NULL
+#define XENIA_LOG_LEVEL_LABEL_RU NULL
+#define XENIA_LOG_LEVEL_INFO_0_RU NULL
+#define OPTION_VAL_ERROR_RU NULL
+#define OPTION_VAL_WARN_RU "Внимание"
+#define OPTION_VAL_INFO_RU "Подсказка"
+#define OPTION_VAL_DEBUG_RU NULL
 #define XENIA_PROTECT_ZERO_LABEL_RU NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_RU NULL
 #define XENIA_PROTECT_ZERO_INFO_0_RU NULL
@@ -36637,13 +34478,6 @@ struct retro_core_options_v2 options_pt_pt = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_RU NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_RU NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_RU NULL
-#define XENIA_LOG_LEVEL_LABEL_RU NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_RU NULL
-#define XENIA_LOG_LEVEL_INFO_0_RU NULL
-#define OPTION_VAL_ERROR_RU NULL
-#define OPTION_VAL_WARN_RU "Внимание"
-#define OPTION_VAL_INFO_RU "Подсказка"
-#define OPTION_VAL_DEBUG_RU NULL
 
 struct retro_core_option_v2_category option_cats_ru[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_RU,
@@ -36656,8 +34490,6 @@ struct retro_core_option_v2_category option_cats_ru[] = {
       CATEGORY_EMULATION_INFO_0_RU },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_RU,
       CATEGORY_COMPATIBILITY_INFO_0_RU },
-    { "Debug", CATEGORY_DEBUG_LABEL_RU,
-      CATEGORY_DEBUG_INFO_0_RU },
     { "patches", CATEGORY_PATCHES_LABEL_RU,
       CATEGORY_PATCHES_INFO_0_RU },
     { NULL, NULL, NULL }
@@ -36669,7 +34501,7 @@ struct retro_core_option_v2_definition option_defs_ru[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_RU,
-        XENIA_GRAPHICS_API_LABEL_CAT_RU,
+        XENIA_GRAPHICS_API_LABEL_RU,
         XENIA_GRAPHICS_API_INFO_0_RU,
         NULL,
         "Graphics",
@@ -36803,20 +34635,6 @@ struct retro_core_option_v2_definition option_defs_ru[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_RU,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_RU,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_RU,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -36956,23 +34774,9 @@ struct retro_core_option_v2_definition option_defs_ru[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_RU,
-        XENIA_MUTE_LABEL_CAT_RU,
-        XENIA_MUTE_INFO_0_RU,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_RU },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_RU,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_RU,
+        XENIA_AUDIO_CHANNELS_LABEL_RU,
         XENIA_AUDIO_CHANNELS_INFO_0_RU,
         NULL,
         "Audio",
@@ -36986,7 +34790,7 @@ struct retro_core_option_v2_definition option_defs_ru[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_RU,
-        XENIA_XMA_DECODER_LABEL_CAT_RU,
+        XENIA_XMA_DECODER_LABEL_RU,
         XENIA_XMA_DECODER_INFO_0_RU,
         NULL,
         "Audio",
@@ -37048,28 +34852,11 @@ struct retro_core_option_v2_definition option_defs_ru[] = {
             { "100", OPTION_VAL_100_RU },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_RU,
-        XENIA_TIME_SCALAR_LABEL_CAT_RU,
-        XENIA_TIME_SCALAR_INFO_0_RU,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_RU },
-            { "0.5",  OPTION_VAL_0_5_RU },
-            { "1.0",  OPTION_VAL_1_0_RU },
-            { "2.0",  OPTION_VAL_2_0_RU },
-            { "4.0",  OPTION_VAL_4_0_RU },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_RU,
@@ -37112,6 +34899,9 @@ struct retro_core_option_v2_definition option_defs_ru[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_RU,
@@ -37125,7 +34915,7 @@ struct retro_core_option_v2_definition option_defs_ru[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_RU },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -37182,6 +34972,22 @@ struct retro_core_option_v2_definition option_defs_ru[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_RU,
+        XENIA_LOG_LEVEL_LABEL_RU,
+        XENIA_LOG_LEVEL_INFO_0_RU,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_RU },
+            { "warn",  OPTION_VAL_WARN_RU },
+            { "info",  OPTION_VAL_INFO_RU },
+            { "debug", OPTION_VAL_DEBUG_RU },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -37447,22 +35253,6 @@ struct retro_core_option_v2_definition option_defs_ru[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_RU,
-        XENIA_LOG_LEVEL_LABEL_CAT_RU,
-        XENIA_LOG_LEVEL_INFO_0_RU,
-        NULL,
-        OPTION_VAL_DEBUG_RU,
-        {
-            { "error", OPTION_VAL_ERROR_RU },
-            { "warn",  OPTION_VAL_WARN_RU },
-            { "info",  OPTION_VAL_INFO_RU },
-            { "debug", OPTION_VAL_DEBUG_RU },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -37480,25 +35270,22 @@ struct retro_core_options_v2 options_ru = {
 #define CATEGORY_AUDIO_LABEL_SK "Nastavenia zvuku"
 #define CATEGORY_AUDIO_INFO_0_SK "Zvukový výstup, dekodér XMA, prehrávač hudby."
 #define CATEGORY_EMULATION_LABEL_SK "Nastavenia emulácie"
-#define CATEGORY_EMULATION_INFO_0_SK "Rýchlosť, jazyk, krajina, licencie, záplaty."
+#define CATEGORY_EMULATION_INFO_0_SK "Rýchlosť, jazyk, krajina, licencie, záplaty, úroveň záznamu."
 #define CATEGORY_COMPATIBILITY_LABEL_SK "Nastavenia kompatibility"
 #define CATEGORY_COMPATIBILITY_INFO_0_SK "Hacky pre jednotlivé hry, pamäť, pripojenie oddielov cache/scratch."
-#define CATEGORY_DEBUG_LABEL_SK "Nastavenia ladenia"
-#define CATEGORY_DEBUG_INFO_0_SK "Podrobnosť záznamu."
 #define CATEGORY_PATCHES_LABEL_SK "Správca záplat"
 #define CATEGORY_PATCHES_INFO_0_SK "Záplaty hry z game-patches projektu Xenia Edge pre túto jej verziu. Zmena sa prejaví pri ďalšom spustení."
 #define XENIA_GRAPHICS_API_LABEL_SK "Grafické API (reštart)"
-#define XENIA_GRAPHICS_API_LABEL_CAT_SK "Grafické API"
 #define XENIA_GRAPHICS_API_INFO_0_SK "Backend GPU, ktorým Xenia emuluje GPU konzoly Xbox 360, a kontext, o ktorý jadro žiada RetroArch: RetroArch podľa toho zmení svoj ovládač videa, ak to má povolené (Nastavenia > Video > Výstup). Prejaví sa pri opätovnom načítaní obsahu."
 #define OPTION_VAL_VULKAN_SK NULL
 #define OPTION_VAL_D3D12_SK NULL
-#define XENIA_RENDER_TARGET_PATH_LABEL_SK "Cesta vykresľovacích cieľov"
-#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_SK "Cesta RT"
+#define XENIA_RENDER_TARGET_PATH_LABEL_SK "Cesta vykresľovacích cieľov (reštart)"
+#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_SK "Cesta RT (reštart)"
 #define XENIA_RENDER_TARGET_PATH_INFO_0_SK "Vyberte režim emulácie vykresľovacích cieľov.Výkon: vykresľovacie ciele hostiteľa s pevným miešaním.Presnosť: pixel shader interlock / rasterizer-ordered views."
 #define OPTION_VAL_PERFORMANCE_SK "Výkon"
 #define OPTION_VAL_ACCURACY_SK "Presnosť"
 #define XENIA_DRAW_RESOLUTION_SCALE_LABEL_SK "Mierka rozlíšenia vykresľovania (reštart)"
-#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_SK "Mierka rozlíšenia"
+#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_SK "Mierka rozlíšenia (reštart)"
 #define XENIA_DRAW_RESOLUTION_SCALE_INFO_0_SK "Škáluje interné rozlíšenie vykresľovania. Vyššie hodnoty zlepšujú kvalitu obrazu, ale vyžadujú výkonnejšie GPU. Vyžaduje reštart."
 #define OPTION_VAL_1_SK "1x (natívne 720p)"
 #define OPTION_VAL_2_SK NULL
@@ -37520,8 +35307,8 @@ struct retro_core_options_v2 options_ru = {
 #define XENIA_READBACK_RESOLVE_LABEL_SK NULL
 #define XENIA_READBACK_RESOLVE_LABEL_CAT_SK NULL
 #define XENIA_READBACK_RESOLVE_INFO_0_SK "Kopíruje výstup vykresľovania do textúry späť do RAM hosťa, keď k nemu pristupuje procesor. Vypnutie pokazí hry, ktoré ho čítajú späť."
-#define XENIA_STORE_SHADERS_LABEL_SK "Ukladať shadery"
-#define XENIA_STORE_SHADERS_LABEL_CAT_SK "Vyrovnávacia pamäť shaderov"
+#define XENIA_STORE_SHADERS_LABEL_SK "Ukladať shadery (reštart)"
+#define XENIA_STORE_SHADERS_LABEL_CAT_SK "Vyrovnávacia pamäť shaderov (reštart)"
 #define XENIA_STORE_SHADERS_INFO_0_SK "Ukladá skompilované shadery natrvalo, aby sa predišlo trhaniu pri opätovnej kompilácii v ďalších spusteniach."
 #define XENIA_HALF_PIXEL_OFFSET_LABEL_SK "Posun o pol pixela"
 #define XENIA_HALF_PIXEL_OFFSET_LABEL_CAT_SK "Pol pixela"
@@ -37529,16 +35316,13 @@ struct retro_core_options_v2 options_ru = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_SK "Povoliť neplatné fetch konštanty"
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_SK "Neplatný fetch"
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_SK "Povolí fetch konštanty textúr/vrcholov s neplatným typom. V niektorých hrách môže opraviť pády, ale vo všeobecnosti nie je bezpečné."
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_SK "Fuzzy Alpha Epsilon (oprava pre NVIDIA)"
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_SK NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_SK "Použije približné porovnanie alfy, aby sa predišlo blikaniu na GPU NVIDIA."
 #define XENIA_DISPLAY_REFRESH_LABEL_SK "Emulovaná obnovovacia frekvencia displeja"
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_SK "Obnovovacia frekvencia displeja"
 #define XENIA_DISPLAY_REFRESH_INFO_0_SK "Obnovovacia frekvencia televízora, o ktorom si hra myslí, že na ňom beží, ako voľba v samostatnej verzii. NTSC (60 Hz) je frekvencia konzoly. PAL (50 Hz) je PAL televízor: hry bežia pri 50 snímkach za sekundu. Odomknúť snímkovú frekvenciu má pred týmto prednosť."
 #define OPTION_VAL_60_SK NULL
 #define OPTION_VAL_50_SK NULL
-#define XENIA_WAIT_FOR_FRAME_LABEL_SK "Čakať na snímku hry"
-#define XENIA_WAIT_FOR_FRAME_INFO_0_SK "Odstráni 1 snímku oneskorenia vstupu za cenu možného spomalenia hry."
+#define XENIA_WAIT_FOR_FRAME_LABEL_SK "[Libretro] Čakanie na snímku"
+#define XENIA_WAIT_FOR_FRAME_INFO_0_SK "Odstráni 1 snímku oneskorenia vstupu za cenu možného trhania hry. Odporúčané pre výkonný hardvér alebo nenáročné hry."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_SK "Odomknúť snímkovú frekvenciu"
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_SK "Iba pre hry, ktorých logika nie je viazaná na snímkovú frekvenciu, inak bežia príliš rýchlo. 30 fps hry pri 60: dva vblanky na každú snímku, ktorú RetroArch zobrazí. 60 fps hry pri 120: jadro pri 120 snímkach za sekundu (nastavte na to RetroArch a displej). Bez obmedzenia: vblanky tak rýchlo, ako sa dá. Hry zo zoznamu: frekvencia, ktorú bežiacej hre určuje system/Xenia-Edge/xenia_framerate_unlock.txt, ak ju obsahuje. Dá sa meniť počas behu hry."
 #define OPTION_VAL_ENABLED_SK "Hry zo zoznamu"
@@ -37546,7 +35330,7 @@ struct retro_core_options_v2 options_ru = {
 #define OPTION_VAL_120_SK "60 fps hry pri 120"
 #define OPTION_VAL_UNCAPPED_SK "Bez obmedzenia"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_SK "Interné rozlíšenie displeja (reštart)"
-#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_SK "Rozlíšenie displeja"
+#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_SK "Rozlíšenie displeja (reštart)"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_INFO_0_SK "Umožní hrám, ktoré podporujú viac rozlíšení, vykresľovať v konkrétnom rozlíšení. Nie všetky hry to podporujú."
 #define OPTION_VAL_0_SK NULL
 #define OPTION_VAL_1_XENIA_INTERNAL_DISPLAY_RESOLUTION_SK NULL
@@ -37564,48 +35348,42 @@ struct retro_core_options_v2 options_ru = {
 #define OPTION_VAL_13_SK NULL
 #define OPTION_VAL_14_SK NULL
 #define OPTION_VAL_15_SK NULL
-#define XENIA_WIDESCREEN_LABEL_SK "Pomer strán"
-#define XENIA_WIDESCREEN_INFO_0_SK NULL
-#define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_SK NULL
+#define XENIA_WIDESCREEN_LABEL_SK "Pomer strán (reštart)"
+#define XENIA_WIDESCREEN_INFO_0_SK "Pomer strán, na ktorý je konzola nastavená, a v ktorom sa obraz zobrazuje. Natívny 4:3 podporujú len niektoré hry pre Xbox 360."
+#define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_SK "16:9 (predvolené)"
 #define OPTION_VAL_DISABLED_SK NULL
-#define XENIA_VIDEO_STANDARD_LABEL_SK "Video štandard"
-#define XENIA_VIDEO_STANDARD_LABEL_CAT_SK "Signál"
+#define XENIA_VIDEO_STANDARD_LABEL_SK "Video štandard (reštart)"
+#define XENIA_VIDEO_STANDARD_LABEL_CAT_SK "Signál (reštart)"
 #define XENIA_VIDEO_STANDARD_INFO_0_SK "Vyberte štandard video signálu. Ovplyvňuje detekciu regiónu."
 #define OPTION_VAL_1_XENIA_VIDEO_STANDARD_SK NULL
 #define OPTION_VAL_2_XENIA_VIDEO_STANDARD_SK "NTSC-J (Japonsko)"
 #define OPTION_VAL_3_XENIA_VIDEO_STANDARD_SK NULL
-#define XENIA_DISPLAY_GAMMA_LABEL_SK "Gama displeja"
-#define XENIA_DISPLAY_GAMMA_LABEL_CAT_SK "Gama"
+#define XENIA_DISPLAY_GAMMA_LABEL_SK "Gama displeja (reštart)"
+#define XENIA_DISPLAY_GAMMA_LABEL_CAT_SK "Gama (reštart)"
 #define XENIA_DISPLAY_GAMMA_INFO_0_SK "Vyberte krivku gamy displeja.BT.709 (HDTV) je na modernom displeji najbližšie k Xboxu 360."
 #define OPTION_VAL_0_XENIA_DISPLAY_GAMMA_SK "Lineárny"
 #define OPTION_VAL_1_XENIA_DISPLAY_GAMMA_SK NULL
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_SK NULL
 #define XENIA_AUDIO_ENABLED_LABEL_SK "Zvukový výstup"
 #define XENIA_AUDIO_ENABLED_INFO_0_SK "Zapne alebo vypne spracovanie a výstup zvuku."
-#define XENIA_MUTE_LABEL_SK "Stlmiť zvuk"
-#define XENIA_MUTE_LABEL_CAT_SK "Stlmiť"
-#define XENIA_MUTE_INFO_0_SK "Stlmí všetok zvukový výstup, pričom spracovanie zvuku ostáva aktívne."
-#define OPTION_VAL_ENABLED_XENIA_MUTE_SK "Zapnuté (stlmené)"
 #define XENIA_AUDIO_CHANNELS_LABEL_SK "Zvukové kanály (reštart)"
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_SK "Zvukové kanály"
 #define XENIA_AUDIO_CHANNELS_INFO_0_SK "Stereo: 5.1 konzoly zmiešané do dvoch kanálov. Surround 5.1: všetkých šesť kanálov do RetroArchu, ktorého rozloženie zvukového výstupu potom rozhodne medzi reproduktormi a zmiešaním. Vyžaduje RetroArch s viackanálovým zvukovým výstupom, inak ostáva stereo."
 #define OPTION_VAL_STEREO_SK NULL
 #define OPTION_VAL_5_1_SK NULL
 #define XENIA_XMA_DECODER_LABEL_SK "Dekodér XMA (reštart)"
-#define XENIA_XMA_DECODER_LABEL_CAT_SK "Dekodér XMA"
 #define XENIA_XMA_DECODER_INFO_0_SK "Vyberte implementáciu dekodéra zvuku XMA. Skúste inú možnosť, ak je v konkrétnej hre pokazený zvuk."
 #define OPTION_VAL_NEW_SK "Nový (predvolený)"
 #define OPTION_VAL_OLD_SK "Starý"
 #define OPTION_VAL_MASTER_SK NULL
 #define OPTION_VAL_FAKE_SK "Falošný (ticho)"
-#define XENIA_DEDICATED_XMA_THREAD_LABEL_SK "Vyhradené vlákno XMA"
-#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_SK "Vlákno XMA"
+#define XENIA_DEDICATED_XMA_THREAD_LABEL_SK "Samostatné vlákno XMA (reštart)"
+#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_SK "Vlákno XMA (reštart)"
 #define XENIA_DEDICATED_XMA_THREAD_INFO_0_SK "Použije vyhradené vlákno na dekódovanie zvuku XMA. Môže zlepšiť výkon zvuku."
 #define XENIA_ENABLE_XMP_LABEL_SK "Prehrávač hudby (XMP)"
 #define XENIA_ENABLE_XMP_LABEL_CAT_SK NULL
 #define XENIA_ENABLE_XMP_INFO_0_SK "Zapne prehrávač hudby Xboxu na prehrávanie hudby na pozadí."
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_SK "Hlasitosť prehrávača hudby"
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_SK "Hlasitosť XMP"
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_SK "Hlasitosť prehrávača hudby (reštart)"
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_SK "Hlasitosť XMP (reštart)"
 #define XENIA_XMP_DEFAULT_VOLUME_INFO_0_SK "Predvolená hlasitosť hudby, ak ju hra nenastaví."
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_SK NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_SK NULL
@@ -37614,34 +35392,26 @@ struct retro_core_options_v2 options_ru = {
 #define OPTION_VAL_40_SK NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_SK NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_SK NULL
-#define OPTION_VAL_70_SK NULL
+#define OPTION_VAL_70_SK "70% (predvolené)"
 #define OPTION_VAL_80_SK NULL
 #define OPTION_VAL_90_SK NULL
-#define OPTION_VAL_100_SK "100% (predvolené)"
-#define XENIA_TIME_SCALAR_LABEL_SK "Rýchlosť emulácie"
-#define XENIA_TIME_SCALAR_LABEL_CAT_SK "Rýchlosť"
-#define XENIA_TIME_SCALAR_INFO_0_SK "Ovláda rýchlosť emulácie. 1.0x je normálna rýchlosť."
-#define OPTION_VAL_0_25_SK NULL
-#define OPTION_VAL_0_5_SK NULL
-#define OPTION_VAL_1_0_SK "1.0x (normálna)"
-#define OPTION_VAL_2_0_SK NULL
-#define OPTION_VAL_4_0_SK NULL
-#define XENIA_TITLE_UPDATES_LABEL_SK "Použiť aktualizácie titulov"
-#define XENIA_TITLE_UPDATES_LABEL_CAT_SK "Aktualizácie titulov"
+#define OPTION_VAL_100_SK NULL
+#define XENIA_TITLE_UPDATES_LABEL_SK "Použiť aktualizácie titulov (reštart)"
+#define XENIA_TITLE_UPDATES_LABEL_CAT_SK "Aktualizácie titulov (reštart)"
 #define XENIA_TITLE_UPDATES_INFO_0_SK "Použije záplaty aktualizácie titulu, ak sú dostupné v priečinku obsahu."
-#define XENIA_APPLY_PATCHES_LABEL_SK "Použiť záplaty hier"
-#define XENIA_APPLY_PATCHES_LABEL_CAT_SK "Záplaty"
+#define XENIA_APPLY_PATCHES_LABEL_SK "Použiť záplaty hier (reštart)"
+#define XENIA_APPLY_PATCHES_LABEL_CAT_SK "Záplaty (reštart)"
 #define XENIA_APPLY_PATCHES_INFO_0_SK "Zapne vlastné záplatovanie hier."
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_SK "Upozornenia na dialógy"
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_SK "Systémový dialóg, ktorý hra otvorí (okno so správou a tlačidlami), nemá v jadre okno, takže naň jadro odpovie a zobrazí názov dialógu a danú odpoveď ako upozornenie. Vypnuté tieto upozornenia skryje; na dialógy sa odpovedá rovnako a záznam Xenie ich stále zaznamenáva."
-#define XENIA_LICENSE_MASK_LABEL_SK "Maska licencií"
-#define XENIA_LICENSE_MASK_LABEL_CAT_SK "Licencia(ie)"
+#define XENIA_LICENSE_MASK_LABEL_SK "Maska licencií (reštart)"
+#define XENIA_LICENSE_MASK_LABEL_CAT_SK "Licencia (reštart)"
 #define XENIA_LICENSE_MASK_INFO_0_SK "Nastaví masku licencií pre aktivovaný obsah (DLC, plná verzia).Žiadne: žiadne licencie. Plná: prvá licencia. Všetky: všetky licencie."
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_SK "Žiadne"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_SK "Plné"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_SK "Všetko"
-#define XENIA_USER_LANGUAGE_LABEL_SK "Jazyk používateľa"
-#define XENIA_USER_LANGUAGE_LABEL_CAT_SK "Jazyk"
+#define XENIA_USER_LANGUAGE_LABEL_SK "Jazyk používateľa (reštart)"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_SK "Jazyk (reštart)"
 #define XENIA_USER_LANGUAGE_INFO_0_SK "Nastaví jazyk emulovanej konzoly."
 #define OPTION_VAL_ENGLISH_SK "Angličtina"
 #define OPTION_VAL_JAPANESE_SK "Japončina"
@@ -37655,8 +35425,8 @@ struct retro_core_options_v2 options_ru = {
 #define OPTION_VAL_SCHINESE_SK "Zjednodušená čínština"
 #define OPTION_VAL_POLISH_SK "Poľština"
 #define OPTION_VAL_RUSSIAN_SK "Ruština"
-#define XENIA_USER_COUNTRY_LABEL_SK "Krajina používateľa"
-#define XENIA_USER_COUNTRY_LABEL_CAT_SK "Krajina"
+#define XENIA_USER_COUNTRY_LABEL_SK "Krajina používateľa (reštart)"
+#define XENIA_USER_COUNTRY_LABEL_CAT_SK "Krajina (reštart)"
 #define XENIA_USER_COUNTRY_INFO_0_SK "Nastaví krajinu/región emulovanej konzoly."
 #define OPTION_VAL_UNITED_STATES_SK "Spojené štáty"
 #define OPTION_VAL_GREAT_BRITAIN_SK "Veľká Británia"
@@ -37678,31 +35448,37 @@ struct retro_core_options_v2 options_ru = {
 #define OPTION_VAL_PORTUGAL_SK "Portugalsko"
 #define OPTION_VAL_TAIWAN_SK NULL
 #define OPTION_VAL_HONG_KONG_SK "Hongkong"
-#define XENIA_PROTECT_ZERO_LABEL_SK "Chrániť nultú stránku"
-#define XENIA_PROTECT_ZERO_LABEL_CAT_SK "Chrániť nulu"
+#define XENIA_LOG_LEVEL_LABEL_SK "Úroveň záznamu"
+#define XENIA_LOG_LEVEL_INFO_0_SK "Nastaví podrobnosť výstupu záznamu."
+#define OPTION_VAL_ERROR_SK "Iba chyby"
+#define OPTION_VAL_WARN_SK "Upozornenie"
+#define OPTION_VAL_INFO_SK NULL
+#define OPTION_VAL_DEBUG_SK "Ladenie"
+#define XENIA_PROTECT_ZERO_LABEL_SK "Chrániť nultú stránku (reštart)"
+#define XENIA_PROTECT_ZERO_LABEL_CAT_SK "Ochrana nuly (reštart)"
 #define XENIA_PROTECT_ZERO_INFO_0_SK "Chráni nultú stránku pred čítaním a zápisom. Vypnite, ak hra padá pri štarte."
 #define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_SK "Vyčistiť stav pamäťových stránok GPU"
 #define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CAT_SK "Vyčistiť cache GPU"
 #define XENIA_CLEAR_MEMORY_PAGE_STATE_INFO_0_SK "Obnoví stav pamäťových stránok pre dáta zapísané GPU. Predvolene vypnuté, ako v samostatnej verzii; niektoré hry to potrebujú zapnuté, aby sa vykresľovali správne (Ridge Racer 6 a ďalšie zo zoznamu optimalizovaných nastavení xenia-manager)."
-#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_SK "Vypnúť povyšovanie kontextu"
-#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_SK "Bez povyš. kontextu"
+#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_SK "Vypnúť povyšovanie kontextu (reštart)"
+#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_SK "Bez povyšovania kontextu (reštart)"
 #define XENIA_DISABLE_CONTEXT_PROMOTION_INFO_0_SK "Vypne optimalizáciu procesora povyšovaním kontextu. Môže byť potrebné pre niektoré športové hry, ale znižuje výkon."
 #define OPTION_VAL_DISABLED_XENIA_DISABLE_CONTEXT_PROMOTION_SK "Vypnuté (normálne)"
 #define OPTION_VAL_ENABLED_XENIA_DISABLE_CONTEXT_PROMOTION_SK "Zapnuté (oprava pre športové hry)"
-#define XENIA_MOUNT_CACHE_LABEL_SK "Pripojiť oddiel cache"
-#define XENIA_MOUNT_CACHE_LABEL_CAT_SK "Pripojenie cache"
+#define XENIA_MOUNT_CACHE_LABEL_SK "Pripojiť oddiel cache (reštart)"
+#define XENIA_MOUNT_CACHE_LABEL_CAT_SK "Pripojenie cache (reštart)"
 #define XENIA_MOUNT_CACHE_INFO_0_SK "Zapne pripojenie oddielu cache. Niektoré hry to vyžadujú."
-#define XENIA_MOUNT_SCRATCH_LABEL_SK "Pripojiť oddiel scratch"
-#define XENIA_MOUNT_SCRATCH_LABEL_CAT_SK "Pripojenie scratch"
+#define XENIA_MOUNT_SCRATCH_LABEL_SK "Pripojiť oddiel scratch (reštart)"
+#define XENIA_MOUNT_SCRATCH_LABEL_CAT_SK "Pripojenie scratch (reštart)"
 #define XENIA_MOUNT_SCRATCH_INFO_0_SK "Zapne pripojenie oddielu scratch. Niektoré hry to vyžadujú."
-#define XENIA_OCCLUSION_QUERY_LABEL_SK "Occlusion query"
+#define XENIA_OCCLUSION_QUERY_LABEL_SK "Occlusion query (reštart)"
 #define XENIA_OCCLUSION_QUERY_INFO_0_SK "Ako sa odpovedá na occlusion query (odlesky šošovky, orezávanie, automatická expozícia). Rýchle (predvolené) sa pýta GPU bez čakania; Falošné zapíše vymyslený výsledok; Rýchle-alt drží nulové výsledky v cache; Prísne čaká na GPU, najpresnejšie."
 #define OPTION_VAL_FAST_SK "Rýchlo"
 #define OPTION_VAL_FAKE_XENIA_OCCLUSION_QUERY_SK "Falošné"
 #define OPTION_VAL_FAST_ALT_SK "Rýchle-alt"
 #define OPTION_VAL_STRICT_SK "Prísne"
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_SK "Plné počítadlá occlusion query"
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_SK "Plné počítadlá"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_SK "Úplné počítadlá occlusion query (reštart)"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_SK "Úplné počítadlá (reštart)"
 #define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_INFO_0_SK "Emuluje počítadlá ZFail, StencilFail a Total v shaderoch. Niektoré hry ich potrebujú; stojí to výkon."
 #define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_SK "Dolný prah falošnej oklúzie"
 #define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CAT_SK "Falošný dolný"
@@ -37720,8 +35496,8 @@ struct retro_core_options_v2 options_ru = {
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_SK "Povoliť neplatný rozsah nahrávania"
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CAT_SK "Neplatné nahrávania"
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_INFO_0_SK "Povolí hrám čítať dáta zo stránok označených ako bez prístupu."
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_SK "Gama vykresľovací cieľ ako UNORM16"
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_SK "Gama UNORM16"
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_SK "Gama vykresľovací cieľ ako UNORM16 (reštart)"
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_SK "Gama UNORM16 (reštart)"
 #define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_SK "Emuluje gama vykresľovacie ciele so 16 bitmi na zložku tam, kde hostiteľ nevie 8-bitovú po častiach lineárnu gamu. Vypnite, ak farby v hre vyzerajú zle."
 #define XENIA_FORCE_DEPTH_CLAMP_LABEL_SK "Vynútiť depth clamp"
 #define XENIA_FORCE_DEPTH_CLAMP_LABEL_CAT_SK "Depth clamp"
@@ -37729,8 +35505,8 @@ struct retro_core_options_v2 options_ru = {
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_SK "Ignorovať posun pri alokáciách s rozsahom"
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CAT_SK "Alokácie s rozsahom"
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_INFO_0_SK "Ignoruje posun 4 KB pri fyzických alokáciách so zadaným rozsahom. Potrebuje to niekoľko hier."
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_SK "Zastaviť na neimplementovaných inštrukciách"
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_SK "Zastaviť na neimpl."
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_SK "Zastaviť pri neimplementovaných inštrukciách (reštart)"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_SK "Zastaviť pri neimplementovaných (reštart)"
 #define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_SK "Zastaví, keď hra spustí inštrukciu procesora, ktorú Xenia neimplementuje. V jadre to ukončí RetroArch; vypnite, aby také hry mohli pokračovať."
 #define XENIA_SCRIBBLE_HEAP_LABEL_SK "Prepisovať haldu"
 #define XENIA_SCRIBBLE_HEAP_INFO_0_SK "Vyplní novo alokovanú pamäť haldy hodnotou, pre hry, ktoré sa spoliehajú na to, čo v nej ostalo."
@@ -37738,13 +35514,6 @@ struct retro_core_options_v2 options_ru = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_SK "Hodnota prepisu"
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_SK "Hodnota, ktorou Prepisovať haldu vypĺňa pamäť. 0 je náhodná."
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_SK "0 (náhodná)"
-#define XENIA_LOG_LEVEL_LABEL_SK "Úroveň záznamu"
-#define XENIA_LOG_LEVEL_LABEL_CAT_SK "Úroveň"
-#define XENIA_LOG_LEVEL_INFO_0_SK "Nastaví podrobnosť výstupu záznamu."
-#define OPTION_VAL_ERROR_SK "Iba chyby"
-#define OPTION_VAL_WARN_SK "Upozornenie"
-#define OPTION_VAL_INFO_SK NULL
-#define OPTION_VAL_DEBUG_SK "Ladenie"
 
 struct retro_core_option_v2_category option_cats_sk[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_SK,
@@ -37757,8 +35526,6 @@ struct retro_core_option_v2_category option_cats_sk[] = {
       CATEGORY_EMULATION_INFO_0_SK },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_SK,
       CATEGORY_COMPATIBILITY_INFO_0_SK },
-    { "Debug", CATEGORY_DEBUG_LABEL_SK,
-      CATEGORY_DEBUG_INFO_0_SK },
     { "patches", CATEGORY_PATCHES_LABEL_SK,
       CATEGORY_PATCHES_INFO_0_SK },
     { NULL, NULL, NULL }
@@ -37770,7 +35537,7 @@ struct retro_core_option_v2_definition option_defs_sk[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_SK,
-        XENIA_GRAPHICS_API_LABEL_CAT_SK,
+        XENIA_GRAPHICS_API_LABEL_SK,
         XENIA_GRAPHICS_API_INFO_0_SK,
         NULL,
         "Graphics",
@@ -37904,20 +35671,6 @@ struct retro_core_option_v2_definition option_defs_sk[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_SK,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_SK,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_SK,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -38057,23 +35810,9 @@ struct retro_core_option_v2_definition option_defs_sk[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_SK,
-        XENIA_MUTE_LABEL_CAT_SK,
-        XENIA_MUTE_INFO_0_SK,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_SK },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_SK,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_SK,
+        XENIA_AUDIO_CHANNELS_LABEL_SK,
         XENIA_AUDIO_CHANNELS_INFO_0_SK,
         NULL,
         "Audio",
@@ -38087,7 +35826,7 @@ struct retro_core_option_v2_definition option_defs_sk[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_SK,
-        XENIA_XMA_DECODER_LABEL_CAT_SK,
+        XENIA_XMA_DECODER_LABEL_SK,
         XENIA_XMA_DECODER_INFO_0_SK,
         NULL,
         "Audio",
@@ -38149,28 +35888,11 @@ struct retro_core_option_v2_definition option_defs_sk[] = {
             { "100", OPTION_VAL_100_SK },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_SK,
-        XENIA_TIME_SCALAR_LABEL_CAT_SK,
-        XENIA_TIME_SCALAR_INFO_0_SK,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_SK },
-            { "0.5",  OPTION_VAL_0_5_SK },
-            { "1.0",  OPTION_VAL_1_0_SK },
-            { "2.0",  OPTION_VAL_2_0_SK },
-            { "4.0",  OPTION_VAL_4_0_SK },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_SK,
@@ -38213,6 +35935,9 @@ struct retro_core_option_v2_definition option_defs_sk[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_SK,
@@ -38226,7 +35951,7 @@ struct retro_core_option_v2_definition option_defs_sk[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_SK },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -38283,6 +36008,22 @@ struct retro_core_option_v2_definition option_defs_sk[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_SK,
+        XENIA_LOG_LEVEL_LABEL_SK,
+        XENIA_LOG_LEVEL_INFO_0_SK,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_SK },
+            { "warn",  OPTION_VAL_WARN_SK },
+            { "info",  OPTION_VAL_INFO_SK },
+            { "debug", OPTION_VAL_DEBUG_SK },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -38548,22 +36289,6 @@ struct retro_core_option_v2_definition option_defs_sk[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_SK,
-        XENIA_LOG_LEVEL_LABEL_CAT_SK,
-        XENIA_LOG_LEVEL_INFO_0_SK,
-        NULL,
-        OPTION_VAL_DEBUG_SK,
-        {
-            { "error", OPTION_VAL_ERROR_SK },
-            { "warn",  OPTION_VAL_WARN_SK },
-            { "info",  OPTION_VAL_INFO_SK },
-            { "debug", OPTION_VAL_DEBUG_SK },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -38584,12 +36309,9 @@ struct retro_core_options_v2 options_sk = {
 #define CATEGORY_EMULATION_INFO_0_SR NULL
 #define CATEGORY_COMPATIBILITY_LABEL_SR NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_SR NULL
-#define CATEGORY_DEBUG_LABEL_SR NULL
-#define CATEGORY_DEBUG_INFO_0_SR NULL
 #define CATEGORY_PATCHES_LABEL_SR NULL
 #define CATEGORY_PATCHES_INFO_0_SR NULL
 #define XENIA_GRAPHICS_API_LABEL_SR NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_SR NULL
 #define XENIA_GRAPHICS_API_INFO_0_SR NULL
 #define OPTION_VAL_VULKAN_SR NULL
 #define OPTION_VAL_D3D12_SR NULL
@@ -38630,9 +36352,6 @@ struct retro_core_options_v2 options_sk = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_SR NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_SR NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_SR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_SR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_SR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_SR NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_SR NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_SR NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_SR NULL
@@ -38665,7 +36384,7 @@ struct retro_core_options_v2 options_sk = {
 #define OPTION_VAL_13_SR NULL
 #define OPTION_VAL_14_SR NULL
 #define OPTION_VAL_15_SR NULL
-#define XENIA_WIDESCREEN_LABEL_SR "Odnos ekrana"
+#define XENIA_WIDESCREEN_LABEL_SR NULL
 #define XENIA_WIDESCREEN_INFO_0_SR NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_SR NULL
 #define OPTION_VAL_DISABLED_SR NULL
@@ -38683,17 +36402,11 @@ struct retro_core_options_v2 options_sk = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_SR NULL
 #define XENIA_AUDIO_ENABLED_LABEL_SR NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_SR NULL
-#define XENIA_MUTE_LABEL_SR NULL
-#define XENIA_MUTE_LABEL_CAT_SR NULL
-#define XENIA_MUTE_INFO_0_SR NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_SR NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_SR NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_SR NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_SR NULL
 #define OPTION_VAL_STEREO_SR NULL
 #define OPTION_VAL_5_1_SR NULL
 #define XENIA_XMA_DECODER_LABEL_SR NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_SR NULL
 #define XENIA_XMA_DECODER_INFO_0_SR NULL
 #define OPTION_VAL_NEW_SR NULL
 #define OPTION_VAL_OLD_SR NULL
@@ -38719,14 +36432,6 @@ struct retro_core_options_v2 options_sk = {
 #define OPTION_VAL_80_SR NULL
 #define OPTION_VAL_90_SR NULL
 #define OPTION_VAL_100_SR NULL
-#define XENIA_TIME_SCALAR_LABEL_SR NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_SR NULL
-#define XENIA_TIME_SCALAR_INFO_0_SR NULL
-#define OPTION_VAL_0_25_SR NULL
-#define OPTION_VAL_0_5_SR NULL
-#define OPTION_VAL_1_0_SR NULL
-#define OPTION_VAL_2_0_SR NULL
-#define OPTION_VAL_4_0_SR NULL
 #define XENIA_TITLE_UPDATES_LABEL_SR NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_SR NULL
 #define XENIA_TITLE_UPDATES_INFO_0_SR NULL
@@ -38736,7 +36441,7 @@ struct retro_core_options_v2 options_sk = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_SR NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_SR NULL
 #define XENIA_LICENSE_MASK_LABEL_SR NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_SR "Licenca"
+#define XENIA_LICENSE_MASK_LABEL_CAT_SR NULL
 #define XENIA_LICENSE_MASK_INFO_0_SR NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_SR NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_SR NULL
@@ -38779,6 +36484,12 @@ struct retro_core_options_v2 options_sk = {
 #define OPTION_VAL_PORTUGAL_SR NULL
 #define OPTION_VAL_TAIWAN_SR NULL
 #define OPTION_VAL_HONG_KONG_SR NULL
+#define XENIA_LOG_LEVEL_LABEL_SR NULL
+#define XENIA_LOG_LEVEL_INFO_0_SR NULL
+#define OPTION_VAL_ERROR_SR NULL
+#define OPTION_VAL_WARN_SR NULL
+#define OPTION_VAL_INFO_SR "Informacije"
+#define OPTION_VAL_DEBUG_SR NULL
 #define XENIA_PROTECT_ZERO_LABEL_SR NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_SR NULL
 #define XENIA_PROTECT_ZERO_INFO_0_SR NULL
@@ -38839,13 +36550,6 @@ struct retro_core_options_v2 options_sk = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_SR NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_SR NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_SR NULL
-#define XENIA_LOG_LEVEL_LABEL_SR NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_SR NULL
-#define XENIA_LOG_LEVEL_INFO_0_SR NULL
-#define OPTION_VAL_ERROR_SR NULL
-#define OPTION_VAL_WARN_SR NULL
-#define OPTION_VAL_INFO_SR "Informacije"
-#define OPTION_VAL_DEBUG_SR NULL
 
 struct retro_core_option_v2_category option_cats_sr[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_SR,
@@ -38858,8 +36562,6 @@ struct retro_core_option_v2_category option_cats_sr[] = {
       CATEGORY_EMULATION_INFO_0_SR },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_SR,
       CATEGORY_COMPATIBILITY_INFO_0_SR },
-    { "Debug", CATEGORY_DEBUG_LABEL_SR,
-      CATEGORY_DEBUG_INFO_0_SR },
     { "patches", CATEGORY_PATCHES_LABEL_SR,
       CATEGORY_PATCHES_INFO_0_SR },
     { NULL, NULL, NULL }
@@ -38871,7 +36573,7 @@ struct retro_core_option_v2_definition option_defs_sr[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_SR,
-        XENIA_GRAPHICS_API_LABEL_CAT_SR,
+        XENIA_GRAPHICS_API_LABEL_SR,
         XENIA_GRAPHICS_API_INFO_0_SR,
         NULL,
         "Graphics",
@@ -39005,20 +36707,6 @@ struct retro_core_option_v2_definition option_defs_sr[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_SR,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_SR,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_SR,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -39158,23 +36846,9 @@ struct retro_core_option_v2_definition option_defs_sr[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_SR,
-        XENIA_MUTE_LABEL_CAT_SR,
-        XENIA_MUTE_INFO_0_SR,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_SR },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_SR,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_SR,
+        XENIA_AUDIO_CHANNELS_LABEL_SR,
         XENIA_AUDIO_CHANNELS_INFO_0_SR,
         NULL,
         "Audio",
@@ -39188,7 +36862,7 @@ struct retro_core_option_v2_definition option_defs_sr[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_SR,
-        XENIA_XMA_DECODER_LABEL_CAT_SR,
+        XENIA_XMA_DECODER_LABEL_SR,
         XENIA_XMA_DECODER_INFO_0_SR,
         NULL,
         "Audio",
@@ -39250,28 +36924,11 @@ struct retro_core_option_v2_definition option_defs_sr[] = {
             { "100", OPTION_VAL_100_SR },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_SR,
-        XENIA_TIME_SCALAR_LABEL_CAT_SR,
-        XENIA_TIME_SCALAR_INFO_0_SR,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_SR },
-            { "0.5",  OPTION_VAL_0_5_SR },
-            { "1.0",  OPTION_VAL_1_0_SR },
-            { "2.0",  OPTION_VAL_2_0_SR },
-            { "4.0",  OPTION_VAL_4_0_SR },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_SR,
@@ -39314,6 +36971,9 @@ struct retro_core_option_v2_definition option_defs_sr[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_SR,
@@ -39327,7 +36987,7 @@ struct retro_core_option_v2_definition option_defs_sr[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_SR },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -39384,6 +37044,22 @@ struct retro_core_option_v2_definition option_defs_sr[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_SR,
+        XENIA_LOG_LEVEL_LABEL_SR,
+        XENIA_LOG_LEVEL_INFO_0_SR,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_SR },
+            { "warn",  OPTION_VAL_WARN_SR },
+            { "info",  OPTION_VAL_INFO_SR },
+            { "debug", OPTION_VAL_DEBUG_SR },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -39649,22 +37325,6 @@ struct retro_core_option_v2_definition option_defs_sr[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_SR,
-        XENIA_LOG_LEVEL_LABEL_CAT_SR,
-        XENIA_LOG_LEVEL_INFO_0_SR,
-        NULL,
-        OPTION_VAL_DEBUG_SR,
-        {
-            { "error", OPTION_VAL_ERROR_SR },
-            { "warn",  OPTION_VAL_WARN_SR },
-            { "info",  OPTION_VAL_INFO_SR },
-            { "debug", OPTION_VAL_DEBUG_SR },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -39682,25 +37342,22 @@ struct retro_core_options_v2 options_sr = {
 #define CATEGORY_AUDIO_LABEL_SV "Ljudinställningar"
 #define CATEGORY_AUDIO_INFO_0_SV "Ljudutgång, XMA-avkodare, musikspelare."
 #define CATEGORY_EMULATION_LABEL_SV "Emuleringsinställningar"
-#define CATEGORY_EMULATION_INFO_0_SV "Hastighet, språk, land, licenser, patchar."
+#define CATEGORY_EMULATION_INFO_0_SV "Hastighet, språk, land, licenser, patchar och loggnivå."
 #define CATEGORY_COMPATIBILITY_LABEL_SV "Kompatibilitetsinställningar"
 #define CATEGORY_COMPATIBILITY_INFO_0_SV "Spelspecifika speciallösningar, minne, montering av cache- och temporära partitioner."
-#define CATEGORY_DEBUG_LABEL_SV "Felsökningsinställningar"
-#define CATEGORY_DEBUG_INFO_0_SV "Loggningsdetaljer."
 #define CATEGORY_PATCHES_LABEL_SV "Patchhanterare"
 #define CATEGORY_PATCHES_INFO_0_SV "Spelets patchar från Xenia Edges game-patches för den här versionen. En ändring börjar gälla vid nästa start."
 #define XENIA_GRAPHICS_API_LABEL_SV "Grafik-API (starta om)"
-#define XENIA_GRAPHICS_API_LABEL_CAT_SV "Grafik-API"
 #define XENIA_GRAPHICS_API_INFO_0_SV "Den GPU-bakände som Xenia använder för att emulera Xbox 360-GPU:n och det sammanhang som kärnan begär från RetroArch. RetroArch byter videodrivrutin så att den stämmer när det är tillåtet (Inställningar > Video > Utdata). Gäller när innehållet läses in igen."
 #define OPTION_VAL_VULKAN_SV NULL
 #define OPTION_VAL_D3D12_SV NULL
-#define XENIA_RENDER_TARGET_PATH_LABEL_SV "Renderingsmålsväg"
-#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_SV "RT-väg"
+#define XENIA_RENDER_TARGET_PATH_LABEL_SV "Sökväg för renderingsmål (starta om)"
+#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_SV "RT-sökväg (starta om)"
 #define XENIA_RENDER_TARGET_PATH_INFO_0_SV "Välj emuleringsläge för renderingsmål.\nPrestanda: värdens renderingsmål med blandning med fast funktion.\nNoggrannhet: pixelshaderlåsning eller rasteriserarordnade vyer."
 #define OPTION_VAL_PERFORMANCE_SV "Prestanda"
 #define OPTION_VAL_ACCURACY_SV "Noggrannhet"
 #define XENIA_DRAW_RESOLUTION_SCALE_LABEL_SV "Renderingsupplösningsskala (starta om)"
-#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_SV "Upplösningsskala"
+#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_SV "Upplösningsskala (starta om)"
 #define XENIA_DRAW_RESOLUTION_SCALE_INFO_0_SV "Skala den interna renderingsupplösningen. Högre värden förbättrar bildkvaliteten men kräver mer GPU-kraft. Kräver omstart."
 #define OPTION_VAL_1_SV "1x (ursprunglig 720p)"
 #define OPTION_VAL_2_SV NULL
@@ -39721,9 +37378,9 @@ struct retro_core_options_v2 options_sr = {
 #define XENIA_ASYNC_SHADER_COMPILATION_INFO_0_SV "Kompilera shadrar i bakgrundstrådar. Minskar ryckighet men kan ge kortvariga renderingsartefakter."
 #define XENIA_READBACK_RESOLVE_LABEL_SV "Återläsningsupplösning"
 #define XENIA_READBACK_RESOLVE_LABEL_CAT_SV "Återläsning"
-#define XENIA_READBACK_RESOLVE_INFO_0_SV "Kopiera rendera-till-textur-utdata tillbaka till gäst-RAM när CPU:n använder den. Av bryter spel som läser tillbaka den."
-#define XENIA_STORE_SHADERS_LABEL_SV "Lagra shadrar"
-#define XENIA_STORE_SHADERS_LABEL_CAT_SV "Shadercache"
+#define XENIA_READBACK_RESOLVE_INFO_0_SV "Kopiera utdata från renderingen till textur tillbaka till gäst-RAM när CPU:n läser dem. Av bryter spel som läser tillbaka data."
+#define XENIA_STORE_SHADERS_LABEL_SV "Lagra shaders (starta om)"
+#define XENIA_STORE_SHADERS_LABEL_CAT_SV "Shadercache (starta om)"
 #define XENIA_STORE_SHADERS_INFO_0_SV "Lagra kompilerade shadrar permanent för att undvika ryckighet från omkompilering vid senare körningar."
 #define XENIA_HALF_PIXEL_OFFSET_LABEL_SV "Halvpixelförskjutning"
 #define XENIA_HALF_PIXEL_OFFSET_LABEL_CAT_SV "Halvpixel"
@@ -39731,16 +37388,13 @@ struct retro_core_options_v2 options_sr = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_SV "Tillåt ogiltiga hämtningskonstanter"
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_SV "Ogiltig hämtning"
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_SV "Tillåt textur- och toppunktskonstanter med ogiltig typ. Kan åtgärda krascher i vissa spel men är i regel osäkert."
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_SV "Ungefärlig alfaepsilon (NVIDIA-rättning)"
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_SV "Ungefärlig alfa"
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_SV "Använd ungefärlig alfajämförelse för att förhindra flimmer på NVIDIA-GPU:er."
 #define XENIA_DISPLAY_REFRESH_LABEL_SV "Emulerad uppdateringsfrekvens för bildskärm"
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_SV "Bildskärmens uppdateringsfrekvens"
 #define XENIA_DISPLAY_REFRESH_INFO_0_SV "Den uppdateringsfrekvens som spelet tror att tv:n har, enligt alternativet i den fristående versionen. NTSC (60 Hz) är konsolens standard. PAL (50 Hz) är en PAL-tv: spel körs med 50 bildrutor per sekund. Lås upp bildfrekvens åsidosätter detta."
 #define OPTION_VAL_60_SV NULL
 #define OPTION_VAL_50_SV NULL
-#define XENIA_WAIT_FOR_FRAME_LABEL_SV "Vänta på spelets bildruta"
-#define XENIA_WAIT_FOR_FRAME_INFO_0_SV "Tar bort en bildruta av inmatningsfördröjning men kan göra att spelet går långsammare."
+#define XENIA_WAIT_FOR_FRAME_LABEL_SV "[Libretro] bildruteväntan"
+#define XENIA_WAIT_FOR_FRAME_INFO_0_SV "Tar bort en bildruta av inmatningsfördröjning men spelet kan hacka. Rekommenderas för kraftfull maskinvara och/eller lättdrivna spel."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_SV "Lås upp bildfrekvens"
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_SV "Endast för spel vars logik inte är knuten till bildfrekvensen, annars går de för fort. Spel med 30 fps vid 60: två vertikala synkroniseringar för varje bildruta som RetroArch visar. Spel med 60 fps vid 120: kärnan kör 120 bildrutor per sekund, så ställ in RetroArch och bildskärmen för det. Obegränsad: vertikala synkroniseringar så snabbt som möjligt. Listade spel: frekvenssystemet i Xenia-Edge/xenia_framerate_unlock.txt gäller det körande spelet om det finns i listan. Kan ändras medan ett spel körs."
 #define OPTION_VAL_ENABLED_SV "Listade spel"
@@ -39748,7 +37402,7 @@ struct retro_core_options_v2 options_sr = {
 #define OPTION_VAL_120_SV "Spel med 60 fps vid 120"
 #define OPTION_VAL_UNCAPPED_SV "Obegränsad"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_SV "Intern bildskärmsupplösning (starta om)"
-#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_SV "Bildskärmsupplösning"
+#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_SV "Bildskärmsupplösning (starta om)"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_INFO_0_SV "Låt spel med stöd för flera upplösningar renderas i en viss upplösning. Alla spel har inte stöd för det."
 #define OPTION_VAL_0_SV NULL
 #define OPTION_VAL_1_XENIA_INTERNAL_DISPLAY_RESOLUTION_SV NULL
@@ -39766,84 +37420,70 @@ struct retro_core_options_v2 options_sr = {
 #define OPTION_VAL_13_SV NULL
 #define OPTION_VAL_14_SV NULL
 #define OPTION_VAL_15_SV NULL
-#define XENIA_WIDESCREEN_LABEL_SV "Bildformat"
+#define XENIA_WIDESCREEN_LABEL_SV "Bildförhållande (starta om)"
 #define XENIA_WIDESCREEN_INFO_0_SV "Bildförhållandet som konsolen är inställd på och som bilden visas i. Endast vissa Xbox 360-spel har inbyggt stöd för 4:3."
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_SV "16:9 (standard)"
 #define OPTION_VAL_DISABLED_SV NULL
-#define XENIA_VIDEO_STANDARD_LABEL_SV "Videostandard"
-#define XENIA_VIDEO_STANDARD_LABEL_CAT_SV NULL
+#define XENIA_VIDEO_STANDARD_LABEL_SV "Videostandard (starta om)"
+#define XENIA_VIDEO_STANDARD_LABEL_CAT_SV "Signal (starta om)"
 #define XENIA_VIDEO_STANDARD_INFO_0_SV "Välj standard för videosignal. Påverkar regionidentifieringen."
 #define OPTION_VAL_1_XENIA_VIDEO_STANDARD_SV NULL
 #define OPTION_VAL_2_XENIA_VIDEO_STANDARD_SV NULL
 #define OPTION_VAL_3_XENIA_VIDEO_STANDARD_SV NULL
-#define XENIA_DISPLAY_GAMMA_LABEL_SV "Bildskärmsgamma"
-#define XENIA_DISPLAY_GAMMA_LABEL_CAT_SV NULL
+#define XENIA_DISPLAY_GAMMA_LABEL_SV "Bildskärmsgamma (starta om)"
+#define XENIA_DISPLAY_GAMMA_LABEL_CAT_SV "Gamma (starta om)"
 #define XENIA_DISPLAY_GAMMA_INFO_0_SV "Välj gammakurva för bildskärmen.\nBT.709 (HDTV) ligger närmast Xbox 360 på en modern bildskärm."
 #define OPTION_VAL_0_XENIA_DISPLAY_GAMMA_SV "Linjär"
 #define OPTION_VAL_1_XENIA_DISPLAY_GAMMA_SV NULL
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_SV NULL
 #define XENIA_AUDIO_ENABLED_LABEL_SV "Ljudutgång"
 #define XENIA_AUDIO_ENABLED_INFO_0_SV "Aktivera eller inaktivera ljudbearbetning och ljudutgång."
-#define XENIA_MUTE_LABEL_SV "Stäng av ljud"
-#define XENIA_MUTE_LABEL_CAT_SV "Tysta"
-#define XENIA_MUTE_INFO_0_SV "Stäng av all ljudutgång men behåll ljudbearbetningen aktiv."
-#define OPTION_VAL_ENABLED_XENIA_MUTE_SV "Aktiverad (ljud av)"
 #define XENIA_AUDIO_CHANNELS_LABEL_SV "Ljudkanaler (omstart)"
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_SV "Ljudkanaler"
 #define XENIA_AUDIO_CHANNELS_INFO_0_SV "Stereo: konsolens 5.1-ljud mixas ned till två kanaler. Surround 5.1: alla sex kanaler skickas till RetroArch, vars ljudutgångslayout sedan avgör mellan högtalare och nedmixning. Kräver en RetroArch-version med flerkanaligt ljud, annars används stereo."
 #define OPTION_VAL_STEREO_SV NULL
 #define OPTION_VAL_5_1_SV NULL
 #define XENIA_XMA_DECODER_LABEL_SV "XMA-avkodare (starta om)"
-#define XENIA_XMA_DECODER_LABEL_CAT_SV "XMA-avkodare"
 #define XENIA_XMA_DECODER_INFO_0_SV "Välj implementering av XMA-ljudavkodare. Prova ett annat alternativ om ljudet är trasigt i ett visst spel."
 #define OPTION_VAL_NEW_SV "Ny (standard)"
 #define OPTION_VAL_OLD_SV "Gammal"
 #define OPTION_VAL_MASTER_SV "Huvud"
 #define OPTION_VAL_FAKE_SV "Falsk (tystnad)"
-#define XENIA_DEDICATED_XMA_THREAD_LABEL_SV "Dedikerad XMA-tråd"
-#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_SV "XMA-tråd"
+#define XENIA_DEDICATED_XMA_THREAD_LABEL_SV "Egen XMA-tråd (starta om)"
+#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_SV "XMA-tråd (starta om)"
 #define XENIA_DEDICATED_XMA_THREAD_INFO_0_SV "Använd en dedikerad tråd för XMA-ljudavkodning. Kan förbättra ljudprestandan."
 #define XENIA_ENABLE_XMP_LABEL_SV "Musikspelare (XMP)"
 #define XENIA_ENABLE_XMP_LABEL_CAT_SV NULL
 #define XENIA_ENABLE_XMP_INFO_0_SV "Aktivera Xbox-musikspelaren för uppspelning av bakgrundsmusik."
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_SV "Musikspelarens volym"
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_SV "XMP-volym"
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_SV "Volym för musikspelaren (starta om)"
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_SV "XMP-volym (starta om)"
 #define XENIA_XMP_DEFAULT_VOLUME_INFO_0_SV "Standardvolym för musik om spelet inte anger den."
-#define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_SV NULL
-#define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_SV NULL
+#define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_SV "0 (standard)"
+#define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_SV "10 %"
 #define OPTION_VAL_20_SV NULL
 #define OPTION_VAL_30_SV NULL
 #define OPTION_VAL_40_SV NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_SV NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_SV NULL
-#define OPTION_VAL_70_SV NULL
+#define OPTION_VAL_70_SV "70% (Standard)"
 #define OPTION_VAL_80_SV NULL
 #define OPTION_VAL_90_SV NULL
-#define OPTION_VAL_100_SV "100% (Standard)"
-#define XENIA_TIME_SCALAR_LABEL_SV "Emuleringshastighet"
-#define XENIA_TIME_SCALAR_LABEL_CAT_SV "Hastighet"
-#define XENIA_TIME_SCALAR_INFO_0_SV "Styr emuleringshastigheten. 1.0x är normal hastighet."
-#define OPTION_VAL_0_25_SV NULL
-#define OPTION_VAL_0_5_SV NULL
-#define OPTION_VAL_1_0_SV "1.0x (normal)"
-#define OPTION_VAL_2_0_SV NULL
-#define OPTION_VAL_4_0_SV NULL
-#define XENIA_TITLE_UPDATES_LABEL_SV "Tillämpa titeluppdateringar"
-#define XENIA_TITLE_UPDATES_LABEL_CAT_SV "Titeluppdateringar"
+#define OPTION_VAL_100_SV NULL
+#define XENIA_TITLE_UPDATES_LABEL_SV "Tillämpa titeluppdateringar (omstart)"
+#define XENIA_TITLE_UPDATES_LABEL_CAT_SV "Titeluppdateringar (omstart)"
 #define XENIA_TITLE_UPDATES_INFO_0_SV "Tillämpa patchar för titeluppdateringar om de finns i innehållskatalogen."
-#define XENIA_APPLY_PATCHES_LABEL_SV "Tillämpa spelpatchar"
-#define XENIA_APPLY_PATCHES_LABEL_CAT_SV "Patchar"
+#define XENIA_APPLY_PATCHES_LABEL_SV "Tillämpa spelpatchar (omstart)"
+#define XENIA_APPLY_PATCHES_LABEL_CAT_SV "Patchar (omstart)"
 #define XENIA_APPLY_PATCHES_INFO_0_SV "Aktivera funktionen för anpassad patchning av spel."
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_SV "Dialogaviseringar"
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_SV "En systemdialog som ett spel öppnar, en meddelanderuta med knappar, har inget fönster i kärnan. Kärnan svarar därför på den och visar dialogens titel och svaret som en avisering. När funktionen är inaktiverad döljs aviseringarna, men dialogerna besvaras på samma sätt och Xenias logg registrerar dem fortfarande."
-#define XENIA_LICENSE_MASK_LABEL_SV "Licensmask"
-#define XENIA_LICENSE_MASK_LABEL_CAT_SV "Licens"
+#define XENIA_LICENSE_MASK_LABEL_SV "Licensmask (starta om)"
+#define XENIA_LICENSE_MASK_LABEL_CAT_SV "Licens (omstart)"
 #define XENIA_LICENSE_MASK_INFO_0_SV "Ange licensmask för aktiverat innehåll, DLC eller fullständig version.\nIngen: inga licenser. Fullständig: första licensen. Alla: alla licenser."
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_SV "Ingen"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_SV NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_SV "Alla"
-#define XENIA_USER_LANGUAGE_LABEL_SV "Användarspråk"
-#define XENIA_USER_LANGUAGE_LABEL_CAT_SV "Språk"
+#define XENIA_USER_LANGUAGE_LABEL_SV "Användarspråk (omstart)"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_SV "Språk (omstart)"
 #define XENIA_USER_LANGUAGE_INFO_0_SV "Ange språket för den emulerade konsolen."
 #define OPTION_VAL_ENGLISH_SV "Engelska"
 #define OPTION_VAL_JAPANESE_SV "Japanska"
@@ -39857,8 +37497,8 @@ struct retro_core_options_v2 options_sr = {
 #define OPTION_VAL_SCHINESE_SV "Förenklad kinesiska"
 #define OPTION_VAL_POLISH_SV "Polska"
 #define OPTION_VAL_RUSSIAN_SV "Ryska"
-#define XENIA_USER_COUNTRY_LABEL_SV "Användarland"
-#define XENIA_USER_COUNTRY_LABEL_CAT_SV "Land"
+#define XENIA_USER_COUNTRY_LABEL_SV "Användarland (omstart)"
+#define XENIA_USER_COUNTRY_LABEL_CAT_SV "Land (omstart)"
 #define XENIA_USER_COUNTRY_INFO_0_SV "Ange land eller region för den emulerade konsolen."
 #define OPTION_VAL_UNITED_STATES_SV "USA"
 #define OPTION_VAL_GREAT_BRITAIN_SV "Storbritannien"
@@ -39880,31 +37520,37 @@ struct retro_core_options_v2 options_sr = {
 #define OPTION_VAL_PORTUGAL_SV NULL
 #define OPTION_VAL_TAIWAN_SV NULL
 #define OPTION_VAL_HONG_KONG_SV "Hongkong"
-#define XENIA_PROTECT_ZERO_LABEL_SV "Skydda nollsida"
-#define XENIA_PROTECT_ZERO_LABEL_CAT_SV "Skydda nolla"
+#define XENIA_LOG_LEVEL_LABEL_SV "Loggningsnivå"
+#define XENIA_LOG_LEVEL_INFO_0_SV "Ange detaljnivån för loggningsutdata."
+#define OPTION_VAL_ERROR_SV "Endast fel"
+#define OPTION_VAL_WARN_SV "Varning"
+#define OPTION_VAL_INFO_SV NULL
+#define OPTION_VAL_DEBUG_SV "Felsökning"
+#define XENIA_PROTECT_ZERO_LABEL_SV "Skydda nollsidan (starta om)"
+#define XENIA_PROTECT_ZERO_LABEL_CAT_SV "Skydda nollsidan (starta om)"
 #define XENIA_PROTECT_ZERO_INFO_0_SV "Skydda nollsidan från läsning och skrivning. Inaktivera om ett spel kraschar vid start."
 #define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_SV "Rensa tillstånd för GPU-minnessidor"
 #define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CAT_SV "Rensa GPU-cache"
 #define XENIA_CLEAR_MEMORY_PAGE_STATE_INFO_0_SV "Uppdatera tillståndet för minnessidor med data som GPU:n har skrivit. Av som standard, liksom i den fristående versionen. Vissa spel behöver funktionen för att renderas korrekt, till exempel Ridge Racer 6 och andra spel i xenia-managers lista över optimerade inställningar."
-#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_SV "Inaktivera kontextbefordran"
-#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_SV "Ingen kontextbefordran"
+#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_SV "Inaktivera kontexthöjning (starta om)"
+#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_SV "Ingen kontexthöjning (starta om)"
 #define XENIA_DISABLE_CONTEXT_PROMOTION_INFO_0_SV "Inaktivera CPU-optimeringen för kontextbefordran. Kan behövas för vissa sportspel men minskar prestandan."
 #define OPTION_VAL_DISABLED_XENIA_DISABLE_CONTEXT_PROMOTION_SV "Inaktiverad (normal)"
 #define OPTION_VAL_ENABLED_XENIA_DISABLE_CONTEXT_PROMOTION_SV "Aktiverad (rättning för sportspel)"
-#define XENIA_MOUNT_CACHE_LABEL_SV "Montera cachepartition"
-#define XENIA_MOUNT_CACHE_LABEL_CAT_SV "Cachemontering"
+#define XENIA_MOUNT_CACHE_LABEL_SV "Montera cachepartition (starta om)"
+#define XENIA_MOUNT_CACHE_LABEL_CAT_SV "Cachemontering (starta om)"
 #define XENIA_MOUNT_CACHE_INFO_0_SV "Aktivera montering av cachepartition. Krävs av vissa spel."
-#define XENIA_MOUNT_SCRATCH_LABEL_SV "Montera temporär partition"
-#define XENIA_MOUNT_SCRATCH_LABEL_CAT_SV "Temporär montering"
+#define XENIA_MOUNT_SCRATCH_LABEL_SV "Montera scratchpartition (starta om)"
+#define XENIA_MOUNT_SCRATCH_LABEL_CAT_SV "Scratchmontering (starta om)"
 #define XENIA_MOUNT_SCRATCH_INFO_0_SV "Aktivera montering av temporär partition. Krävs av vissa spel."
-#define XENIA_OCCLUSION_QUERY_LABEL_SV "Ocklusionsfråga"
-#define XENIA_OCCLUSION_QUERY_INFO_0_SV "Hur ocklusionsfrågor, till exempel linsreflexer, bortsortering och automatisk exponering, besvaras. Snabb, standard, frågar GPU:n utan att vänta. Falsk skriver ett påhittat resultat. Snabb-alt behåller cachade nollresultat. Strikt väntar på GPU:n och är mest noggrann."
+#define XENIA_OCCLUSION_QUERY_LABEL_SV "Ocklusionsfråga (starta om)"
+#define XENIA_OCCLUSION_QUERY_INFO_0_SV "Så här besvaras ocklusionsfrågor, till exempel linsreflexer, bortsortering och automatisk exponering. Snabb, som är standard, frågar GPU:n utan att vänta. Falsk skriver ett påhittat resultat. Snabb-alt behåller cachade nollresultat. Strikt väntar på GPU:n och är mest noggrann."
 #define OPTION_VAL_FAST_SV "Snabb"
 #define OPTION_VAL_FAKE_XENIA_OCCLUSION_QUERY_SV "Falsk"
 #define OPTION_VAL_FAST_ALT_SV "Snabb-alt"
 #define OPTION_VAL_STRICT_SV "Strikt"
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_SV "Fullständiga räknare för ocklusionsfråga"
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_SV "Fullständiga räknare"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_SV "Ocklusionsfråga med fullständiga räknare (starta om)"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_SV "Fullständiga räknare (starta om)"
 #define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_INFO_0_SV "Emulera ZFail-, StencilFail- och Total-räknare för ocklusion i shadrar. Vissa spel behöver dem, men det påverkar prestandan."
 #define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_SV "Falskt nedre tröskelvärde för ocklusion"
 #define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CAT_SV "Falskt nedre värde"
@@ -39922,8 +37568,8 @@ struct retro_core_options_v2 options_sr = {
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_SV "Tillåt ogiltigt uppladdningsintervall"
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CAT_SV "Ogiltiga uppladdningar"
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_INFO_0_SV "Tillåt spel att läsa data från sidor som är markerade som inte åtkomliga."
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_SV "Gammarenderingsmål som UNORM16"
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_SV NULL
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_SV "Gammarenderingsmål som UNORM16 (starta om)"
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_SV "Gamma UNORM16 (starta om)"
 #define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_SV "Emulera gammarenderingsmål med 16 bitar per komponent när värden inte kan använda 8-bitars styckvis gamma. Inaktivera om färgerna ser fel ut i ett spel."
 #define XENIA_FORCE_DEPTH_CLAMP_LABEL_SV "Tvinga djupklämning"
 #define XENIA_FORCE_DEPTH_CLAMP_LABEL_CAT_SV "Djupklämning"
@@ -39931,8 +37577,8 @@ struct retro_core_options_v2 options_sr = {
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_SV "Ignorera förskjutning för intervallallokeringar"
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CAT_SV "Intervallallokeringar"
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_INFO_0_SV "Ignorera förskjutningen på 4 KB för fysiska allokeringar med angivet intervall. Behövs av ett fåtal spel."
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_SV "Avbryt vid oimplementerade instruktioner"
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_SV "Avbryt oimplementerade"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_SV "Avbryt vid ej implementerade instruktioner (starta om)"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_SV "Avbryt ej implementerade (starta om)"
 #define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_SV "Stoppa när ett spel kör en CPU-instruktion som Xenia inte har implementerat. I en kärna avslutas då RetroArch. Inaktivera för att låta sådana spel fortsätta."
 #define XENIA_SCRIBBLE_HEAP_LABEL_SV "Skribbla heap"
 #define XENIA_SCRIBBLE_HEAP_INFO_0_SV "Fyll nyallokerat heapminne med ett värde för spel som förlitar sig på vad som finns kvar där."
@@ -39940,13 +37586,6 @@ struct retro_core_options_v2 options_sr = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_SV "Skribbelvärde"
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_SV "Det värde som Skribbla heap fyller minnet med. 0 är slumpmässigt."
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_SV "0 (slumpmässigt)"
-#define XENIA_LOG_LEVEL_LABEL_SV "Loggningsnivå"
-#define XENIA_LOG_LEVEL_LABEL_CAT_SV "Nivå"
-#define XENIA_LOG_LEVEL_INFO_0_SV "Ange detaljnivån för loggningsutdata."
-#define OPTION_VAL_ERROR_SV "Endast fel"
-#define OPTION_VAL_WARN_SV "Varning"
-#define OPTION_VAL_INFO_SV NULL
-#define OPTION_VAL_DEBUG_SV "Felsökning"
 
 struct retro_core_option_v2_category option_cats_sv[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_SV,
@@ -39959,8 +37598,6 @@ struct retro_core_option_v2_category option_cats_sv[] = {
       CATEGORY_EMULATION_INFO_0_SV },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_SV,
       CATEGORY_COMPATIBILITY_INFO_0_SV },
-    { "Debug", CATEGORY_DEBUG_LABEL_SV,
-      CATEGORY_DEBUG_INFO_0_SV },
     { "patches", CATEGORY_PATCHES_LABEL_SV,
       CATEGORY_PATCHES_INFO_0_SV },
     { NULL, NULL, NULL }
@@ -39972,7 +37609,7 @@ struct retro_core_option_v2_definition option_defs_sv[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_SV,
-        XENIA_GRAPHICS_API_LABEL_CAT_SV,
+        XENIA_GRAPHICS_API_LABEL_SV,
         XENIA_GRAPHICS_API_INFO_0_SV,
         NULL,
         "Graphics",
@@ -40106,20 +37743,6 @@ struct retro_core_option_v2_definition option_defs_sv[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_SV,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_SV,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_SV,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -40259,23 +37882,9 @@ struct retro_core_option_v2_definition option_defs_sv[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_SV,
-        XENIA_MUTE_LABEL_CAT_SV,
-        XENIA_MUTE_INFO_0_SV,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_SV },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_SV,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_SV,
+        XENIA_AUDIO_CHANNELS_LABEL_SV,
         XENIA_AUDIO_CHANNELS_INFO_0_SV,
         NULL,
         "Audio",
@@ -40289,7 +37898,7 @@ struct retro_core_option_v2_definition option_defs_sv[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_SV,
-        XENIA_XMA_DECODER_LABEL_CAT_SV,
+        XENIA_XMA_DECODER_LABEL_SV,
         XENIA_XMA_DECODER_INFO_0_SV,
         NULL,
         "Audio",
@@ -40351,28 +37960,11 @@ struct retro_core_option_v2_definition option_defs_sv[] = {
             { "100", OPTION_VAL_100_SV },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_SV,
-        XENIA_TIME_SCALAR_LABEL_CAT_SV,
-        XENIA_TIME_SCALAR_INFO_0_SV,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_SV },
-            { "0.5",  OPTION_VAL_0_5_SV },
-            { "1.0",  OPTION_VAL_1_0_SV },
-            { "2.0",  OPTION_VAL_2_0_SV },
-            { "4.0",  OPTION_VAL_4_0_SV },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_SV,
@@ -40415,6 +38007,9 @@ struct retro_core_option_v2_definition option_defs_sv[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_SV,
@@ -40428,7 +38023,7 @@ struct retro_core_option_v2_definition option_defs_sv[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_SV },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -40485,6 +38080,22 @@ struct retro_core_option_v2_definition option_defs_sv[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_SV,
+        XENIA_LOG_LEVEL_LABEL_SV,
+        XENIA_LOG_LEVEL_INFO_0_SV,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_SV },
+            { "warn",  OPTION_VAL_WARN_SV },
+            { "info",  OPTION_VAL_INFO_SV },
+            { "debug", OPTION_VAL_DEBUG_SV },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -40750,22 +38361,6 @@ struct retro_core_option_v2_definition option_defs_sv[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_SV,
-        XENIA_LOG_LEVEL_LABEL_CAT_SV,
-        XENIA_LOG_LEVEL_INFO_0_SV,
-        NULL,
-        OPTION_VAL_DEBUG_SV,
-        {
-            { "error", OPTION_VAL_ERROR_SV },
-            { "warn",  OPTION_VAL_WARN_SV },
-            { "info",  OPTION_VAL_INFO_SV },
-            { "debug", OPTION_VAL_DEBUG_SV },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -40786,12 +38381,9 @@ struct retro_core_options_v2 options_sv = {
 #define CATEGORY_EMULATION_INFO_0_TH NULL
 #define CATEGORY_COMPATIBILITY_LABEL_TH NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_TH NULL
-#define CATEGORY_DEBUG_LABEL_TH NULL
-#define CATEGORY_DEBUG_INFO_0_TH NULL
 #define CATEGORY_PATCHES_LABEL_TH NULL
 #define CATEGORY_PATCHES_INFO_0_TH NULL
 #define XENIA_GRAPHICS_API_LABEL_TH NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_TH NULL
 #define XENIA_GRAPHICS_API_INFO_0_TH NULL
 #define OPTION_VAL_VULKAN_TH NULL
 #define OPTION_VAL_D3D12_TH NULL
@@ -40832,9 +38424,6 @@ struct retro_core_options_v2 options_sv = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_TH NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_TH NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_TH NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_TH NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_TH NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_TH NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_TH NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_TH NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_TH NULL
@@ -40867,7 +38456,7 @@ struct retro_core_options_v2 options_sv = {
 #define OPTION_VAL_13_TH NULL
 #define OPTION_VAL_14_TH NULL
 #define OPTION_VAL_15_TH NULL
-#define XENIA_WIDESCREEN_LABEL_TH "อัตราส่วนภาพ"
+#define XENIA_WIDESCREEN_LABEL_TH NULL
 #define XENIA_WIDESCREEN_INFO_0_TH NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_TH NULL
 #define OPTION_VAL_DISABLED_TH NULL
@@ -40878,24 +38467,18 @@ struct retro_core_options_v2 options_sv = {
 #define OPTION_VAL_2_XENIA_VIDEO_STANDARD_TH NULL
 #define OPTION_VAL_3_XENIA_VIDEO_STANDARD_TH NULL
 #define XENIA_DISPLAY_GAMMA_LABEL_TH NULL
-#define XENIA_DISPLAY_GAMMA_LABEL_CAT_TH "แกมม่า"
+#define XENIA_DISPLAY_GAMMA_LABEL_CAT_TH NULL
 #define XENIA_DISPLAY_GAMMA_INFO_0_TH NULL
 #define OPTION_VAL_0_XENIA_DISPLAY_GAMMA_TH "เส้นตรง"
 #define OPTION_VAL_1_XENIA_DISPLAY_GAMMA_TH NULL
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_TH NULL
 #define XENIA_AUDIO_ENABLED_LABEL_TH NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_TH NULL
-#define XENIA_MUTE_LABEL_TH NULL
-#define XENIA_MUTE_LABEL_CAT_TH "ปิดเสียง"
-#define XENIA_MUTE_INFO_0_TH NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_TH NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_TH NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_TH NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_TH NULL
 #define OPTION_VAL_STEREO_TH "สเตอริโอ"
 #define OPTION_VAL_5_1_TH NULL
 #define XENIA_XMA_DECODER_LABEL_TH NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_TH NULL
 #define XENIA_XMA_DECODER_INFO_0_TH NULL
 #define OPTION_VAL_NEW_TH NULL
 #define OPTION_VAL_OLD_TH NULL
@@ -40920,15 +38503,7 @@ struct retro_core_options_v2 options_sv = {
 #define OPTION_VAL_70_TH NULL
 #define OPTION_VAL_80_TH NULL
 #define OPTION_VAL_90_TH NULL
-#define OPTION_VAL_100_TH "100% (ค่าเริ่มต้น)"
-#define XENIA_TIME_SCALAR_LABEL_TH NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_TH NULL
-#define XENIA_TIME_SCALAR_INFO_0_TH NULL
-#define OPTION_VAL_0_25_TH NULL
-#define OPTION_VAL_0_5_TH NULL
-#define OPTION_VAL_1_0_TH NULL
-#define OPTION_VAL_2_0_TH NULL
-#define OPTION_VAL_4_0_TH NULL
+#define OPTION_VAL_100_TH NULL
 #define XENIA_TITLE_UPDATES_LABEL_TH NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_TH NULL
 #define XENIA_TITLE_UPDATES_INFO_0_TH NULL
@@ -40938,13 +38513,13 @@ struct retro_core_options_v2 options_sv = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_TH NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_TH NULL
 #define XENIA_LICENSE_MASK_LABEL_TH NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_TH "ใบอนุญาต"
+#define XENIA_LICENSE_MASK_LABEL_CAT_TH NULL
 #define XENIA_LICENSE_MASK_INFO_0_TH NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_TH "ไม่แชร์อินพุต"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_TH "เต็ม"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_TH "ทั้งหมด"
 #define XENIA_USER_LANGUAGE_LABEL_TH NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_TH "ภาษา"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_TH NULL
 #define XENIA_USER_LANGUAGE_INFO_0_TH NULL
 #define OPTION_VAL_ENGLISH_TH "อังกฤษ"
 #define OPTION_VAL_JAPANESE_TH "ญี่ปุ่น"
@@ -40981,6 +38556,12 @@ struct retro_core_options_v2 options_sv = {
 #define OPTION_VAL_PORTUGAL_TH NULL
 #define OPTION_VAL_TAIWAN_TH NULL
 #define OPTION_VAL_HONG_KONG_TH NULL
+#define XENIA_LOG_LEVEL_LABEL_TH NULL
+#define XENIA_LOG_LEVEL_INFO_0_TH NULL
+#define OPTION_VAL_ERROR_TH NULL
+#define OPTION_VAL_WARN_TH "คำเตือน"
+#define OPTION_VAL_INFO_TH "ข้อมูล"
+#define OPTION_VAL_DEBUG_TH "ดีบัก"
 #define XENIA_PROTECT_ZERO_LABEL_TH NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_TH NULL
 #define XENIA_PROTECT_ZERO_INFO_0_TH NULL
@@ -41041,13 +38622,6 @@ struct retro_core_options_v2 options_sv = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_TH NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_TH NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_TH NULL
-#define XENIA_LOG_LEVEL_LABEL_TH NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_TH NULL
-#define XENIA_LOG_LEVEL_INFO_0_TH NULL
-#define OPTION_VAL_ERROR_TH NULL
-#define OPTION_VAL_WARN_TH "คำเตือน"
-#define OPTION_VAL_INFO_TH "ข้อมูล"
-#define OPTION_VAL_DEBUG_TH "ดีบัก"
 
 struct retro_core_option_v2_category option_cats_th[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_TH,
@@ -41060,8 +38634,6 @@ struct retro_core_option_v2_category option_cats_th[] = {
       CATEGORY_EMULATION_INFO_0_TH },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_TH,
       CATEGORY_COMPATIBILITY_INFO_0_TH },
-    { "Debug", CATEGORY_DEBUG_LABEL_TH,
-      CATEGORY_DEBUG_INFO_0_TH },
     { "patches", CATEGORY_PATCHES_LABEL_TH,
       CATEGORY_PATCHES_INFO_0_TH },
     { NULL, NULL, NULL }
@@ -41073,7 +38645,7 @@ struct retro_core_option_v2_definition option_defs_th[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_TH,
-        XENIA_GRAPHICS_API_LABEL_CAT_TH,
+        XENIA_GRAPHICS_API_LABEL_TH,
         XENIA_GRAPHICS_API_INFO_0_TH,
         NULL,
         "Graphics",
@@ -41207,20 +38779,6 @@ struct retro_core_option_v2_definition option_defs_th[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_TH,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_TH,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_TH,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -41360,23 +38918,9 @@ struct retro_core_option_v2_definition option_defs_th[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_TH,
-        XENIA_MUTE_LABEL_CAT_TH,
-        XENIA_MUTE_INFO_0_TH,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_TH },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_TH,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_TH,
+        XENIA_AUDIO_CHANNELS_LABEL_TH,
         XENIA_AUDIO_CHANNELS_INFO_0_TH,
         NULL,
         "Audio",
@@ -41390,7 +38934,7 @@ struct retro_core_option_v2_definition option_defs_th[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_TH,
-        XENIA_XMA_DECODER_LABEL_CAT_TH,
+        XENIA_XMA_DECODER_LABEL_TH,
         XENIA_XMA_DECODER_INFO_0_TH,
         NULL,
         "Audio",
@@ -41452,28 +38996,11 @@ struct retro_core_option_v2_definition option_defs_th[] = {
             { "100", OPTION_VAL_100_TH },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_TH,
-        XENIA_TIME_SCALAR_LABEL_CAT_TH,
-        XENIA_TIME_SCALAR_INFO_0_TH,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_TH },
-            { "0.5",  OPTION_VAL_0_5_TH },
-            { "1.0",  OPTION_VAL_1_0_TH },
-            { "2.0",  OPTION_VAL_2_0_TH },
-            { "4.0",  OPTION_VAL_4_0_TH },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_TH,
@@ -41516,6 +39043,9 @@ struct retro_core_option_v2_definition option_defs_th[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_TH,
@@ -41529,7 +39059,7 @@ struct retro_core_option_v2_definition option_defs_th[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_TH },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -41586,6 +39116,22 @@ struct retro_core_option_v2_definition option_defs_th[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_TH,
+        XENIA_LOG_LEVEL_LABEL_TH,
+        XENIA_LOG_LEVEL_INFO_0_TH,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_TH },
+            { "warn",  OPTION_VAL_WARN_TH },
+            { "info",  OPTION_VAL_INFO_TH },
+            { "debug", OPTION_VAL_DEBUG_TH },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -41851,22 +39397,6 @@ struct retro_core_option_v2_definition option_defs_th[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_TH,
-        XENIA_LOG_LEVEL_LABEL_CAT_TH,
-        XENIA_LOG_LEVEL_INFO_0_TH,
-        NULL,
-        OPTION_VAL_DEBUG_TH,
-        {
-            { "error", OPTION_VAL_ERROR_TH },
-            { "warn",  OPTION_VAL_WARN_TH },
-            { "info",  OPTION_VAL_INFO_TH },
-            { "debug", OPTION_VAL_DEBUG_TH },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -41887,12 +39417,9 @@ struct retro_core_options_v2 options_th = {
 #define CATEGORY_EMULATION_INFO_0_TR NULL
 #define CATEGORY_COMPATIBILITY_LABEL_TR NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_TR NULL
-#define CATEGORY_DEBUG_LABEL_TR NULL
-#define CATEGORY_DEBUG_INFO_0_TR NULL
 #define CATEGORY_PATCHES_LABEL_TR NULL
 #define CATEGORY_PATCHES_INFO_0_TR NULL
 #define XENIA_GRAPHICS_API_LABEL_TR NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_TR NULL
 #define XENIA_GRAPHICS_API_INFO_0_TR NULL
 #define OPTION_VAL_VULKAN_TR NULL
 #define OPTION_VAL_D3D12_TR NULL
@@ -41933,9 +39460,6 @@ struct retro_core_options_v2 options_th = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_TR NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_TR NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_TR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_TR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_TR NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_TR NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_TR NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_TR NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_TR NULL
@@ -41968,7 +39492,7 @@ struct retro_core_options_v2 options_th = {
 #define OPTION_VAL_13_TR NULL
 #define OPTION_VAL_14_TR NULL
 #define OPTION_VAL_15_TR NULL
-#define XENIA_WIDESCREEN_LABEL_TR "En Boy Oranı"
+#define XENIA_WIDESCREEN_LABEL_TR NULL
 #define XENIA_WIDESCREEN_INFO_0_TR NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_TR NULL
 #define OPTION_VAL_DISABLED_TR NULL
@@ -41986,17 +39510,11 @@ struct retro_core_options_v2 options_th = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_TR NULL
 #define XENIA_AUDIO_ENABLED_LABEL_TR NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_TR NULL
-#define XENIA_MUTE_LABEL_TR NULL
-#define XENIA_MUTE_LABEL_CAT_TR "Sustur"
-#define XENIA_MUTE_INFO_0_TR NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_TR NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_TR NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_TR NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_TR NULL
 #define OPTION_VAL_STEREO_TR NULL
 #define OPTION_VAL_5_1_TR NULL
 #define XENIA_XMA_DECODER_LABEL_TR NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_TR NULL
 #define XENIA_XMA_DECODER_INFO_0_TR NULL
 #define OPTION_VAL_NEW_TR NULL
 #define OPTION_VAL_OLD_TR NULL
@@ -42018,18 +39536,10 @@ struct retro_core_options_v2 options_th = {
 #define OPTION_VAL_40_TR "%40"
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_TR "%50"
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_TR "%60"
-#define OPTION_VAL_70_TR "%70"
+#define OPTION_VAL_70_TR NULL
 #define OPTION_VAL_80_TR "%80"
 #define OPTION_VAL_90_TR "%90"
-#define OPTION_VAL_100_TR "%100 (Varsayılan)"
-#define XENIA_TIME_SCALAR_LABEL_TR NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_TR NULL
-#define XENIA_TIME_SCALAR_INFO_0_TR NULL
-#define OPTION_VAL_0_25_TR NULL
-#define OPTION_VAL_0_5_TR NULL
-#define OPTION_VAL_1_0_TR NULL
-#define OPTION_VAL_2_0_TR NULL
-#define OPTION_VAL_4_0_TR NULL
+#define OPTION_VAL_100_TR "%100"
 #define XENIA_TITLE_UPDATES_LABEL_TR NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_TR NULL
 #define XENIA_TITLE_UPDATES_INFO_0_TR NULL
@@ -42039,13 +39549,13 @@ struct retro_core_options_v2 options_th = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_TR NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_TR NULL
 #define XENIA_LICENSE_MASK_LABEL_TR NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_TR "Lisans"
+#define XENIA_LICENSE_MASK_LABEL_CAT_TR NULL
 #define XENIA_LICENSE_MASK_INFO_0_TR NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_TR "Yok"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_TR "Tam"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_TR "Tümü"
 #define XENIA_USER_LANGUAGE_LABEL_TR NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_TR "Dil"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_TR NULL
 #define XENIA_USER_LANGUAGE_INFO_0_TR NULL
 #define OPTION_VAL_ENGLISH_TR "İngilizce"
 #define OPTION_VAL_JAPANESE_TR "Japonca"
@@ -42082,6 +39592,12 @@ struct retro_core_options_v2 options_th = {
 #define OPTION_VAL_PORTUGAL_TR NULL
 #define OPTION_VAL_TAIWAN_TR NULL
 #define OPTION_VAL_HONG_KONG_TR NULL
+#define XENIA_LOG_LEVEL_LABEL_TR NULL
+#define XENIA_LOG_LEVEL_INFO_0_TR NULL
+#define OPTION_VAL_ERROR_TR NULL
+#define OPTION_VAL_WARN_TR "Uyarı"
+#define OPTION_VAL_INFO_TR "Bilgi"
+#define OPTION_VAL_DEBUG_TR NULL
 #define XENIA_PROTECT_ZERO_LABEL_TR NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_TR NULL
 #define XENIA_PROTECT_ZERO_INFO_0_TR NULL
@@ -42142,13 +39658,6 @@ struct retro_core_options_v2 options_th = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_TR NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_TR NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_TR NULL
-#define XENIA_LOG_LEVEL_LABEL_TR NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_TR NULL
-#define XENIA_LOG_LEVEL_INFO_0_TR NULL
-#define OPTION_VAL_ERROR_TR NULL
-#define OPTION_VAL_WARN_TR "Uyarı"
-#define OPTION_VAL_INFO_TR "Bilgi"
-#define OPTION_VAL_DEBUG_TR NULL
 
 struct retro_core_option_v2_category option_cats_tr[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_TR,
@@ -42161,8 +39670,6 @@ struct retro_core_option_v2_category option_cats_tr[] = {
       CATEGORY_EMULATION_INFO_0_TR },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_TR,
       CATEGORY_COMPATIBILITY_INFO_0_TR },
-    { "Debug", CATEGORY_DEBUG_LABEL_TR,
-      CATEGORY_DEBUG_INFO_0_TR },
     { "patches", CATEGORY_PATCHES_LABEL_TR,
       CATEGORY_PATCHES_INFO_0_TR },
     { NULL, NULL, NULL }
@@ -42174,7 +39681,7 @@ struct retro_core_option_v2_definition option_defs_tr[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_TR,
-        XENIA_GRAPHICS_API_LABEL_CAT_TR,
+        XENIA_GRAPHICS_API_LABEL_TR,
         XENIA_GRAPHICS_API_INFO_0_TR,
         NULL,
         "Graphics",
@@ -42308,20 +39815,6 @@ struct retro_core_option_v2_definition option_defs_tr[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_TR,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_TR,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_TR,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -42461,23 +39954,9 @@ struct retro_core_option_v2_definition option_defs_tr[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_TR,
-        XENIA_MUTE_LABEL_CAT_TR,
-        XENIA_MUTE_INFO_0_TR,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_TR },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_TR,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_TR,
+        XENIA_AUDIO_CHANNELS_LABEL_TR,
         XENIA_AUDIO_CHANNELS_INFO_0_TR,
         NULL,
         "Audio",
@@ -42491,7 +39970,7 @@ struct retro_core_option_v2_definition option_defs_tr[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_TR,
-        XENIA_XMA_DECODER_LABEL_CAT_TR,
+        XENIA_XMA_DECODER_LABEL_TR,
         XENIA_XMA_DECODER_INFO_0_TR,
         NULL,
         "Audio",
@@ -42553,28 +40032,11 @@ struct retro_core_option_v2_definition option_defs_tr[] = {
             { "100", OPTION_VAL_100_TR },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_TR,
-        XENIA_TIME_SCALAR_LABEL_CAT_TR,
-        XENIA_TIME_SCALAR_INFO_0_TR,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_TR },
-            { "0.5",  OPTION_VAL_0_5_TR },
-            { "1.0",  OPTION_VAL_1_0_TR },
-            { "2.0",  OPTION_VAL_2_0_TR },
-            { "4.0",  OPTION_VAL_4_0_TR },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_TR,
@@ -42617,6 +40079,9 @@ struct retro_core_option_v2_definition option_defs_tr[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_TR,
@@ -42630,7 +40095,7 @@ struct retro_core_option_v2_definition option_defs_tr[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_TR },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -42687,6 +40152,22 @@ struct retro_core_option_v2_definition option_defs_tr[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_TR,
+        XENIA_LOG_LEVEL_LABEL_TR,
+        XENIA_LOG_LEVEL_INFO_0_TR,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_TR },
+            { "warn",  OPTION_VAL_WARN_TR },
+            { "info",  OPTION_VAL_INFO_TR },
+            { "debug", OPTION_VAL_DEBUG_TR },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -42952,22 +40433,6 @@ struct retro_core_option_v2_definition option_defs_tr[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_TR,
-        XENIA_LOG_LEVEL_LABEL_CAT_TR,
-        XENIA_LOG_LEVEL_INFO_0_TR,
-        NULL,
-        OPTION_VAL_DEBUG_TR,
-        {
-            { "error", OPTION_VAL_ERROR_TR },
-            { "warn",  OPTION_VAL_WARN_TR },
-            { "info",  OPTION_VAL_INFO_TR },
-            { "debug", OPTION_VAL_DEBUG_TR },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -42988,12 +40453,9 @@ struct retro_core_options_v2 options_tr = {
 #define CATEGORY_EMULATION_INFO_0_TT NULL
 #define CATEGORY_COMPATIBILITY_LABEL_TT NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_TT NULL
-#define CATEGORY_DEBUG_LABEL_TT NULL
-#define CATEGORY_DEBUG_INFO_0_TT NULL
 #define CATEGORY_PATCHES_LABEL_TT NULL
 #define CATEGORY_PATCHES_INFO_0_TT NULL
 #define XENIA_GRAPHICS_API_LABEL_TT NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_TT NULL
 #define XENIA_GRAPHICS_API_INFO_0_TT NULL
 #define OPTION_VAL_VULKAN_TT NULL
 #define OPTION_VAL_D3D12_TT NULL
@@ -43034,9 +40496,6 @@ struct retro_core_options_v2 options_tr = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_TT NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_TT NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_TT NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_TT NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_TT NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_TT NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_TT NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_TT NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_TT NULL
@@ -43087,17 +40546,11 @@ struct retro_core_options_v2 options_tr = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_TT NULL
 #define XENIA_AUDIO_ENABLED_LABEL_TT NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_TT NULL
-#define XENIA_MUTE_LABEL_TT NULL
-#define XENIA_MUTE_LABEL_CAT_TT NULL
-#define XENIA_MUTE_INFO_0_TT NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_TT NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_TT NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_TT NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_TT NULL
 #define OPTION_VAL_STEREO_TT "Стерео"
 #define OPTION_VAL_5_1_TT NULL
 #define XENIA_XMA_DECODER_LABEL_TT NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_TT NULL
 #define XENIA_XMA_DECODER_INFO_0_TT NULL
 #define OPTION_VAL_NEW_TT NULL
 #define OPTION_VAL_OLD_TT NULL
@@ -43123,14 +40576,6 @@ struct retro_core_options_v2 options_tr = {
 #define OPTION_VAL_80_TT NULL
 #define OPTION_VAL_90_TT NULL
 #define OPTION_VAL_100_TT NULL
-#define XENIA_TIME_SCALAR_LABEL_TT NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_TT NULL
-#define XENIA_TIME_SCALAR_INFO_0_TT NULL
-#define OPTION_VAL_0_25_TT NULL
-#define OPTION_VAL_0_5_TT NULL
-#define OPTION_VAL_1_0_TT NULL
-#define OPTION_VAL_2_0_TT NULL
-#define OPTION_VAL_4_0_TT NULL
 #define XENIA_TITLE_UPDATES_LABEL_TT NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_TT NULL
 #define XENIA_TITLE_UPDATES_INFO_0_TT NULL
@@ -43140,7 +40585,7 @@ struct retro_core_options_v2 options_tr = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_TT NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_TT NULL
 #define XENIA_LICENSE_MASK_LABEL_TT NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_TT "Лицензия"
+#define XENIA_LICENSE_MASK_LABEL_CAT_TT NULL
 #define XENIA_LICENSE_MASK_INFO_0_TT NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_TT NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_TT NULL
@@ -43183,6 +40628,12 @@ struct retro_core_options_v2 options_tr = {
 #define OPTION_VAL_PORTUGAL_TT NULL
 #define OPTION_VAL_TAIWAN_TT NULL
 #define OPTION_VAL_HONG_KONG_TT NULL
+#define XENIA_LOG_LEVEL_LABEL_TT NULL
+#define XENIA_LOG_LEVEL_INFO_0_TT NULL
+#define OPTION_VAL_ERROR_TT NULL
+#define OPTION_VAL_WARN_TT NULL
+#define OPTION_VAL_INFO_TT NULL
+#define OPTION_VAL_DEBUG_TT NULL
 #define XENIA_PROTECT_ZERO_LABEL_TT NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_TT NULL
 #define XENIA_PROTECT_ZERO_INFO_0_TT NULL
@@ -43243,13 +40694,6 @@ struct retro_core_options_v2 options_tr = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_TT NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_TT NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_TT NULL
-#define XENIA_LOG_LEVEL_LABEL_TT NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_TT NULL
-#define XENIA_LOG_LEVEL_INFO_0_TT NULL
-#define OPTION_VAL_ERROR_TT NULL
-#define OPTION_VAL_WARN_TT NULL
-#define OPTION_VAL_INFO_TT NULL
-#define OPTION_VAL_DEBUG_TT NULL
 
 struct retro_core_option_v2_category option_cats_tt[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_TT,
@@ -43262,8 +40706,6 @@ struct retro_core_option_v2_category option_cats_tt[] = {
       CATEGORY_EMULATION_INFO_0_TT },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_TT,
       CATEGORY_COMPATIBILITY_INFO_0_TT },
-    { "Debug", CATEGORY_DEBUG_LABEL_TT,
-      CATEGORY_DEBUG_INFO_0_TT },
     { "patches", CATEGORY_PATCHES_LABEL_TT,
       CATEGORY_PATCHES_INFO_0_TT },
     { NULL, NULL, NULL }
@@ -43275,7 +40717,7 @@ struct retro_core_option_v2_definition option_defs_tt[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_TT,
-        XENIA_GRAPHICS_API_LABEL_CAT_TT,
+        XENIA_GRAPHICS_API_LABEL_TT,
         XENIA_GRAPHICS_API_INFO_0_TT,
         NULL,
         "Graphics",
@@ -43409,20 +40851,6 @@ struct retro_core_option_v2_definition option_defs_tt[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_TT,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_TT,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_TT,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -43562,23 +40990,9 @@ struct retro_core_option_v2_definition option_defs_tt[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_TT,
-        XENIA_MUTE_LABEL_CAT_TT,
-        XENIA_MUTE_INFO_0_TT,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_TT },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_TT,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_TT,
+        XENIA_AUDIO_CHANNELS_LABEL_TT,
         XENIA_AUDIO_CHANNELS_INFO_0_TT,
         NULL,
         "Audio",
@@ -43592,7 +41006,7 @@ struct retro_core_option_v2_definition option_defs_tt[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_TT,
-        XENIA_XMA_DECODER_LABEL_CAT_TT,
+        XENIA_XMA_DECODER_LABEL_TT,
         XENIA_XMA_DECODER_INFO_0_TT,
         NULL,
         "Audio",
@@ -43654,28 +41068,11 @@ struct retro_core_option_v2_definition option_defs_tt[] = {
             { "100", OPTION_VAL_100_TT },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_TT,
-        XENIA_TIME_SCALAR_LABEL_CAT_TT,
-        XENIA_TIME_SCALAR_INFO_0_TT,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_TT },
-            { "0.5",  OPTION_VAL_0_5_TT },
-            { "1.0",  OPTION_VAL_1_0_TT },
-            { "2.0",  OPTION_VAL_2_0_TT },
-            { "4.0",  OPTION_VAL_4_0_TT },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_TT,
@@ -43718,6 +41115,9 @@ struct retro_core_option_v2_definition option_defs_tt[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_TT,
@@ -43731,7 +41131,7 @@ struct retro_core_option_v2_definition option_defs_tt[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_TT },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -43788,6 +41188,22 @@ struct retro_core_option_v2_definition option_defs_tt[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_TT,
+        XENIA_LOG_LEVEL_LABEL_TT,
+        XENIA_LOG_LEVEL_INFO_0_TT,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_TT },
+            { "warn",  OPTION_VAL_WARN_TT },
+            { "info",  OPTION_VAL_INFO_TT },
+            { "debug", OPTION_VAL_DEBUG_TT },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -44053,22 +41469,6 @@ struct retro_core_option_v2_definition option_defs_tt[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_TT,
-        XENIA_LOG_LEVEL_LABEL_CAT_TT,
-        XENIA_LOG_LEVEL_INFO_0_TT,
-        NULL,
-        OPTION_VAL_DEBUG_TT,
-        {
-            { "error", OPTION_VAL_ERROR_TT },
-            { "warn",  OPTION_VAL_WARN_TT },
-            { "info",  OPTION_VAL_INFO_TT },
-            { "debug", OPTION_VAL_DEBUG_TT },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -44089,12 +41489,9 @@ struct retro_core_options_v2 options_tt = {
 #define CATEGORY_EMULATION_INFO_0_UK NULL
 #define CATEGORY_COMPATIBILITY_LABEL_UK "Налаштування сумісності"
 #define CATEGORY_COMPATIBILITY_INFO_0_UK NULL
-#define CATEGORY_DEBUG_LABEL_UK NULL
-#define CATEGORY_DEBUG_INFO_0_UK NULL
 #define CATEGORY_PATCHES_LABEL_UK NULL
 #define CATEGORY_PATCHES_INFO_0_UK NULL
 #define XENIA_GRAPHICS_API_LABEL_UK NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_UK NULL
 #define XENIA_GRAPHICS_API_INFO_0_UK NULL
 #define OPTION_VAL_VULKAN_UK NULL
 #define OPTION_VAL_D3D12_UK NULL
@@ -44135,9 +41532,6 @@ struct retro_core_options_v2 options_tt = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_UK NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_UK NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_UK NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_UK NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_UK NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_UK NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_UK NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_UK NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_UK NULL
@@ -44170,7 +41564,7 @@ struct retro_core_options_v2 options_tt = {
 #define OPTION_VAL_13_UK NULL
 #define OPTION_VAL_14_UK NULL
 #define OPTION_VAL_15_UK NULL
-#define XENIA_WIDESCREEN_LABEL_UK "Співвідношення сторін"
+#define XENIA_WIDESCREEN_LABEL_UK NULL
 #define XENIA_WIDESCREEN_INFO_0_UK NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_UK NULL
 #define OPTION_VAL_DISABLED_UK NULL
@@ -44181,24 +41575,18 @@ struct retro_core_options_v2 options_tt = {
 #define OPTION_VAL_2_XENIA_VIDEO_STANDARD_UK "NTSC-J (Японія)"
 #define OPTION_VAL_3_XENIA_VIDEO_STANDARD_UK NULL
 #define XENIA_DISPLAY_GAMMA_LABEL_UK NULL
-#define XENIA_DISPLAY_GAMMA_LABEL_CAT_UK "Гамма"
+#define XENIA_DISPLAY_GAMMA_LABEL_CAT_UK NULL
 #define XENIA_DISPLAY_GAMMA_INFO_0_UK NULL
 #define OPTION_VAL_0_XENIA_DISPLAY_GAMMA_UK "Лінійна"
 #define OPTION_VAL_1_XENIA_DISPLAY_GAMMA_UK NULL
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_UK NULL
 #define XENIA_AUDIO_ENABLED_LABEL_UK NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_UK NULL
-#define XENIA_MUTE_LABEL_UK NULL
-#define XENIA_MUTE_LABEL_CAT_UK "Вимкнути звук"
-#define XENIA_MUTE_INFO_0_UK NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_UK NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_UK NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_UK NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_UK NULL
 #define OPTION_VAL_STEREO_UK "Cтерео"
 #define OPTION_VAL_5_1_UK NULL
 #define XENIA_XMA_DECODER_LABEL_UK NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_UK NULL
 #define XENIA_XMA_DECODER_INFO_0_UK NULL
 #define OPTION_VAL_NEW_UK NULL
 #define OPTION_VAL_OLD_UK NULL
@@ -44223,15 +41611,7 @@ struct retro_core_options_v2 options_tt = {
 #define OPTION_VAL_70_UK NULL
 #define OPTION_VAL_80_UK NULL
 #define OPTION_VAL_90_UK NULL
-#define OPTION_VAL_100_UK "100% (за замовчуванням)"
-#define XENIA_TIME_SCALAR_LABEL_UK NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_UK NULL
-#define XENIA_TIME_SCALAR_INFO_0_UK NULL
-#define OPTION_VAL_0_25_UK NULL
-#define OPTION_VAL_0_5_UK NULL
-#define OPTION_VAL_1_0_UK NULL
-#define OPTION_VAL_2_0_UK NULL
-#define OPTION_VAL_4_0_UK NULL
+#define OPTION_VAL_100_UK NULL
 #define XENIA_TITLE_UPDATES_LABEL_UK NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_UK NULL
 #define XENIA_TITLE_UPDATES_INFO_0_UK NULL
@@ -44241,13 +41621,13 @@ struct retro_core_options_v2 options_tt = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_UK NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_UK NULL
 #define XENIA_LICENSE_MASK_LABEL_UK NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_UK "Ліцензія"
+#define XENIA_LICENSE_MASK_LABEL_CAT_UK NULL
 #define XENIA_LICENSE_MASK_INFO_0_UK NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_UK "Немає"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_UK "Повна"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_UK "Усі"
 #define XENIA_USER_LANGUAGE_LABEL_UK NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_UK "Мова"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_UK NULL
 #define XENIA_USER_LANGUAGE_INFO_0_UK NULL
 #define OPTION_VAL_ENGLISH_UK "Англійська"
 #define OPTION_VAL_JAPANESE_UK "Японська"
@@ -44284,6 +41664,12 @@ struct retro_core_options_v2 options_tt = {
 #define OPTION_VAL_PORTUGAL_UK NULL
 #define OPTION_VAL_TAIWAN_UK NULL
 #define OPTION_VAL_HONG_KONG_UK NULL
+#define XENIA_LOG_LEVEL_LABEL_UK NULL
+#define XENIA_LOG_LEVEL_INFO_0_UK NULL
+#define OPTION_VAL_ERROR_UK NULL
+#define OPTION_VAL_WARN_UK "Попередження"
+#define OPTION_VAL_INFO_UK "Інформація"
+#define OPTION_VAL_DEBUG_UK NULL
 #define XENIA_PROTECT_ZERO_LABEL_UK NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_UK NULL
 #define XENIA_PROTECT_ZERO_INFO_0_UK NULL
@@ -44344,13 +41730,6 @@ struct retro_core_options_v2 options_tt = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_UK NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_UK NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_UK NULL
-#define XENIA_LOG_LEVEL_LABEL_UK NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_UK NULL
-#define XENIA_LOG_LEVEL_INFO_0_UK NULL
-#define OPTION_VAL_ERROR_UK NULL
-#define OPTION_VAL_WARN_UK "Попередження"
-#define OPTION_VAL_INFO_UK "Інформація"
-#define OPTION_VAL_DEBUG_UK NULL
 
 struct retro_core_option_v2_category option_cats_uk[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_UK,
@@ -44363,8 +41742,6 @@ struct retro_core_option_v2_category option_cats_uk[] = {
       CATEGORY_EMULATION_INFO_0_UK },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_UK,
       CATEGORY_COMPATIBILITY_INFO_0_UK },
-    { "Debug", CATEGORY_DEBUG_LABEL_UK,
-      CATEGORY_DEBUG_INFO_0_UK },
     { "patches", CATEGORY_PATCHES_LABEL_UK,
       CATEGORY_PATCHES_INFO_0_UK },
     { NULL, NULL, NULL }
@@ -44376,7 +41753,7 @@ struct retro_core_option_v2_definition option_defs_uk[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_UK,
-        XENIA_GRAPHICS_API_LABEL_CAT_UK,
+        XENIA_GRAPHICS_API_LABEL_UK,
         XENIA_GRAPHICS_API_INFO_0_UK,
         NULL,
         "Graphics",
@@ -44510,20 +41887,6 @@ struct retro_core_option_v2_definition option_defs_uk[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_UK,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_UK,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_UK,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -44663,23 +42026,9 @@ struct retro_core_option_v2_definition option_defs_uk[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_UK,
-        XENIA_MUTE_LABEL_CAT_UK,
-        XENIA_MUTE_INFO_0_UK,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_UK },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_UK,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_UK,
+        XENIA_AUDIO_CHANNELS_LABEL_UK,
         XENIA_AUDIO_CHANNELS_INFO_0_UK,
         NULL,
         "Audio",
@@ -44693,7 +42042,7 @@ struct retro_core_option_v2_definition option_defs_uk[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_UK,
-        XENIA_XMA_DECODER_LABEL_CAT_UK,
+        XENIA_XMA_DECODER_LABEL_UK,
         XENIA_XMA_DECODER_INFO_0_UK,
         NULL,
         "Audio",
@@ -44755,28 +42104,11 @@ struct retro_core_option_v2_definition option_defs_uk[] = {
             { "100", OPTION_VAL_100_UK },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_UK,
-        XENIA_TIME_SCALAR_LABEL_CAT_UK,
-        XENIA_TIME_SCALAR_INFO_0_UK,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_UK },
-            { "0.5",  OPTION_VAL_0_5_UK },
-            { "1.0",  OPTION_VAL_1_0_UK },
-            { "2.0",  OPTION_VAL_2_0_UK },
-            { "4.0",  OPTION_VAL_4_0_UK },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_UK,
@@ -44819,6 +42151,9 @@ struct retro_core_option_v2_definition option_defs_uk[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_UK,
@@ -44832,7 +42167,7 @@ struct retro_core_option_v2_definition option_defs_uk[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_UK },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -44889,6 +42224,22 @@ struct retro_core_option_v2_definition option_defs_uk[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_UK,
+        XENIA_LOG_LEVEL_LABEL_UK,
+        XENIA_LOG_LEVEL_INFO_0_UK,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_UK },
+            { "warn",  OPTION_VAL_WARN_UK },
+            { "info",  OPTION_VAL_INFO_UK },
+            { "debug", OPTION_VAL_DEBUG_UK },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -45154,22 +42505,6 @@ struct retro_core_option_v2_definition option_defs_uk[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_UK,
-        XENIA_LOG_LEVEL_LABEL_CAT_UK,
-        XENIA_LOG_LEVEL_INFO_0_UK,
-        NULL,
-        OPTION_VAL_DEBUG_UK,
-        {
-            { "error", OPTION_VAL_ERROR_UK },
-            { "warn",  OPTION_VAL_WARN_UK },
-            { "info",  OPTION_VAL_INFO_UK },
-            { "debug", OPTION_VAL_DEBUG_UK },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -45190,12 +42525,9 @@ struct retro_core_options_v2 options_uk = {
 #define CATEGORY_EMULATION_INFO_0_VAL NULL
 #define CATEGORY_COMPATIBILITY_LABEL_VAL NULL
 #define CATEGORY_COMPATIBILITY_INFO_0_VAL NULL
-#define CATEGORY_DEBUG_LABEL_VAL NULL
-#define CATEGORY_DEBUG_INFO_0_VAL NULL
 #define CATEGORY_PATCHES_LABEL_VAL NULL
 #define CATEGORY_PATCHES_INFO_0_VAL NULL
 #define XENIA_GRAPHICS_API_LABEL_VAL NULL
-#define XENIA_GRAPHICS_API_LABEL_CAT_VAL NULL
 #define XENIA_GRAPHICS_API_INFO_0_VAL NULL
 #define OPTION_VAL_VULKAN_VAL NULL
 #define OPTION_VAL_D3D12_VAL NULL
@@ -45236,9 +42568,6 @@ struct retro_core_options_v2 options_uk = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_VAL NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_VAL NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_VAL NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_VAL NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_VAL NULL
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_VAL NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_VAL NULL
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_VAL NULL
 #define XENIA_DISPLAY_REFRESH_INFO_0_VAL NULL
@@ -45271,7 +42600,7 @@ struct retro_core_options_v2 options_uk = {
 #define OPTION_VAL_13_VAL NULL
 #define OPTION_VAL_14_VAL NULL
 #define OPTION_VAL_15_VAL "1920×1080"
-#define XENIA_WIDESCREEN_LABEL_VAL "Relació d'aspecte"
+#define XENIA_WIDESCREEN_LABEL_VAL NULL
 #define XENIA_WIDESCREEN_INFO_0_VAL NULL
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_VAL NULL
 #define OPTION_VAL_DISABLED_VAL NULL
@@ -45289,17 +42618,11 @@ struct retro_core_options_v2 options_uk = {
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_VAL NULL
 #define XENIA_AUDIO_ENABLED_LABEL_VAL NULL
 #define XENIA_AUDIO_ENABLED_INFO_0_VAL NULL
-#define XENIA_MUTE_LABEL_VAL NULL
-#define XENIA_MUTE_LABEL_CAT_VAL "Silenciar"
-#define XENIA_MUTE_INFO_0_VAL NULL
-#define OPTION_VAL_ENABLED_XENIA_MUTE_VAL NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_VAL NULL
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_VAL NULL
 #define XENIA_AUDIO_CHANNELS_INFO_0_VAL NULL
 #define OPTION_VAL_STEREO_VAL NULL
 #define OPTION_VAL_5_1_VAL NULL
 #define XENIA_XMA_DECODER_LABEL_VAL NULL
-#define XENIA_XMA_DECODER_LABEL_CAT_VAL NULL
 #define XENIA_XMA_DECODER_INFO_0_VAL NULL
 #define OPTION_VAL_NEW_VAL NULL
 #define OPTION_VAL_OLD_VAL NULL
@@ -45325,14 +42648,6 @@ struct retro_core_options_v2 options_uk = {
 #define OPTION_VAL_80_VAL NULL
 #define OPTION_VAL_90_VAL NULL
 #define OPTION_VAL_100_VAL NULL
-#define XENIA_TIME_SCALAR_LABEL_VAL NULL
-#define XENIA_TIME_SCALAR_LABEL_CAT_VAL NULL
-#define XENIA_TIME_SCALAR_INFO_0_VAL NULL
-#define OPTION_VAL_0_25_VAL NULL
-#define OPTION_VAL_0_5_VAL NULL
-#define OPTION_VAL_1_0_VAL NULL
-#define OPTION_VAL_2_0_VAL NULL
-#define OPTION_VAL_4_0_VAL NULL
 #define XENIA_TITLE_UPDATES_LABEL_VAL NULL
 #define XENIA_TITLE_UPDATES_LABEL_CAT_VAL NULL
 #define XENIA_TITLE_UPDATES_INFO_0_VAL NULL
@@ -45342,13 +42657,13 @@ struct retro_core_options_v2 options_uk = {
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_VAL NULL
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_VAL NULL
 #define XENIA_LICENSE_MASK_LABEL_VAL NULL
-#define XENIA_LICENSE_MASK_LABEL_CAT_VAL "Llicència"
+#define XENIA_LICENSE_MASK_LABEL_CAT_VAL NULL
 #define XENIA_LICENSE_MASK_INFO_0_VAL NULL
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_VAL "Cap"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_VAL NULL
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_VAL NULL
 #define XENIA_USER_LANGUAGE_LABEL_VAL NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_VAL "Llengua"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_VAL NULL
 #define XENIA_USER_LANGUAGE_INFO_0_VAL NULL
 #define OPTION_VAL_ENGLISH_VAL NULL
 #define OPTION_VAL_JAPANESE_VAL NULL
@@ -45385,6 +42700,12 @@ struct retro_core_options_v2 options_uk = {
 #define OPTION_VAL_PORTUGAL_VAL NULL
 #define OPTION_VAL_TAIWAN_VAL NULL
 #define OPTION_VAL_HONG_KONG_VAL NULL
+#define XENIA_LOG_LEVEL_LABEL_VAL NULL
+#define XENIA_LOG_LEVEL_INFO_0_VAL NULL
+#define OPTION_VAL_ERROR_VAL NULL
+#define OPTION_VAL_WARN_VAL NULL
+#define OPTION_VAL_INFO_VAL "Informació"
+#define OPTION_VAL_DEBUG_VAL NULL
 #define XENIA_PROTECT_ZERO_LABEL_VAL NULL
 #define XENIA_PROTECT_ZERO_LABEL_CAT_VAL NULL
 #define XENIA_PROTECT_ZERO_INFO_0_VAL NULL
@@ -45445,13 +42766,6 @@ struct retro_core_options_v2 options_uk = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_VAL NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_VAL NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_VAL NULL
-#define XENIA_LOG_LEVEL_LABEL_VAL NULL
-#define XENIA_LOG_LEVEL_LABEL_CAT_VAL NULL
-#define XENIA_LOG_LEVEL_INFO_0_VAL NULL
-#define OPTION_VAL_ERROR_VAL NULL
-#define OPTION_VAL_WARN_VAL NULL
-#define OPTION_VAL_INFO_VAL "Informació"
-#define OPTION_VAL_DEBUG_VAL NULL
 
 struct retro_core_option_v2_category option_cats_val[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_VAL,
@@ -45464,8 +42778,6 @@ struct retro_core_option_v2_category option_cats_val[] = {
       CATEGORY_EMULATION_INFO_0_VAL },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_VAL,
       CATEGORY_COMPATIBILITY_INFO_0_VAL },
-    { "Debug", CATEGORY_DEBUG_LABEL_VAL,
-      CATEGORY_DEBUG_INFO_0_VAL },
     { "patches", CATEGORY_PATCHES_LABEL_VAL,
       CATEGORY_PATCHES_INFO_0_VAL },
     { NULL, NULL, NULL }
@@ -45477,7 +42789,7 @@ struct retro_core_option_v2_definition option_defs_val[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_VAL,
-        XENIA_GRAPHICS_API_LABEL_CAT_VAL,
+        XENIA_GRAPHICS_API_LABEL_VAL,
         XENIA_GRAPHICS_API_INFO_0_VAL,
         NULL,
         "Graphics",
@@ -45611,20 +42923,6 @@ struct retro_core_option_v2_definition option_defs_val[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_VAL,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_VAL,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_VAL,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -45764,23 +43062,9 @@ struct retro_core_option_v2_definition option_defs_val[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_VAL,
-        XENIA_MUTE_LABEL_CAT_VAL,
-        XENIA_MUTE_INFO_0_VAL,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_VAL },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_VAL,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_VAL,
+        XENIA_AUDIO_CHANNELS_LABEL_VAL,
         XENIA_AUDIO_CHANNELS_INFO_0_VAL,
         NULL,
         "Audio",
@@ -45794,7 +43078,7 @@ struct retro_core_option_v2_definition option_defs_val[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_VAL,
-        XENIA_XMA_DECODER_LABEL_CAT_VAL,
+        XENIA_XMA_DECODER_LABEL_VAL,
         XENIA_XMA_DECODER_INFO_0_VAL,
         NULL,
         "Audio",
@@ -45856,28 +43140,11 @@ struct retro_core_option_v2_definition option_defs_val[] = {
             { "100", OPTION_VAL_100_VAL },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_VAL,
-        XENIA_TIME_SCALAR_LABEL_CAT_VAL,
-        XENIA_TIME_SCALAR_INFO_0_VAL,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_VAL },
-            { "0.5",  OPTION_VAL_0_5_VAL },
-            { "1.0",  OPTION_VAL_1_0_VAL },
-            { "2.0",  OPTION_VAL_2_0_VAL },
-            { "4.0",  OPTION_VAL_4_0_VAL },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_VAL,
@@ -45920,6 +43187,9 @@ struct retro_core_option_v2_definition option_defs_val[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_VAL,
@@ -45933,7 +43203,7 @@ struct retro_core_option_v2_definition option_defs_val[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_VAL },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -45990,6 +43260,22 @@ struct retro_core_option_v2_definition option_defs_val[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_VAL,
+        XENIA_LOG_LEVEL_LABEL_VAL,
+        XENIA_LOG_LEVEL_INFO_0_VAL,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_VAL },
+            { "warn",  OPTION_VAL_WARN_VAL },
+            { "info",  OPTION_VAL_INFO_VAL },
+            { "debug", OPTION_VAL_DEBUG_VAL },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -46255,22 +43541,6 @@ struct retro_core_option_v2_definition option_defs_val[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_VAL,
-        XENIA_LOG_LEVEL_LABEL_CAT_VAL,
-        XENIA_LOG_LEVEL_INFO_0_VAL,
-        NULL,
-        OPTION_VAL_DEBUG_VAL,
-        {
-            { "error", OPTION_VAL_ERROR_VAL },
-            { "warn",  OPTION_VAL_WARN_VAL },
-            { "info",  OPTION_VAL_INFO_VAL },
-            { "debug", OPTION_VAL_DEBUG_VAL },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
@@ -46288,25 +43558,22 @@ struct retro_core_options_v2 options_val = {
 #define CATEGORY_AUDIO_LABEL_VN "Thiết lập âm thanh"
 #define CATEGORY_AUDIO_INFO_0_VN "Đầu ra âm thanh, bộ giải mã XMA, trình phát nhạc."
 #define CATEGORY_EMULATION_LABEL_VN "Thiết lập mô phỏng"
-#define CATEGORY_EMULATION_INFO_0_VN "Tốc độ, ngôn ngữ, quốc gia, giấy phép, bản vá."
+#define CATEGORY_EMULATION_INFO_0_VN "Tốc độ, ngôn ngữ, quốc gia, giấy phép, bản vá, mức ghi nhật ký."
 #define CATEGORY_COMPATIBILITY_LABEL_VN "Thiết lập tương thích"
 #define CATEGORY_COMPATIBILITY_INFO_0_VN "Các chỉnh sửa riêng cho từng trò chơi, bộ nhớ, các vùng gắn bộ nhớ đệm/bộ nhớ tạm."
-#define CATEGORY_DEBUG_LABEL_VN "Thiết lập gỡ lỗi"
-#define CATEGORY_DEBUG_INFO_0_VN "Mức độ chi tiết của nhật ký."
 #define CATEGORY_PATCHES_LABEL_VN "Trình quản lý bản vá"
 #define CATEGORY_PATCHES_INFO_0_VN "Các bản vá của trò chơi lấy từ bộ bản vá trò chơi của Xenia Edge, dành cho phiên bản này. Thay đổi sẽ có hiệu lực ở lần khởi động tiếp theo."
 #define XENIA_GRAPHICS_API_LABEL_VN "Giao diện lập trình đồ họa (cần khởi động lại)"
-#define XENIA_GRAPHICS_API_LABEL_CAT_VN "Giao diện đồ họa"
 #define XENIA_GRAPHICS_API_INFO_0_VN "Bộ xử lý đồ họa mà Xenia dùng để mô phỏng bộ xử lý đồ họa của Xbox 360 và ngữ cảnh mà lõi yêu cầu RetroArch cung cấp: RetroArch sẽ đổi trình điều khiển đồ họa để phù hợp khi được phép (Cài đặt > Hình ảnh > Đầu ra). Có hiệu lực khi nạp lại nội dung."
 #define OPTION_VAL_VULKAN_VN NULL
 #define OPTION_VAL_D3D12_VN NULL
-#define XENIA_RENDER_TARGET_PATH_LABEL_VN "Phương thức xử lý vùng đích kết xuất"
-#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_VN "Phương thức xử lý vùng đích"
+#define XENIA_RENDER_TARGET_PATH_LABEL_VN "Đường dẫn đích kết xuất (Cần khởi động lại)"
+#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_VN "Đường dẫn kết xuất (Cần khởi động lại)"
 #define XENIA_RENDER_TARGET_PATH_INFO_0_VN "Chọn chế độ mô phỏng vùng đích kết xuất.\nHiệu năng: sử dụng vùng đích kết xuất của máy chủ với chức năng trộn màu cố định.\nĐộ chính xác: đồng bộ loại trừ lẫn nhau trong bộ đổ bóng điểm ảnh / khung nhìn được sắp thứ tự theo bộ raster hóa."
 #define OPTION_VAL_PERFORMANCE_VN "Hiệu năng"
 #define OPTION_VAL_ACCURACY_VN "Độ chính xác"
 #define XENIA_DRAW_RESOLUTION_SCALE_LABEL_VN "Tỷ lệ độ phân giải kết xuất (Cần khởi động lại)"
-#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_VN "Tỷ lệ độ phân giải"
+#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_VN "Tỷ lệ phân giải (Cần khởi động lại)"
 #define XENIA_DRAW_RESOLUTION_SCALE_INFO_0_VN "Điều chỉnh tỷ lệ độ phân giải kết xuất bên trong. Giá trị cao hơn cải thiện chất lượng hình ảnh nhưng đòi hỏi nhiều sức mạnh xử lý đồ họa hơn. Cần khởi động lại."
 #define OPTION_VAL_1_VN "1x (720p gốc)"
 #define OPTION_VAL_2_VN NULL
@@ -46328,8 +43595,8 @@ struct retro_core_options_v2 options_val = {
 #define XENIA_READBACK_RESOLVE_LABEL_VN "Đọc ngược kết quả kết xuất"
 #define XENIA_READBACK_RESOLVE_LABEL_CAT_VN "Đọc ngược"
 #define XENIA_READBACK_RESOLVE_INFO_0_VN "Sao chép kết quả kết xuất vào kết cấu trở lại bộ nhớ RAM của máy được mô phỏng khi bộ xử lý truy cập dữ liệu đó. Tắt tùy chọn này sẽ khiến các trò chơi đọc ngược dữ liệu bị lỗi."
-#define XENIA_STORE_SHADERS_LABEL_VN "Lưu bộ đổ bóng"
-#define XENIA_STORE_SHADERS_LABEL_CAT_VN "Bộ nhớ đệm bộ đổ bóng"
+#define XENIA_STORE_SHADERS_LABEL_VN "Lưu bộ đổ bóng (Cần khởi động lại)"
+#define XENIA_STORE_SHADERS_LABEL_CAT_VN "Bộ nhớ đệm bộ đổ bóng (Cần khởi động lại)"
 #define XENIA_STORE_SHADERS_INFO_0_VN "Lưu lâu dài các bộ đổ bóng đã biên dịch để tránh khựng hình do phải biên dịch lại trong những lần chạy sau."
 #define XENIA_HALF_PIXEL_OFFSET_LABEL_VN "Độ lệch nửa điểm ảnh"
 #define XENIA_HALF_PIXEL_OFFSET_LABEL_CAT_VN "Nửa điểm ảnh"
@@ -46337,16 +43604,13 @@ struct retro_core_options_v2 options_val = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_VN "Cho phép hằng số truy xuất không hợp lệ"
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_VN "Truy xuất không hợp lệ"
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_VN "Cho phép sử dụng các hằng số truy xuất kết cấu/đỉnh có kiểu dữ liệu không hợp lệ. Có thể khắc phục lỗi văng trò chơi trong một số trường hợp nhưng nhìn chung không an toàn."
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_VN "Sai số alpha xấp xỉ (bản sửa lỗi NVIDIA)"
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_VN "Alpha xấp xỉ"
-#define XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_VN "Sử dụng phép so sánh alpha gần đúng để ngăn hiện tượng nhấp nháy trên bộ xử lý đồ họa NVIDIA."
 #define XENIA_DISPLAY_REFRESH_LABEL_VN "Tần số làm mới màn hình được mô phỏng"
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_VN "Tần số quét màn hình"
 #define XENIA_DISPLAY_REFRESH_INFO_0_VN "Tần số quét của TV mà trò chơi nhận diện là màn hình đang kết nối, tương tự tùy chọn của phiên bản chạy độc lập. NTSC (60 Hz) là tần số của máy chơi game. PAL (50 Hz) là TV chuẩn PAL: trò chơi chạy ở tốc độ 50 khung hình mỗi giây. Mở khóa tốc độ khung hình sẽ ghi đè thiết lập này."
 #define OPTION_VAL_60_VN NULL
 #define OPTION_VAL_50_VN NULL
-#define XENIA_WAIT_FOR_FRAME_LABEL_VN "Chờ khung hình của trò chơi"
-#define XENIA_WAIT_FOR_FRAME_INFO_0_VN "Giảm độ trễ đầu vào đi 1 khung hình, nhưng có thể khiến trò chơi chạy chậm hơn."
+#define XENIA_WAIT_FOR_FRAME_LABEL_VN "[Libretro] Chờ khung hình"
+#define XENIA_WAIT_FOR_FRAME_INFO_0_VN "Loại bỏ 1 khung hình độ trễ đầu vào, nhưng có thể khiến trò chơi bị giật. Khuyến nghị dùng với phần cứng mạnh và/hoặc trò chơi nhẹ."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_VN "Mở khóa tốc độ khung hình"
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_VN "Chỉ áp dụng cho các trò chơi có logic không bị ràng buộc với tốc độ khung hình, nếu không trò chơi sẽ chạy quá nhanh. Trò chơi 30 khung hình/giây chạy ở 60: hai chu kỳ làm mới dọc cho mỗi khung hình RetroArch hiển thị. Trò chơi 60 khung hình/giây chạy ở 120: lõi chạy ở tốc độ 120 khung hình mỗi giây (hãy thiết lập RetroArch và màn hình tương ứng). Không giới hạn: chu kỳ làm mới dọc diễn ra nhanh nhất có thể. Trò chơi trong danh sách: tốc độ được quy định trong tệp system/Xenia-Edge/xenia_framerate_unlock.txt sẽ áp dụng cho trò chơi đang chạy nếu trò chơi đó có trong danh sách. Có thể thay đổi thiết lập này khi trò chơi đang chạy."
 #define OPTION_VAL_ENABLED_VN "Trò chơi trong danh sách"
@@ -46354,7 +43618,7 @@ struct retro_core_options_v2 options_val = {
 #define OPTION_VAL_120_VN "Trò chơi 60 khung hình/giây chạy ở 120"
 #define OPTION_VAL_UNCAPPED_VN "Không giới hạn"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_VN "Độ phân giải hiển thị bên trong (cần khởi động lại)"
-#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_VN "Độ phân giải hiển thị"
+#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_VN "Độ phân giải màn hình (Cần khởi động lại)"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_INFO_0_VN "Cho phép các trò chơi hỗ trợ nhiều độ phân giải kết xuất hình ảnh ở một độ phân giải cụ thể. Không phải trò chơi nào cũng hỗ trợ tính năng này."
 #define OPTION_VAL_0_VN NULL
 #define OPTION_VAL_1_XENIA_INTERNAL_DISPLAY_RESOLUTION_VN NULL
@@ -46372,48 +43636,42 @@ struct retro_core_options_v2 options_val = {
 #define OPTION_VAL_13_VN NULL
 #define OPTION_VAL_14_VN NULL
 #define OPTION_VAL_15_VN NULL
-#define XENIA_WIDESCREEN_LABEL_VN "Tỷ lệ khung hình"
+#define XENIA_WIDESCREEN_LABEL_VN "Tỷ lệ khung hình (Cần khởi động lại)"
 #define XENIA_WIDESCREEN_INFO_0_VN "Tỷ lệ khung hình được thiết lập cho máy chơi game và cũng là tỷ lệ hiển thị hình ảnh. Chỉ một số trò chơi Xbox 360 hỗ trợ tỷ lệ 4:3 nguyên bản."
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_VN "16:9 (mặc định)"
 #define OPTION_VAL_DISABLED_VN NULL
-#define XENIA_VIDEO_STANDARD_LABEL_VN "Video tiêu chuẩn"
-#define XENIA_VIDEO_STANDARD_LABEL_CAT_VN "Tín hiệu"
+#define XENIA_VIDEO_STANDARD_LABEL_VN "Chuẩn video (Cần khởi động lại)"
+#define XENIA_VIDEO_STANDARD_LABEL_CAT_VN "Tín hiệu (Cần khởi động lại)"
 #define XENIA_VIDEO_STANDARD_INFO_0_VN "Chọn tiêu chuẩn tín hiệu video. Ảnh hưởng đến việc nhận diện vùng."
 #define OPTION_VAL_1_XENIA_VIDEO_STANDARD_VN NULL
 #define OPTION_VAL_2_XENIA_VIDEO_STANDARD_VN "NTSC-J (Nhật Bản)"
 #define OPTION_VAL_3_XENIA_VIDEO_STANDARD_VN NULL
-#define XENIA_DISPLAY_GAMMA_LABEL_VN "Gamma màn hình"
-#define XENIA_DISPLAY_GAMMA_LABEL_CAT_VN NULL
+#define XENIA_DISPLAY_GAMMA_LABEL_VN "Hiệu chỉnh gamma màn hình (Cần khởi động lại)"
+#define XENIA_DISPLAY_GAMMA_LABEL_CAT_VN "Gamma (Cần khởi động lại)"
 #define XENIA_DISPLAY_GAMMA_INFO_0_VN "Chọn đường cong gamma của màn hình.\nBT.709 (truyền hình độ nét cao) gần với Xbox 360 nhất khi hiển thị trên màn hình hiện đại."
 #define OPTION_VAL_0_XENIA_DISPLAY_GAMMA_VN "Tuyến tính"
 #define OPTION_VAL_1_XENIA_DISPLAY_GAMMA_VN "sRGB (màn hình ống tia âm cực)"
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_VN "BT.709 (truyền hình độ nét cao)"
 #define XENIA_AUDIO_ENABLED_LABEL_VN "Đầu ra âm thanh"
 #define XENIA_AUDIO_ENABLED_INFO_0_VN "Bật hoặc tắt xử lý và xuất âm thanh."
-#define XENIA_MUTE_LABEL_VN "Tắt tiếng"
-#define XENIA_MUTE_LABEL_CAT_VN "Tắt tiếng"
-#define XENIA_MUTE_INFO_0_VN "Tắt toàn bộ âm thanh đầu ra nhưng vẫn duy trì xử lý âm thanh."
-#define OPTION_VAL_ENABLED_XENIA_MUTE_VN "Đã bật (Đã tắt tiếng)"
 #define XENIA_AUDIO_CHANNELS_LABEL_VN "Kênh âm thanh (cần khởi động lại)"
-#define XENIA_AUDIO_CHANNELS_LABEL_CAT_VN "Kênh âm thanh"
 #define XENIA_AUDIO_CHANNELS_INFO_0_VN "Âm thanh nổi: gộp âm thanh 5.1 của máy chơi game xuống hai kênh. Âm thanh vòm 5.1: chuyển cả sáu kênh đến RetroArch, sau đó bố cục đầu ra âm thanh của RetroArch sẽ quyết định cách xuất ra loa hoặc gộp xuống ít kênh hơn. Cần phiên bản RetroArch hỗ trợ xuất âm thanh đa kênh, nếu không sẽ vẫn sử dụng âm thanh nổi."
 #define OPTION_VAL_STEREO_VN NULL
 #define OPTION_VAL_5_1_VN "Âm thanh vòm 5.1"
 #define XENIA_XMA_DECODER_LABEL_VN "Bộ giải mã XMA (Khởi động lại)"
-#define XENIA_XMA_DECODER_LABEL_CAT_VN "Bộ giải mã XMA"
 #define XENIA_XMA_DECODER_INFO_0_VN "Chọn cách triển khai bộ giải mã âm thanh XMA. Hãy thử tùy chọn khác nếu âm thanh bị lỗi trong một trò chơi cụ thể."
 #define OPTION_VAL_NEW_VN "Mới (Mặc định)"
 #define OPTION_VAL_OLD_VN "Cũ"
 #define OPTION_VAL_MASTER_VN "Tổng"
 #define OPTION_VAL_FAKE_VN "Giả lập (Im lặng)"
-#define XENIA_DEDICATED_XMA_THREAD_LABEL_VN "Luồng xử lý XMA riêng"
-#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_VN "Luồng xử lý XMA"
+#define XENIA_DEDICATED_XMA_THREAD_LABEL_VN "Luồng XMA chuyên dụng (Cần khởi động lại)"
+#define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_VN "Luồng XMA (Cần khởi động lại)"
 #define XENIA_DEDICATED_XMA_THREAD_INFO_0_VN "Sử dụng một luồng xử lý riêng để giải mã âm thanh XMA. Có thể cải thiện hiệu suất âm thanh."
 #define XENIA_ENABLE_XMP_LABEL_VN "Trình phát nhạc (XMP)"
 #define XENIA_ENABLE_XMP_LABEL_CAT_VN NULL
 #define XENIA_ENABLE_XMP_INFO_0_VN "Bật trình phát nhạc Xbox để phát nhạc nền."
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_VN "Âm lượng trình phát nhạc"
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_VN "Âm lượng XMP"
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_VN "Âm lượng trình phát nhạc (Cần khởi động lại)"
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_VN "Âm lượng XMP (Cần khởi động lại)"
 #define XENIA_XMP_DEFAULT_VOLUME_INFO_0_VN "Âm lượng nhạc mặc định nếu trò chơi không tự thiết lập."
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_VN NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_VN NULL
@@ -46422,34 +43680,26 @@ struct retro_core_options_v2 options_val = {
 #define OPTION_VAL_40_VN NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_VN NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_VN NULL
-#define OPTION_VAL_70_VN NULL
+#define OPTION_VAL_70_VN "70% (Mặc định)"
 #define OPTION_VAL_80_VN NULL
 #define OPTION_VAL_90_VN NULL
-#define OPTION_VAL_100_VN "100% (Mặc định)"
-#define XENIA_TIME_SCALAR_LABEL_VN "Tốc độ giả lập"
-#define XENIA_TIME_SCALAR_LABEL_CAT_VN "Tốc độ"
-#define XENIA_TIME_SCALAR_INFO_0_VN "Điều chỉnh tốc độ giả lập. 1.0x là tốc độ bình thường."
-#define OPTION_VAL_0_25_VN NULL
-#define OPTION_VAL_0_5_VN NULL
-#define OPTION_VAL_1_0_VN "1.0x (Bình thường)"
-#define OPTION_VAL_2_0_VN NULL
-#define OPTION_VAL_4_0_VN NULL
-#define XENIA_TITLE_UPDATES_LABEL_VN "Áp dụng bản cập nhật trò chơi"
-#define XENIA_TITLE_UPDATES_LABEL_CAT_VN "Bản cập nhật trò chơi"
+#define OPTION_VAL_100_VN NULL
+#define XENIA_TITLE_UPDATES_LABEL_VN "Áp dụng bản cập nhật trò chơi (Cần khởi động lại)"
+#define XENIA_TITLE_UPDATES_LABEL_CAT_VN "Bản cập nhật trò chơi (Cần khởi động lại)"
 #define XENIA_TITLE_UPDATES_INFO_0_VN "Áp dụng các bản vá cập nhật trò chơi nếu có trong thư mục nội dung."
-#define XENIA_APPLY_PATCHES_LABEL_VN "Áp dụng bản vá trò chơi"
-#define XENIA_APPLY_PATCHES_LABEL_CAT_VN "Bản vá"
+#define XENIA_APPLY_PATCHES_LABEL_VN "Áp dụng bản vá trò chơi (Cần khởi động lại)"
+#define XENIA_APPLY_PATCHES_LABEL_CAT_VN "Bản vá (Cần khởi động lại)"
 #define XENIA_APPLY_PATCHES_INFO_0_VN "Bật chức năng áp dụng bản vá tùy chỉnh cho trò chơi."
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_VN "Thông báo hộp thoại"
 #define XENIA_DIALOG_NOTIFICATIONS_INFO_0_VN "Khi trò chơi mở một hộp thoại hệ thống (hộp thông báo có các nút), lõi không có cửa sổ để hiển thị nên sẽ tự trả lời hộp thoại đó, rồi hiển thị tiêu đề hộp thoại và câu trả lời dưới dạng thông báo. Khi tắt, các thông báo này sẽ bị ẩn; hộp thoại vẫn được trả lời như cũ và nhật ký của Xenia vẫn ghi lại chúng."
-#define XENIA_LICENSE_MASK_LABEL_VN "Mặt nạ giấy phép"
-#define XENIA_LICENSE_MASK_LABEL_CAT_VN "Bản quyền"
+#define XENIA_LICENSE_MASK_LABEL_VN "Mặt nạ giấy phép (Cần khởi động lại)"
+#define XENIA_LICENSE_MASK_LABEL_CAT_VN "Giấy phép (Cần khởi động lại)"
 #define XENIA_LICENSE_MASK_INFO_0_VN "Thiết lập mặt nạ giấy phép cho nội dung đã kích hoạt (nội dung tải thêm, phiên bản đầy đủ).\nKhông có: không dùng giấy phép nào. Đầy đủ: giấy phép đầu tiên. Tất cả: mọi giấy phép."
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_VN "Không"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_VN "Toàn bộ"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_VN "Tất cả"
-#define XENIA_USER_LANGUAGE_LABEL_VN "Ngôn ngữ người dùng"
-#define XENIA_USER_LANGUAGE_LABEL_CAT_VN "Ngôn ngữ"
+#define XENIA_USER_LANGUAGE_LABEL_VN "Ngôn ngữ người dùng (Cần khởi động lại)"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_VN "Ngôn ngữ (Cần khởi động lại)"
 #define XENIA_USER_LANGUAGE_INFO_0_VN "Thiết lập ngôn ngữ của máy chơi game được mô phỏng."
 #define OPTION_VAL_ENGLISH_VN "Tiếng Anh"
 #define OPTION_VAL_JAPANESE_VN "Tiếng Nhật"
@@ -46463,8 +43713,8 @@ struct retro_core_options_v2 options_val = {
 #define OPTION_VAL_SCHINESE_VN "Tiếng Trung giản thể"
 #define OPTION_VAL_POLISH_VN "Tiếng Ba Lan"
 #define OPTION_VAL_RUSSIAN_VN "Tiếng Nga"
-#define XENIA_USER_COUNTRY_LABEL_VN "Quốc gia người dùng"
-#define XENIA_USER_COUNTRY_LABEL_CAT_VN "Quốc gia"
+#define XENIA_USER_COUNTRY_LABEL_VN "Quốc gia người dùng (Cần khởi động lại)"
+#define XENIA_USER_COUNTRY_LABEL_CAT_VN "Quốc gia (Cần khởi động lại)"
 #define XENIA_USER_COUNTRY_INFO_0_VN "Thiết lập quốc gia/khu vực của máy chơi game được mô phỏng."
 #define OPTION_VAL_UNITED_STATES_VN "Hoa Kỳ"
 #define OPTION_VAL_GREAT_BRITAIN_VN "Vương quốc Anh"
@@ -46486,31 +43736,37 @@ struct retro_core_options_v2 options_val = {
 #define OPTION_VAL_PORTUGAL_VN "Bồ Đào Nha"
 #define OPTION_VAL_TAIWAN_VN "Đài Loan"
 #define OPTION_VAL_HONG_KONG_VN "Hồng Kông"
-#define XENIA_PROTECT_ZERO_LABEL_VN "Bảo vệ trang số không"
-#define XENIA_PROTECT_ZERO_LABEL_CAT_VN "Bảo vệ số không"
+#define XENIA_LOG_LEVEL_LABEL_VN "Mức độ ghi nhật ký"
+#define XENIA_LOG_LEVEL_INFO_0_VN "Thiết lập mức độ chi tiết của thông tin ghi nhật ký."
+#define OPTION_VAL_ERROR_VN "Chỉ lỗi"
+#define OPTION_VAL_WARN_VN "Cảnh báo"
+#define OPTION_VAL_INFO_VN "Thông tin"
+#define OPTION_VAL_DEBUG_VN "Gỡ lỗi"
+#define XENIA_PROTECT_ZERO_LABEL_VN "Bảo vệ trang bộ nhớ 0 (Cần khởi động lại)"
+#define XENIA_PROTECT_ZERO_LABEL_CAT_VN "Bảo vệ trang 0 (Cần khởi động lại)"
 #define XENIA_PROTECT_ZERO_INFO_0_VN "Bảo vệ trang bộ nhớ số không khỏi các thao tác đọc và ghi. Tắt nếu trò chơi bị lỗi khi khởi động."
 #define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_VN "Làm mới trạng thái trang bộ nhớ đồ họa"
 #define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CAT_VN "Xóa bộ nhớ đệm đồ họa"
 #define XENIA_CLEAR_MEMORY_PAGE_STATE_INFO_0_VN "Làm mới trạng thái các trang bộ nhớ chứa dữ liệu do bộ xử lý đồ họa ghi. Mặc định tắt như ở bản độc lập; một số trò chơi cần bật để hiển thị chính xác (Ridge Racer 6 và các trò chơi khác trong danh sách thiết lập tối ưu của xenia-manager)."
-#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_VN "Tắt tối ưu hóa chuyển ngữ cảnh"
-#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_VN "Không tối ưu chuyển ngữ cảnh"
+#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_VN "Tắt nâng cấp ngữ cảnh (Cần khởi động lại)"
+#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_VN "Tắt nâng cấp ngữ cảnh (Cần khởi động lại)"
 #define XENIA_DISABLE_CONTEXT_PROMOTION_INFO_0_VN "Tắt tối ưu hóa bộ xử lý trung tâm bằng cách chuyển ngữ cảnh. Có thể cần thiết đối với một số trò chơi thể thao, nhưng sẽ làm giảm hiệu năng."
 #define OPTION_VAL_DISABLED_XENIA_DISABLE_CONTEXT_PROMOTION_VN "Đã tắt (Bình thường)"
 #define OPTION_VAL_ENABLED_XENIA_DISABLE_CONTEXT_PROMOTION_VN "Đã bật (Sửa lỗi trò chơi thể thao)"
-#define XENIA_MOUNT_CACHE_LABEL_VN "Gắn phân vùng bộ nhớ đệm"
-#define XENIA_MOUNT_CACHE_LABEL_CAT_VN "Gắn bộ nhớ đệm"
+#define XENIA_MOUNT_CACHE_LABEL_VN "Gắn phân vùng bộ nhớ đệm (Cần khởi động lại)"
+#define XENIA_MOUNT_CACHE_LABEL_CAT_VN "Gắn bộ nhớ đệm (Cần khởi động lại)"
 #define XENIA_MOUNT_CACHE_INFO_0_VN "Bật chức năng gắn phân vùng bộ nhớ đệm. Một số trò chơi yêu cầu tính năng này."
-#define XENIA_MOUNT_SCRATCH_LABEL_VN "Gắn phân vùng bộ nhớ tạm"
-#define XENIA_MOUNT_SCRATCH_LABEL_CAT_VN "Gắn bộ nhớ tạm"
+#define XENIA_MOUNT_SCRATCH_LABEL_VN "Gắn phân vùng lưu trữ tạm (Cần khởi động lại)"
+#define XENIA_MOUNT_SCRATCH_LABEL_CAT_VN "Gắn vùng lưu trữ tạm (Cần khởi động lại)"
 #define XENIA_MOUNT_SCRATCH_INFO_0_VN "Bật chức năng gắn phân vùng bộ nhớ tạm. Một số trò chơi yêu cầu tính năng này."
-#define XENIA_OCCLUSION_QUERY_LABEL_VN "Kiểm tra vật thể bị che khuất"
+#define XENIA_OCCLUSION_QUERY_LABEL_VN "Truy vấn vật thể bị che (Cần khởi động lại)"
 #define XENIA_OCCLUSION_QUERY_INFO_0_VN "Cách xử lý kết quả kiểm tra vật thể bị che khuất (hiệu ứng lóe sáng của ống kính, loại bỏ vật thể không nhìn thấy, tự động điều chỉnh độ phơi sáng). Nhanh (mặc định) yêu cầu bộ xử lý đồ họa trả kết quả mà không chờ; Giả tạo ra kết quả giả; Nhanh thay thế giữ lại các kết quả bằng không đã lưu trong bộ nhớ đệm; Nghiêm ngặt chờ bộ xử lý đồ họa, cho độ chính xác cao nhất."
 #define OPTION_VAL_FAST_VN "Nhanh"
 #define OPTION_VAL_FAKE_XENIA_OCCLUSION_QUERY_VN "Giả"
 #define OPTION_VAL_FAST_ALT_VN "Nhanh-thay thế"
 #define OPTION_VAL_STRICT_VN "Nghiêm ngặt"
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_VN "Bộ đếm đầy đủ khi kiểm tra vật thể bị che khuất"
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_VN "Bộ đếm đầy đủ"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_VN "Truy vấn vật thể bị che với bộ đếm đầy đủ (Cần khởi động lại)"
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_VN "Bộ đếm đầy đủ (Cần khởi động lại)"
 #define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_INFO_0_VN "Mô phỏng các bộ đếm ZFail, StencilFail và Total trong bộ đổ bóng. Một số trò chơi cần các bộ đếm này; việc mô phỏng sẽ làm giảm hiệu năng."
 #define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_VN "Ngưỡng dưới của giá trị che khuất giả"
 #define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CAT_VN "Giá trị giả thấp"
@@ -46528,8 +43784,8 @@ struct retro_core_options_v2 options_val = {
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_VN "Cho phép phạm vi tải dữ liệu không hợp lệ"
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CAT_VN "Tải dữ liệu không hợp lệ"
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_INFO_0_VN "Cho phép trò chơi đọc dữ liệu từ các trang bộ nhớ được đánh dấu là không có quyền truy cập."
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_VN "Vùng đích kết xuất gamma dạng UNORM16"
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_VN NULL
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_VN "Đích kết xuất gamma dưới dạng UNORM16 (Cần khởi động lại)"
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_VN "Gamma UNORM16 (Cần khởi động lại)"
 #define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_VN "Mô phỏng vùng đích kết xuất gamma bằng 16 bit cho mỗi thành phần màu khi hệ thống chủ không hỗ trợ gamma từng đoạn 8 bit. Tắt nếu màu sắc trong trò chơi hiển thị sai."
 #define XENIA_FORCE_DEPTH_CLAMP_LABEL_VN "Buộc giới hạn độ sâu"
 #define XENIA_FORCE_DEPTH_CLAMP_LABEL_CAT_VN "Giới hạn độ sâu"
@@ -46537,8 +43793,8 @@ struct retro_core_options_v2 options_val = {
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_VN "Bỏ qua độ lệch đối với các vùng cấp phát theo phạm vi"
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CAT_VN "Phân bổ bộ nhớ theo dải địa chỉ"
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_INFO_0_VN "Bỏ qua độ lệch 4 KB đối với các vùng bộ nhớ vật lý được cấp phát có chỉ định dải địa chỉ. Cần thiết cho một số ít trò chơi."
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_VN "Dừng khi gặp lệnh chưa được triển khai"
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_VN "Dừng khi gặp lệnh chưa hỗ trợ"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_VN "Dừng khi gặp lệnh chưa được triển khai (Cần khởi động lại)"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_VN "Dừng khi gặp lệnh chưa được triển khai (Cần khởi động lại)"
 #define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_VN "Dừng khi trò chơi thực thi một lệnh CPU mà Xenia chưa hỗ trợ. Trong lõi, thao tác này sẽ khiến RetroArch kết thúc; hãy tắt để cho phép những trò chơi như vậy tiếp tục chạy."
 #define XENIA_SCRIBBLE_HEAP_LABEL_VN "Điền giá trị vào vùng nhớ đệm"
 #define XENIA_SCRIBBLE_HEAP_INFO_0_VN "Điền một giá trị vào vùng bộ nhớ đệm vừa được cấp phát, dành cho những trò chơi phụ thuộc vào dữ liệu còn sót lại trong vùng nhớ đó."
@@ -46546,13 +43802,6 @@ struct retro_core_options_v2 options_val = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_VN "Giá trị điền"
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_VN "Giá trị được dùng để điền vào bộ nhớ khi bật Điền giá trị vào vùng nhớ đệm. Giá trị 0 có nghĩa là ngẫu nhiên."
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_VN "0 (ngẫu nhiên)"
-#define XENIA_LOG_LEVEL_LABEL_VN "Mức độ ghi nhật ký"
-#define XENIA_LOG_LEVEL_LABEL_CAT_VN "Mức độ"
-#define XENIA_LOG_LEVEL_INFO_0_VN "Thiết lập mức độ chi tiết của thông tin ghi nhật ký."
-#define OPTION_VAL_ERROR_VN "Chỉ lỗi"
-#define OPTION_VAL_WARN_VN "Cảnh báo"
-#define OPTION_VAL_INFO_VN "Thông tin"
-#define OPTION_VAL_DEBUG_VN "Gỡ lỗi"
 
 struct retro_core_option_v2_category option_cats_vn[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_VN,
@@ -46565,8 +43814,6 @@ struct retro_core_option_v2_category option_cats_vn[] = {
       CATEGORY_EMULATION_INFO_0_VN },
     { "Compatibility", CATEGORY_COMPATIBILITY_LABEL_VN,
       CATEGORY_COMPATIBILITY_INFO_0_VN },
-    { "Debug", CATEGORY_DEBUG_LABEL_VN,
-      CATEGORY_DEBUG_INFO_0_VN },
     { "patches", CATEGORY_PATCHES_LABEL_VN,
       CATEGORY_PATCHES_INFO_0_VN },
     { NULL, NULL, NULL }
@@ -46578,7 +43825,7 @@ struct retro_core_option_v2_definition option_defs_vn[] = {
     {
         "xenia_graphics_api",
         XENIA_GRAPHICS_API_LABEL_VN,
-        XENIA_GRAPHICS_API_LABEL_CAT_VN,
+        XENIA_GRAPHICS_API_LABEL_VN,
         XENIA_GRAPHICS_API_INFO_0_VN,
         NULL,
         "Graphics",
@@ -46712,20 +43959,6 @@ struct retro_core_option_v2_definition option_defs_vn[] = {
             { NULL, NULL }
         },
         "enabled"
-    },
-    {
-        "xenia_use_fuzzy_alpha_epsilon",
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_VN,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_LABEL_CAT_VN,
-        XENIA_USE_FUZZY_ALPHA_EPSILON_INFO_0_VN,
-        NULL,
-        "Graphics",
-        {
-            { "disabled", NULL },
-            { "enabled", NULL },
-            { NULL, NULL }
-        },
-        "disabled"
     },
     {
         "xenia_display_refresh",
@@ -46865,23 +44098,9 @@ struct retro_core_option_v2_definition option_defs_vn[] = {
         "enabled"
     },
     {
-        "xenia_mute",
-        XENIA_MUTE_LABEL_VN,
-        XENIA_MUTE_LABEL_CAT_VN,
-        XENIA_MUTE_INFO_0_VN,
-        NULL,
-        "Audio",
-        {
-            { "disabled", NULL },
-            { "enabled",  OPTION_VAL_ENABLED_XENIA_MUTE_VN },
-            { NULL, NULL }
-        },
-        "disabled"
-    },
-    {
         "xenia_audio_channels",
         XENIA_AUDIO_CHANNELS_LABEL_VN,
-        XENIA_AUDIO_CHANNELS_LABEL_CAT_VN,
+        XENIA_AUDIO_CHANNELS_LABEL_VN,
         XENIA_AUDIO_CHANNELS_INFO_0_VN,
         NULL,
         "Audio",
@@ -46895,7 +44114,7 @@ struct retro_core_option_v2_definition option_defs_vn[] = {
     {
         "xenia_xma_decoder",
         XENIA_XMA_DECODER_LABEL_VN,
-        XENIA_XMA_DECODER_LABEL_CAT_VN,
+        XENIA_XMA_DECODER_LABEL_VN,
         XENIA_XMA_DECODER_INFO_0_VN,
         NULL,
         "Audio",
@@ -46957,28 +44176,11 @@ struct retro_core_option_v2_definition option_defs_vn[] = {
             { "100", OPTION_VAL_100_VN },
             { NULL, NULL }
         },
-        "100"
+        "70"
     },
     /* ================================================================ */
     /* --- Emulation ---                                                 */
     /* ================================================================ */
-    {
-        "xenia_time_scalar",
-        XENIA_TIME_SCALAR_LABEL_VN,
-        XENIA_TIME_SCALAR_LABEL_CAT_VN,
-        XENIA_TIME_SCALAR_INFO_0_VN,
-        NULL,
-        "Emulation",
-        {
-            { "0.25", OPTION_VAL_0_25_VN },
-            { "0.5",  OPTION_VAL_0_5_VN },
-            { "1.0",  OPTION_VAL_1_0_VN },
-            { "2.0",  OPTION_VAL_2_0_VN },
-            { "4.0",  OPTION_VAL_4_0_VN },
-            { NULL, NULL }
-        },
-        "1.0"
-    },
     {
         "xenia_title_updates",
         XENIA_TITLE_UPDATES_LABEL_VN,
@@ -47021,6 +44223,9 @@ struct retro_core_option_v2_definition option_defs_vn[] = {
         },
         "enabled"
     },
+    /* Full, where standalone's default is None: Xenia's own description calls the first license
+     * generally the full version of an Xbox Live Arcade title, which otherwise runs as its trial;
+     * discs are not affected (NNshi) */
     {
         "xenia_license_mask",
         XENIA_LICENSE_MASK_LABEL_VN,
@@ -47034,7 +44239,7 @@ struct retro_core_option_v2_definition option_defs_vn[] = {
             { "-1", OPTION_VAL_1_XENIA_LICENSE_MASK_0_VN },
             { NULL, NULL }
         },
-        "0"
+        "1"
     },
     {
         "xenia_user_language",
@@ -47091,6 +44296,22 @@ struct retro_core_option_v2_definition option_defs_vn[] = {
             { NULL, NULL }
         },
         "United States"
+    },
+    {
+        "xenia_log_level",
+        XENIA_LOG_LEVEL_LABEL_VN,
+        XENIA_LOG_LEVEL_LABEL_VN,
+        XENIA_LOG_LEVEL_INFO_0_VN,
+        NULL,
+        "Emulation",
+        {
+            { "error", OPTION_VAL_ERROR_VN },
+            { "warn",  OPTION_VAL_WARN_VN },
+            { "info",  OPTION_VAL_INFO_VN },
+            { "debug", OPTION_VAL_DEBUG_VN },
+            { NULL, NULL }
+        },
+        "info"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -47356,22 +44577,6 @@ struct retro_core_option_v2_definition option_defs_vn[] = {
     /* ================================================================ */
     /* --- Debug ---                                                     */
     /* ================================================================ */
-    {
-        "xenia_log_level",
-        XENIA_LOG_LEVEL_LABEL_VN,
-        XENIA_LOG_LEVEL_LABEL_CAT_VN,
-        XENIA_LOG_LEVEL_INFO_0_VN,
-        NULL,
-        OPTION_VAL_DEBUG_VN,
-        {
-            { "error", OPTION_VAL_ERROR_VN },
-            { "warn",  OPTION_VAL_WARN_VN },
-            { "info",  OPTION_VAL_INFO_VN },
-            { "debug", OPTION_VAL_DEBUG_VN },
-            { NULL, NULL }
-        },
-        "info"
-    },
     /* Terminator */
     { NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL }
 };
