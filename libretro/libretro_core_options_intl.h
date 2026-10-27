@@ -4189,23 +4189,23 @@ struct retro_core_options_v2 options_bg = {
 #define CATEGORY_VIDEO_INFO_0_CA NULL
 #define CATEGORY_AUDIO_LABEL_CA "Configuració d'àudio"
 #define CATEGORY_AUDIO_INFO_0_CA NULL
-#define CATEGORY_EMULATION_LABEL_CA NULL
+#define CATEGORY_EMULATION_LABEL_CA "Opcions de l'emulació"
 #define CATEGORY_EMULATION_INFO_0_CA NULL
 #define CATEGORY_COMPATIBILITY_LABEL_CA "Configuració de compatibilitat"
 #define CATEGORY_COMPATIBILITY_INFO_0_CA NULL
 #define CATEGORY_PATCHES_LABEL_CA "Administrador de correccions"
 #define CATEGORY_PATCHES_INFO_0_CA NULL
 #define XENIA_GRAPHICS_API_LABEL_CA "API de gràfics (Cal reiniciar)"
-#define XENIA_GRAPHICS_API_INFO_0_CA NULL
+#define XENIA_GRAPHICS_API_INFO_0_CA "El *backend* de GPU de Xenia emula la GPU de l'Xbox 360, i el nucli sol·licita el context corresponent a RetroArch; RetroArch canvia el seu controlador de vídeo per adaptar-s'hi, sempre que sigui possible (Configuració > Vídeo > Sortida). Aquest canvi s'aplica quan es torna a carregar el contingut."
 #define OPTION_VAL_VULKAN_CA NULL
 #define OPTION_VAL_D3D12_CA NULL
-#define XENIA_RENDER_TARGET_PATH_LABEL_CA NULL
+#define XENIA_RENDER_TARGET_PATH_LABEL_CA "Ruta de destinació del renderitzat (Cal reiniciar)"
 #define XENIA_RENDER_TARGET_PATH_LABEL_CAT_CA "RT Path (Cal reiniciar)"
-#define XENIA_RENDER_TARGET_PATH_INFO_0_CA NULL
+#define XENIA_RENDER_TARGET_PATH_INFO_0_CA "Seleccioneu el mode d'emulació de destinacions de renderització.\nRendiment: destinacions de renderització de l'amfitrió amb mescla de funció fixa.\nPrecisió: bloqueig de *pixel shaders* / vistes ordenades pel rasteritzador."
 #define OPTION_VAL_PERFORMANCE_CA "Rendiment"
 #define OPTION_VAL_ACCURACY_CA "Precisió"
 #define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CA NULL
-#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_CA NULL
+#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_CA "Escala de resolució (Cal reiniciar)"
 #define XENIA_DRAW_RESOLUTION_SCALE_INFO_0_CA NULL
 #define OPTION_VAL_1_CA "1x (Natiu 720p)"
 #define OPTION_VAL_2_CA NULL
@@ -4221,13 +4221,13 @@ struct retro_core_options_v2 options_bg = {
 #define OPTION_VAL_1_XENIA_ANISOTROPIC_FILTERING_CA "Per defecte (Joc)"
 #define OPTION_VAL_1_XENIA_ANISOTROPIC_FILTERING_0_CA NULL
 #define OPTION_VAL_4_XENIA_ANISOTROPIC_FILTERING_CA NULL
-#define XENIA_ASYNC_SHADER_COMPILATION_LABEL_CA NULL
+#define XENIA_ASYNC_SHADER_COMPILATION_LABEL_CA "Compilació asíncrona de shaders"
 #define XENIA_ASYNC_SHADER_COMPILATION_LABEL_CAT_CA "Shaders asíncrons"
 #define XENIA_ASYNC_SHADER_COMPILATION_INFO_0_CA NULL
 #define XENIA_READBACK_RESOLVE_LABEL_CA "Resol la verificació de lectura"
 #define XENIA_READBACK_RESOLVE_LABEL_CAT_CA "Verificació"
 #define XENIA_READBACK_RESOLVE_INFO_0_CA NULL
-#define XENIA_STORE_SHADERS_LABEL_CA NULL
+#define XENIA_STORE_SHADERS_LABEL_CA "Emmagatzema Shaders (Cal reiniciar)"
 #define XENIA_STORE_SHADERS_LABEL_CAT_CA "Memòria cau de shaders (Cal reiniciar)"
 #define XENIA_STORE_SHADERS_INFO_0_CA NULL
 #define XENIA_HALF_PIXEL_OFFSET_LABEL_CA "Desplaçament de mig píxel"
@@ -4236,21 +4236,21 @@ struct retro_core_options_v2 options_bg = {
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CA NULL
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_CA "Captures no vàlides"
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_CA NULL
-#define XENIA_DISPLAY_REFRESH_LABEL_CA NULL
-#define XENIA_DISPLAY_REFRESH_LABEL_CAT_CA NULL
-#define XENIA_DISPLAY_REFRESH_INFO_0_CA NULL
+#define XENIA_DISPLAY_REFRESH_LABEL_CA "Emula la freqüència d'actualització del monitor"
+#define XENIA_DISPLAY_REFRESH_LABEL_CAT_CA "Mostra la freqüència d'actualització"
+#define XENIA_DISPLAY_REFRESH_INFO_0_CA "La freqüència de refresc del televisor en què el joc «creu» que s'està executant (una opció disponible en la versió autònoma). NTSC (60 Hz) correspon a la consola; PAL (50 Hz) correspon a un televisor PAL: els jocs funcionen a 50 fotogrames per segon. L'opció «Unlock Framerate» (desbloqueig de la taxa de fotogrames) anul·la aquest paràmetre."
 #define OPTION_VAL_60_CA "NTSC (60 Hz)"
 #define OPTION_VAL_50_CA "PAL (50 Hz)"
-#define XENIA_WAIT_FOR_FRAME_LABEL_CA NULL
-#define XENIA_WAIT_FOR_FRAME_INFO_0_CA NULL
+#define XENIA_WAIT_FOR_FRAME_LABEL_CA "[Llibret] Espera de fotograma"
+#define XENIA_WAIT_FOR_FRAME_INFO_0_CA "Elimina 1 fotograma de retard d'entrada, a costa, possiblement, que el joc pateixi petits salts. Recomanat per a maquinari potent i/o jocs lleugers."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_CA "Desbloqueja la taxa de fotogrames"
-#define XENIA_UNLOCK_FRAMERATE_INFO_0_CA NULL
+#define XENIA_UNLOCK_FRAMERATE_INFO_0_CA "Només per a jocs la lògica dels quals no està lligada a la taxa de fotogrames; en cas contrari, funcionen massa ràpid. Jocs a 30 fps executats a 60: dos intervals de supressió vertical (*vblanks*) per cada fotograma que mostra RetroArch. Jocs a 60 fps executats a 120: el nucli funciona a 120 fotogrames per segon (cal configurar RetroArch i la pantalla per a això). Sense límit (*uncapped*): intervals de supressió vertical tan ràpids com sigui possible. Jocs llistats: el sistema de taxes de Xenia-Edge (especificat a `xenia_framerate_unlock.txt`) s'aplica al joc en execució, si hi apareix. Es pot modificar mentre el joc està en marxa."
 #define OPTION_VAL_ENABLED_CA "Jocs de la llista"
-#define OPTION_VAL_30TO60_CA NULL
-#define OPTION_VAL_120_CA NULL
+#define OPTION_VAL_30TO60_CA "Jocs de 30 fps a 60 fps"
+#define OPTION_VAL_120_CA "Jocs de 60 fps a 120 fps"
 #define OPTION_VAL_UNCAPPED_CA "Sense límit"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CA NULL
-#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_CA NULL
+#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_CA "Mostra la resolució (Cal reiniciar)"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_INFO_0_CA NULL
 #define OPTION_VAL_0_CA "640×480"
 #define OPTION_VAL_1_XENIA_INTERNAL_DISPLAY_RESOLUTION_CA NULL
@@ -4260,7 +4260,7 @@ struct retro_core_options_v2 options_bg = {
 #define OPTION_VAL_5_XENIA_INTERNAL_DISPLAY_RESOLUTION_CA NULL
 #define OPTION_VAL_6_XENIA_INTERNAL_DISPLAY_RESOLUTION_CA "1024×768"
 #define OPTION_VAL_7_XENIA_INTERNAL_DISPLAY_RESOLUTION_CA NULL
-#define OPTION_VAL_8_XENIA_INTERNAL_DISPLAY_RESOLUTION_CA NULL
+#define OPTION_VAL_8_XENIA_INTERNAL_DISPLAY_RESOLUTION_CA "1280x720 (Per defecte)"
 #define OPTION_VAL_9_CA NULL
 #define OPTION_VAL_10_CA NULL
 #define OPTION_VAL_11_CA NULL
@@ -4269,10 +4269,10 @@ struct retro_core_options_v2 options_bg = {
 #define OPTION_VAL_14_CA NULL
 #define OPTION_VAL_15_CA "1920×1080"
 #define XENIA_WIDESCREEN_LABEL_CA "Relació d'aspecte (Cal reiniciar)"
-#define XENIA_WIDESCREEN_INFO_0_CA NULL
+#define XENIA_WIDESCREEN_INFO_0_CA "La relació d'aspecte configurada a la consola i aquella en què es mostra la imatge. Només alguns jocs d'Xbox 360 ofereixen compatibilitat nativa amb el format 4:3."
 #define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_CA "16:9 (Per defecte)"
 #define OPTION_VAL_DISABLED_CA NULL
-#define XENIA_VIDEO_STANDARD_LABEL_CA NULL
+#define XENIA_VIDEO_STANDARD_LABEL_CA "Vídeo estàndard (Cal reiniciar)"
 #define XENIA_VIDEO_STANDARD_LABEL_CAT_CA "Senyal (Cal reiniciar)"
 #define XENIA_VIDEO_STANDARD_INFO_0_CA NULL
 #define OPTION_VAL_1_XENIA_VIDEO_STANDARD_CA NULL
@@ -4287,7 +4287,7 @@ struct retro_core_options_v2 options_bg = {
 #define XENIA_AUDIO_ENABLED_LABEL_CA "Sortida d’Àudio"
 #define XENIA_AUDIO_ENABLED_INFO_0_CA NULL
 #define XENIA_AUDIO_CHANNELS_LABEL_CA "Canals d'àudio (Reiniciar)"
-#define XENIA_AUDIO_CHANNELS_INFO_0_CA NULL
+#define XENIA_AUDIO_CHANNELS_INFO_0_CA "Estèreo: el sistema 5.1 de la consola es redueix a dos canals. Surround 5.1: els sis canals es transmeten a RetroArch, la configuració de sortida d'àudio del qual determina si s'envien als altaveus o si es redueixen a menys canals. Requereix una versió de RetroArch amb sortida d'àudio multicanal; en cas contrari, es manté en estèreo."
 #define OPTION_VAL_STEREO_CA "Estèreo"
 #define OPTION_VAL_5_1_CA NULL
 #define XENIA_XMA_DECODER_LABEL_CA "Decodificador XMA (Cal reiniciar)"
@@ -4299,10 +4299,10 @@ struct retro_core_options_v2 options_bg = {
 #define XENIA_DEDICATED_XMA_THREAD_LABEL_CA NULL
 #define XENIA_DEDICATED_XMA_THREAD_LABEL_CAT_CA "Fil XMA (Cal reiniciar)"
 #define XENIA_DEDICATED_XMA_THREAD_INFO_0_CA NULL
-#define XENIA_ENABLE_XMP_LABEL_CA NULL
+#define XENIA_ENABLE_XMP_LABEL_CA "Reproductor de so (XMP)"
 #define XENIA_ENABLE_XMP_LABEL_CAT_CA NULL
 #define XENIA_ENABLE_XMP_INFO_0_CA NULL
-#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CA NULL
+#define XENIA_XMP_DEFAULT_VOLUME_LABEL_CA "Volum del reproductor de música (Cal reiniciar)"
 #define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_CA "Volum XMP (Cal reiniciar)"
 #define XENIA_XMP_DEFAULT_VOLUME_INFO_0_CA NULL
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_CA NULL
@@ -4316,14 +4316,14 @@ struct retro_core_options_v2 options_bg = {
 #define OPTION_VAL_80_CA NULL
 #define OPTION_VAL_90_CA NULL
 #define OPTION_VAL_100_CA NULL
-#define XENIA_TITLE_UPDATES_LABEL_CA NULL
+#define XENIA_TITLE_UPDATES_LABEL_CA "Aplica l'actualització de títols (Cal reiniciar)"
 #define XENIA_TITLE_UPDATES_LABEL_CAT_CA "Refresca títols (Cal reiniciar)"
 #define XENIA_TITLE_UPDATES_INFO_0_CA NULL
-#define XENIA_APPLY_PATCHES_LABEL_CA NULL
+#define XENIA_APPLY_PATCHES_LABEL_CA "Aplica les correccions de joc (Cal reiniciar)"
 #define XENIA_APPLY_PATCHES_LABEL_CAT_CA "Correccions (Cal reiniciar)"
 #define XENIA_APPLY_PATCHES_INFO_0_CA NULL
-#define XENIA_DIALOG_NOTIFICATIONS_LABEL_CA NULL
-#define XENIA_DIALOG_NOTIFICATIONS_INFO_0_CA NULL
+#define XENIA_DIALOG_NOTIFICATIONS_LABEL_CA "Notificacions de diàleg"
+#define XENIA_DIALOG_NOTIFICATIONS_INFO_0_CA "Un diàleg del sistema que obre un joc (una finestra de missatge amb botons) no té una finestra pròpiament dita al nucli; per tant, el nucli respon al diàleg i mostra el seu títol, així com la resposta donada, en forma de notificació. L'opció de desactivació amaga aquestes notificacions; els diàlegs es continuen responent de la mateixa manera i el registre de Xenia continua deixant constància d'ells."
 #define XENIA_LICENSE_MASK_LABEL_CA "Màscara de llicència (Cal reiniciar)"
 #define XENIA_LICENSE_MASK_LABEL_CAT_CA "Llicència (Cal reiniciar)"
 #define XENIA_LICENSE_MASK_INFO_0_CA NULL
@@ -4332,7 +4332,7 @@ struct retro_core_options_v2 options_bg = {
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_CA "Tots"
 #define XENIA_USER_LANGUAGE_LABEL_CA "Llengua de l'usuari (Cal reiniciar)"
 #define XENIA_USER_LANGUAGE_LABEL_CAT_CA "Llengua (Cal reiniciar)"
-#define XENIA_USER_LANGUAGE_INFO_0_CA NULL
+#define XENIA_USER_LANGUAGE_INFO_0_CA "Estableix l'idioma emulat de la consola."
 #define OPTION_VAL_ENGLISH_CA "Anglès"
 #define OPTION_VAL_JAPANESE_CA "Japonès"
 #define OPTION_VAL_GERMAN_CA "Alemany"
@@ -4340,9 +4340,9 @@ struct retro_core_options_v2 options_bg = {
 #define OPTION_VAL_SPANISH_CA "Espanyol"
 #define OPTION_VAL_ITALIAN_CA "Italià"
 #define OPTION_VAL_KOREAN_CA "Coreà"
-#define OPTION_VAL_TCHINESE_CA NULL
+#define OPTION_VAL_TCHINESE_CA "Xinès tradicional"
 #define OPTION_VAL_PORTUGUESE_CA "Portuguès"
-#define OPTION_VAL_SCHINESE_CA NULL
+#define OPTION_VAL_SCHINESE_CA "Xinès simplificat"
 #define OPTION_VAL_POLISH_CA "Polonès"
 #define OPTION_VAL_RUSSIAN_CA "Rus"
 #define XENIA_USER_COUNTRY_LABEL_CA "País de l'usuari (Cal reiniciar)"
@@ -4374,63 +4374,63 @@ struct retro_core_options_v2 options_bg = {
 #define OPTION_VAL_WARN_CA "Advertència"
 #define OPTION_VAL_INFO_CA "Informació"
 #define OPTION_VAL_DEBUG_CA "Depurador"
-#define XENIA_PROTECT_ZERO_LABEL_CA NULL
-#define XENIA_PROTECT_ZERO_LABEL_CAT_CA NULL
+#define XENIA_PROTECT_ZERO_LABEL_CA "Protect Zero Page (Cal reiniciar)"
+#define XENIA_PROTECT_ZERO_LABEL_CAT_CA "Protect Zero (Cal reiniciar)"
 #define XENIA_PROTECT_ZERO_INFO_0_CA NULL
-#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CA NULL
+#define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CA "Neteja l'estat de la pàgina de memòria de la targeta gràfica"
 #define XENIA_CLEAR_MEMORY_PAGE_STATE_LABEL_CAT_CA "Neteja la memòria intermèdia de la targeta gràfica"
-#define XENIA_CLEAR_MEMORY_PAGE_STATE_INFO_0_CA NULL
+#define XENIA_CLEAR_MEMORY_PAGE_STATE_INFO_0_CA "Actualitza l'estat de les pàgines de memòria per a les dades escrites per la GPU. Desactivat per defecte, tal com passa en la versió autònoma; alguns jocs necessiten que estigui activat per renderitzar-se correctament (Ridge Racer 6 i altres títols que figuren a la llista de configuracions optimitzades de xenia-manager)."
 #define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CA NULL
-#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_CA NULL
+#define XENIA_DISABLE_CONTEXT_PROMOTION_LABEL_CAT_CA "Sense promoció Ctx (Cal reiniciar)"
 #define XENIA_DISABLE_CONTEXT_PROMOTION_INFO_0_CA NULL
 #define OPTION_VAL_DISABLED_XENIA_DISABLE_CONTEXT_PROMOTION_CA "Desactivat (Normal)"
-#define OPTION_VAL_ENABLED_XENIA_DISABLE_CONTEXT_PROMOTION_CA NULL
+#define OPTION_VAL_ENABLED_XENIA_DISABLE_CONTEXT_PROMOTION_CA "Habilitat (Sports Fix)"
 #define XENIA_MOUNT_CACHE_LABEL_CA NULL
 #define XENIA_MOUNT_CACHE_LABEL_CAT_CA "Memòria cau Mount (Cal reiniciar)"
 #define XENIA_MOUNT_CACHE_INFO_0_CA NULL
 #define XENIA_MOUNT_SCRATCH_LABEL_CA NULL
-#define XENIA_MOUNT_SCRATCH_LABEL_CAT_CA NULL
+#define XENIA_MOUNT_SCRATCH_LABEL_CAT_CA "Muntatge des de zero (Cal reiniciar)"
 #define XENIA_MOUNT_SCRATCH_INFO_0_CA NULL
-#define XENIA_OCCLUSION_QUERY_LABEL_CA NULL
-#define XENIA_OCCLUSION_QUERY_INFO_0_CA NULL
+#define XENIA_OCCLUSION_QUERY_LABEL_CA "Consulta d'oclusió (Cal reiniciar)"
+#define XENIA_OCCLUSION_QUERY_INFO_0_CA "Com es resolen les consultes d'oclusió (per a efectes com els reflexos de lent, el *culling* o l'exposició automàtica). «Fast» (opció per defecte) consulta la GPU sense esperar; «Fake» genera un resultat fictici; «Fast-alt» manté resultats zero a la memòria cau; «Strict» espera la GPU i és l'opció més precisa."
 #define OPTION_VAL_FAST_CA "Ràpida"
 #define OPTION_VAL_FAKE_XENIA_OCCLUSION_QUERY_CA "Fals"
 #define OPTION_VAL_FAST_ALT_CA NULL
 #define OPTION_VAL_STRICT_CA "Estricte"
 #define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CA NULL
-#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_CA NULL
+#define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_CA "Comptadors complets (Cal reiniciar)"
 #define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_INFO_0_CA NULL
 #define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CA NULL
 #define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CAT_CA "Llindar inferior"
-#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_INFO_0_CA NULL
+#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_INFO_0_CA "Valor mínim del recompte de mostres simulat que s'escriu quan les consultes d'oclusió se simulen. Amb -1 no s'escriu res (fet que provoca que alguns jocs es quedin esperant indefinidament)."
 #define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_CA NULL
 #define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_CAT_CA "Llindar superior"
 #define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_INFO_0_CA NULL
-#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_CA NULL
+#define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_CA "Biaix de profunditat mitjançant shader"
 #define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_CAT_CA "Shader de biaix de profunditat"
-#define XENIA_DEPTH_BIAS_SHADER_OFFSET_INFO_0_CA NULL
+#define XENIA_DEPTH_BIAS_SHADER_OFFSET_INFO_0_CA "Els adhesius de ruta es dibuixen amb un desplaçament de polígon a través del shader en lloc del biaix de profunditat de l'amfitrió. Corregeix els adhesius que lluitaven contra la línia z en alguns jocs."
 #define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_CA "Llindar d'escala de resolució"
 #define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_CAT_CA "Llindar d'escala"
-#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_INFO_0_CA NULL
+#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_INFO_0_CA "Els objectius de renderització amb una alçada igual o inferior a aquest valor (en píxels) no s'amplien mitjançant l'escala de resolució. Això corregeix certs efectes que es fan malbé en escalar-se."
 #define OPTION_VAL_0_XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_CA "0 (escala-ho tot)"
-#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CA NULL
+#define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CA "Permetre un rang de càrrega no vàlid"
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CAT_CA "Càrregues no vàlides"
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_INFO_0_CA NULL
 #define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CA NULL
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_CA NULL
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_CA NULL
-#define XENIA_FORCE_DEPTH_CLAMP_LABEL_CA NULL
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_CA "Gamma UNORM16 (Cal reiniciar)"
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_CA "Emula destinacions de renderització gamma amb 16 bits per component en els casos en què l'amfitrió no pot gestionar la gamma per segments de 8 bits. Desactiva-ho si els colors es veuen incorrectament en un joc."
+#define XENIA_FORCE_DEPTH_CLAMP_LABEL_CA "Fixació de profunditat forçada"
 #define XENIA_FORCE_DEPTH_CLAMP_LABEL_CAT_CA "Limitació de profunditat"
 #define XENIA_FORCE_DEPTH_CLAMP_INFO_0_CA NULL
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CA NULL
-#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CAT_CA NULL
+#define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CAT_CA "Assignacions per intervals"
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_INFO_0_CA NULL
 #define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CA NULL
 #define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_CA NULL
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_CA NULL
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_CA "Atura't quan un joc executi una instrucció de la CPU que Xenia no implementa. En un nucli que finalitza RetroArch; desactiva-ho per permetre que aquests jocs continuïn funcionant."
 #define XENIA_SCRIBBLE_HEAP_LABEL_CA "Pila d'esborranys"
 #define XENIA_SCRIBBLE_HEAP_INFO_0_CA NULL
-#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CA NULL
+#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CA "Valor de l'àrea de memòria dinàmica"
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_CA "Valor de l'esborrany"
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_CA NULL
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_CA "0 (aleatori)"
@@ -37336,7 +37336,7 @@ struct retro_core_options_v2 options_sr = {
 /* RETRO_LANGUAGE_SV */
 
 #define CATEGORY_GRAPHICS_LABEL_SV "Grafikinställningar"
-#define CATEGORY_GRAPHICS_INFO_0_SV "GPU-bakände, upplösningsskala, renderingsmålsväg, filtrering."
+#define CATEGORY_GRAPHICS_INFO_0_SV "GPU-bakände, upplösningsskala, sökväg för renderingsmål och filtrering."
 #define CATEGORY_VIDEO_LABEL_SV "Videoinställningar"
 #define CATEGORY_VIDEO_INFO_0_SV "Bildskärmsupplösning, bildformat, videostandard, gamma."
 #define CATEGORY_AUDIO_LABEL_SV "Ljudinställningar"
@@ -37347,16 +37347,16 @@ struct retro_core_options_v2 options_sr = {
 #define CATEGORY_COMPATIBILITY_INFO_0_SV "Spelspecifika speciallösningar, minne, montering av cache- och temporära partitioner."
 #define CATEGORY_PATCHES_LABEL_SV "Patchhanterare"
 #define CATEGORY_PATCHES_INFO_0_SV "Spelets patchar från Xenia Edges game-patches för den här versionen. En ändring börjar gälla vid nästa start."
-#define XENIA_GRAPHICS_API_LABEL_SV "Grafik-API (starta om)"
+#define XENIA_GRAPHICS_API_LABEL_SV "Grafik-API (omstart)"
 #define XENIA_GRAPHICS_API_INFO_0_SV "Den GPU-bakände som Xenia använder för att emulera Xbox 360-GPU:n och det sammanhang som kärnan begär från RetroArch. RetroArch byter videodrivrutin så att den stämmer när det är tillåtet (Inställningar > Video > Utdata). Gäller när innehållet läses in igen."
 #define OPTION_VAL_VULKAN_SV NULL
 #define OPTION_VAL_D3D12_SV NULL
 #define XENIA_RENDER_TARGET_PATH_LABEL_SV "Sökväg för renderingsmål (starta om)"
 #define XENIA_RENDER_TARGET_PATH_LABEL_CAT_SV "RT-sökväg (starta om)"
-#define XENIA_RENDER_TARGET_PATH_INFO_0_SV "Välj emuleringsläge för renderingsmål.\nPrestanda: värdens renderingsmål med blandning med fast funktion.\nNoggrannhet: pixelshaderlåsning eller rasteriserarordnade vyer."
+#define XENIA_RENDER_TARGET_PATH_INFO_0_SV "Välj emuleringsläge för renderingsmål.\nPrestanda: värdsystemets renderingsmål med blandning med fast funktion.\nNoggrannhet: pixelshaderlåsning eller rasteriserarordnade vyer."
 #define OPTION_VAL_PERFORMANCE_SV "Prestanda"
 #define OPTION_VAL_ACCURACY_SV "Noggrannhet"
-#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_SV "Renderingsupplösningsskala (starta om)"
+#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_SV "Renderingsupplösningsskala (omstart)"
 #define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_SV "Upplösningsskala (starta om)"
 #define XENIA_DRAW_RESOLUTION_SCALE_INFO_0_SV "Skala den interna renderingsupplösningen. Högre värden förbättrar bildkvaliteten men kräver mer GPU-kraft. Kräver omstart."
 #define OPTION_VAL_1_SV "1x (ursprunglig 720p)"
@@ -37376,9 +37376,9 @@ struct retro_core_options_v2 options_sr = {
 #define XENIA_ASYNC_SHADER_COMPILATION_LABEL_SV "Asynkron shaderkompilering"
 #define XENIA_ASYNC_SHADER_COMPILATION_LABEL_CAT_SV "Asynkrona shadrar"
 #define XENIA_ASYNC_SHADER_COMPILATION_INFO_0_SV "Kompilera shadrar i bakgrundstrådar. Minskar ryckighet men kan ge kortvariga renderingsartefakter."
-#define XENIA_READBACK_RESOLVE_LABEL_SV "Återläsningsupplösning"
+#define XENIA_READBACK_RESOLVE_LABEL_SV "Färdigställ återläsning"
 #define XENIA_READBACK_RESOLVE_LABEL_CAT_SV "Återläsning"
-#define XENIA_READBACK_RESOLVE_INFO_0_SV "Kopiera utdata från renderingen till textur tillbaka till gäst-RAM när CPU:n läser dem. Av bryter spel som läser tillbaka data."
+#define XENIA_READBACK_RESOLVE_INFO_0_SV "Kopiera utdata från renderad textur tillbaka till gäst-RAM när CPU:n läser den. Av gör att spel som läser tillbaka data slutar fungera."
 #define XENIA_STORE_SHADERS_LABEL_SV "Lagra shaders (starta om)"
 #define XENIA_STORE_SHADERS_LABEL_CAT_SV "Shadercache (starta om)"
 #define XENIA_STORE_SHADERS_INFO_0_SV "Lagra kompilerade shadrar permanent för att undvika ryckighet från omkompilering vid senare körningar."
@@ -37387,21 +37387,21 @@ struct retro_core_options_v2 options_sr = {
 #define XENIA_HALF_PIXEL_OFFSET_INFO_0_SV "Aktivera halvpixelförskjutning i D3D9-stil. Rätt för de flesta spel. Inaktivera om renderingen är förskjuten eller suddig."
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_SV "Tillåt ogiltiga hämtningskonstanter"
 #define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_LABEL_CAT_SV "Ogiltig hämtning"
-#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_SV "Tillåt textur- och toppunktskonstanter med ogiltig typ. Kan åtgärda krascher i vissa spel men är i regel osäkert."
-#define XENIA_DISPLAY_REFRESH_LABEL_SV "Emulerad uppdateringsfrekvens för bildskärm"
+#define XENIA_GPU_ALLOW_INVALID_FETCH_CONSTANTS_INFO_0_SV "Tillåt textur- och vertexhämtningskonstanter med ogiltig typ. Kan åtgärda krascher i vissa spel men är i regel osäkert."
+#define XENIA_DISPLAY_REFRESH_LABEL_SV "Emulerad bildskärmsuppdatering"
 #define XENIA_DISPLAY_REFRESH_LABEL_CAT_SV "Bildskärmens uppdateringsfrekvens"
-#define XENIA_DISPLAY_REFRESH_INFO_0_SV "Den uppdateringsfrekvens som spelet tror att tv:n har, enligt alternativet i den fristående versionen. NTSC (60 Hz) är konsolens standard. PAL (50 Hz) är en PAL-tv: spel körs med 50 bildrutor per sekund. Lås upp bildfrekvens åsidosätter detta."
+#define XENIA_DISPLAY_REFRESH_INFO_0_SV "Den uppdateringsfrekvens som spelet tror att TV:n har, enligt alternativet i den fristående versionen. NTSC (60 Hz) är konsolens standard. PAL (50 Hz) är en PAL-TV: spel körs med 50 bildrutor per sekund. Lås upp bildfrekvens åsidosätter detta."
 #define OPTION_VAL_60_SV NULL
 #define OPTION_VAL_50_SV NULL
 #define XENIA_WAIT_FOR_FRAME_LABEL_SV "[Libretro] bildruteväntan"
 #define XENIA_WAIT_FOR_FRAME_INFO_0_SV "Tar bort en bildruta av inmatningsfördröjning men spelet kan hacka. Rekommenderas för kraftfull maskinvara och/eller lättdrivna spel."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_SV "Lås upp bildfrekvens"
-#define XENIA_UNLOCK_FRAMERATE_INFO_0_SV "Endast för spel vars logik inte är knuten till bildfrekvensen, annars går de för fort. Spel med 30 fps vid 60: två vertikala synkroniseringar för varje bildruta som RetroArch visar. Spel med 60 fps vid 120: kärnan kör 120 bildrutor per sekund, så ställ in RetroArch och bildskärmen för det. Obegränsad: vertikala synkroniseringar så snabbt som möjligt. Listade spel: frekvenssystemet i Xenia-Edge/xenia_framerate_unlock.txt gäller det körande spelet om det finns i listan. Kan ändras medan ett spel körs."
+#define XENIA_UNLOCK_FRAMERATE_INFO_0_SV "Endast för spel vars logik inte är knuten till bildfrekvensen, annars går de för fort. Spel med 30 fps vid 60: två vertikala synkroniseringar för varje bildruta som RetroArch visar. Spel med 60 fps vid 120: kärnan kör 120 bildrutor per sekund (ställ in RetroArch och bildskärmen för det). Obegränsad: vertikala synkroniseringar så snabbt som möjligt. Listade spel: frekvenssystemet i Xenia-Edge/xenia_framerate_unlock.txt gäller det körande spelet om det finns i listan. Kan ändras medan ett spel körs."
 #define OPTION_VAL_ENABLED_SV "Listade spel"
 #define OPTION_VAL_30TO60_SV "Spel med 30 fps vid 60"
 #define OPTION_VAL_120_SV "Spel med 60 fps vid 120"
 #define OPTION_VAL_UNCAPPED_SV "Obegränsad"
-#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_SV "Intern bildskärmsupplösning (starta om)"
+#define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_SV "Intern bildskärmsupplösning (omstart)"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_SV "Bildskärmsupplösning (starta om)"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_INFO_0_SV "Låt spel med stöd för flera upplösningar renderas i en viss upplösning. Alla spel har inte stöd för det."
 #define OPTION_VAL_0_SV NULL
@@ -37442,8 +37442,8 @@ struct retro_core_options_v2 options_sr = {
 #define XENIA_AUDIO_CHANNELS_INFO_0_SV "Stereo: konsolens 5.1-ljud mixas ned till två kanaler. Surround 5.1: alla sex kanaler skickas till RetroArch, vars ljudutgångslayout sedan avgör mellan högtalare och nedmixning. Kräver en RetroArch-version med flerkanaligt ljud, annars används stereo."
 #define OPTION_VAL_STEREO_SV NULL
 #define OPTION_VAL_5_1_SV NULL
-#define XENIA_XMA_DECODER_LABEL_SV "XMA-avkodare (starta om)"
-#define XENIA_XMA_DECODER_INFO_0_SV "Välj implementering av XMA-ljudavkodare. Prova ett annat alternativ om ljudet är trasigt i ett visst spel."
+#define XENIA_XMA_DECODER_LABEL_SV "XMA-avkodare (omstart)"
+#define XENIA_XMA_DECODER_INFO_0_SV "Välj implementering av XMA-ljudavkodare. Prova ett annat alternativ om ljudet inte fungerar i ett visst spel."
 #define OPTION_VAL_NEW_SV "Ny (standard)"
 #define OPTION_VAL_OLD_SV "Gammal"
 #define OPTION_VAL_MASTER_SV "Huvud"
@@ -37457,14 +37457,14 @@ struct retro_core_options_v2 options_sr = {
 #define XENIA_XMP_DEFAULT_VOLUME_LABEL_SV "Volym för musikspelaren (starta om)"
 #define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_SV "XMP-volym (starta om)"
 #define XENIA_XMP_DEFAULT_VOLUME_INFO_0_SV "Standardvolym för musik om spelet inte anger den."
-#define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_SV "0 (standard)"
+#define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_SV "0 %"
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_SV "10 %"
 #define OPTION_VAL_20_SV NULL
 #define OPTION_VAL_30_SV NULL
 #define OPTION_VAL_40_SV NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_SV NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_SV NULL
-#define OPTION_VAL_70_SV "70% (Standard)"
+#define OPTION_VAL_70_SV "70 % (standard)"
 #define OPTION_VAL_80_SV NULL
 #define OPTION_VAL_90_SV NULL
 #define OPTION_VAL_100_SV NULL
@@ -37475,12 +37475,12 @@ struct retro_core_options_v2 options_sr = {
 #define XENIA_APPLY_PATCHES_LABEL_CAT_SV "Patchar (omstart)"
 #define XENIA_APPLY_PATCHES_INFO_0_SV "Aktivera funktionen för anpassad patchning av spel."
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_SV "Dialogaviseringar"
-#define XENIA_DIALOG_NOTIFICATIONS_INFO_0_SV "En systemdialog som ett spel öppnar, en meddelanderuta med knappar, har inget fönster i kärnan. Kärnan svarar därför på den och visar dialogens titel och svaret som en avisering. När funktionen är inaktiverad döljs aviseringarna, men dialogerna besvaras på samma sätt och Xenias logg registrerar dem fortfarande."
+#define XENIA_DIALOG_NOTIFICATIONS_INFO_0_SV "En systemdialog som ett spel öppnar (en meddelanderuta med knappar) har inget fönster i kärnan. Kärnan svarar därför på den och visar dialogens titel och svaret som en avisering. När funktionen är inaktiverad döljs aviseringarna, men dialogerna besvaras på samma sätt och Xenias logg registrerar dem fortfarande."
 #define XENIA_LICENSE_MASK_LABEL_SV "Licensmask (starta om)"
 #define XENIA_LICENSE_MASK_LABEL_CAT_SV "Licens (omstart)"
-#define XENIA_LICENSE_MASK_INFO_0_SV "Ange licensmask för aktiverat innehåll, DLC eller fullständig version.\nIngen: inga licenser. Fullständig: första licensen. Alla: alla licenser."
+#define XENIA_LICENSE_MASK_INFO_0_SV "Ange licensmask för aktiverat innehåll (DLC, fullständig version).\nIngen: inga licenser. Fullständig: första licensen. Alla: alla licenser."
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_SV "Ingen"
-#define OPTION_VAL_1_XENIA_LICENSE_MASK_SV NULL
+#define OPTION_VAL_1_XENIA_LICENSE_MASK_SV "Fullständig"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_SV "Alla"
 #define XENIA_USER_LANGUAGE_LABEL_SV "Användarspråk (omstart)"
 #define XENIA_USER_LANGUAGE_LABEL_CAT_SV "Språk (omstart)"
@@ -37544,7 +37544,7 @@ struct retro_core_options_v2 options_sr = {
 #define XENIA_MOUNT_SCRATCH_LABEL_CAT_SV "Scratchmontering (starta om)"
 #define XENIA_MOUNT_SCRATCH_INFO_0_SV "Aktivera montering av temporär partition. Krävs av vissa spel."
 #define XENIA_OCCLUSION_QUERY_LABEL_SV "Ocklusionsfråga (starta om)"
-#define XENIA_OCCLUSION_QUERY_INFO_0_SV "Så här besvaras ocklusionsfrågor, till exempel linsreflexer, bortsortering och automatisk exponering. Snabb, som är standard, frågar GPU:n utan att vänta. Falsk skriver ett påhittat resultat. Snabb-alt behåller cachade nollresultat. Strikt väntar på GPU:n och är mest noggrann."
+#define XENIA_OCCLUSION_QUERY_INFO_0_SV "Så här besvaras ocklusionsfrågor (till exempel linsreflexer, bortsortering och automatisk exponering). Snabb, som är standard, frågar GPU:n utan att vänta. Falsk skriver ett påhittat resultat. Snabb-alt behåller cachade nollresultat. Strikt väntar på GPU:n och är mest noggrann."
 #define OPTION_VAL_FAST_SV "Snabb"
 #define OPTION_VAL_FAKE_XENIA_OCCLUSION_QUERY_SV "Falsk"
 #define OPTION_VAL_FAST_ALT_SV "Snabb-alt"
@@ -37554,10 +37554,10 @@ struct retro_core_options_v2 options_sr = {
 #define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_INFO_0_SV "Emulera ZFail-, StencilFail- och Total-räknare för ocklusion i shadrar. Vissa spel behöver dem, men det påverkar prestandan."
 #define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_SV "Falskt nedre tröskelvärde för ocklusion"
 #define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_LABEL_CAT_SV "Falskt nedre värde"
-#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_INFO_0_SV "Det lägre värdet i det falska antal samplingar som skrivs när ocklusionsfrågor förfalskas. -1 skriver inget, vilket gör att vissa spel väntar för alltid."
+#define XENIA_OCCLUSION_QUERY_FAKE_LOWER_THRESHOLD_INFO_0_SV "Den nedre gränsen för det falska antalet samplingar som skrivs när ocklusionsfrågor förfalskas. -1 skriver inget, vilket gör att vissa spel väntar för alltid."
 #define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_SV "Falskt övre tröskelvärde för ocklusion"
 #define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_LABEL_CAT_SV "Falskt övre värde"
-#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_INFO_0_SV "Det högre värdet i det falska antal samplingar som skrivs när ocklusionsfrågor förfalskas."
+#define XENIA_OCCLUSION_QUERY_FAKE_UPPER_THRESHOLD_INFO_0_SV "Den övre gränsen för det falska antalet samplingar som skrivs när ocklusionsfrågor förfalskas."
 #define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_SV "Djupförskjutning via shader"
 #define XENIA_DEPTH_BIAS_SHADER_OFFSET_LABEL_CAT_SV "Shader för djupförskjutning"
 #define XENIA_DEPTH_BIAS_SHADER_OFFSET_INFO_0_SV "Dirigera dekalritningar med polygonförskjutning genom shadern i stället för värdens djupförskjutning. Åtgärdar dekaler med z-flimmer i vissa spel."
@@ -37570,21 +37570,21 @@ struct retro_core_options_v2 options_sr = {
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_INFO_0_SV "Tillåt spel att läsa data från sidor som är markerade som inte åtkomliga."
 #define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_SV "Gammarenderingsmål som UNORM16 (starta om)"
 #define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_SV "Gamma UNORM16 (starta om)"
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_SV "Emulera gammarenderingsmål med 16 bitar per komponent när värden inte kan använda 8-bitars styckvis gamma. Inaktivera om färgerna ser fel ut i ett spel."
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_SV "Emulera gammarenderingsmål med 16 bitar per komponent när värdsystemet inte kan använda 8-bitars styckvis gamma. Inaktivera om färgerna ser fel ut i ett spel."
 #define XENIA_FORCE_DEPTH_CLAMP_LABEL_SV "Tvinga djupklämning"
 #define XENIA_FORCE_DEPTH_CLAMP_LABEL_CAT_SV "Djupklämning"
 #define XENIA_FORCE_DEPTH_CLAMP_INFO_0_SV "Använd värdens djupklämning i stället för klippning vid nära och avlägsna plan."
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_SV "Ignorera förskjutning för intervallallokeringar"
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_LABEL_CAT_SV "Intervallallokeringar"
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_INFO_0_SV "Ignorera förskjutningen på 4 KB för fysiska allokeringar med angivet intervall. Behövs av ett fåtal spel."
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_SV "Avbryt vid ej implementerade instruktioner (starta om)"
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_SV "Avbryt ej implementerade (starta om)"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_SV "Avbryt vid inte implementerade instruktioner (omstart)"
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_SV "Avbryt vid inte implementerade instruktioner (omstart)"
 #define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_SV "Stoppa när ett spel kör en CPU-instruktion som Xenia inte har implementerat. I en kärna avslutas då RetroArch. Inaktivera för att låta sådana spel fortsätta."
-#define XENIA_SCRIBBLE_HEAP_LABEL_SV "Skribbla heap"
+#define XENIA_SCRIBBLE_HEAP_LABEL_SV "Fyll heapminne"
 #define XENIA_SCRIBBLE_HEAP_INFO_0_SV "Fyll nyallokerat heapminne med ett värde för spel som förlitar sig på vad som finns kvar där."
-#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_SV "Värde för skribblat heapminne"
-#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_SV "Skribbelvärde"
-#define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_SV "Det värde som Skribbla heap fyller minnet med. 0 är slumpmässigt."
+#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_SV "Värde för fyllt heapminne"
+#define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_SV "Fyllvärde"
+#define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_SV "Det värde som Fyll heapminne fyller minnet med. 0 är slumpmässigt."
 #define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_SV "0 (slumpmässigt)"
 
 struct retro_core_option_v2_category option_cats_sv[] = {
@@ -43552,7 +43552,7 @@ struct retro_core_options_v2 options_val = {
 /* RETRO_LANGUAGE_VN */
 
 #define CATEGORY_GRAPHICS_LABEL_VN "Thiết lập đồ họa"
-#define CATEGORY_GRAPHICS_INFO_0_VN "Nền tảng xử lý đồ họa, tỷ lệ độ phân giải, phương thức kết xuất lên vùng đệm hình ảnh, bộ lọc."
+#define CATEGORY_GRAPHICS_INFO_0_VN "Nền tảng xử lý đồ họa, tỷ lệ độ phân giải, phương thức Dựng hình lên vùng đệm hình ảnh, bộ lọc."
 #define CATEGORY_VIDEO_LABEL_VN "Thiết lập video"
 #define CATEGORY_VIDEO_INFO_0_VN "Độ phân giải màn hình, tỷ lệ khung hình, tiêu chuẩn video, gamma."
 #define CATEGORY_AUDIO_LABEL_VN "Thiết lập âm thanh"
@@ -43567,14 +43567,14 @@ struct retro_core_options_v2 options_val = {
 #define XENIA_GRAPHICS_API_INFO_0_VN "Bộ xử lý đồ họa mà Xenia dùng để mô phỏng bộ xử lý đồ họa của Xbox 360 và ngữ cảnh mà lõi yêu cầu RetroArch cung cấp: RetroArch sẽ đổi trình điều khiển đồ họa để phù hợp khi được phép (Cài đặt > Hình ảnh > Đầu ra). Có hiệu lực khi nạp lại nội dung."
 #define OPTION_VAL_VULKAN_VN NULL
 #define OPTION_VAL_D3D12_VN NULL
-#define XENIA_RENDER_TARGET_PATH_LABEL_VN "Đường dẫn đích kết xuất (Cần khởi động lại)"
-#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_VN "Đường dẫn kết xuất (Cần khởi động lại)"
-#define XENIA_RENDER_TARGET_PATH_INFO_0_VN "Chọn chế độ mô phỏng vùng đích kết xuất.\nHiệu năng: sử dụng vùng đích kết xuất của máy chủ với chức năng trộn màu cố định.\nĐộ chính xác: đồng bộ loại trừ lẫn nhau trong bộ đổ bóng điểm ảnh / khung nhìn được sắp thứ tự theo bộ raster hóa."
+#define XENIA_RENDER_TARGET_PATH_LABEL_VN "Đường dẫn đích Dựng hình (Cần khởi động lại)"
+#define XENIA_RENDER_TARGET_PATH_LABEL_CAT_VN "Đường dẫn Dựng hình (Cần khởi động lại)"
+#define XENIA_RENDER_TARGET_PATH_INFO_0_VN "Chọn chế độ mô phỏng vùng đích Dựng hình.\nHiệu năng: sử dụng vùng đích Dựng hình của máy chủ với chức năng trộn màu cố định.\nĐộ chính xác: đồng bộ loại trừ lẫn nhau trong bộ đổ bóng điểm ảnh / khung nhìn được sắp thứ tự theo bộ raster hóa."
 #define OPTION_VAL_PERFORMANCE_VN "Hiệu năng"
 #define OPTION_VAL_ACCURACY_VN "Độ chính xác"
-#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_VN "Tỷ lệ độ phân giải kết xuất (Cần khởi động lại)"
+#define XENIA_DRAW_RESOLUTION_SCALE_LABEL_VN "Tỷ lệ độ phân giải Dựng hình (Cần khởi động lại)"
 #define XENIA_DRAW_RESOLUTION_SCALE_LABEL_CAT_VN "Tỷ lệ phân giải (Cần khởi động lại)"
-#define XENIA_DRAW_RESOLUTION_SCALE_INFO_0_VN "Điều chỉnh tỷ lệ độ phân giải kết xuất bên trong. Giá trị cao hơn cải thiện chất lượng hình ảnh nhưng đòi hỏi nhiều sức mạnh xử lý đồ họa hơn. Cần khởi động lại."
+#define XENIA_DRAW_RESOLUTION_SCALE_INFO_0_VN "Điều chỉnh tỷ lệ độ phân giải Dựng hình bên trong. Giá trị cao hơn cải thiện chất lượng hình ảnh nhưng đòi hỏi nhiều sức mạnh xử lý đồ họa hơn. Cần khởi động lại."
 #define OPTION_VAL_1_VN "1x (720p gốc)"
 #define OPTION_VAL_2_VN NULL
 #define OPTION_VAL_3_VN NULL
@@ -43592,9 +43592,9 @@ struct retro_core_options_v2 options_val = {
 #define XENIA_ASYNC_SHADER_COMPILATION_LABEL_VN "Biên dịch bộ đổ bóng bất đồng bộ"
 #define XENIA_ASYNC_SHADER_COMPILATION_LABEL_CAT_VN "Bộ đổ bóng bất đồng bộ"
 #define XENIA_ASYNC_SHADER_COMPILATION_INFO_0_VN "Biên dịch bộ đổ bóng bằng các luồng chạy nền. Giảm hiện tượng khựng hình nhưng có thể gây ra lỗi hiển thị thoáng qua."
-#define XENIA_READBACK_RESOLVE_LABEL_VN "Đọc ngược kết quả kết xuất"
+#define XENIA_READBACK_RESOLVE_LABEL_VN "Đọc ngược kết quả Dựng hình"
 #define XENIA_READBACK_RESOLVE_LABEL_CAT_VN "Đọc ngược"
-#define XENIA_READBACK_RESOLVE_INFO_0_VN "Sao chép kết quả kết xuất vào kết cấu trở lại bộ nhớ RAM của máy được mô phỏng khi bộ xử lý truy cập dữ liệu đó. Tắt tùy chọn này sẽ khiến các trò chơi đọc ngược dữ liệu bị lỗi."
+#define XENIA_READBACK_RESOLVE_INFO_0_VN "Sao chép kết quả Dựng hình vào kết cấu trở lại bộ nhớ RAM của máy được mô phỏng khi bộ xử lý truy cập dữ liệu đó. Tắt tùy chọn này sẽ khiến các trò chơi đọc ngược dữ liệu bị lỗi."
 #define XENIA_STORE_SHADERS_LABEL_VN "Lưu bộ đổ bóng (Cần khởi động lại)"
 #define XENIA_STORE_SHADERS_LABEL_CAT_VN "Bộ nhớ đệm bộ đổ bóng (Cần khởi động lại)"
 #define XENIA_STORE_SHADERS_INFO_0_VN "Lưu lâu dài các bộ đổ bóng đã biên dịch để tránh khựng hình do phải biên dịch lại trong những lần chạy sau."
@@ -43610,7 +43610,7 @@ struct retro_core_options_v2 options_val = {
 #define OPTION_VAL_60_VN NULL
 #define OPTION_VAL_50_VN NULL
 #define XENIA_WAIT_FOR_FRAME_LABEL_VN "[Libretro] Chờ khung hình"
-#define XENIA_WAIT_FOR_FRAME_INFO_0_VN "Loại bỏ 1 khung hình độ trễ đầu vào, nhưng có thể khiến trò chơi bị giật. Khuyến nghị dùng với phần cứng mạnh và/hoặc trò chơi nhẹ."
+#define XENIA_WAIT_FOR_FRAME_INFO_0_VN "Loại bỏ 1 khung hình độ trễ Điều khiển, nhưng có thể khiến trò chơi bị giật. Khuyến nghị dùng với phần cứng mạnh và/hoặc trò chơi nhẹ."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_VN "Mở khóa tốc độ khung hình"
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_VN "Chỉ áp dụng cho các trò chơi có logic không bị ràng buộc với tốc độ khung hình, nếu không trò chơi sẽ chạy quá nhanh. Trò chơi 30 khung hình/giây chạy ở 60: hai chu kỳ làm mới dọc cho mỗi khung hình RetroArch hiển thị. Trò chơi 60 khung hình/giây chạy ở 120: lõi chạy ở tốc độ 120 khung hình mỗi giây (hãy thiết lập RetroArch và màn hình tương ứng). Không giới hạn: chu kỳ làm mới dọc diễn ra nhanh nhất có thể. Trò chơi trong danh sách: tốc độ được quy định trong tệp system/Xenia-Edge/xenia_framerate_unlock.txt sẽ áp dụng cho trò chơi đang chạy nếu trò chơi đó có trong danh sách. Có thể thay đổi thiết lập này khi trò chơi đang chạy."
 #define OPTION_VAL_ENABLED_VN "Trò chơi trong danh sách"
@@ -43619,7 +43619,7 @@ struct retro_core_options_v2 options_val = {
 #define OPTION_VAL_UNCAPPED_VN "Không giới hạn"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_VN "Độ phân giải hiển thị bên trong (cần khởi động lại)"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CAT_VN "Độ phân giải màn hình (Cần khởi động lại)"
-#define XENIA_INTERNAL_DISPLAY_RESOLUTION_INFO_0_VN "Cho phép các trò chơi hỗ trợ nhiều độ phân giải kết xuất hình ảnh ở một độ phân giải cụ thể. Không phải trò chơi nào cũng hỗ trợ tính năng này."
+#define XENIA_INTERNAL_DISPLAY_RESOLUTION_INFO_0_VN "Cho phép các trò chơi hỗ trợ nhiều độ phân giải Dựng hình hình ảnh ở một độ phân giải cụ thể. Không phải trò chơi nào cũng hỗ trợ tính năng này."
 #define OPTION_VAL_0_VN NULL
 #define OPTION_VAL_1_XENIA_INTERNAL_DISPLAY_RESOLUTION_VN NULL
 #define OPTION_VAL_2_XENIA_INTERNAL_DISPLAY_RESOLUTION_VN NULL
@@ -43779,14 +43779,14 @@ struct retro_core_options_v2 options_val = {
 #define XENIA_DEPTH_BIAS_SHADER_OFFSET_INFO_0_VN "Xử lý các lượt vẽ họa tiết dán bằng độ lệch đa giác thông qua bộ đổ bóng thay vì sử dụng cơ chế điều chỉnh độ sâu của hệ thống chủ. Khắc phục hiện tượng nhấp nháy do xung đột độ sâu của họa tiết dán trong một số trò chơi."
 #define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_VN "Ngưỡng tỷ lệ độ phân giải"
 #define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_LABEL_CAT_VN "Ngưỡng tỷ lệ"
-#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_INFO_0_VN "Các vùng đích kết xuất có bước dòng điểm ảnh nhỏ hơn hoặc bằng ngưỡng này sẽ không được tăng độ phân giải theo tỷ lệ đã chọn. Khắc phục một số hiệu ứng bị lỗi khi tăng độ phân giải."
+#define XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_INFO_0_VN "Các vùng đích Dựng hình có bước dòng điểm ảnh nhỏ hơn hoặc bằng ngưỡng này sẽ không được tăng độ phân giải theo tỷ lệ đã chọn. Khắc phục một số hiệu ứng bị lỗi khi tăng độ phân giải."
 #define OPTION_VAL_0_XENIA_DRAW_RESOLUTION_SCALE_THRESHOLD_VN "0 (tăng tỷ lệ cho tất cả)"
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_VN "Cho phép phạm vi tải dữ liệu không hợp lệ"
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_LABEL_CAT_VN "Tải dữ liệu không hợp lệ"
 #define XENIA_GPU_ALLOW_INVALID_UPLOAD_RANGE_INFO_0_VN "Cho phép trò chơi đọc dữ liệu từ các trang bộ nhớ được đánh dấu là không có quyền truy cập."
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_VN "Đích kết xuất gamma dưới dạng UNORM16 (Cần khởi động lại)"
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_VN "Đích Dựng hình gamma dưới dạng UNORM16 (Cần khởi động lại)"
 #define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_LABEL_CAT_VN "Gamma UNORM16 (Cần khởi động lại)"
-#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_VN "Mô phỏng vùng đích kết xuất gamma bằng 16 bit cho mỗi thành phần màu khi hệ thống chủ không hỗ trợ gamma từng đoạn 8 bit. Tắt nếu màu sắc trong trò chơi hiển thị sai."
+#define XENIA_GAMMA_RENDER_TARGET_AS_UNORM16_INFO_0_VN "Mô phỏng vùng đích Dựng hình gamma bằng 16 bit cho mỗi thành phần màu khi hệ thống chủ không hỗ trợ gamma từng đoạn 8 bit. Tắt nếu màu sắc trong trò chơi hiển thị sai."
 #define XENIA_FORCE_DEPTH_CLAMP_LABEL_VN "Buộc giới hạn độ sâu"
 #define XENIA_FORCE_DEPTH_CLAMP_LABEL_CAT_VN "Giới hạn độ sâu"
 #define XENIA_FORCE_DEPTH_CLAMP_INFO_0_VN "Sử dụng cơ chế giới hạn độ sâu của hệ thống chủ thay cho việc cắt bỏ theo mặt phẳng gần và xa."
