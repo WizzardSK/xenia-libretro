@@ -34,7 +34,12 @@ apt-get install -y --no-install-recommends \
   clang-21 clang-tools-21 lld-21 llvm-21 libclang-rt-21-dev g++-14 liblz4-dev
 
 # CMake, meson and Mesa's Python modules; 24.04's pip wants a venv
-if [ ! -x "$TOOLS/venv/bin/meson" ]; then
+# A venv from GitLab's cache that does not run (its scripts' first line
+# names the python of the path it was made at: the project was renamed to
+# xenia-edge-libretro, and cmake gave "cannot execute: required file not
+# found") is made again
+if ! "$TOOLS/venv/bin/cmake" --version >/dev/null 2>&1 || ! "$TOOLS/venv/bin/meson" --version >/dev/null 2>&1; then
+  rm -rf "$TOOLS/venv"
   python3 -m venv "$TOOLS/venv"
   "$TOOLS/venv/bin/pip" install -q --upgrade cmake meson mako pyyaml packaging
 fi
