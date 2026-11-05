@@ -4,6 +4,7 @@ What changed in the libretro core of this fork, newest first. Changes that come 
 
 ## Unreleased
 
+- With a video driver other than vulkan (glcore, d3d11...), where the core hands RetroArch the picture read back from the GPU, red and blue are no longer swapped: the picture came as R G B bytes and was given as XRGB8888, which is B G R in memory (Akrido: GTA IV's red lights blue, its night scene brown).
 - Core info: no longer marked experimental (NNshi).
 - Linux: the core exports only the libretro API (a version script); it exported some sixteen thousand of its own symbols, which could clash with libraries the frontend loads.
 - Music Player Volume is 70% by default, as in standalone Xenia Edge; at 100% the music of a game that does not set its own volume could clip (NNshi).

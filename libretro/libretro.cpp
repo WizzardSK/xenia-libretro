@@ -1130,7 +1130,17 @@ static void update_video(void) {
         if (lr_graphics->presenter()->CaptureGuestOutput(captured_frame)) {
             if (captured_frame.width > 0 && captured_frame.height > 0 &&
                 !captured_frame.data.empty()) {
-                // RawImage R8G8B8X8 = XRGB8888 matches pixel format
+                // RawImage is R8G8B8X8, bytes R G B X; XRGB8888 is B G R X in
+                // memory, so red and blue are swapped into place. Without it
+                // the picture came out with red and blue the other way round
+                // whenever this path ran: any video driver but vulkan
+                // (Akrido, glcore: GTA IV's red lights blue).
+                for (uint32_t y = 0; y < captured_frame.height; ++y) {
+                    uint8_t *row = captured_frame.data.data() +
+                                   size_t(y) * captured_frame.stride;
+                    for (uint32_t x = 0; x < captured_frame.width; ++x)
+                        std::swap(row[x * 4], row[x * 4 + 2]);
+                }
                 core_state.video_cb(captured_frame.data.data(),
                                     captured_frame.width,
                                     captured_frame.height,
