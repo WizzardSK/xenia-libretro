@@ -624,9 +624,12 @@ void logging::AppendLogLine(LogLevel log_level, const char prefix_char,
 void FatalError(const std::string_view str) {
   logging::AppendLogLine(LogLevel::Error, 'x', str);
 
+#ifndef XENIA_LIBRETRO
+  // A core has no window: the error is in the log (and RetroArch's).
   if (!xe::has_console_attached()) {
     ShowSimpleMessageBox(SimpleMessageBoxType::Error, str);
   }
+#endif
 
   ShutdownLogging();
 

@@ -35,6 +35,9 @@ X_STATUS D3D12GraphicsSystem::Setup(cpu::Processor* processor,
                                     ui::WindowedAppContext* app_context,
                                     bool with_presentation) {
   provider_ = xe::ui::d3d12::D3D12Provider::Create();
+  if (!provider_) {
+    return X_STATUS_UNSUCCESSFUL;
+  }
   return GraphicsSystem::Setup(processor, kernel_state, app_context,
                                with_presentation);
 }

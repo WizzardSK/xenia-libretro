@@ -4,6 +4,7 @@ What changed in the libretro core of this fork, newest first. Changes that come 
 
 ## Unreleased
 
+- Direct3D 12 is offered only where it can run: edge's D3D12 renderer needs Shader Model 6.6, which the Direct3D 12 runtime of Windows 10 lacks (standalone edge brings a newer runtime, which only an executable can load for itself). Elsewhere Graphics API is hidden and the core runs on Vulkan. If a renderer still cannot start, the load stops with RetroArch's message; the core showed a Windows message box and then closed RetroArch (Akrido). No fatal error of the core shows a message box anymore.
 - Upstream Xenia Edge merged up to 074d3f0 (the release of November 5), from 8dc77b0 (October 7): some five hundred commits, among them Vulkan pipeline, memexport and depth bias fixes, gamma resolves, XAM and kernel fixes, and system link networking (Akrido: GTA IV's red lights came out blue, which the standalone of this version draws right).
 - Core info: no longer marked experimental (NNshi).
 - Linux: the core exports only the libretro API (a version script); it exported some sixteen thousand of its own symbols, which could clash with libraries the frontend loads.

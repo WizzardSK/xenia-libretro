@@ -1813,9 +1813,26 @@ RETRO_API unsigned retro_api_version(void) {
 #ifdef _WIN32
 // Whether a Direct3D 12 device can be made on the default adapter: the
 // Graphics API option is offered, and D3D12 used, only then
+// Not just Direct3D 12: edge's D3D12 renderer needs Shader Model 6.6, which
+// the runtime of Windows 10 lacks. Standalone edge ships a newer runtime (the
+// Agility SDK), which only an executable can load for itself, so the core runs
+// on the system's. Where it falls short, the Graphics API option is hidden and
+// the core runs on Vulkan, instead of failing at the start (Akrido).
 static bool d3d12_available(void) {
-    static const bool available = SUCCEEDED(D3D12CreateDevice(
-        nullptr, D3D_FEATURE_LEVEL_11_0, __uuidof(ID3D12Device), nullptr));
+    static const bool available = [] {
+        ID3D12Device *device = nullptr;
+        if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0,
+                                     IID_PPV_ARGS(&device))))
+            return false;
+        D3D12_FEATURE_DATA_SHADER_MODEL shader_model = {D3D_SHADER_MODEL_6_6};
+        const bool ok =
+            SUCCEEDED(device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL,
+                                                  &shader_model,
+                                                  sizeof(shader_model))) &&
+            shader_model.HighestShaderModel >= D3D_SHADER_MODEL_6_6;
+        device->Release();
+        return ok;
+    }();
     return available;
 }
 #endif

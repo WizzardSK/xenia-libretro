@@ -172,6 +172,11 @@ bool D3D12Provider::IsIntelArcGpu() const {
 std::unique_ptr<D3D12Provider> D3D12Provider::Create() {
   std::unique_ptr<D3D12Provider> provider(new D3D12Provider);
   if (!provider->Initialize()) {
+#ifdef XENIA_LIBRETRO
+    // No window in a core, and the frontend's process must not end: the
+    // graphics system's Setup fails instead, and the load with it.
+    XELOGE("Unable to initialize the Direct3D 12 graphics subsystem");
+#else
     xe::FatalError(
         "Unable to initialize Direct3D 12 graphics subsystem.\n"
         "\n"
@@ -180,6 +185,7 @@ std::unique_ptr<D3D12Provider> D3D12Provider::Create() {
         "\n"
         "See https://xenia.jp/faq/ for more information and a list of "
         "supported GPUs.");
+#endif
     return nullptr;
   }
 

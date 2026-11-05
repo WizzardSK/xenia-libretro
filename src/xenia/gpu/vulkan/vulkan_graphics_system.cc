@@ -40,6 +40,10 @@ X_STATUS VulkanGraphicsSystem::Setup(cpu::Processor* processor,
   provider_ = xe::ui::vulkan::VulkanProvider::Create(true, with_presentation);
   if (!provider_) {
     XELOGE("Vulkan provider creation failed");
+#ifdef XENIA_LIBRETRO
+    // As for Direct3D 12: the load fails, with no window and no exit.
+    return X_STATUS_UNSUCCESSFUL;
+#else
     xe::FatalError(
         "Unable to initialize the Vulkan graphics subsystem.\n"
         "\n"
@@ -48,6 +52,7 @@ X_STATUS VulkanGraphicsSystem::Setup(cpu::Processor* processor,
         "\n"
         "See https://xenia.jp/faq/ for more information and a list of "
         "supported GPUs.");
+#endif
   }
   return GraphicsSystem::Setup(processor, kernel_state, app_context,
                                with_presentation);
