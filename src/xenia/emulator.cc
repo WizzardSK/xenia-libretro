@@ -659,8 +659,8 @@ Emulator::FileSignatureType Emulator::GetFileSignature(
 
   if (!file) {
     // Said, so a launch that fails here does not end in a bare NOT_SUPPORTED
-    XELOGE("{}: cannot open {} (errno {})", __func__, xe::path_to_utf8(path),
-           errno);
+    XELOGE("{}: cannot open {} (errno {})", __func__,
+           xe::strip_pii(xe::path_to_utf8(path)), errno);
     return FileSignatureType::Unknown;
   }
 
@@ -670,7 +670,8 @@ Emulator::FileSignatureType Emulator::GetFileSignature(
 
   if (size_error || file_size < header_size) {
     XELOGE("{}: {} has no size to read ({} bytes, {})", __func__,
-           xe::path_to_utf8(path), file_size, size_error.message());
+           xe::strip_pii(xe::path_to_utf8(path)), file_size,
+           size_error.message());
     fclose(file);
     return FileSignatureType::Unknown;
   }

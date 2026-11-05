@@ -109,7 +109,6 @@ class LibretroAudioSystem : public AudioSystem {
   AudioDriver* CreateDriver(xe::threading::Semaphore* semaphore,
                              uint32_t frequency, uint32_t channels,
                              bool need_format_conversion) override;
-  void DestroyDriver(AudioDriver* driver) override;
 
   // Mixes every driver's queued audio into `out` (interleaved int16 in the
   // output's channels),

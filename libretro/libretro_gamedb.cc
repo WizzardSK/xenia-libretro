@@ -125,7 +125,7 @@ void forget_patches() {
 const std::vector<PatchOption> &find_patches(uint32_t title_id,
                                              std::optional<uint64_t> hash) {
   forget_patches();
-  for (auto &file : xe::patcher::EnumerateBundledPatchesForTitle(title_id)) {
+  for (auto &file : xe::patcher::EnumeratePatchesForTitle(fs::path(), title_id)) {
     const auto &hashes = file.entry.hashes;
     if (hash && std::find(hashes.begin(), hashes.end(), *hash) == hashes.end())
       continue;

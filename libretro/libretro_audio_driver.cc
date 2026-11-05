@@ -263,13 +263,6 @@ AudioDriver* LibretroAudioSystem::CreateDriver(
                                  need_format_conversion);
 }
 
-void LibretroAudioSystem::DestroyDriver(AudioDriver* driver) {
-  if (driver) {
-    driver->Shutdown();
-    delete driver;
-  }
-}
-
 }  // namespace libretro
 }  // namespace apu
 }  // namespace xe
