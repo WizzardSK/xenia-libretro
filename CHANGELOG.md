@@ -4,6 +4,7 @@ What changed in the libretro core of this fork, newest first. Changes that come 
 
 ## Unreleased
 
+- With a video driver other than vulkan (glcore, d3d11...), where the core hands RetroArch the picture read back from the GPU, red and blue are no longer swapped: the picture came as R G B bytes and was given as XRGB8888, which is B G R in memory (Akrido: GTA IV's red lights blue, its night scene brown).
 - Direct3D 12 is offered only where it can run: edge's D3D12 renderer needs Shader Model 6.6, which the Direct3D 12 runtime of Windows 10 lacks (standalone edge brings a newer runtime, which only an executable can load for itself). Elsewhere Graphics API is hidden and the core runs on Vulkan. If a renderer still cannot start, the load stops with RetroArch's message; the core showed a Windows message box and then closed RetroArch (Akrido). No fatal error of the core shows a message box anymore.
 - Upstream Xenia Edge merged up to 074d3f0 (the release of November 5), from 8dc77b0 (October 7): some five hundred commits, among them Vulkan pipeline, memexport and depth bias fixes, gamma resolves, XAM and kernel fixes, and system link networking (Akrido: GTA IV's red lights came out blue, which the standalone of this version draws right).
 - Core info: no longer marked experimental (NNshi).
