@@ -117,7 +117,6 @@ set(_xe_libretro_libs
   xenia-ui
   xenia-ui-vulkan
   xenia-vfs
-  aes_128
   capstone
   fmt
   glslang-spirv
