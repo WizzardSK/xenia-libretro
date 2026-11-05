@@ -356,7 +356,10 @@ bool VulkanPipelineCache::Initialize() {
              VkPipeline pipeline) {
         StoreCreatedPipeline(creation_arguments, pipeline, false);
       },
-      [this]() { return guest_shader_cache_.CreateWorkerTranslator(); });
+      [this]() { return guest_shader_cache_.CreateWorkerTranslator(); },
+      [this](bool busy) {
+        command_processor_.graphics_system()->on_shader_compilation(busy);
+      });
   if (cvars::vulkan_pipeline_creation_threads != 0) {
     size_t creation_thread_count;
     if (cvars::vulkan_pipeline_creation_threads < 0) {
@@ -378,11 +381,9 @@ void VulkanPipelineCache::Shutdown() {
   ShutdownShaderStorage();
 
   // Shut down all threads, before destroying the pipelines since they may be
-  // creating them. Also drops the pending completion callback, which may
-  // capture 'this'.
+  // creating them. Also drops the pending completion callback.
   std::vector<std::pair<PipelineCreationArguments, VkPipeline>> parked =
       creation_queue_.Shutdown();
-  startup_loading_ = false;
 
   const ui::vulkan::VulkanDevice* const vulkan_device =
       command_processor_.GetVulkanDevice();
@@ -502,8 +503,14 @@ VulkanShader* VulkanPipelineCache::LoadShader(xenos::ShaderType shader_type,
                                               const uint32_t* host_address,
                                               uint32_t dword_count) {
   // Hash the input memory and lookup the shader.
-  uint64_t data_hash =
-      XXH3_64bits(host_address, dword_count * sizeof(uint32_t));
+  return LoadShader(shader_type, host_address, dword_count,
+                    XXH3_64bits(host_address, dword_count * sizeof(uint32_t)));
+}
+
+VulkanShader* VulkanPipelineCache::LoadShader(xenos::ShaderType shader_type,
+                                              const uint32_t* host_address,
+                                              uint32_t dword_count,
+                                              uint64_t data_hash) {
   auto it = shaders_.find(data_hash);
   if (it != shaders_.end()) {
     // Shader has been previously loaded.
@@ -586,11 +593,6 @@ bool VulkanPipelineCache::EnsureShadersTranslated(
   return true;
 }
 
-bool VulkanPipelineCache::CanCreatePipelineAsync(bool has_pixel_shader) const {
-  return cvars::async_shader_compilation && creation_queue_.has_threads() &&
-         has_pixel_shader && placeholder_pixel_shader_ != VK_NULL_HANDLE;
-}
-
 const VulkanPipelineCache::PipelineLayoutProvider*
 VulkanPipelineCache::GetGuestGraphicsPipelineLayout(
     const VulkanShader::VulkanTranslation* vertex_shader,
@@ -627,8 +629,8 @@ bool VulkanPipelineCache::ConfigurePipeline(
     const PrimitiveProcessor::ProcessingResult& primitive_processing_result,
     reg::RB_DEPTHCONTROL normalized_depth_control,
     uint32_t normalized_color_mask,
-    VulkanRenderTargetCache::RenderPassKey render_pass_key,
-    bool use_interpreter, bool zpd_total, bool viz_survey,
+    VulkanRenderTargetCache::RenderPassKey render_pass_key, bool zpd_total,
+    bool viz_survey, const AsyncPipelinePlan& async_plan,
     VulkanPipelineCache::Pipeline** pipeline_out) {
 #if XE_GPU_FINE_GRAINED_DRAW_SCOPES
   SCOPE_profile_cpu_f("gpu");
@@ -656,6 +658,11 @@ bool VulkanPipelineCache::ConfigurePipeline(
   // interpreter placeholder the shaders aren't translated yet, so their binding
   // counts read as 0 and this yields the minimal (no-texture) layout - the
   // creation thread upgrades it to the real layout after translation.
+  // Translation state is read before the layout as a creation thread may
+  // finish a shader in between. A shader taken as translated then has its
+  // bindings in the layout.
+  bool vertex_shader_translated = vertex_shader->is_translated();
+  bool pixel_shader_translated = pixel_shader && pixel_shader->is_translated();
   const PipelineLayoutProvider* pipeline_layout =
       GetGuestGraphicsPipelineLayout(vertex_shader, pixel_shader);
   if (!pipeline_layout) {
@@ -737,28 +744,23 @@ bool VulkanPipelineCache::ConfigurePipeline(
     }
   }
 
-  // Pipeline hot-swap: When async mode is enabled, we have creation threads and
-  // a pixel shader, create a placeholder pipeline immediately (fast compile)
-  // and queue the real pipeline creation in the background. This reduces
-  // stutter from pipeline compilation.
-  bool use_async = CanCreatePipelineAsync(pixel_shader != nullptr);
-
-  // The interpreter can only stand in via the async placeholder path.
-  use_interpreter =
-      use_interpreter && use_async && ucode_interpreter_vs_ != VK_NULL_HANDLE;
-
-  if (use_async) {
-    // The draw thread never translates for async pipelines (so it never stalls
-    // on background translation). Create an immediate placeholder when we can -
-    // the interpreter VS, or the real VS if it's already translated - and queue
-    // the real pipeline (translate + create) on a background thread. A
-    // non-interpretable draw whose shaders aren't translated yet gets NO
-    // placeholder; the caller skips it until the real pipeline is ready. The
-    // pipeline layout starts minimal (0 texture counts from untranslated
-    // shaders) and is upgraded to the real one on the creation thread.
+  // A pipeline that doesn't exist yet follows the plan.
+  if (async_plan.async) {
+    // Create the stand-in placeholder now and queue the real pipeline
+    // (translate + create) on a creation thread. Without a placeholder the
+    // caller skips the draw until the real pipeline is ready. The pipeline
+    // layout starts minimal (0 texture counts from untranslated shaders) and is
+    // upgraded to the real one on the creation thread.
+    bool use_interpreter =
+        async_plan.stand_in == AsyncPipelinePlan::StandIn::kInterpreter;
     pipeline_pair.second.uses_interpreter.store(use_interpreter,
                                                 std::memory_order_release);
-    bool make_placeholder = use_interpreter || vertex_shader->is_translated();
+    // The real vertex shader stands in only if it was translated before the
+    // layout was picked.
+    bool make_placeholder =
+        use_interpreter ||
+        (async_plan.stand_in == AsyncPipelinePlan::StandIn::kRealVertexShader &&
+         vertex_shader_translated);
     if (make_placeholder) {
       // Set is_placeholder BEFORE creating the pipeline to avoid a race with
       // the creation thread checking this flag.
@@ -818,9 +820,11 @@ bool VulkanPipelineCache::ConfigurePipeline(
                                                 std::memory_order_relaxed);
     creation_queue_.Push(creation_arguments);
   } else {
-    // Sync mode (no creation threads / async off / no pixel shader): translate
-    // on this thread and create the pipeline immediately.
-    if (!vertex_shader->is_translated()) {
+    // Sync mode (no creation threads / async off / no pixel shader without
+    // async_shader_skip_draws / storage warm-up / no stand-in allowed):
+    // translate on this thread and create the pipeline immediately.
+    if (!vertex_shader_translated ||
+        (pixel_shader && !pixel_shader_translated)) {
       if (!EnsureShadersTranslated(vertex_shader, pixel_shader)) {
         return false;
       }
@@ -861,26 +865,19 @@ void VulkanPipelineCache::EndSubmission() {
     pipeline_storage_file_flush_needed_ = false;
   }
 
-  if (creation_queue_.has_threads()) {
-    if (startup_loading_) {
-      // Non-blocking: let background threads work asynchronously.
-      creation_queue_.Notify();
-    } else {
-      // Blocking: wait for all queued pipelines.
-      creation_queue_.AwaitCompletion();
-    }
-  }
-
-  // Process deferred destructions when the GPU is idle.
+  // Release placeholder pipelines the GPU is now done with.
   ProcessDeferredDestructions();
+  // Pipeline creation isn't awaited. Draws use a placeholder or skip until it's
+  // done.
+  creation_queue_.Notify();
 }
 
-bool VulkanPipelineCache::IsCreatingPipelines() {
-  return creation_queue_.IsBusy();
-}
-
-void VulkanPipelineCache::AwaitPipelineCompletion() {
-  creation_queue_.AwaitCompletion();
+void VulkanPipelineCache::ExpeditePipeline(Pipeline* pipeline) {
+  creation_queue_.Expedite(
+      [pipeline](const PipelineCreationArguments& request) {
+        return &request.pipeline->second == pipeline;
+      },
+      &guest_shader_cache_.translator());
 }
 
 VkPipeline VulkanPipelineCache::CreateQueuedPipeline(
@@ -893,11 +890,9 @@ VkPipeline VulkanPipelineCache::CreateQueuedPipeline(
                                worker_translator)) {
     failed_stage = "shader translation";
   } else {
-    // Async pipelines are created with a minimal (no-texture) layout on the
-    // draw thread since their shaders weren't translated there (interpreter
-    // placeholder, or drop-until-ready with no placeholder). Now that they're
-    // translated, compute the real layout before creating the real pipeline.
-    // Idempotent when the layout was already real (real-VS placeholder path).
+    // An async pipeline's layout was picked on the draw thread from the
+    // shaders translated by then, which may not be all of them. Now that they
+    // are, compute the real layout before creating the real pipeline.
     const PipelineLayoutProvider* real_layout = GetGuestGraphicsPipelineLayout(
         creation_arguments.vertex_shader, creation_arguments.pixel_shader);
     if (real_layout) {
@@ -912,7 +907,7 @@ VkPipeline VulkanPipelineCache::CreateQueuedPipeline(
   if (failed_stage) {
     // Many of EnsurePipelineCreated's failure paths log nothing, so this is
     // the only trace of what went wrong for most of them.
-    XELOGE("Async {} failed (VS {:016X}, PS {:016X})", failed_stage,
+    XELOGE("Queued {} failed (VS {:016X}, PS {:016X})", failed_stage,
            creation_arguments.vertex_shader->shader().ucode_data_hash(),
            creation_arguments.pixel_shader
                ? creation_arguments.pixel_shader->shader().ucode_data_hash()
@@ -942,6 +937,7 @@ bool VulkanPipelineCache::TranslateAnalyzedShader(
       }
     }
     if (should_translate) {
+      CreationQueue::BusyScope busy_scope(creation_queue_);
       bool profile = cvars::shader_profiling;
       std::chrono::steady_clock::time_point spirv_gen_start;
       if (profile) {
@@ -1052,6 +1048,11 @@ void VulkanPipelineCache::TranslateShadersForStorage(
       continue;
     }
     VulkanShader* shader = shader_it->second;
+    // Translation needs the ucode analyzed, which the storage load did only for
+    // the shaders it read this time.
+    if (!shader->is_ucode_analyzed()) {
+      shader->AnalyzeUcode(ucode_disasm_buffer_);
+    }
     VulkanShader::VulkanTranslation* translation =
         static_cast<VulkanShader::VulkanTranslation*>(
             shader->GetOrCreateTranslation(needed.second));
@@ -2032,21 +2033,34 @@ bool VulkanPipelineCache::EnsurePipelineCreated(
   VkPipelineMultisampleStateCreateInfo multisample_state = {};
   multisample_state.sType =
       VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+  bool subpass_has_attachments =
+      !edram_fragment_shader_interlock &&
+      description.render_pass_key.depth_and_color_used != 0;
   if (description.render_pass_key.msaa_samples == xenos::MsaaSamples::k2X &&
-      !render_target_cache_.IsMsaa2xSupported(
-          !edram_fragment_shader_interlock &&
-          description.render_pass_key.depth_and_color_used != 0)) {
-    // Using sample 0 as 0 and 3 as 1 for 2x instead (not exactly the same
-    // sample locations, but still top-left and bottom-right - however, this can
-    // be adjusted with custom sample locations).
+      !render_target_cache_.IsMsaa2xSupported(subpass_has_attachments)) {
     multisample_state.rasterizationSamples = VK_SAMPLE_COUNT_4_BIT;
-    sample_mask = 0b1001;
+    // Using samples 2 and 1 as 0 and 1 for 2x instead with interlock, 0 and 3
+    // otherwise (see GetHostSampleXenosPositions).
+    sample_mask = edram_fragment_shader_interlock ? 0b0110 : 0b1001;
     // TODO(Triang3l): Research sample mask behavior without attachments (in
     // Direct3D, it's completely ignored in this case).
     multisample_state.pSampleMask = &sample_mask;
   } else {
     multisample_state.rasterizationSamples = VkSampleCountFlagBits(
         uint32_t(1) << uint32_t(description.render_pass_key.msaa_samples));
+  }
+
+  VkPipelineSampleLocationsStateCreateInfoEXT sample_locations_state;
+  const VkSampleLocationsInfoEXT* sample_locations_info =
+      render_target_cache_.GetSampleLocationsInfo(
+          description.render_pass_key.msaa_samples, subpass_has_attachments);
+  if (sample_locations_info) {
+    sample_locations_state.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_SAMPLE_LOCATIONS_STATE_CREATE_INFO_EXT;
+    sample_locations_state.pNext = nullptr;
+    sample_locations_state.sampleLocationsEnable = VK_TRUE;
+    sample_locations_state.sampleLocationsInfo = *sample_locations_info;
+    multisample_state.pNext = &sample_locations_state;
   }
 
   VkPipelineDepthStencilStateCreateInfo depth_stencil_state = {};
@@ -2291,10 +2305,24 @@ bool VulkanPipelineCache::EnsurePipelineCreated(
   pipeline_create_info.pDepthStencilState = &depth_stencil_state;
   pipeline_create_info.pColorBlendState = &color_blend_state;
   pipeline_create_info.pDynamicState = &dynamic_state;
-  pipeline_create_info.layout =
-      creation_arguments.pipeline->second.pipeline_layout
-          .load(std::memory_order_acquire)
-          ->GetPipelineLayout();
+  // A placeholder's layout covers only what its shaders access, so placeholders
+  // of one vertex shader don't differ by the real pixel shader's bindings or by
+  // whether it was translated yet. The draw binds the sets they use with the
+  // entry's layout, which defines them the same.
+  const PipelineLayoutProvider* pipeline_layout;
+  if (!creating_placeholder) {
+    pipeline_layout = creation_arguments.pipeline->second.pipeline_layout.load(
+        std::memory_order_acquire);
+  } else if (vertex_shader_override != VK_NULL_HANDLE) {
+    pipeline_layout = command_processor_.GetPipelineLayout(0, 0, 0, 0);
+  } else {
+    pipeline_layout = GetGuestGraphicsPipelineLayout(
+        creation_arguments.vertex_shader, nullptr);
+  }
+  if (!pipeline_layout) {
+    return false;
+  }
+  pipeline_create_info.layout = pipeline_layout->GetPipelineLayout();
   pipeline_create_info.renderPass =
       use_dynamic_rendering ? VK_NULL_HANDLE : creation_arguments.render_pass;
   pipeline_create_info.subpass = 0;
@@ -2303,6 +2331,7 @@ bool VulkanPipelineCache::EnsurePipelineCreated(
 
   const ui::vulkan::VulkanDevice::Functions& dfn = vulkan_device->functions();
   const VkDevice device = vulkan_device->device();
+  CreationQueue::BusyScope busy_scope(creation_queue_);
   bool profile = cvars::shader_profiling;
   std::chrono::steady_clock::time_point pso_create_start;
   if (profile) {
@@ -2467,18 +2496,6 @@ void VulkanPipelineCache::InitializeShaderStorage(
 
   shader_storage_title_id_ = title_id;
 
-  if (!blocking) {
-    startup_loading_ = true;
-    if (completion_callback) {
-      completion_callback = [this, orig = std::move(completion_callback)]() {
-        startup_loading_ = false;
-        orig();
-      };
-    } else {
-      completion_callback = [this]() { startup_loading_ = false; };
-    }
-  }
-
   bool edram_fsi_used = render_target_cache_.GetPath() ==
                         RenderTargetCache::Path::kPixelShaderInterlock;
 
@@ -2494,24 +2511,13 @@ void VulkanPipelineCache::InitializeShaderStorage(
   pipeline_config.version = PipelineDescription::kVersion +
                             SpirvShaderTranslator::Modification::kVersion;
 
-  uint32_t storage_index = storage_writer_.storage_index() + 1;
-
   std::vector<PipelineStoredDescription> pipeline_stored_descriptions;
   if (!storage_writer_.InitializeShaderStorage(
           cache_root, title_id, pipeline_config,
-          // Shader load callback.
-          [&](xenos::ShaderType type, const uint32_t* ucode_dwords,
-              uint32_t ucode_dword_count, uint64_t ucode_data_hash) {
-            VulkanShader* shader =
-                LoadShader(type, ucode_dwords, ucode_dword_count);
-            if (!shader || shader->ucode_storage_index() == storage_index) {
-              return true;  // Continue reading.
-            }
-            shader->set_ucode_storage_index(storage_index);
-            if (!shader->is_ucode_analyzed()) {
-              shader->AnalyzeUcode(ucode_disasm_buffer_);
-            }
-            return true;
+          [this](xenos::ShaderType type, const uint32_t* ucode_dwords,
+                 uint32_t ucode_dword_count, uint64_t ucode_data_hash) {
+            return LoadShader(type, ucode_dwords, ucode_dword_count,
+                              ucode_data_hash);
           },
           // Shader translate callback - handles parallel translation.
           [this, edram_fsi_used](const std::set<std::pair<uint64_t, uint64_t>>
@@ -2582,206 +2588,152 @@ void VulkanPipelineCache::InitializeShaderStorage(
                               &vk_pipeline_cache_);
   }
 
-  // Create pipelines from stored descriptions.
-  if (!pipeline_stored_descriptions.empty()) {
-    uint64_t pipeline_creation_start = xe::Clock::QueryHostTickCount();
-
-    size_t pipelines_created = 0;
-    size_t pipelines_already_exist = 0;
-    size_t pipelines_vs_not_found = 0;
-    size_t pipelines_vs_translation_missing = 0;
-    size_t pipelines_ps_not_found = 0;
-    size_t pipelines_ps_translation_missing = 0;
-    size_t pipelines_render_pass_failed = 0;
-    size_t pipelines_layout_failed = 0;
-    size_t pipelines_requirements_not_met = 0;
-
-    for (const PipelineStoredDescription& pipeline_stored_description :
-         pipeline_stored_descriptions) {
-      const PipelineDescription& pipeline_description =
-          pipeline_stored_description.description;
-
-      // Skip pipelines not supported by this device.
-      if (!ArePipelineRequirementsMet(pipeline_description)) {
-        ++pipelines_requirements_not_met;
-        continue;
-      }
-
-      // Skip already known pipelines.
-      auto it = pipelines_.find(pipeline_description);
-      if (it != pipelines_.end()) {
-        ++pipelines_already_exist;
-        continue;
-      }
-
-      // Look up vertex shader.
-      auto vertex_shader_it =
-          shaders_.find(pipeline_description.vertex_shader_hash);
-      if (vertex_shader_it == shaders_.end()) {
-        ++pipelines_vs_not_found;
-        continue;
-      }
-      VulkanShader* vertex_shader = vertex_shader_it->second;
-      VulkanShader::VulkanTranslation* vertex_translation =
-          static_cast<VulkanShader::VulkanTranslation*>(
-              vertex_shader->GetTranslation(
-                  pipeline_description.vertex_shader_modification));
-      if (!vertex_translation || !vertex_translation->is_translated() ||
-          !vertex_translation->is_valid()) {
-        ++pipelines_vs_translation_missing;
-        continue;
-      }
-
-      // Look up pixel shader if present.
-      VulkanShader* pixel_shader = nullptr;
-      VulkanShader::VulkanTranslation* pixel_translation = nullptr;
-      if (pipeline_description.pixel_shader_hash) {
-        auto pixel_shader_it =
-            shaders_.find(pipeline_description.pixel_shader_hash);
-        if (pixel_shader_it == shaders_.end()) {
-          ++pipelines_ps_not_found;
-          continue;
-        }
-        pixel_shader = pixel_shader_it->second;
-        pixel_translation = static_cast<VulkanShader::VulkanTranslation*>(
-            pixel_shader->GetTranslation(
-                pipeline_description.pixel_shader_modification));
-        if (!pixel_translation || !pixel_translation->is_translated() ||
-            !pixel_translation->is_valid()) {
-          ++pipelines_ps_translation_missing;
-          continue;
-        }
-      }
-
-      // Get render pass.
-      VkRenderPass render_pass =
-          render_target_cache_.GetPath() ==
-                  RenderTargetCache::Path::kPixelShaderInterlock
-              ? render_target_cache_.GetFragmentShaderInterlockRenderPass()
-              : render_target_cache_.GetHostRenderTargetsRenderPass(
-                    pipeline_description.render_pass_key);
-      if (render_pass == VK_NULL_HANDLE) {
-        ++pipelines_render_pass_failed;
-        continue;
-      }
-
-      // Get pipeline layout.
-      const PipelineLayoutProvider* pipeline_layout =
-          command_processor_.GetPipelineLayout(
-              pixel_shader
-                  ? pixel_shader->GetTextureBindingsAfterTranslation().size()
-                  : 0,
-              pixel_shader
-                  ? pixel_shader->GetSamplerBindingsAfterTranslation().size()
-                  : 0,
-              vertex_shader->GetTextureBindingsAfterTranslation().size(),
-              vertex_shader->GetSamplerBindingsAfterTranslation().size());
-      if (!pipeline_layout) {
-        ++pipelines_layout_failed;
-        continue;
-      }
-
-      // Get geometry shader if needed.
-      VkShaderModule geometry_shader = VK_NULL_HANDLE;
-      if (pipeline_description.geometry_shader !=
-          PipelineGeometryShader::kNone) {
-        GeometryShaderKey geometry_shader_key;
-        GuestSpirvShaderCache::GetGeometryShaderKey(
-            pipeline_description.geometry_shader,
-            vertex_translation->modification(),
-            pixel_translation ? pixel_translation->modification() : 0,
-            geometry_shader_key);
-        geometry_shader = GetGeometryShader(geometry_shader_key);
-        if (geometry_shader == VK_NULL_HANDLE) {
-          continue;
-        }
-      }
-
-      // Get tessellation shaders if needed.
-      VkShaderModule tessellation_vertex_shader = VK_NULL_HANDLE;
-      VkShaderModule tessellation_control_shader = VK_NULL_HANDLE;
-      if (pipeline_description.tessellation_mode !=
-          PipelineTessellationMode::kNone) {
-        tessellation_vertex_shader =
-            GetTessellationVertexShader(pipeline_description.tessellation_mode);
-        bool use_control_point_count =
-            (pipeline_description.tessellation_mode ==
-             PipelineTessellationMode::kAdaptive);
-        tessellation_control_shader = GetTessellationControlShader(
-            pipeline_description.tessellation_mode,
-            pipeline_description.tessellation_patch, use_control_point_count);
-        if (tessellation_vertex_shader == VK_NULL_HANDLE ||
-            tessellation_control_shader == VK_NULL_HANDLE) {
-          continue;
-        }
-      }
-
-      // Create the pipeline entry.
-      auto& pipeline_pair =
-          *pipelines_.emplace(pipeline_description, Pipeline(pipeline_layout))
-               .first;
-
-      PipelineCreationArguments creation_arguments;
-      creation_arguments.pipeline = &pipeline_pair;
-      creation_arguments.vertex_shader = vertex_translation;
-      creation_arguments.pixel_shader = pixel_translation;
-      creation_arguments.geometry_shader = geometry_shader;
-      creation_arguments.tessellation_vertex_shader =
-          tessellation_vertex_shader;
-      creation_arguments.tessellation_control_shader =
-          tessellation_control_shader;
-      creation_arguments.render_pass = render_pass;
-      creation_arguments.render_pass_key = pipeline_description.render_pass_key;
-      if (creation_queue_.has_threads()) {
-        // Nothing is drawing these yet, so they publish as they are built.
-        creation_arguments.pipeline->second.creation_pending.store(
-            true, std::memory_order_relaxed);
-        creation_queue_.PushUnordered(creation_arguments);
-      } else {
-        // No creation threads - create synchronously.
-        EnsurePipelineCreated(creation_arguments);
-      }
-
-      ++pipelines_created;
-    }
-
-    if (creation_queue_.has_threads()) {
-      if (blocking) {
-        // Blocking mode: wait for all pipelines to be created.
-        creation_queue_.AwaitCompletion();
-      } else {
-        // Non-blocking mode: the creation threads invoke the callback when they
-        // are done - or leave it to the tail of this function if they already
-        // are.
-        creation_queue_.TakeCompletionCallback(completion_callback);
-      }
-    }
-
-    XELOGI("Pipeline cache: {} created, {} already exist, {} total in {} ms",
-           pipelines_created, pipelines_already_exist,
-           pipeline_stored_descriptions.size(),
-           (xe::Clock::QueryHostTickCount() - pipeline_creation_start) * 1000 /
-               xe::Clock::QueryHostTickFrequency());
-
-    if (pipelines_vs_not_found || pipelines_vs_translation_missing ||
-        pipelines_ps_not_found || pipelines_ps_translation_missing ||
-        pipelines_render_pass_failed || pipelines_layout_failed ||
-        pipelines_requirements_not_met) {
-      XELOGI(
-          "Pipeline cache skipped: {} VS not found, {} VS translation missing, "
-          "{} PS not found, {} PS translation missing, {} render pass failed, "
-          "{} layout failed, {} requirements not met",
-          pipelines_vs_not_found, pipelines_vs_translation_missing,
-          pipelines_ps_not_found, pipelines_ps_translation_missing,
-          pipelines_render_pass_failed, pipelines_layout_failed,
-          pipelines_requirements_not_met);
-    }
+  if (ReplayStoredPipelines(
+          pipeline_stored_descriptions,
+          [this](const PipelineStoredDescription& pipeline_stored_description,
+                 Shader*& vertex_shader) {
+            return QueueStoredPipeline(pipeline_stored_description,
+                                       vertex_shader);
+          })) {
+    creation_queue_.FinishWarmUp(blocking, &guest_shader_cache_.translator(),
+                                 completion_callback);
   }
 
   // Invoke completion callback if no async work was queued.
   if (completion_callback) {
     completion_callback();
   }
+}
+
+const char* VulkanPipelineCache::QueueStoredPipeline(
+    const PipelineStoredDescription& pipeline_stored_description,
+    Shader*& vertex_shader_out) {
+  const PipelineDescription& pipeline_description =
+      pipeline_stored_description.description;
+
+  // Skip pipelines not supported by this device.
+  if (!ArePipelineRequirementsMet(pipeline_description)) {
+    return "requirements not met";
+  }
+
+  // Skip already known pipelines.
+  if (pipelines_.find(pipeline_description) != pipelines_.end()) {
+    return "already exist";
+  }
+
+  // Look up vertex shader.
+  auto vertex_shader_it =
+      shaders_.find(pipeline_description.vertex_shader_hash);
+  if (vertex_shader_it == shaders_.end()) {
+    return "VS not found";
+  }
+  VulkanShader* vertex_shader = vertex_shader_it->second;
+  VulkanShader::VulkanTranslation* vertex_translation =
+      static_cast<VulkanShader::VulkanTranslation*>(
+          vertex_shader->GetTranslation(
+              pipeline_description.vertex_shader_modification));
+  if (!vertex_translation || !vertex_translation->is_translated() ||
+      !vertex_translation->is_valid()) {
+    return "VS translation missing";
+  }
+
+  // Look up pixel shader if present.
+  VulkanShader* pixel_shader = nullptr;
+  VulkanShader::VulkanTranslation* pixel_translation = nullptr;
+  if (pipeline_description.pixel_shader_hash) {
+    auto pixel_shader_it =
+        shaders_.find(pipeline_description.pixel_shader_hash);
+    if (pixel_shader_it == shaders_.end()) {
+      return "PS not found";
+    }
+    pixel_shader = pixel_shader_it->second;
+    pixel_translation = static_cast<VulkanShader::VulkanTranslation*>(
+        pixel_shader->GetTranslation(
+            pipeline_description.pixel_shader_modification));
+    if (!pixel_translation || !pixel_translation->is_translated() ||
+        !pixel_translation->is_valid()) {
+      return "PS translation missing";
+    }
+  }
+
+  // Get render pass.
+  VkRenderPass render_pass =
+      render_target_cache_.GetPath() ==
+              RenderTargetCache::Path::kPixelShaderInterlock
+          ? render_target_cache_.GetFragmentShaderInterlockRenderPass()
+          : render_target_cache_.GetHostRenderTargetsRenderPass(
+                pipeline_description.render_pass_key);
+  if (render_pass == VK_NULL_HANDLE) {
+    return "render pass failed";
+  }
+
+  // Get pipeline layout.
+  const PipelineLayoutProvider* pipeline_layout =
+      command_processor_.GetPipelineLayout(
+          pixel_shader
+              ? pixel_shader->GetTextureBindingsAfterTranslation().size()
+              : 0,
+          pixel_shader
+              ? pixel_shader->GetSamplerBindingsAfterTranslation().size()
+              : 0,
+          vertex_shader->GetTextureBindingsAfterTranslation().size(),
+          vertex_shader->GetSamplerBindingsAfterTranslation().size());
+  if (!pipeline_layout) {
+    return "layout failed";
+  }
+
+  // Get geometry shader if needed.
+  VkShaderModule geometry_shader = VK_NULL_HANDLE;
+  if (pipeline_description.geometry_shader != PipelineGeometryShader::kNone) {
+    GeometryShaderKey geometry_shader_key;
+    GuestSpirvShaderCache::GetGeometryShaderKey(
+        pipeline_description.geometry_shader,
+        vertex_translation->modification(),
+        pixel_translation ? pixel_translation->modification() : 0,
+        geometry_shader_key);
+    geometry_shader = GetGeometryShader(geometry_shader_key);
+    if (geometry_shader == VK_NULL_HANDLE) {
+      return "geometry shader failed";
+    }
+  }
+
+  // Get tessellation shaders if needed.
+  VkShaderModule tessellation_vertex_shader = VK_NULL_HANDLE;
+  VkShaderModule tessellation_control_shader = VK_NULL_HANDLE;
+  if (pipeline_description.tessellation_mode !=
+      PipelineTessellationMode::kNone) {
+    tessellation_vertex_shader =
+        GetTessellationVertexShader(pipeline_description.tessellation_mode);
+    bool use_control_point_count = (pipeline_description.tessellation_mode ==
+                                    PipelineTessellationMode::kAdaptive);
+    tessellation_control_shader = GetTessellationControlShader(
+        pipeline_description.tessellation_mode,
+        pipeline_description.tessellation_patch, use_control_point_count);
+    if (tessellation_vertex_shader == VK_NULL_HANDLE ||
+        tessellation_control_shader == VK_NULL_HANDLE) {
+      return "tessellation shaders failed";
+    }
+  }
+
+  // Create the pipeline entry.
+  auto& pipeline_pair =
+      *pipelines_.emplace(pipeline_description, Pipeline(pipeline_layout))
+           .first;
+
+  PipelineCreationArguments creation_arguments;
+  creation_arguments.pipeline = &pipeline_pair;
+  creation_arguments.vertex_shader = vertex_translation;
+  creation_arguments.pixel_shader = pixel_translation;
+  creation_arguments.geometry_shader = geometry_shader;
+  creation_arguments.tessellation_vertex_shader = tessellation_vertex_shader;
+  creation_arguments.tessellation_control_shader = tessellation_control_shader;
+  creation_arguments.render_pass = render_pass;
+  creation_arguments.render_pass_key = pipeline_description.render_pass_key;
+  // Nothing is drawing these yet, so they publish as they are built.
+  pipeline_pair.second.creation_pending.store(true, std::memory_order_relaxed);
+  creation_queue_.PushUnordered(creation_arguments);
+  vertex_shader_out = vertex_shader;
+  return nullptr;
 }
 
 void VulkanPipelineCache::ShutdownShaderStorage() {

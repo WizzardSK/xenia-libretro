@@ -525,8 +525,8 @@ std::vector<uint32_t> BuildEdramDumpShaderSpirv(
   spv::Id const_uint_0 = builder.makeUintConstant(0);
   spv::Id const_edram_pitch_tiles_bits =
       builder.makeUintConstant(xenos::kEdramPitchTilesBits);
-  spv::Id const_edram_base_tiles_bits_plus_1 =
-      builder.makeUintConstant(xenos::kEdramBaseTilesBits + 1);
+  spv::Id const_edram_base_tiles_bits_plus_2 =
+      builder.makeUintConstant(xenos::kEdramBaseTilesBits + 2);
   spv::Id pitches_constant =
       load_push_constant(kEdramDumpShaderPushConstantPitches);
   spv::Id offsets_constant =
@@ -562,7 +562,7 @@ std::vector<uint32_t> BuildEdramDumpShaderSpirv(
         spv::OpIAdd, type_uint,
         builder.createTriOp(spv::OpBitFieldUExtract, type_uint,
                             offsets_constant, const_uint_0,
-                            const_edram_base_tiles_bits_plus_1),
+                            const_edram_base_tiles_bits_plus_2),
         rectangle_tile_index);
 
     // Combine the tile sample index and the tile index, wrapping the tile
@@ -609,7 +609,7 @@ std::vector<uint32_t> BuildEdramDumpShaderSpirv(
         spv::OpISub, type_uint, edram_tile_index_non_wrapped,
         builder.createTriOp(
             spv::OpBitFieldUExtract, type_uint, offsets_constant,
-            const_edram_base_tiles_bits_plus_1,
+            const_edram_base_tiles_bits_plus_2,
             builder.makeUintConstant(xenos::kEdramBaseTilesBits)));
     // Split the linear tile index in the source texture into X and Y in tiles.
     spv::Id source_pitch_tiles = builder.createTriOp(
@@ -805,15 +805,15 @@ std::vector<uint32_t> BuildEdramDumpShaderSpirv(
     // resolution scale makes them not a power of two tall either. Both counts
     // are compile-time constants, so this is a shift and a mask again wherever
     // it can be.
+    spv::Id run_tile_x = builder.createBinOp(
+        spv::OpUDiv, type_uint, run_x, builder.makeUintConstant(tile_pixels_x));
+    spv::Id run_tile_y = builder.createBinOp(
+        spv::OpUDiv, type_uint, run_y, builder.makeUintConstant(tile_pixels_y));
     spv::Id tile_x =
-        add(extract(dispatch_tile, 0, xenos::kEdramPitchTilesBits),
-            builder.createBinOp(spv::OpUDiv, type_uint, run_x,
-                                builder.makeUintConstant(tile_pixels_x)));
-    spv::Id tile_y =
-        add(extract(dispatch_tile, xenos::kEdramPitchTilesBits,
-                    xenos::kEdramPitchTilesBits),
-            builder.createBinOp(spv::OpUDiv, type_uint, run_y,
-                                builder.makeUintConstant(tile_pixels_y)));
+        add(extract(dispatch_tile, 0, xenos::kEdramPitchTilesBits), run_tile_x);
+    spv::Id tile_y = add(extract(dispatch_tile, xenos::kEdramPitchTilesBits,
+                                 xenos::kEdramPitchTilesBits),
+                         run_tile_y);
     spv::Id pixel_in_tile_x = builder.createBinOp(
         spv::OpUMod, type_uint, run_x, builder.makeUintConstant(tile_pixels_x));
     spv::Id pixel_in_tile_y = builder.createBinOp(
@@ -908,22 +908,19 @@ std::vector<uint32_t> BuildEdramDumpShaderSpirv(
     spv::Id sample_select =
         extract(resolve_dest_coordinate_info,
                 kResolveDestCoordinateInfoSampleSelectShift, 3);
-    spv::Id edram_tile_index =
-        add(add(extract(resolve_edram_info, kResolveEdramInfoBaseTilesShift,
-                        xenos::kEdramBaseTilesBits),
-                multiply(
-                    extract(resolve_edram_info, 0, xenos::kEdramPitchTilesBits),
-                    tile_y)),
-            tile_x);
-
     // The same tile within the source render target, which has its own base
-    // and pitch.
-    spv::Id source_tile_index = builder.createBinOp(
-        spv::OpISub, type_uint, edram_tile_index,
-        builder.createTriOp(
-            spv::OpBitFieldUExtract, type_uint, offsets_constant,
-            const_edram_base_tiles_bits_plus_1,
-            builder.makeUintConstant(xenos::kEdramBaseTilesBits)));
+    // and pitch. The dispatch's first tile comes in non-wrapped, so a tail
+    // wrapped around the end of EDRAM or a render target in the next period
+    // is addressed like in a dump.
+    spv::Id source_tile_index = add(
+        builder.createBinOp(
+            spv::OpISub, type_uint,
+            extract(offsets_constant, 0, xenos::kEdramBaseTilesBits + 2),
+            extract(offsets_constant, xenos::kEdramBaseTilesBits + 2,
+                    xenos::kEdramBaseTilesBits)),
+        add(multiply(extract(pitches_constant, 0, xenos::kEdramPitchTilesBits),
+                     run_tile_y),
+            run_tile_x));
     spv::Id source_pitch_tiles = builder.createTriOp(
         spv::OpBitFieldUExtract, type_uint, pitches_constant,
         const_edram_pitch_tiles_bits, const_edram_pitch_tiles_bits);

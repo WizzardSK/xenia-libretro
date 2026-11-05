@@ -32,11 +32,15 @@
 #include "xenia/base/string.h"
 #include "xenia/base/system.h"
 #include "xenia/base/threading.h"
+#include "xenia/base/utf8.h"
 
 // TODO(benvanik): generic API? logging_win.cc?
 #if XE_PLATFORM_ANDROID
 #include <android/log.h>
 #elif XE_PLATFORM_WIN32
+#include <fcntl.h>
+#include <io.h>
+
 // For MessageBox:
 #include "xenia/base/platform_win.h"
 #endif  // XE_PLATFORM
@@ -50,7 +54,7 @@ DEFINE_bool(log_to_logcat, true, "Write log output to Android Logcat.",
 DEFINE_path(log_file, "", "Logs are written to the given file", "Logging");
 DEFINE_transient_bool(log_append, false,
                       "Append to existing log file instead of overwriting. "
-                      "Used for title-to-title launches.",
+                      "Set for the processes a running xenia starts.",
                       "Logging");
 DEFINE_bool(log_to_stdout, true, "Write log output to stdout", "Logging");
 DEFINE_bool(log_to_debugprint, false, "Dump the log to DebugPrint.", "Logging");
@@ -92,6 +96,46 @@ struct LogLine {
 };
 
 thread_local char thread_log_buffer_[64_KiB];
+
+static std::string FindUserName() {
+#if XE_PLATFORM_WIN32
+  const wchar_t* name = _wgetenv(L"USERNAME");
+#else
+  const char* name = std::getenv("USER");
+#endif  // XE_PLATFORM_WIN32
+  return name ? xe::path_to_utf8(name) : std::string();
+}
+
+std::string strip_pii(const std::string_view text) {
+  // Leaked as threads still logging at exit may strip text.
+  static const std::string& user_name = *new std::string(FindUserName());
+  if (user_name.empty()) {
+    return std::string(text);
+  }
+  // A quote ends a path in text such as an exception message. The placeholder
+  // is the variable the name comes from, so a pasted path still works.
+#if XE_PLATFORM_WIN32
+  constexpr std::string_view kDelimiters = "\\/\"";
+  constexpr std::string_view kPlaceholder = "%USERNAME%";
+#else
+  constexpr std::string_view kDelimiters = "/\"";
+  constexpr std::string_view kPlaceholder = "$USER";
+#endif  // XE_PLATFORM_WIN32
+  std::string stripped;
+  for (size_t start = 0; start <= text.size();) {
+    size_t end = std::min(text.find_first_of(kDelimiters, start), text.size());
+    std::string_view name = text.substr(start, end - start);
+    if (xe::utf8::equal_case(name, user_name)) {
+      name = kPlaceholder;
+    }
+    stripped += name;
+    if (end < text.size()) {
+      stripped += text[end];
+    }
+    start = end + 1;
+  }
+  return stripped;
+}
 
 FileLogSink::~FileLogSink() {
   if (file_) {
@@ -445,6 +489,43 @@ void SetExtraLogSink(std::unique_ptr<LogSink> sink) {
   extra_log_sink_ = std::move(sink);
 }
 
+#if !XE_PLATFORM_ANDROID
+// Opens the log for appending, so the xenia processes of one session can write
+// to it at the same time without overwriting each other. A new session
+// truncates it first.
+FILE* OpenLogFile(const std::filesystem::path& path, bool truncate) {
+  if (truncate) {
+    if (FILE* file = xe::filesystem::OpenFile(path, "wb")) {
+      fclose(file);
+    }
+  }
+#if XE_PLATFORM_WIN32
+  // With append-only access the system puts every write at the end, which the
+  // C runtime's append mode doesn't do atomically across processes.
+  HANDLE handle = CreateFileW(path.c_str(), FILE_APPEND_DATA,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                              OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) {
+    return nullptr;
+  }
+  int fd =
+      _open_osfhandle(reinterpret_cast<intptr_t>(handle), _O_APPEND | _O_TEXT);
+  if (fd == -1) {
+    CloseHandle(handle);
+    return nullptr;
+  }
+  FILE* file = _fdopen(fd, "at");
+  if (!file) {
+    // Closes the handle too.
+    _close(fd);
+  }
+  return file;
+#else
+  return xe::filesystem::OpenFile(path, "at");
+#endif
+}
+#endif  // !XE_PLATFORM_ANDROID
+
 void InitializeLogging(const std::string_view app_name) {
   auto mem = memory::AlignedAlloc<Logger>(0x10);
   logger_ = new (mem) Logger(app_name);
@@ -461,17 +542,16 @@ void InitializeLogging(const std::string_view app_name) {
   }
 #else
   {
-    FILE* log_file = nullptr;
-    const char* file_mode = cvars::log_append ? "at" : "wt";
+    std::filesystem::path log_path;
     if (cvars::log_file.empty()) {
-      std::string file_name = fmt::format("{}.log", app_name);
-      auto file_path = xe::filesystem::GetExecutableFolder() / file_name;
-      log_file = xe::filesystem::OpenFile(file_path, file_mode);
+      log_path = xe::filesystem::GetExecutableFolder() /
+                 fmt::format("{}.log", app_name);
     } else {
       xe::filesystem::CreateParentFolder(cvars::log_file);
-      log_file = xe::filesystem::OpenFile(cvars::log_file, file_mode);
+      log_path = cvars::log_file;
     }
-    logger_->AddLogSink(std::make_unique<FileLogSink>(log_file, true));
+    logger_->AddLogSink(std::make_unique<FileLogSink>(
+        OpenLogFile(log_path, !cvars::log_append), true));
   }
 
   if (cvars::log_to_stdout) {

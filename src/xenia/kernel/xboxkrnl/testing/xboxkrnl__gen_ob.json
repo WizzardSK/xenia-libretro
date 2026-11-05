@@ -1,0 +1,1906 @@
+{
+ "corpus": "ob",
+ "source": "RGH Jasper, kernel and xam 2.0.17559, 2026-10-28",
+ "steps": [
+  {
+   "scenario": "open by pointer",
+   "name": "open",
+   "export": "ObOpenObjectByPointer",
+   "r3": "0000000000000000",
+   "capture": {
+    "object[:0x10]": "00000002000000018203000000000000"
+   },
+   "args": [
+    {
+     "pointer": "object+0x10",
+     "offset": 200
+    },
+    {
+     "pointer": "h1",
+     "offset": 216
+    }
+   ]
+  },
+  {
+   "scenario": "open by pointer",
+   "name": "open again",
+   "export": "ObOpenObjectByPointer",
+   "r3": "0000000000000000",
+   "capture": {
+    "object[:0x10]": "00000003000000028203000000000000"
+   },
+   "args": [
+    {
+     "pointer": "object+0x10",
+     "offset": 200
+    },
+    {
+     "pointer": "h2",
+     "offset": 224
+    }
+   ]
+  },
+  {
+   "scenario": "open by pointer",
+   "name": "reference",
+   "export": "ObReferenceObjectByHandle",
+   "r3": "0000000000000000",
+   "capture": {
+    "object[:0x10]": "00000004000000028203000000000000",
+    "object out": "820300c8"
+   },
+   "args": [
+    {
+     "variable": "h1"
+    },
+    {
+     "pointer": "type",
+     "offset": 0
+    },
+    {
+     "pointer": "object out",
+     "offset": 232
+    }
+   ]
+  },
+  {
+   "scenario": "open by pointer",
+   "name": "reference as another type",
+   "export": "ObReferenceObjectByHandle",
+   "r3": "FFFFFFFFC0000024",
+   "capture": {
+    "object[:0x10]": "00000004000000028203000000000000",
+    "object out": "00000000"
+   },
+   "args": [
+    {
+     "variable": "h1"
+    },
+    {
+     "pointer": "other type",
+     "offset": 152
+    },
+    {
+     "pointer": "object out",
+     "offset": 232
+    }
+   ]
+  },
+  {
+   "scenario": "open by pointer",
+   "name": "reference as any type",
+   "export": "ObReferenceObjectByHandle",
+   "r3": "0000000000000000",
+   "capture": {
+    "object[:0x10]": "00000005000000028203000000000000",
+    "object out": "820300c8"
+   },
+   "args": [
+    {
+     "variable": "h1"
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "object out",
+     "offset": 232
+    }
+   ]
+  },
+  {
+   "scenario": "open by pointer",
+   "name": "dereference 1",
+   "export": "ObDereferenceObject",
+   "capture": {
+    "object[:0x10]": "00000004000000028203000000000000"
+   },
+   "args": [
+    {
+     "pointer": "object+0x10",
+     "offset": 200
+    }
+   ]
+  },
+  {
+   "scenario": "open by pointer",
+   "name": "dereference 2",
+   "export": "ObDereferenceObject",
+   "capture": {
+    "object[:0x10]": "00000003000000028203000000000000"
+   },
+   "args": [
+    {
+     "pointer": "object+0x10",
+     "offset": 200
+    }
+   ]
+  },
+  {
+   "scenario": "open by pointer",
+   "name": "close the first",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "capture": {
+    "object[:0x10]": "00000002000000018203000000000000",
+    "close procedure": "000000010000000000000000820300c80000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "h1"
+    }
+   ]
+  },
+  {
+   "scenario": "open by pointer",
+   "name": "close the first again",
+   "export": "NtClose",
+   "r3": "FFFFFFFFC0000008",
+   "capture": {
+    "object[:0x10]": "00000002000000018203000000000000",
+    "close procedure": "000000010000000000000000820300c80000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "h1"
+    }
+   ]
+  },
+  {
+   "scenario": "open by pointer",
+   "name": "close the second",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "capture": {
+    "object[:0x10]": "00000001000000008203000000000000",
+    "close procedure": "000000020000000000000000820300c8000000000000000200000000820300c800000000000000010000000000000000000000000000000000000000000000000000000000000000",
+    "delete procedure": "000000000000000000000000000000000000000000000000",
+    "free procedure": "000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "h2"
+    }
+   ]
+  },
+  {
+   "scenario": "open by pointer",
+   "name": "drop the last reference",
+   "export": "ObDereferenceObject",
+   "capture": {
+    "object[:0x10]": "00000000000000008203000000000000",
+    "delete procedure": "000000010000000000000000820300c80000000000000000",
+    "free procedure": "000000010000000000000000820300b80000000000000000"
+   },
+   "args": [
+    {
+     "pointer": "object+0x10",
+     "offset": 200
+    }
+   ]
+  },
+  {
+   "scenario": "duplicate",
+   "name": "open",
+   "export": "ObOpenObjectByPointer",
+   "r3": "0000000000000000",
+   "capture": {
+    "object[:0x10]": "00000002000000018203000000000000"
+   },
+   "args": [
+    {
+     "pointer": "object+0x10",
+     "offset": 168
+    },
+    {
+     "pointer": "source",
+     "offset": 184
+    }
+   ]
+  },
+  {
+   "scenario": "duplicate",
+   "name": "duplicate",
+   "export": "NtDuplicateObject",
+   "r3": "0000000000000000",
+   "capture": {
+    "object[:0x10]": "00000003000000028203000000000000",
+    "close procedure": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "source"
+    },
+    {
+     "pointer": "copy",
+     "offset": 192
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "duplicate",
+   "name": "close the copy",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "capture": {
+    "object[:0x10]": "00000002000000018203000000000000",
+    "close procedure": "000000010000000000000000820300a80000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "copy"
+    }
+   ]
+  },
+  {
+   "scenario": "duplicate",
+   "name": "duplicate closing the source",
+   "export": "NtDuplicateObject",
+   "r3": "0000000000000000",
+   "capture": {
+    "object[:0x10]": "00000002000000018203000000000000",
+    "close procedure": "000000020000000000000000820300a8000000000000000200000000820300a800000000000000010000000000000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "source"
+    },
+    {
+     "pointer": "moved",
+     "offset": 200
+    },
+    {
+     "value": 1
+    }
+   ]
+  },
+  {
+   "scenario": "duplicate",
+   "name": "close the source",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "capture": {
+    "object[:0x10]": "00000001000000008203000000000000",
+    "close procedure": "000000030000000000000000820300a8000000000000000200000000820300a8000000000000000100000000820300a8000000000000000100000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "source"
+    }
+   ]
+  },
+  {
+   "scenario": "duplicate",
+   "name": "close the moved handle",
+   "export": "NtClose",
+   "r3": "FFFFFFFFC0000008",
+   "capture": {
+    "object[:0x10]": "00000001000000008203000000000000",
+    "close procedure": "000000030000000000000000820300a8000000000000000200000000820300a8000000000000000100000000820300a8000000000000000100000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "moved"
+    }
+   ]
+  },
+  {
+   "scenario": "duplicate",
+   "name": "drop the last reference",
+   "export": "ObDereferenceObject",
+   "capture": {
+    "object[:0x10]": "00000000000000008203000000000000",
+    "delete procedure": "000000010000000000000000820300a80000000000000000",
+    "free procedure": "000000010000000000000000820300980000000000000000"
+   },
+   "args": [
+    {
+     "pointer": "object+0x10",
+     "offset": 168
+    }
+   ]
+  },
+  {
+   "scenario": "duplicate",
+   "name": "duplicate an invalid handle",
+   "export": "NtDuplicateObject",
+   "r3": "FFFFFFFFC0000008",
+   "capture": {
+    "invalid out": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "invalid out",
+     "offset": 208
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "created object",
+   "name": "create",
+   "export": "ObCreateObject",
+   "r3": "0000000000000000",
+   "capture": {
+    "allocate procedure": "000000010000000000000000000000300000000058674f620000000000000001",
+    "block[:0x10]": "0000000100000000820300500010cdcd",
+    "created": "82030010"
+   },
+   "args": [
+    {
+     "pointer": "type",
+     "offset": 80
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 32
+    },
+    {
+     "pointer": "created",
+     "offset": 232
+    }
+   ]
+  },
+  {
+   "scenario": "created object",
+   "name": "insert",
+   "export": "ObInsertObject",
+   "r3": "0000000000000000",
+   "capture": {
+    "block[:0x10]": "0000000100000001820300500010cdcd"
+   },
+   "args": [
+    {
+     "variable": "created object"
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "inserted",
+     "offset": 240
+    }
+   ]
+  },
+  {
+   "scenario": "created object",
+   "name": "open",
+   "export": "ObOpenObjectByPointer",
+   "r3": "0000000000000000",
+   "capture": {
+    "block[:0x10]": "0000000200000002820300500010cdcd"
+   },
+   "args": [
+    {
+     "variable": "created object"
+    },
+    {
+     "pointer": "opened",
+     "offset": 248
+    }
+   ]
+  },
+  {
+   "scenario": "created object",
+   "name": "reference",
+   "export": "ObReferenceObjectByHandle",
+   "r3": "0000000000000000",
+   "capture": {
+    "block[:0x10]": "0000000300000002820300500010cdcd",
+    "object out": "82030010"
+   },
+   "args": [
+    {
+     "variable": "inserted"
+    },
+    {
+     "pointer": "type",
+     "offset": 80
+    },
+    {
+     "pointer": "object out",
+     "offset": 256
+    }
+   ]
+  },
+  {
+   "scenario": "created object",
+   "name": "dereference",
+   "export": "ObDereferenceObject",
+   "capture": {
+    "block[:0x10]": "0000000200000002820300500010cdcd"
+   },
+   "args": [
+    {
+     "variable": "created object"
+    }
+   ]
+  },
+  {
+   "scenario": "created object",
+   "name": "close the opened handle",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "capture": {
+    "block[:0x10]": "0000000100000001820300500010cdcd",
+    "close procedure": "000000010000000000000000820300100000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "opened"
+    }
+   ]
+  },
+  {
+   "scenario": "created object",
+   "name": "close the inserted handle",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "capture": {
+    "block[:0x10]": "0000000000000000820300500010cdcd",
+    "close procedure": "000000020000000000000000820300100000000000000002000000008203001000000000000000010000000000000000000000000000000000000000000000000000000000000000",
+    "delete procedure": "000000010000000000000000820300100000000000000000",
+    "free procedure": "000000010000000000000000820300000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "inserted"
+    }
+   ]
+  },
+  {
+   "scenario": "named object",
+   "name": "create",
+   "export": "ObCreateObject",
+   "r3": "0000000000000000",
+   "capture": {
+    "allocate procedure": "0000000100000000000000000000004b0000000058674f620000000000000001",
+    "block[:0x10]": "0000000000000000000b000b82030040",
+    "block+0x10[:0x10]": "0000000100000000820300a00011cdcd",
+    "created": "82030020"
+   },
+   "args": [
+    {
+     "pointer": "type",
+     "offset": 160
+    },
+    {
+     "pointer": "attributes",
+     "offset": 336
+    },
+    {
+     "value": 32
+    },
+    {
+     "pointer": "created",
+     "offset": 352
+    }
+   ]
+  },
+  {
+   "scenario": "named object",
+   "name": "insert",
+   "export": "ObInsertObject",
+   "r3": "0000000000000000",
+   "capture": {
+    "block+0x10[:0x10]": "0000000200000001820300a0001507cd"
+   },
+   "args": [
+    {
+     "variable": "named object"
+    },
+    {
+     "pointer": "attributes",
+     "offset": 336
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "inserted",
+     "offset": 360
+    }
+   ]
+  },
+  {
+   "scenario": "named object",
+   "name": "open by name",
+   "export": "ObOpenObjectByName",
+   "r3": "0000000000000000",
+   "capture": {
+    "block+0x10[:0x10]": "0000000300000002820300a0001507cd"
+   },
+   "args": [
+    {
+     "pointer": "attributes",
+     "offset": 336
+    },
+    {
+     "pointer": "type",
+     "offset": 160
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "opened",
+     "offset": 368
+    }
+   ]
+  },
+  {
+   "scenario": "named object",
+   "name": "reference by name",
+   "export": "ObReferenceObjectByName",
+   "r3": "0000000000000000",
+   "capture": {
+    "block+0x10[:0x10]": "0000000400000002820300a0001507cd",
+    "object out": "82030020"
+   },
+   "args": [
+    {
+     "pointer": "name string",
+     "offset": 328
+    },
+    {
+     "value": 64
+    },
+    {
+     "pointer": "type",
+     "offset": 160
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "object out",
+     "offset": 376
+    }
+   ]
+  },
+  {
+   "scenario": "named object",
+   "name": "dereference",
+   "export": "ObDereferenceObject",
+   "capture": {
+    "block+0x10[:0x10]": "0000000300000002820300a0001507cd"
+   },
+   "args": [
+    {
+     "variable": "named object"
+    }
+   ]
+  },
+  {
+   "scenario": "named object",
+   "name": "close the opened handle",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "capture": {
+    "block+0x10[:0x10]": "0000000200000001820300a0001507cd",
+    "close procedure": "000000010000000000000000820300200000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "opened"
+    }
+   ]
+  },
+  {
+   "scenario": "named object",
+   "name": "close the opened handle again",
+   "export": "NtClose",
+   "r3": "FFFFFFFFC0000008",
+   "capture": {
+    "block+0x10[:0x10]": "0000000200000001820300a0001507cd",
+    "close procedure": "000000010000000000000000820300200000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "opened"
+    }
+   ]
+  },
+  {
+   "scenario": "named object",
+   "name": "reference by name with one handle left",
+   "export": "ObReferenceObjectByName",
+   "r3": "0000000000000000",
+   "capture": {
+    "block+0x10[:0x10]": "0000000300000001820300a0001507cd",
+    "object out": "82030020"
+   },
+   "args": [
+    {
+     "pointer": "name string",
+     "offset": 328
+    },
+    {
+     "value": 64
+    },
+    {
+     "pointer": "type",
+     "offset": 160
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "object out",
+     "offset": 376
+    }
+   ]
+  },
+  {
+   "scenario": "named object",
+   "name": "dereference again",
+   "export": "ObDereferenceObject",
+   "capture": {
+    "block+0x10[:0x10]": "0000000200000001820300a0001507cd"
+   },
+   "args": [
+    {
+     "variable": "named object"
+    }
+   ]
+  },
+  {
+   "scenario": "named object",
+   "name": "close the inserted handle",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "capture": {
+    "block+0x10[:0x10]": "0000000000000000820300a0001107cd",
+    "close procedure": "000000020000000000000000820300200000000000000002000000008203002000000000000000010000000000000000000000000000000000000000000000000000000000000000",
+    "delete procedure": "000000010000000000000000820300200000000000000000",
+    "free procedure": "000000010000000000000000820300000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "inserted"
+    }
+   ]
+  },
+  {
+   "scenario": "named object",
+   "name": "reference by name after the last close",
+   "export": "ObReferenceObjectByName",
+   "r3": "FFFFFFFFC0000034",
+   "capture": {
+    "object out": "00000000"
+   },
+   "args": [
+    {
+     "pointer": "name string",
+     "offset": 328
+    },
+    {
+     "value": 64
+    },
+    {
+     "pointer": "type",
+     "offset": 160
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "object out",
+     "offset": 376
+    }
+   ]
+  },
+  {
+   "scenario": "inserted event opened by pointer",
+   "name": "create",
+   "export": "ObCreateObject",
+   "r3": "0000000000000000",
+   "capture": {
+    "block[:0x10]": "00000001000000008203005000100000"
+   },
+   "args": [
+    {
+     "pointer": "type",
+     "offset": 80
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 16
+    },
+    {
+     "pointer": "created",
+     "offset": 232
+    }
+   ]
+  },
+  {
+   "scenario": "inserted event opened by pointer",
+   "name": "KeInitializeEvent",
+   "export": "KeInitializeEvent",
+   "args": [
+    {
+     "variable": "event object"
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "inserted event opened by pointer",
+   "name": "insert",
+   "export": "ObInsertObject",
+   "r3": "0000000000000000",
+   "capture": {
+    "block[:0x10]": "00000001000000018203005000100000"
+   },
+   "args": [
+    {
+     "variable": "event object"
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "inserted",
+     "offset": 240
+    }
+   ]
+  },
+  {
+   "scenario": "inserted event opened by pointer",
+   "name": "open",
+   "export": "ObOpenObjectByPointer",
+   "r3": "0000000000000000",
+   "capture": {
+    "block[:0x10]": "00000002000000028203005000100000"
+   },
+   "args": [
+    {
+     "variable": "event object"
+    },
+    {
+     "pointer": "opened",
+     "offset": 248
+    }
+   ]
+  },
+  {
+   "scenario": "inserted event opened by pointer",
+   "name": "poll the inserted handle, unset",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000102",
+   "args": [
+    {
+     "variable": "inserted"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 256
+    }
+   ]
+  },
+  {
+   "scenario": "inserted event opened by pointer",
+   "name": "poll the opened handle, unset",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000102",
+   "args": [
+    {
+     "variable": "opened"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 256
+    }
+   ]
+  },
+  {
+   "scenario": "inserted event opened by pointer",
+   "name": "set",
+   "export": "KeSetEvent",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "event object"
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "inserted event opened by pointer",
+   "name": "poll the inserted handle, set",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "inserted"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 256
+    }
+   ]
+  },
+  {
+   "scenario": "inserted event opened by pointer",
+   "name": "poll the opened handle, set",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "opened"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 256
+    }
+   ]
+  },
+  {
+   "scenario": "inserted event opened by pointer",
+   "name": "close the opened handle",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "capture": {
+    "block[:0x10]": "00000001000000018203005000100000",
+    "close procedure": "000000010000000000000000820300100000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "opened"
+    }
+   ]
+  },
+  {
+   "scenario": "inserted event opened by pointer",
+   "name": "close the inserted handle",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "capture": {
+    "block[:0x10]": "00000000000000008203005000100000",
+    "close procedure": "000000020000000000000000820300100000000000000002000000008203001000000000000000010000000000000000000000000000000000000000000000000000000000000000",
+    "delete procedure": "000000010000000000000000820300100000000000000000",
+    "free procedure": "000000010000000000000000820300000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "inserted"
+    }
+   ]
+  },
+  {
+   "scenario": "zeroed body opened by pointer",
+   "name": "create",
+   "export": "ObCreateObject",
+   "r3": "0000000000000000",
+   "capture": {
+    "block[:0x10]": "00000001000000008203005000100000",
+    "block+0x10[:0x20]": "0000000000000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "pointer": "type",
+     "offset": 80
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 32
+    },
+    {
+     "pointer": "created",
+     "offset": 232
+    }
+   ]
+  },
+  {
+   "scenario": "zeroed body opened by pointer",
+   "name": "open",
+   "export": "ObOpenObjectByPointer",
+   "r3": "0000000000000000",
+   "capture": {
+    "block[:0x10]": "00000002000000018203005000100000",
+    "block+0x10[:0x20]": "0000000000000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "zeroed object"
+    },
+    {
+     "pointer": "opened",
+     "offset": 240
+    }
+   ]
+  },
+  {
+   "scenario": "zeroed body opened by pointer",
+   "name": "close",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "capture": {
+    "block[:0x10]": "00000001000000008203005000100000",
+    "block+0x10[:0x20]": "0000000000000000000000000000000000000000000000000000000000000000",
+    "close procedure": "000000010000000000000000820300100000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "opened"
+    }
+   ]
+  },
+  {
+   "scenario": "zeroed body opened by pointer",
+   "name": "drop the last reference",
+   "export": "ObDereferenceObject",
+   "capture": {
+    "block[:0x10]": "00000000000000008203005000100000",
+    "block+0x10[:0x20]": "0000000000000000000000000000000000000000000000000000000000000000",
+    "delete procedure": "000000010000000000000000820300100000000000000000",
+    "free procedure": "000000010000000000000000820300000000000000000000"
+   },
+   "args": [
+    {
+     "variable": "zeroed object"
+    }
+   ]
+  },
+  {
+   "scenario": "close a native object twice",
+   "name": "NtCreateEvent",
+   "export": "NtCreateEvent",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "event",
+     "offset": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "close a native object twice",
+   "name": "close",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "event"
+    }
+   ]
+  },
+  {
+   "scenario": "close a native object twice",
+   "name": "close again",
+   "export": "NtClose",
+   "r3": "FFFFFFFFC0000008",
+   "args": [
+    {
+     "variable": "event"
+    }
+   ]
+  },
+  {
+   "scenario": "close a native object twice",
+   "name": "reference after close",
+   "export": "ObReferenceObjectByHandle",
+   "r3": "FFFFFFFFC0000008",
+   "capture": {
+    "object out": "00000000"
+   },
+   "args": [
+    {
+     "variable": "event"
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "object out",
+     "offset": 8
+    }
+   ]
+  },
+  {
+   "scenario": "event previous state",
+   "name": "NtCreateEvent",
+   "export": "NtCreateEvent",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "event",
+     "offset": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "event previous state",
+   "name": "set",
+   "export": "NtSetEvent",
+   "r3": "0000000000000000",
+   "capture": {
+    "previous": "00000000"
+   },
+   "args": [
+    {
+     "variable": "event"
+    },
+    {
+     "pointer": "previous",
+     "offset": 8
+    }
+   ]
+  },
+  {
+   "scenario": "event previous state",
+   "name": "set again",
+   "export": "NtSetEvent",
+   "r3": "0000000000000000",
+   "capture": {
+    "previous": "00000001"
+   },
+   "args": [
+    {
+     "variable": "event"
+    },
+    {
+     "pointer": "previous",
+     "offset": 8
+    }
+   ]
+  },
+  {
+   "scenario": "event previous state",
+   "name": "pulse while set",
+   "export": "NtPulseEvent",
+   "r3": "0000000000000000",
+   "capture": {
+    "previous": "00000001"
+   },
+   "args": [
+    {
+     "variable": "event"
+    },
+    {
+     "pointer": "previous",
+     "offset": 8
+    }
+   ]
+  },
+  {
+   "scenario": "event previous state",
+   "name": "pulse while clear",
+   "export": "NtPulseEvent",
+   "r3": "0000000000000000",
+   "capture": {
+    "previous": "00000000"
+   },
+   "args": [
+    {
+     "variable": "event"
+    },
+    {
+     "pointer": "previous",
+     "offset": 8
+    }
+   ]
+  },
+  {
+   "scenario": "event previous state",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "event"
+    }
+   ]
+  },
+  {
+   "scenario": "event previous state",
+   "name": "KeInitializeEvent",
+   "export": "KeInitializeEvent",
+   "args": [
+    {
+     "pointer": "kevent",
+     "offset": 16
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "event previous state",
+   "name": "KeSetEvent",
+   "export": "KeSetEvent",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "kevent",
+     "offset": 16
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "event previous state",
+   "name": "KeSetEvent again",
+   "export": "KeSetEvent",
+   "r3": "0000000000000001",
+   "args": [
+    {
+     "pointer": "kevent",
+     "offset": 16
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "event previous state",
+   "name": "KeResetEvent",
+   "export": "KeResetEvent",
+   "r3": "0000000000000001",
+   "args": [
+    {
+     "pointer": "kevent",
+     "offset": 16
+    }
+   ]
+  },
+  {
+   "scenario": "event previous state",
+   "name": "KeResetEvent again",
+   "export": "KeResetEvent",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "kevent",
+     "offset": 16
+    }
+   ]
+  },
+  {
+   "scenario": "event previous state",
+   "name": "KeSetEvent after reset",
+   "export": "KeSetEvent",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "kevent",
+     "offset": 16
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "event previous state",
+   "name": "KePulseEvent while set",
+   "export": "KePulseEvent",
+   "r3": "0000000000000001",
+   "args": [
+    {
+     "pointer": "kevent",
+     "offset": 16
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "event previous state",
+   "name": "KePulseEvent while clear",
+   "export": "KePulseEvent",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "kevent",
+     "offset": 16
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "create",
+   "export": "NtCreateEvent",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "first",
+     "offset": 56
+    },
+    {
+     "pointer": "attributes",
+     "offset": 24
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "duplicate",
+   "export": "NtDuplicateObject",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "first"
+    },
+    {
+     "pointer": "copy",
+     "offset": 64
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "close the first handle",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "first"
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "open by name",
+   "export": "ObOpenObjectByName",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "attributes",
+     "offset": 24
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "opened",
+     "offset": 72
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "create again",
+   "export": "NtCreateEvent",
+   "r3": "FFFFFFFFC0000035",
+   "capture": {
+    "created again": "00000000"
+   },
+   "args": [
+    {
+     "pointer": "created again",
+     "offset": 80
+    },
+    {
+     "pointer": "attributes",
+     "offset": 24
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "create again with OBJ_OPENIF",
+   "export": "NtCreateEvent",
+   "r3": "0000000040000000",
+   "args": [
+    {
+     "pointer": "created again open if",
+     "offset": 88
+    },
+    {
+     "pointer": "attributes open if",
+     "offset": 40
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "create a semaphore with the name",
+   "export": "NtCreateSemaphore",
+   "r3": "FFFFFFFFC0000035",
+   "capture": {
+    "semaphore": "00000000"
+   },
+   "args": [
+    {
+     "pointer": "semaphore",
+     "offset": 96
+    },
+    {
+     "pointer": "attributes",
+     "offset": 24
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "create a semaphore with the name and OBJ_OPENIF",
+   "export": "NtCreateSemaphore",
+   "r3": "FFFFFFFFC0000024",
+   "capture": {
+    "semaphore open if": "00000000"
+   },
+   "args": [
+    {
+     "pointer": "semaphore open if",
+     "offset": 104
+    },
+    {
+     "pointer": "attributes open if",
+     "offset": 40
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "set through the opened handle",
+   "export": "NtSetEvent",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "opened"
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "poll the copy handle",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "copy"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 120
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "poll the created again handle",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "FFFFFFFFC0000008",
+   "args": [
+    {
+     "variable": "created again"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 120
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "poll the created again open if handle",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "created again open if"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 120
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "close the copy handle",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "copy"
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "close the opened handle",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "opened"
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "close the created again handle",
+   "export": "NtClose",
+   "r3": "FFFFFFFFC0000008",
+   "args": [
+    {
+     "variable": "created again"
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "close the created again open if handle",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "created again open if"
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "close the semaphore handle",
+   "export": "NtClose",
+   "r3": "FFFFFFFFC0000008",
+   "args": [
+    {
+     "variable": "semaphore"
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "close the semaphore open if handle",
+   "export": "NtClose",
+   "r3": "FFFFFFFFC0000008",
+   "args": [
+    {
+     "variable": "semaphore open if"
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "open by name after the last close",
+   "export": "ObOpenObjectByName",
+   "r3": "FFFFFFFFC0000034",
+   "args": [
+    {
+     "pointer": "attributes",
+     "offset": 24
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "opened after",
+     "offset": 112
+    }
+   ]
+  },
+  {
+   "scenario": "named event",
+   "name": "close what that opened",
+   "export": "NtClose",
+   "r3": "FFFFFFFFC0000008",
+   "args": [
+    {
+     "variable": "opened after"
+    }
+   ]
+  },
+  {
+   "scenario": "address validity",
+   "name": "reserve",
+   "export": "NtAllocateVirtualMemory",
+   "r3": "0000000000000000",
+   "capture": {
+    "size": "00010000"
+   },
+   "args": [
+    {
+     "pointer": "base",
+     "offset": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 8
+    },
+    {
+     "value": 8192
+    },
+    {
+     "value": 4
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "address validity",
+   "name": "valid when reserved",
+   "export": "MmIsAddressValid",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "region"
+    }
+   ]
+  },
+  {
+   "scenario": "address validity",
+   "name": "commit",
+   "export": "NtAllocateVirtualMemory",
+   "r3": "0000000000000000",
+   "capture": {
+    "size": "00010000"
+   },
+   "args": [
+    {
+     "pointer": "base",
+     "offset": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 8
+    },
+    {
+     "value": 4096
+    },
+    {
+     "value": 4
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "address validity",
+   "name": "valid when committed",
+   "export": "MmIsAddressValid",
+   "r3": "0000000000000001",
+   "args": [
+    {
+     "variable": "region"
+    }
+   ]
+  },
+  {
+   "scenario": "address validity",
+   "name": "decommit",
+   "export": "NtFreeVirtualMemory",
+   "r3": "0000000000000000",
+   "capture": {
+    "size": "00010000"
+   },
+   "args": [
+    {
+     "pointer": "base",
+     "offset": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 8
+    },
+    {
+     "value": 16384
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "address validity",
+   "name": "valid when decommitted",
+   "export": "MmIsAddressValid",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "region"
+    }
+   ]
+  },
+  {
+   "scenario": "address validity",
+   "name": "release",
+   "export": "NtFreeVirtualMemory",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "base",
+     "offset": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 8
+    },
+    {
+     "value": 32768
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "address validity",
+   "name": "valid when released",
+   "export": "MmIsAddressValid",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "region"
+    }
+   ]
+  },
+  {
+   "scenario": "overlapped event with a completion routine",
+   "name": "NtCreateEvent",
+   "export": "NtCreateEvent",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "overlapped+0xc",
+     "offset": 12
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "overlapped event with a completion routine",
+   "name": "close nothing open",
+   "export": "XamContentClose",
+   "r3": "00000000000003E5",
+   "completed": true,
+   "capture": {
+    "completion routine": "0000000000000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "pointer": "root",
+     "offset": 64
+    },
+    {
+     "pointer": "overlapped",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "overlapped event with a completion routine",
+   "name": "alertable wait",
+   "export": "KeDelayExecutionThread",
+   "r3": "00000000000000C0",
+   "capture": {
+    "completion routine": "0000000100000000000000000000065b00000000000000000000000082030000"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "10 ms",
+     "offset": 72
+    }
+   ]
+  },
+  {
+   "scenario": "overlapped event with a completion routine",
+   "name": "poll the event",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000102",
+   "args": [
+    {
+     "variable": "event"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 80
+    }
+   ]
+  },
+  {
+   "scenario": "overlapped event with a completion routine",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "event"
+    }
+   ]
+  }
+ ]
+}

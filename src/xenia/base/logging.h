@@ -13,7 +13,9 @@
 #include <cstdarg>
 #include <cstdint>
 #include <memory>
+#include <filesystem>
 #include <string>
+#include <type_traits>
 
 #include "third_party/fmt/include/fmt/format.h"
 #include "third_party/fmt/include/fmt/std.h"
@@ -89,6 +91,13 @@ void FlushLog();
 // on itself to log.
 bool IsLogWriterThread();
 
+// The result of path_to_utf8, in filesystem.h.
+class Utf8Path;
+
+// Writes the user name in UTF-8 text, such as a path from path_to_utf8, as
+// $USER (%USERNAME% on Windows), so logs can be shared without it.
+std::string strip_pii(const std::string_view text);
+
 namespace logging {
 
 constexpr char kPrefixCharError = '!';
@@ -114,6 +123,15 @@ XE_NOALIAS
 void AppendLogLine(LogLevel log_level, const char prefix_char, size_t written);
 
 }  // namespace internal
+
+// Host paths carry the user name, so log calls only take them through
+// strip_pii.
+template <typename... Args>
+concept NoHostPaths =
+    !((std::is_same_v<std::remove_cvref_t<Args>, std::filesystem::path> ||
+       std::is_same_v<std::remove_cvref_t<Args>, Utf8Path>) ||
+      ...);
+
 // technically, noalias is incorrect here, these functions do in fact alias
 // global memory, but msvc will not optimize the calls away, and the global
 // memory modified by the calls is limited to internal logging variables, so it
@@ -132,6 +150,7 @@ XE_NOALIAS XE_NOINLINE XE_COLD static void AppendLogLineFormat_Impl(
 // chrispy: inline the initial check, outline the append. the append should
 // happen rarely for end users
 template <typename... Args>
+  requires NoHostPaths<Args...>
 XE_FORCEINLINE static void AppendLogLineFormat(uint32_t log_src_mask,
                                                LogLevel log_level,
                                                const char prefix_char,
@@ -164,6 +183,7 @@ struct LoggerBatch {
 
   LoggerBatch() { reset(); }
   template <size_t fmtlen, typename... Ts>
+    requires NoHostPaths<Ts...>
   void operator()(const char (&fmt)[fmtlen], Ts&&... args) {
     auto tmpres =
         fmt::format_to_n(thrd_buf, thrd_buf_rem, fmt::runtime(fmt), args...);
@@ -187,6 +207,7 @@ struct LoggerBatch {
 #if XE_OPTION_ENABLE_LOGGING
 
 template <typename... Args>
+  requires xe::logging::NoHostPaths<Args...>
 XE_COLD void XELOGE(std::string_view format, const Args&... args) {
   xe::logging::AppendLogLineFormat(
       xe::LogSrc::Uncategorized, xe::LogLevel::Error,
@@ -194,6 +215,7 @@ XE_COLD void XELOGE(std::string_view format, const Args&... args) {
 }
 
 template <typename... Args>
+  requires xe::logging::NoHostPaths<Args...>
 XE_COLD void XELOGW(std::string_view format, const Args&... args) {
   xe::logging::AppendLogLineFormat(
       xe::LogSrc::Uncategorized, xe::LogLevel::Warning,
@@ -201,6 +223,7 @@ XE_COLD void XELOGW(std::string_view format, const Args&... args) {
 }
 
 template <typename... Args>
+  requires xe::logging::NoHostPaths<Args...>
 void XELOGI(std::string_view format, const Args&... args) {
   xe::logging::AppendLogLineFormat(
       xe::LogSrc::Uncategorized, xe::LogLevel::Info,
@@ -208,6 +231,7 @@ void XELOGI(std::string_view format, const Args&... args) {
 }
 
 template <typename... Args>
+  requires xe::logging::NoHostPaths<Args...>
 void XELOGD(std::string_view format, const Args&... args) {
   xe::logging::AppendLogLineFormat(
       xe::LogSrc::Uncategorized, xe::LogLevel::Debug,
@@ -215,30 +239,35 @@ void XELOGD(std::string_view format, const Args&... args) {
 }
 
 template <typename... Args>
+  requires xe::logging::NoHostPaths<Args...>
 void XELOGCPU(std::string_view format, const Args&... args) {
   xe::logging::AppendLogLineFormat(xe::LogSrc::Cpu, xe::LogLevel::Info, 'C',
                                    format, args...);
 }
 
 template <typename... Args>
+  requires xe::logging::NoHostPaths<Args...>
 void XELOGAPU(std::string_view format, const Args&... args) {
   xe::logging::AppendLogLineFormat(xe::LogSrc::Apu, xe::LogLevel::Debug, 'A',
                                    format, args...);
 }
 
 template <typename... Args>
+  requires xe::logging::NoHostPaths<Args...>
 void XELOGGPU(std::string_view format, const Args&... args) {
   xe::logging::AppendLogLineFormat(xe::LogSrc::Gpu, xe::LogLevel::Debug, 'G',
                                    format, args...);
 }
 
 template <typename... Args>
+  requires xe::logging::NoHostPaths<Args...>
 void XELOGKERNEL(std::string_view format, const Args&... args) {
   xe::logging::AppendLogLineFormat(xe::LogSrc::Kernel, xe::LogLevel::Info, 'K',
                                    format, args...);
 }
 
 template <typename... Args>
+  requires xe::logging::NoHostPaths<Args...>
 void XELOGFS(std::string_view format, const Args&... args) {
   xe::logging::AppendLogLineFormat(xe::LogSrc::Uncategorized,
                                    xe::LogLevel::Info, 'F', format, args...);

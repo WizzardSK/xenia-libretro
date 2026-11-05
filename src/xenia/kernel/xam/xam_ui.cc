@@ -10,10 +10,19 @@
 #include "xenia/kernel/xam/xam_ui.h"
 
 #include <algorithm>
+#include <charconv>
+#include <mutex>
+#include <optional>
+#include <span>
 #include <thread>
+#include <unordered_set>
+#include <vector>
 
+#include "third_party/utfcpp/source/utf8.h"
 #include "xenia/base/png_utils.h"
+#include "xenia/base/string.h"
 #include "xenia/base/system.h"
+#include "xenia/base/utf8.h"
 #include "xenia/hid/input_system.h"
 #include "xenia/kernel/guest_scheduler.h"
 #include "xenia/emulator.h"
@@ -25,6 +34,9 @@
 #include "xenia/kernel/xam/content_manager.h"
 #include "xenia/kernel/xam/xam_content_device.h"
 #include "xenia/kernel/xam/xam_private.h"
+#include "xenia/kernel/xam/xam_state.h"
+#include "xenia/kernel/xmodule.h"
+#include "xenia/kernel/xthread.h"
 #include "xenia/ui/file_picker.h"
 #include "xenia/ui/imgui_dialog.h"
 #include <typeinfo>
@@ -255,6 +267,14 @@ void MessageBoxDialog::OnDraw(ImGuiIO& io) {
     ImGui::OpenPopup(title_.c_str());
     has_opened_ = true;
   }
+
+  // Center every frame, a title can open one while the window is still being
+  // resized at launch.
+  ImVec2 center = ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
+  ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+  ImGui::SetNextWindowSize(ImVec2(ImGui::GetFontSize() * 30.0f, 0.0f),
+                           ImGuiCond_Always);
+
   if (ImGui::BeginPopupModal(title_.c_str(), nullptr,
                              ImGuiWindowFlags_AlwaysAutoResize)) {
     // Handle keyboard escape or gamepad B/Back to cancel
@@ -265,7 +285,7 @@ void MessageBoxDialog::OnDraw(ImGuiIO& io) {
     }
 
     if (description_.size()) {
-      ImGui::Text("%s", description_.c_str());
+      ImGui::TextWrapped("%s", description_.c_str());
     }
 
     // Buttons - ImGui handles navigation, A button activates via ImGui
@@ -550,6 +570,24 @@ dword_result_t XamShowMessageBoxUIEx_entry(
 }
 DECLARE_XAM_EXPORT1(XamShowMessageBoxUIEx, kUI, kImplemented);
 
+// XamShowMessageBoxUI with the tracking ID of a Kinect skeleton first.
+// TODO(knuckleslee): Selecting the buttons with Kinect is not supported.
+dword_result_t XamShowNuiMessageBoxUI_entry(
+    dword_t tracking_id, dword_t user_index, lpu16string_t title_ptr,
+    lpu16string_t text_ptr, dword_t button_count, lpdword_t button_ptrs,
+    dword_t active_button, dword_t flags,
+    pointer_t<MESSAGEBOX_RESULT> result_ptr,
+    pointer_t<XAM_OVERLAPPED> overlapped) {
+  auto result = kernel_state()->nui()->NuiHudCheck(tracking_id);
+  if (result) {
+    return result;
+  }
+  return XamShowMessageBoxUi(user_index, title_ptr, text_ptr, button_count,
+                             button_ptrs, active_button, flags | 0x2000,
+                             result_ptr, overlapped);
+}
+DECLARE_XAM_EXPORT1(XamShowNuiMessageBoxUI, kUI, kSketchy);
+
 dword_result_t XNotifyQueueUI_entry(dword_t exnq, dword_t dwUserIndex,
                                     qword_t qwAreas,
                                     lpu16string_t displayText_ptr,
@@ -722,54 +760,71 @@ dword_result_t XamShowDeviceSelectorUI_entry(
 }
 DECLARE_XAM_EXPORT1(XamShowDeviceSelectorUI, kUI, kImplemented);
 
+// XamShowDeviceSelectorUI with the tracking ID of a Kinect skeleton first.
+dword_result_t XamShowNuiDeviceSelectorUI_entry(
+    dword_t tracking_id, dword_t user_index, dword_t content_type,
+    dword_t content_flags, qword_t total_requested, lpdword_t device_id_ptr,
+    pointer_t<XAM_OVERLAPPED> overlapped) {
+  auto result = kernel_state()->nui()->NuiHudCheck(tracking_id);
+  if (result) {
+    return result;
+  }
+  return XamShowDeviceSelectorUI_entry(user_index, content_type, content_flags,
+                                       total_requested, device_id_ptr,
+                                       overlapped);
+}
+DECLARE_XAM_EXPORT1(XamShowNuiDeviceSelectorUI, kUI, kSketchy);
+
+const char kDiscReadErrorTitle[] = "Disc Read Error";
+const char kDiscReadErrorDescription[] =
+    "There's been an issue reading content from the game disc.\nThis is "
+    "likely caused by bad or unimplemented file IO calls.";
+
 void XamShowDirtyDiscErrorUI_entry(dword_t user_index,
                                    const ppc_context_t& context) {
   XELOGE("XamShowDirtyDiscErrorUI: title reported a disc read error, lr {:08X}",
          uint32_t(context->lr));
 
-  std::string title = "Disc Read Error";
-  std::string desc =
-      "There's been an issue reading content from the game disc.\nThis is "
-      "likely caused by bad or unimplemented file IO calls.";
-
   const Emulator* emulator = kernel_state()->emulator();
   xe::ui::ImGuiDrawer* imgui_drawer = emulator->imgui_drawer();
   xe::hid::InputSystem* input_system = emulator->input_system();
   xeXamDispatchDialog<MessageBoxDialog>(
-      new MessageBoxDialog(imgui_drawer, input_system, title, desc, {"OK"}, 0),
+      new MessageBoxDialog(imgui_drawer, input_system, kDiscReadErrorTitle,
+                           kDiscReadErrorDescription, {"OK"}, 0),
       [](MessageBoxDialog*) -> X_RESULT { return X_ERROR_SUCCESS; }, 0);
   // Does not return.
   kernel_state()->ExitToDashboard();
 }
 DECLARE_XAM_EXPORT1(XamShowDirtyDiscErrorUI, kUI, kImplemented);
 
+dword_result_t XamShowNuiDirtyDiscErrorUI_entry(dword_t tracking_id) {
+  auto result = kernel_state()->nui()->NuiHudCheck(tracking_id);
+  if (result) {
+    return result;
+  }
+  // XamShowAndWaitForMessageBoxEx, same as XamShowDirtyDiscErrorUI except flag
+  // = 0x2001, user index always set to XUserIndexAny
+  const Emulator* emulator = kernel_state()->emulator();
+  xe::ui::ImGuiDrawer* imgui_drawer = emulator->imgui_drawer();
+  xe::hid::InputSystem* input_system = emulator->input_system();
+  xeXamDispatchDialog<MessageBoxDialog>(
+      new MessageBoxDialog(imgui_drawer, input_system, kDiscReadErrorTitle,
+                           kDiscReadErrorDescription, {"OK"}, 0),
+      [](MessageBoxDialog*) -> X_RESULT { return X_ERROR_SUCCESS; }, 0);
+  return X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamShowNuiDirtyDiscErrorUI, kUI, kStub);
+
 dword_result_t XamShowPartyUI_entry(dword_t user_index) {
   return X_ERROR_FUNCTION_FAILED;
 }
-DECLARE_XAM_EXPORT1(XamShowPartyUI, kNone, kStub);
+DECLARE_XAM_EXPORT1(XamShowPartyUI, kUI, kStub);
 
-dword_result_t XamShowCommunitySessionsUI_entry(unknown_t r3, unknown_t r4) {
+dword_result_t XamShowCommunitySessionsUI_entry(dword_t user_index,
+                                                dword_t social_sessions_flags) {
   return X_ERROR_FUNCTION_FAILED;
 }
-DECLARE_XAM_EXPORT1(XamShowCommunitySessionsUI, kNone, kStub);
-
-// this is supposed to do a lot more, calls another function that triggers some
-// cbs
-dword_result_t XamSetDashContext_entry(dword_t value,
-                                       const ppc_context_t& ctx) {
-  ctx->kernel_state->dash_context_ = value;
-  kernel_state()->BroadcastNotification(kXNotificationSystemDashContextChanged,
-                                        0);
-  return 0;
-}
-
-DECLARE_XAM_EXPORT1(XamSetDashContext, kNone, kImplemented);
-
-dword_result_t XamGetDashContext_entry(const ppc_context_t& ctx) {
-  return ctx->kernel_state->dash_context_;
-}
-
-DECLARE_XAM_EXPORT1(XamGetDashContext, kNone, kImplemented);
+DECLARE_XAM_EXPORT1(XamShowCommunitySessionsUI, kUI, kStub);
 
 // https://gitlab.com/GlitchyScripts/xlivelessness/-/blob/master/xlivelessness/xlive/xdefs.hpp?ref_type=heads#L1235
 dword_result_t XamShowMarketplaceUIEx_entry(dword_t user_index, dword_t ui_type,
@@ -987,9 +1042,83 @@ dword_result_t XamShowMarketplaceDownloadItemsUI_entry(
 }
 DECLARE_XAM_EXPORT1(XamShowMarketplaceDownloadItemsUI, kUI, kSketchy);
 
+// Largest order the purchase UI accepts and the receipt buffer size it asks
+// for when queried.
+constexpr uint32_t kMarketplaceOrderMaxSize = 0x13880;
+
+// Without a receipt buffer it only reports the size it needs. A purchase needs
+// a signed in user and no other system UI, then goes to the marketplace guide,
+// the Kinect one for a nonzero tracking_id. There is no marketplace here, so
+// the order is taken as cancelled. What the guide reports without LIVE isn't
+// known. Returns an HRESULT.
+dword_result_t XamShowMarketplacePurchaseOrderUIEx_entry(
+    dword_t user_index, dword_t tracking_id, dword_t order_size, lpvoid_t order,
+    lpdword_t receipt_size_ptr, lpvoid_t receipt, dword_t unknown,
+    pointer_t<XAM_OVERLAPPED> overlapped) {
+  if (!receipt && receipt_size_ptr) {
+    *receipt_size_ptr = kMarketplaceOrderMaxSize;
+    return X_E_SUCCESS;
+  }
+  if (user_index >= XUserMaxUserCount || !order || !receipt ||
+      !receipt_size_ptr || order_size > kMarketplaceOrderMaxSize ||
+      receipt_size_ptr.value() < kMarketplaceOrderMaxSize) {
+    return X_E_INVALIDARG;
+  }
+  if (!kernel_state()->xam_state()->GetUserProfile(user_index)) {
+    return X_E_NO_SUCH_USER;
+  }
+  if (kernel_state()->xam_state()->IsUIActive()) {
+    return X_E_ACCESS_DENIED;
+  }
+  XELOGI(
+      "XamShowMarketplacePurchaseOrderUIEx: no Xbox LIVE Marketplace, "
+      "cancelling the order");
+  const X_RESULT result = xeXamDispatchWithoutDialog(
+      []() { return X_ERROR_CANCELLED; }, overlapped.guest_address());
+  return X_HRESULT_FROM_WIN32(result);
+}
+DECLARE_XAM_EXPORT1(XamShowMarketplacePurchaseOrderUIEx, kUI, kSketchy);
+
+// Tells the user an optional media update is needed, with a message box that
+// offers the marketplace to a LIVE profile. user_index may be XUserIndexAny. A
+// bad one fails the request rather than the call. With no message box here
+// the request succeeds as if it were dismissed. The call returns 0, queued or
+// not.
+dword_result_t XamShowOptionalMediaUpdateRequiredUI_entry(
+    dword_t user_index, pointer_t<XAM_OVERLAPPED> overlapped) {
+  if (user_index >= XUserMaxUserCount && user_index != XUserIndexAny) {
+    if (overlapped) {
+      kernel_state()->CompleteOverlappedImmediateEx(overlapped.guest_address(),
+                                                    X_ERROR_FUNCTION_FAILED,
+                                                    X_E_INVALIDARG, 0);
+    } else {
+      XThread::SetLastError(X_E_INVALIDARG);
+    }
+    return X_ERROR_SUCCESS;
+  }
+  XELOGI("XamShowOptionalMediaUpdateRequiredUI: no message box to show");
+  xeXamDispatchWithoutDialog([]() { return X_ERROR_SUCCESS; },
+                             overlapped.guest_address());
+  return X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamShowOptionalMediaUpdateRequiredUI, kUI, kSketchy);
+
+dword_result_t XamShowGoldUpgradeUI_entry(dword_t user_index, dword_t unk,
+                                          dword_t title_id) {
+  return X_ERROR_FUNCTION_FAILED;
+}
+DECLARE_XAM_EXPORT1(XamShowGoldUpgradeUI, kUI, kStub);
+
+dword_result_t XamShowMultiplayerUpgradeUI_entry(dword_t user_index) {
+  return XamShowGoldUpgradeUI_entry(user_index, 6,
+                                    kernel_state()->emulator()->title_id());
+}
+DECLARE_XAM_EXPORT1(XamShowMultiplayerUpgradeUI, kUI, kImplemented);
+
 dword_result_t XamShowForcedNameChangeUI_entry(dword_t user_index) {
-  // Changes from 6 to 8 past NXE
-  return XamShowMarketplaceUIEx_entry(user_index, 6, 0, 0xffffffff, 0, 0, 0, 0);
+  return XamShowMarketplaceUIEx_entry(
+      user_index, X_MARKETPLACE_ENTRYPOINT::ForcedNameChangeV2, 0, 0xffffffff,
+      0, 0, 0, 0);
 }
 DECLARE_XAM_EXPORT1(XamShowForcedNameChangeUI, kUI, kImplemented);
 
@@ -1083,6 +1212,33 @@ X_RESULT xeXamShowSigninUI(uint32_t user_index, uint32_t users_needed,
     return X_ERROR_ACCESS_DENIED;
   }
 
+  // The dashboard signs in the profile chosen on its own sign-in screen with
+  // XamUserLogonEx, then asks for the sign-in to be completed for that slot.
+  // There's no profile to pick then, so complete it without the picker, and
+  // announce the sign-in again as the console's sign-in UI does when it ends.
+  if ((flags & static_cast<uint32_t>(SigninUiFlags::CompleteSignIn)) &&
+      user_index < XUserMaxUserCount &&
+      kernel_state()->xam_state()->IsUserSignedIn(user_index)) {
+    // The dashboard waits for the UI to show and then close.
+    kernel_state()->xam_state()->is_xam_dialog_present_.store(true);
+    kernel_state()->BroadcastNotification(kXNotificationSystemUI, true);
+    std::thread([]() {
+      xe::threading::Sleep(kUIDelayMillis);
+      // Like every sign-in notification, with the mask of all signed in slots.
+      uint32_t signed_in_mask = 0;
+      for (uint32_t i = 0; i < XUserMaxUserCount; i++) {
+        if (kernel_state()->xam_state()->IsUserSignedIn(i)) {
+          signed_in_mask |= 1u << i;
+        }
+      }
+      kernel_state()->BroadcastNotification(kXNotificationSystemSignInChanged,
+                                            signed_in_mask);
+      kernel_state()->xam_state()->is_xam_dialog_present_.store(false);
+      kernel_state()->BroadcastNotification(kXNotificationSystemUI, false);
+    }).detach();
+    return X_ERROR_SUCCESS;
+  }
+
   // No window (the libretro core): there is nobody to pick a profile, and the
   // core has signed one in already. Answer as the dialog's OK would - the
   // games that sit and wait for a sign-in change get one for the profiles
@@ -1153,11 +1309,15 @@ dword_result_t XamShowSigninUIEx_entry(
 }
 DECLARE_XAM_EXPORT1(XamShowSigninUIEx, kUserProfiles, kSketchy);
 
-dword_result_t XamShowNuiSigninUI_entry(dword_t unk, dword_t user_index,
+dword_result_t XamShowNuiSigninUI_entry(dword_t tracking_id, dword_t user_index,
                                         dword_t flags) {
+  auto result = kernel_state()->nui()->NuiHudCheck(tracking_id);
+  if (result) {
+    return result;
+  }
   uint32_t users_needed = 1;
   uint32_t sent_flags = flags | static_cast<uint32_t>(SigninUiFlags::NUI);
-  // xeXamNuiHudCheck(unk) = success then continue else return
+  // xeXamNuiHudCheck(tracking_id) = success then continue else return
   return xeXamShowSigninUI(user_index, users_needed, sent_flags);
 }
 DECLARE_XAM_EXPORT1(XamShowNuiSigninUI, kUserProfiles, kSketchy);
@@ -1308,6 +1468,402 @@ bool xeXamChooseIndieGame(std::string* file_name, uint32_t* device_id,
   }
   return false;
 }
+
+// UI
+dword_result_t XamShowNuiTroubleshooterUI_entry(dword_t user_index,
+                                                dword_t tracking_id,
+                                                dword_t flags) {
+  /* Notes:
+     - calls XamPackageManagerGetExperienceMode(&var) with var = 1
+     - If returns less than zero or (var & 1) == 0 then get error message:
+       - if XamPackageManagerGetExperienceMode = 0 then call XamShowMessageBoxUI
+         - if XamShowMessageBoxUI returns 0x3e5 then XamShowNuiTroubleshooterUI
+     returns 0
+       - else XamShowNuiTroubleshooterUI returns 0x65b and call another func
+     - else:
+       - call XamNuiHudSetEngagedTrackingID(tracking_id) and doesn't care aboot
+     return and set var2 = 2
+       - checks if (flag & 0x800000) == 0
+         - if true call XamNuiGetDeviceStatus.
+           - if XamNuiGetDeviceStatus != 0 set var2 = 3
+       - else var2 = 4
+       - XamAppRequestLoadEx(var2);
+       - if return = 0 then XamShowNuiTroubleshooterUI returns 5
+       - else set buffer[8] and call
+     XMsgSystemProcessCall(0xfe,0x21028,buffer,0xc);
+     - XamNuiNatalCameraUpdateComplete calls
+     XamShowNuiTroubleshooterUI(0xff,0,0) if param = -0x7ff8fffe
+  */
+
+  const Emulator* emulator = kernel_state()->emulator();
+  xe::ui::Window* display_window = emulator->display_window();
+  xe::ui::ImGuiDrawer* imgui_drawer = emulator->imgui_drawer();
+  if (display_window && imgui_drawer) {
+    xe::threading::Fence fence;
+    if (display_window->app_context().CallInUIThreadSynchronous([&]() {
+          xe::ui::ImGuiDialog::ShowMessageBox(
+              imgui_drawer, "NUI Troubleshooter",
+              "The game has indicated there is a problem with NUI (Kinect).")
+              ->Then(&fence);
+        })) {
+      kernel_state()->xam_state()->is_xam_dialog_present_.store(true);
+      GuestScheduler::WaitOnFence(fence);
+      kernel_state()->xam_state()->is_xam_dialog_present_.store(false);
+    }
+  }
+
+  return X_ERROR_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XamShowNuiTroubleshooterUI, kNone, kStub);
+
+dword_result_t XamShowNuiHardwareRequiredUI_entry(unknown_t unk1) {
+  if (unk1 != 0) {
+    return X_ERROR_INVALID_PARAMETER;
+  }
+
+  return XamShowNuiTroubleshooterUI_entry(0xff, 0, 0x400000);
+}
+DECLARE_XAM_EXPORT1(XamShowNuiHardwareRequiredUI, kNone, kImplemented);
+
+dword_result_t XamShowNuiGuideUI_entry(unknown_t tracking_id, unknown_t unk2) {
+  auto result = kernel_state()->nui()->NuiHudCheck(tracking_id);
+  if (result) {
+    return result;
+  }
+  /* Notes:
+   - calls xeXamNuiHudCheck, if success call XamAppRequestLoadEx(4) and if
+   succeed call XMsgSystemProcessCall and some sub function that ensures correct
+   h_result is returned
+   - if XamAppRequestLoadEx(4) fails return X_ERROR_ACCESS_DENIED
+  */
+
+  return X_ERROR_ACCESS_DENIED;
+}
+DECLARE_XAM_EXPORT1(XamShowNuiGuideUI, kNone, kStub);
+
+XLanguage xeGetLanguage(bool extended_languages_support);
+
+// Only XUI's string tables, which titles that don't link XUI can load through
+// xam.
+static std::mutex xui_lock;
+static bool xui_initialized = false;
+static std::unordered_set<uint32_t> xui_string_tables;
+
+dword_result_t XuiInit_entry(lpdword_t params) {
+  // The parameters start with their size.
+  if (params && *params > 0xC) {
+    return 0x8000FFFF;
+  }
+  std::lock_guard<std::mutex> lock(xui_lock);
+  if (xui_initialized) {
+    return 1;
+  }
+  xui_initialized = true;
+  return X_E_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XuiInit, kUI, kSketchy);
+
+dword_result_t XuiUninit_entry() {
+  std::lock_guard<std::mutex> lock(xui_lock);
+  xui_initialized = false;
+  return X_E_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XuiUninit, kUI, kSketchy);
+
+static std::optional<std::u16string> ReadXuiString(
+    std::span<const uint8_t> data, size_t* offset, size_t length) {
+  if (*offset + length * 2 > data.size()) {
+    return std::nullopt;
+  }
+  std::u16string string(length, u'\0');
+  for (size_t i = 0; i < length; ++i) {
+    string[i] =
+        char16_t(xe::load_and_swap<uint16_t>(data.data() + *offset + i * 2));
+  }
+  *offset += length * 2;
+  return string;
+}
+
+// A file in an XUIZ package, the archive XUI resources keep their files in.
+// Version 1 names the files in UTF-16 and version 3 in UTF-8, with the same
+// entries otherwise.
+static std::optional<std::span<const uint8_t>> FindXuiPackageFile(
+    std::span<const uint8_t> package, const std::string_view name) {
+  constexpr uint32_t kXuiPackageMagic = 0x5855495A;  // XUIZ
+  if (package.size() < 0x16 ||
+      xe::load_and_swap<uint32_t>(package.data()) != kXuiPackageMagic) {
+    return std::nullopt;
+  }
+  const uint32_t version = xe::load_and_swap<uint32_t>(package.data() + 4);
+  if (version != 1 && version != 3) {
+    return std::nullopt;
+  }
+  const size_t data_start =
+      0x16 + size_t(xe::load_and_swap<uint32_t>(package.data() + 0x10));
+  const uint16_t file_count =
+      xe::load_and_swap<uint16_t>(package.data() + 0x14);
+  size_t offset = 0x16;
+  for (uint16_t i = 0; i < file_count; ++i) {
+    if (offset + 9 > package.size()) {
+      return std::nullopt;
+    }
+    const uint32_t size = xe::load_and_swap<uint32_t>(package.data() + offset);
+    const uint32_t file_offset =
+        xe::load_and_swap<uint32_t>(package.data() + offset + 4);
+    const size_t name_length = package[offset + 8];
+    offset += 9;
+    std::string file_name;
+    if (version == 3) {
+      if (offset + name_length > package.size()) {
+        return std::nullopt;
+      }
+      file_name.assign(reinterpret_cast<const char*>(package.data() + offset),
+                       name_length);
+      if (!::utf8::is_valid(file_name)) {
+        return std::nullopt;
+      }
+      offset += name_length;
+    } else {
+      auto wide_name = ReadXuiString(package, &offset, name_length);
+      if (!wide_name) {
+        return std::nullopt;
+      }
+      file_name = xe::to_utf8(*wide_name);
+    }
+    if (xe::utf8::equal_case(file_name, name)) {
+      if (data_start + file_offset + size > package.size()) {
+        return std::nullopt;
+      }
+      return package.subspan(data_start + file_offset, size);
+    }
+  }
+  return std::nullopt;
+}
+
+// An XUIS string table, empty strings stand for missing ones. Version 1 has
+// UTF-16 strings after their length and version 2 NUL-terminated UTF-8 ones.
+static std::optional<std::vector<std::u16string>> ParseXuiStringTable(
+    std::span<const uint8_t> data, uint8_t* out_flags) {
+  constexpr uint32_t kXuiStringTableMagic = 0x58554953;  // XUIS
+  if (data.size() < 0xC ||
+      xe::load_and_swap<uint32_t>(data.data()) != kXuiStringTableMagic ||
+      (data[4] != 1 && data[4] != 2)) {
+    return std::nullopt;
+  }
+  const uint8_t version = data[4];
+  const uint8_t flags = data[5];
+  std::vector<std::u16string> strings(
+      xe::load_and_swap<uint16_t>(data.data() + 0xA));
+  size_t offset = 0xC;
+  auto read_string = [&]() -> std::optional<std::u16string> {
+    if (version == 2) {
+      if (offset >= data.size()) {
+        return std::nullopt;
+      }
+      const auto start = data.begin() + offset;
+      const auto end = std::find(start, data.end(), uint8_t(0));
+      if (end == data.end()) {
+        return std::nullopt;
+      }
+      const size_t length = size_t(end - start);
+      const std::string_view text(
+          reinterpret_cast<const char*>(data.data() + offset), length);
+      if (!::utf8::is_valid(text)) {
+        return std::nullopt;
+      }
+      offset += length + 1;
+      return xe::to_utf16(text);
+    }
+    if (offset + 2 > data.size()) {
+      return std::nullopt;
+    }
+    const uint16_t length = xe::load_and_swap<uint16_t>(data.data() + offset);
+    offset += 2;
+    return ReadXuiString(data, &offset, length);
+  };
+  for (auto& string : strings) {
+    auto value = read_string();
+    if (!value) {
+      return std::nullopt;
+    }
+    string = std::move(*value);
+    // Indexed tables have nothing after the string, the others an id or a key.
+    if (flags & 2) {
+      continue;
+    }
+    if (flags & 1) {
+      offset += 4;
+    } else if (!read_string()) {
+      return std::nullopt;
+    }
+  }
+  if (offset > data.size()) {
+    return std::nullopt;
+  }
+  *out_flags = flags;
+  return strings;
+}
+
+X_HRESULT LoadXuiStringTable(XModule& module, std::string_view section,
+                             std::string_view file_name, uint32_t* table_ptr) {
+  auto memory = kernel_state()->memory();
+  uint32_t section_data = 0;
+  uint32_t section_size = 0;
+  if (XFAILED(module.GetSection(section, &section_data, &section_size))) {
+    return X_E_FAIL;
+  }
+  const std::span<const uint8_t> resource(
+      memory->TranslateVirtual<const uint8_t*>(section_data), section_size);
+
+  // XUI's locale follows the console language, a translation is in a folder
+  // named after it.
+  std::optional<std::span<const uint8_t>> localized;
+  std::optional<std::span<const uint8_t>> unlocalized = resource;
+  if (!file_name.empty()) {
+    const uint32_t locale_ptr =
+        kernel_state()->xam_state()->GetLanguageFallbackAddress(
+            static_cast<uint32_t>(xeGetLanguage(false)));
+    if (locale_ptr) {
+      const std::string locale = xe::to_utf8(xe::load_and_swap<std::u16string>(
+          memory->TranslateVirtual(locale_ptr)));
+      if (!locale.empty()) {
+        localized = FindXuiPackageFile(resource,
+                                       locale + "\\" + std::string(file_name));
+      }
+    }
+    unlocalized = FindXuiPackageFile(resource, file_name);
+  }
+  const auto& table_file = localized ? localized : unlocalized;
+  if (!table_file) {
+    return X_E_FAIL;
+  }
+
+  *table_ptr = 0;
+  uint8_t flags = 0;
+  auto strings = ParseXuiStringTable(*table_file, &flags);
+  if (!strings) {
+    return X_E_INVALIDARG;
+  }
+  // Strings a translation leaves empty come from the untranslated table.
+  if (localized && unlocalized && (flags & 2)) {
+    uint8_t unlocalized_flags = 0;
+    auto fallback = ParseXuiStringTable(*unlocalized, &unlocalized_flags);
+    if (fallback) {
+      for (size_t i = 0; i < std::min(strings->size(), fallback->size()); ++i) {
+        if ((*strings)[i].empty()) {
+          (*strings)[i] = (*fallback)[i];
+        }
+      }
+    }
+  }
+
+  // The string count, a pointer to each string or 0, then the strings.
+  uint32_t table_size = 4 + 4 * uint32_t(strings->size());
+  for (const auto& string : *strings) {
+    if (!string.empty()) {
+      table_size += uint32_t(string.size() + 1) * 2;
+    }
+  }
+  const uint32_t table = memory->SystemHeapAlloc(table_size);
+  if (!table) {
+    return X_E_FAIL;
+  }
+  auto table_data = memory->TranslateVirtual<uint8_t*>(table);
+  xe::store_and_swap<uint32_t>(table_data, uint32_t(strings->size()));
+  uint32_t string_address = table + 4 + 4 * uint32_t(strings->size());
+  for (size_t i = 0; i < strings->size(); ++i) {
+    const auto& string = (*strings)[i];
+    if (string.empty()) {
+      xe::store_and_swap<uint32_t>(table_data + 4 + i * 4, 0);
+      continue;
+    }
+    xe::store_and_swap<uint32_t>(table_data + 4 + i * 4, string_address);
+    auto chars = memory->TranslateVirtual<char16_t*>(string_address);
+    xe::copy_and_swap(chars, string.data(), string.size());
+    chars[string.size()] = u'\0';
+    string_address += uint32_t(string.size() + 1) * 2;
+  }
+  {
+    std::lock_guard<std::mutex> lock(xui_lock);
+    xui_string_tables.insert(table);
+  }
+  *table_ptr = table;
+  return X_E_SUCCESS;
+}
+
+uint32_t LookupXuiStringTable(uint32_t table, uint32_t index) {
+  {
+    std::lock_guard<std::mutex> lock(xui_lock);
+    if (!xui_string_tables.contains(table)) {
+      return 0;
+    }
+  }
+  auto table_data = kernel_state()->memory()->TranslateVirtual<uint8_t*>(table);
+  if (index >= xe::load_and_swap<uint32_t>(table_data)) {
+    return 0;
+  }
+  return xe::load_and_swap<uint32_t>(table_data + 4 + index * 4);
+}
+
+dword_result_t XuiLoadStringTableFromFile_entry(lpu16string_t path,
+                                                lpdword_t table_ptr) {
+  if (!path || !table_ptr) {
+    return X_E_INVALIDARG;
+  }
+  // section://<module handle>,<section>#<file in its package>
+  const std::string url = xe::to_utf8(path.value());
+  constexpr std::string_view kSectionScheme = "section://";
+  if (!xe::utf8::starts_with_case(url, kSectionScheme)) {
+    XELOGW("XuiLoadStringTableFromFile: unsupported path {}", url);
+    return X_E_FAIL;
+  }
+  std::string_view location =
+      std::string_view(url).substr(kSectionScheme.size());
+  const size_t comma = location.find(',');
+  uint32_t hmodule = 0;
+  if (comma == std::string_view::npos ||
+      std::from_chars(location.data(), location.data() + comma, hmodule, 16)
+              .ptr != location.data() + comma ||
+      !hmodule) {
+    return X_E_FAIL;
+  }
+  location.remove_prefix(comma + 1);
+  const size_t hash = location.find('#');
+  const std::string section(location.substr(0, hash));
+  const std::string_view file_name = hash == std::string_view::npos
+                                         ? std::string_view()
+                                         : location.substr(hash + 1);
+
+  auto module = XModule::GetFromHModule(
+      kernel_state(), kernel_state()->memory()->TranslateVirtual(hmodule));
+  if (!module) {
+    return X_E_FAIL;
+  }
+  uint32_t table = *table_ptr;
+  const X_HRESULT result =
+      LoadXuiStringTable(*module, section, file_name, &table);
+  *table_ptr = table;
+  return result;
+}
+DECLARE_XAM_EXPORT1(XuiLoadStringTableFromFile, kUI, kSketchy);
+
+pointer_result_t XuiLookupStringTableByIndex_entry(dword_t table,
+                                                   dword_t index) {
+  return LookupXuiStringTable(table, index);
+}
+DECLARE_XAM_EXPORT1(XuiLookupStringTableByIndex, kUI, kImplemented);
+
+dword_result_t XuiFreeStringTable_entry(dword_t table) {
+  {
+    std::lock_guard<std::mutex> lock(xui_lock);
+    if (!xui_string_tables.erase(table)) {
+      return X_E_INVALIDARG;
+    }
+  }
+  kernel_state()->memory()->SystemHeapFree(table);
+  return X_E_SUCCESS;
+}
+DECLARE_XAM_EXPORT1(XuiFreeStringTable, kUI, kImplemented);
 
 }  // namespace xam
 }  // namespace kernel

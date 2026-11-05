@@ -166,8 +166,9 @@ union EdramDumpShaderOffsets {
   uint32_t offsets;
   struct {
     // May be beyond the EDRAM tile count in case of EDRAM addressing wrapping,
-    // thus + 1 bit.
-    uint32_t dispatch_first_tile : xenos::kEdramBaseTilesBits + 1;
+    // and another tile count beyond for a render target in the next period,
+    // thus + 2 bits.
+    uint32_t dispatch_first_tile : xenos::kEdramBaseTilesBits + 2;
     uint32_t source_base_tiles : xenos::kEdramBaseTilesBits;
   };
   EdramDumpShaderOffsets() : offsets(0) {

@@ -23,11 +23,20 @@ bool InitializeAndroidSystemForApplicationContext();
 void ShutdownAndroidSystem();
 #endif
 
+#if XE_PLATFORM_GNU_LINUX
+// SDL3, loaded at runtime as xenia-base doesn't link it. Null if it's missing,
+// otherwise release it with dlclose.
+void* LoadSDL3Library();
+#endif
+
 // The URL must include the protocol.
 void LaunchWebBrowser(const std::string_view url);
 void LaunchFileExplorer(const std::filesystem::path& path);
 
 bool SetProcessPriorityClass(const uint32_t priority_class);
+
+// An id the operating system keeps for this machine, empty when it has none.
+std::string GetMachineId();
 
 enum class SimpleMessageBoxType {
   Help,

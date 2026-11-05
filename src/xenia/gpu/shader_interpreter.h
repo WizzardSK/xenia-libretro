@@ -85,18 +85,18 @@ class ShaderInterpreter {
     void Reset() { std::memset(this, 0, sizeof(*this)); }
 
     int32_t GetLoopAddress() const {
-      assert_true(loop_stack_depth && loop_stack_depth < 4);
-      if (!loop_stack_depth || loop_stack_depth >= 4) {
+      assert_not_zero(loop_stack_depth);
+      if (!loop_stack_depth) {
         return 0;
       }
-      xenos::LoopConstant loop_constant = loop_constants[loop_stack_depth];
+      xenos::LoopConstant loop_constant = loop_constants[loop_stack_depth - 1];
       // Clamp to the real range specified in the IPR2015-00325 sequencer
       // specification.
       // https://portal.unifiedpatents.com/ptab/case/IPR2015-00325
       return std::min(
           INT32_C(256),
           std::max(INT32_C(-256),
-                   int32_t(int32_t(loop_iterators[loop_stack_depth]) *
+                   int32_t(int32_t(loop_iterators[loop_stack_depth - 1]) *
                                loop_constant.step +
                            loop_constant.start)));
     }
@@ -121,7 +121,11 @@ class ShaderInterpreter {
   const std::array<float, 4> GetFloatConstant(
       uint32_t address, bool is_relative, bool relative_address_is_a0) const;
 
-  static float ReduceFloatPrecision(float value, uint32_t mantissa_bits);
+  // Guest ALU sums and products, rounded toward zero with
+  // alu_round_toward_zero.
+  static float AluAdd(float a, float b);
+  static float AluSubtract(float a, float b);
+  static float AluMultiply(float a, float b);
   void ExecuteAluInstruction(ucode::AluInstruction instr);
   void StoreFetchResult(uint32_t dest, bool is_dest_relative, uint32_t swizzle,
                         const float* value);

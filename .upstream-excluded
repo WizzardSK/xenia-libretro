@@ -101,3 +101,9 @@ xb
 xb.bat
 xb.ps1
 xenia.entitlements
+src/xenia/ui/cover_art_downloader.h
+src/xenia/ui/cover_art_downloader_wx.cc
+src/xenia/ui/http_download.h
+src/xenia/ui/http_download_wx.cc
+src/xenia/ui/system_files_installer_wx.cc
+src/xenia/ui/system_files_installer_wx.h

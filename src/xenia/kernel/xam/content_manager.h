@@ -11,6 +11,7 @@
 #define XENIA_KERNEL_XAM_CONTENT_MANAGER_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -27,6 +28,9 @@ namespace xe {
 namespace kernel {
 class KernelState;
 }  // namespace kernel
+namespace vfs {
+class XContentContainerDevice;
+}  // namespace vfs
 }  // namespace xe
 
 namespace xe {
@@ -37,6 +41,10 @@ namespace xam {
 // titles ID
 // TODO: check if actual x360 kernel/xam has a value similar to this
 constexpr uint32_t kCurrentlyRunningTitleId = 0xFFFFFFFF;
+
+// This bit of a content file name's first byte marks content shared under XUID
+// 0, stored under the name without it.
+constexpr uint8_t kSharedContentFileNameBit = 0x80;
 
 struct XCONTENT_DATA {
   be<uint32_t> device_id;         // 0x0 sz:0x4
@@ -119,12 +127,6 @@ struct XCONTENT_AGGREGATE_DATA : XCONTENT_DATA {
 };
 static_assert_size(XCONTENT_AGGREGATE_DATA, 0x148);
 
-struct XCONTENT_CROSS_TITLE_DATA {
-  XCONTENT_DATA content_data;
-  xe::be<uint32_t> title_id;
-};
-static_assert_size(XCONTENT_CROSS_TITLE_DATA, 0x138);
-
 struct XCONTENT_DATA_MEDIA {
   be<uint8_t> series_id[0x10];  // 0x0 sz:0x10
   be<uint8_t> seasonid[0x10];   // 0x10 sz:0x10
@@ -194,6 +196,14 @@ struct XCONTENT_DATA_INTERNAL : XCONTENT_DATA {  // 0x0 sz:0x134
 };
 static_assert_size(XCONTENT_DATA_INTERNAL, 0x200);
 
+// FILETIMEs and the size in bytes.
+struct ContentAttributes {
+  uint64_t creation_time;
+  uint64_t last_access_time;
+  uint64_t last_write_time;
+  uint64_t size;
+};
+
 class ContentPackage {
  public:
   // root_path is a directory inside the package to mount at, empty for the
@@ -201,7 +211,11 @@ class ContentPackage {
   ContentPackage(KernelState* kernel_state, const std::string_view root_name,
                  const XCONTENT_AGGREGATE_DATA& data,
                  const std::filesystem::path& package_path,
-                 const std::string_view root_path = "");
+                 const std::string_view root_path = "", bool read_only = false);
+  // A package stored on another device, such as the disc.
+  ContentPackage(KernelState* kernel_state, const std::string_view root_name,
+                 const XCONTENT_AGGREGATE_DATA& data,
+                 vfs::Entry* package_entry);
   ~ContentPackage();
 
   void LoadPackageLicenseMask(const std::filesystem::path header_path);
@@ -217,10 +231,21 @@ class ContentPackage {
   // Ends in a separator, so it prefixes only this package's entries.
   const std::string& device_path() const { return device_path_; }
 
+  const std::filesystem::path& package_path() const { return package_path_; }
+
  private:
+  ContentPackage(KernelState* kernel_state, const std::string_view root_name,
+                 const XCONTENT_AGGREGATE_DATA& data,
+                 const std::string_view root_path);
+
+  void MountHostPath(const std::filesystem::path& package_path, bool read_only);
+  void MountContainer(std::unique_ptr<vfs::XContentContainerDevice> device,
+                      const std::string_view name);
+
   KernelState* kernel_state_;
   std::string root_name_;
   std::string device_path_;
+  std::filesystem::path package_path_;
   XCONTENT_AGGREGATE_DATA content_data_;
   uint32_t license_;
   bool mounted_ = false;
@@ -236,6 +261,22 @@ class ContentManager {
       const uint32_t device_id, const uint64_t xuid, const uint32_t title_id,
       const XContentType content_type) const;
 
+  // The users with content stored on the hard drive, the titles with content
+  // stored on the device for a user and the content types a title has there,
+  // for listing content across titles.
+  std::vector<uint64_t> ListContentXuids() const;
+  std::vector<uint32_t> ListContentTitleIds(const uint32_t device_id,
+                                            const uint64_t xuid) const;
+  std::vector<XContentType> ListContentTypes(const uint32_t device_id,
+                                             const uint64_t xuid,
+                                             const uint32_t title_id) const;
+  // A record for each release in the game library, which the dashboard lists
+  // as its games.
+  std::vector<XCONTENT_AGGREGATE_DATA> ListLibraryContent() const;
+  // The game library path of the release a ListLibraryContent record names.
+  std::optional<std::filesystem::path> LibraryContentPath(
+      const XCONTENT_AGGREGATE_DATA& data) const;
+
   std::vector<XCONTENT_AGGREGATE_DATA> ListContentODD(
       const uint32_t device_id, const uint64_t xuid, const uint32_t title_id,
       const XContentType content_type) const;
@@ -244,30 +285,53 @@ class ContentManager {
       const std::string_view root_name, const uint64_t xuid,
       const XCONTENT_AGGREGATE_DATA& data, const uint32_t disc_number = -1);
 
+  // What any request for the content fails with because of its file name.
+  X_RESULT CheckPackageName(const uint64_t xuid,
+                            const XCONTENT_AGGREGATE_DATA& data);
   bool ContentExists(const uint64_t xuid, const XCONTENT_AGGREGATE_DATA& data);
   X_RESULT WriteContentHeaderFile(const uint64_t xuid,
                                   XCONTENT_AGGREGATE_DATA data);
-  X_RESULT ReadContentHeaderFile(const std::string_view file_name,
+  X_RESULT ReadContentHeaderFile(const std::filesystem::path& package_path,
                                  const uint64_t xuid, const uint32_t title_id,
                                  XContentType content_type,
                                  XCONTENT_AGGREGATE_DATA& data) const;
+  // Makes the package without mounting it.
+  X_RESULT CreatePackage(const uint64_t xuid,
+                         const XCONTENT_AGGREGATE_DATA& data);
   X_RESULT CreateContent(const std::string_view root_name, const uint64_t xuid,
                          const XCONTENT_AGGREGATE_DATA& data);
+  // Empties the package but for its thumbnail.
+  X_RESULT TruncateContent(const uint64_t xuid,
+                           const XCONTENT_AGGREGATE_DATA& data);
   X_RESULT OpenContent(const std::string_view root_name, const uint64_t xuid,
                        const XCONTENT_AGGREGATE_DATA& data,
                        uint32_t& content_license,
                        const uint32_t disc_number = -1);
+  // Mounts the package stored in a file under root_name, on the host or inside
+  // another device such as the disc.
+  X_RESULT OpenContentFile(const std::string_view root_name,
+                           vfs::Entry* package_entry);
   X_RESULT CloseContent(const std::string_view root_name);
+  // Closes the packages mounted from files on |device| before it goes away.
+  void ClosePackagesMountedFrom(const vfs::Device* device);
   X_RESULT GetContentThumbnail(const uint64_t xuid,
                                const XCONTENT_AGGREGATE_DATA& data,
                                std::vector<uint8_t>* buffer);
+  // The package header's metadata, an XContentMetadata.
+  X_RESULT GetContentMetadata(const uint64_t xuid,
+                              const XCONTENT_AGGREGATE_DATA& data,
+                              std::vector<uint8_t>* buffer);
+  // The package's file times and size. A game's size includes its data files.
+  X_RESULT GetContentAttributes(const uint64_t xuid,
+                                const XCONTENT_AGGREGATE_DATA& data,
+                                ContentAttributes* attributes);
   X_RESULT SetContentThumbnail(const uint64_t xuid,
                                const XCONTENT_AGGREGATE_DATA& data,
                                std::vector<uint8_t> buffer);
   X_RESULT DeleteContent(const uint64_t xuid,
                          const XCONTENT_AGGREGATE_DATA& data);
   std::filesystem::path ResolveGameUserContentPath(const uint64_t xuid);
-  bool IsContentOpen(const XCONTENT_AGGREGATE_DATA& data) const;
+  bool IsContentOpen(const std::filesystem::path& package_path) const;
   void CloseOpenedFilesFromContent(const ContentPackage& package);
 
   uint64_t GetContentTotalSpace() const;
@@ -277,11 +341,28 @@ class ContentManager {
   std::filesystem::path ResolvePackageRoot(
       const uint64_t xuid, const uint32_t title_id,
       const XContentType content_type) const;
-  std::filesystem::path ResolvePackagePath(const uint64_t xuid,
-                                           const XCONTENT_AGGREGATE_DATA& data);
-  std::filesystem::path ResolvePackageHeaderPath(
-      const std::string_view file_name, uint64_t xuid, uint32_t title_id,
-      const XContentType content_type) const;
+  // X_ERROR_INVALID_NAME for a file name the file system refuses and
+  // X_ERROR_PATH_NOT_FOUND for one that names no package.
+  X_RESULT ResolvePackagePath(const uint64_t xuid,
+                              const XCONTENT_AGGREGATE_DATA& data,
+                              std::filesystem::path& path);
+  // Where a package is read from, which is the game library's release for a
+  // record of ListLibraryContent.
+  X_RESULT ResolveReadPath(const uint64_t xuid,
+                           const XCONTENT_AGGREGATE_DATA& data,
+                           std::filesystem::path& path,
+                           bool* library = nullptr);
+  std::string ResolveDiscPackageRoot(const uint64_t xuid, uint32_t title_id,
+                                     const XContentType content_type) const;
+  vfs::Entry* ResolveDiscPackage(const XCONTENT_AGGREGATE_DATA& data) const;
+  // The folders named by 8 hex digits in the user's content folder on the
+  // device, or in its folder for |title_id|, as title IDs and content types
+  // are.
+  std::vector<uint32_t> ListHexFolders(
+      const uint32_t device_id, const uint64_t xuid,
+      const std::optional<uint32_t> title_id) const;
+  // Closes |package| and the packages mounted from files in it.
+  void ClosePackage(ContentPackage* package);
 
   std::unordered_set<uint32_t> FindPublisherTitleIds(
       const uint64_t xuid,

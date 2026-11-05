@@ -61,6 +61,7 @@ XObject::~XObject() {
   assert_zero(pointer_ref_count_);
 
   if (allocated_guest_object_) {
+    kernel_state_->object_table()->RemoveAllocatedBody(guest_object_ptr_, this);
     uint32_t header_addr = guest_object_ptr_ - sizeof(X_OBJECT_HEADER);
     auto header = memory()->TranslateVirtual<X_OBJECT_HEADER*>(header_addr);
 
@@ -80,16 +81,29 @@ Memory* XObject::memory() const { return kernel_state_->memory(); }
 XObject::Type XObject::type() const { return type_; }
 
 void XObject::RetainHandle() {
-  kernel_state_->object_table()->RetainHandle(handles_[0]);
+  auto global_lock = global_critical_region::AcquireDirect();
+  if (!handles_.empty()) {
+    kernel_state_->object_table()->RetainHandle(handles_[0]);
+  }
 }
 
 bool XObject::ReleaseHandle() {
+  auto global_lock = global_critical_region::AcquireDirect();
   // FIXME: Return true when handle is actually released.
-  return kernel_state_->object_table()->ReleaseHandle(handles_[0]) ==
-         X_STATUS_SUCCESS;
+  return !handles_.empty() && kernel_state_->object_table()->ReleaseHandle(
+                                  handles_[0]) == X_STATUS_SUCCESS;
 }
 
 void XObject::Retain() { ++pointer_ref_count_; }
+bool XObject::TryRetain() {
+  int32_t count = pointer_ref_count_.load();
+  while (count > 0) {
+    if (pointer_ref_count_.compare_exchange_weak(count, count + 1)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 void XObject::Release() {
   if (--pointer_ref_count_ == 0) {
@@ -112,6 +126,7 @@ X_STATUS XObject::Delete() {
 bool XObject::SaveObject(ByteStream* stream) {
   stream->Write<uint32_t>(allocated_guest_object_);
   stream->Write<uint32_t>(guest_object_ptr_);
+  stream->Write<uint32_t>(guest_object_type_ptr_.load());
 
   stream->Write(uint32_t(handles_.size()));
   stream->Write(&handles_[0], handles_.size() * sizeof(X_HANDLE));
@@ -122,6 +137,7 @@ bool XObject::SaveObject(ByteStream* stream) {
 bool XObject::RestoreObject(ByteStream* stream) {
   allocated_guest_object_ = stream->Read<uint32_t>() > 0;
   guest_object_ptr_ = stream->Read<uint32_t>();
+  guest_object_type_ptr_.store(stream->Read<uint32_t>());
 
   handles_.resize(stream->Read<uint32_t>());
   stream->Read(&handles_[0], handles_.size() * sizeof(X_HANDLE));
@@ -130,8 +146,33 @@ bool XObject::RestoreObject(ByteStream* stream) {
   for (size_t i = 0; i < handles_.size(); i++) {
     kernel_state_->object_table()->RestoreHandle(handles_[i], this);
   }
+  if (allocated_guest_object_) {
+    kernel_state_->object_table()->AddAllocatedBody(guest_object_ptr_, this);
+  }
 
   return true;
+}
+
+void XObject::SetNativeType() {
+  // Use the host object type for these objects.
+  if (allocated_guest_object_) {
+    return;
+  }
+
+  // ObOpenObjectByPointer takes an Object Manager object, whose body follows
+  // an X_OBJECT_HEADER. Generic dispatch lookups must not inspect this prefix.
+  if (guest_object_ptr_ < sizeof(X_OBJECT_HEADER)) {
+    return;
+  }
+  const uint32_t header_ptr = guest_object_ptr_ - sizeof(X_OBJECT_HEADER);
+  if (!header_ptr ||
+      memory()->QueryRangeAccess(header_ptr, sizeof(X_OBJECT_HEADER)) ==
+          memory::PageAccess::kNoAccess) {
+    return;
+  }
+  auto header = memory()->TranslateVirtual<X_OBJECT_HEADER*>(header_ptr);
+
+  guest_object_type_ptr_.store(header->object_type_ptr);
 }
 
 object_ref<XObject> XObject::Restore(KernelState* kernel_state, Type type,
@@ -181,7 +222,11 @@ void XObject::SetAttributes(uint32_t obj_attributes_ptr) {
                     memory()->TranslateVirtual(obj_attributes_ptr + 4)));
   if (!name.empty()) {
     name_ = std::string(name);
-    kernel_state_->object_table()->AddNameMapping(name_, handles_[0]);
+    // A host object's own handle must never reach the guest.
+    auto guest_handle = std::ranges::find_if(
+        handles_, [](X_HANDLE h) { return !is_handle_host_object(h); });
+    kernel_state_->object_table()->AddNameMapping(
+        name_, guest_handle != handles_.end() ? *guest_handle : handles_[0]);
   }
 }
 
@@ -1028,6 +1073,7 @@ uint8_t* XObject::CreateNative(uint32_t size) {
   memory()->Zero(mem, total_size);
   uint32_t header_addr = mem + kGuestObjectPrePad;
   SetNativePointer(header_addr + sizeof(X_OBJECT_HEADER), true);
+  kernel_state_->object_table()->AddAllocatedBody(guest_object_ptr_, this);
 
   auto header = memory()->TranslateVirtual<X_OBJECT_HEADER*>(header_addr);
 
@@ -1110,6 +1156,9 @@ object_ref<XObject> XObject::GetNativeObject(KernelState* kernel_state,
       // place a direct write to it can be picked up.
       result->SyncFromGuest();
     }
+  } else if (auto object = kernel_state->object_table()->LookupAllocatedBody(
+                 kernel_state->memory()->HostToGuestVirtual(native_ptr))) {
+    result = object.release();
   } else {
     // First use, create new.
     // https://www.nirsoft.net/kernel_struct/vista/KOBJECTS.html

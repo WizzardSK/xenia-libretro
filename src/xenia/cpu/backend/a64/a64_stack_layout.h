@@ -66,6 +66,11 @@ class StackLayout {
   // Reserved padding. Longjmp detection state lives in A64BackendContext so it
   // can be checked even when native SP still points at a skipped frame.
   static constexpr size_t GUEST_RESERVED = 72;
+
+  // The guest-to-host thunks save x30 in the top 8 bytes of their frames, so
+  // the host address a guest frame's call into host code returns to sits this
+  // far below that frame.
+  static constexpr size_t THUNK_CALLER_RET_ADDR = 8;
 };
 
 }  // namespace a64

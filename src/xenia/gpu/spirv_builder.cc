@@ -136,6 +136,26 @@ spv::Id SpirvBuilder::smearFloatConstant(float value, spv::Id value_type) {
   return makeCompositeConstant(value_type, components);
 }
 
+spv::Id SpirvBuilder::smearUintConstant(uint32_t value, spv::Id value_type) {
+  spv::Id scalar = makeUintConstant(value);
+  if (!isVectorType(value_type)) {
+    return scalar;
+  }
+  std::vector<spv::Id> components(size_t(getNumTypeComponents(value_type)),
+                                  scalar);
+  return makeCompositeConstant(value_type, components);
+}
+
+spv::Id SpirvBuilder::smearIntConstant(int32_t value, spv::Id value_type) {
+  spv::Id scalar = makeIntConstant(value);
+  if (!isVectorType(value_type)) {
+    return scalar;
+  }
+  std::vector<spv::Id> components(size_t(getNumTypeComponents(value_type)),
+                                  scalar);
+  return makeCompositeConstant(value_type, components);
+}
+
 SpirvBuilder::IfBuilder::IfBuilder(spv::Id condition,
                                    spv::SelectionControlMask control,
                                    SpirvBuilder& builder,

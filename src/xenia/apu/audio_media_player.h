@@ -69,6 +69,15 @@ class AudioMediaPlayer {
   }
   XmpApp::PlaybackFlags GetPlaybackFlags() const { return playback_flags_; }
 
+  struct ControllerSettings {
+    XmpApp::PlaybackMode playback_mode = XmpApp::PlaybackMode::kInOrder;
+    XmpApp::RepeatMode repeat_mode = XmpApp::RepeatMode::kPlaylist;
+    XmpApp::PlaybackFlags playback_flags = XmpApp::PlaybackFlags::kDefault;
+    // Initial return before anything sets it, -12 dB (10^(-12/20)).
+    float volume = 0.25118864f;
+  };
+  ControllerSettings& GetControllerSettings(XmpClient xmp_client);
+
   void SetXMPOverride(bool xmp_override) { xmp_override_ = xmp_override; }
   bool IsXMPOverrideEnabled() const { return xmp_override_; }
 
@@ -76,9 +85,7 @@ class AudioMediaPlayer {
 
   void SetXMPClient(XmpClient xmp_client) { xmp_client_ = xmp_client; }
 
-  void SetPlaybackController(PlaybackController playback_controller) {
-    playback_controller_ = playback_controller;
-  }
+  void SetPlaybackController(PlaybackController playback_controller);
 
   PlaybackController GetPlaybackController() const {
     return playback_controller_;
@@ -121,6 +128,7 @@ class AudioMediaPlayer {
   XmpApp::PlaybackFlags playback_flags_ = XmpApp::PlaybackFlags::kDefault;
   PlaybackController playback_controller_ = PlaybackController::kGame;
   XmpClient xmp_client_ = XmpClient::kGame;
+  ControllerSettings controller_settings_[4];
   std::atomic<float> volume_ = 0.0f;
   uint32_t dash_init_state = 0;
 

@@ -105,7 +105,7 @@ class Processor {
   }
 
   bool AddModule(std::unique_ptr<Module> module);
-  void RemoveModule(const std::string_view name);
+  void RemoveModule(const Module* module);
   Module* GetModule(const std::string_view name);
   std::vector<Module*> GetModules();
 
@@ -139,7 +139,11 @@ class Processor {
   }
   bool KeepsContextStores(const Module* module) const {
     return keep_dynamic_context_stores_.load(std::memory_order_relaxed) &&
-           module && module == dynamic_code_module_.get();
+           IsDynamicCode(module);
+  }
+  // Whether |module| is the code the guest writes at runtime.
+  bool IsDynamicCode(const Module* module) const {
+    return module && module == dynamic_code_module_.get();
   }
 
   Function* QueryFunction(uint32_t address);

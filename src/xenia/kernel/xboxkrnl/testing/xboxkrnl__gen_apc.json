@@ -1,0 +1,283 @@
+{
+ "corpus": "apc",
+ "source": "RGH Jasper, kernel and xam 2.0.17559, 2026-10-25",
+ "steps": [
+  {
+   "scenario": "user apc",
+   "name": "ObReferenceObjectByHandle",
+   "export": "ObReferenceObjectByHandle",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 4294967294
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "thread",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "user apc",
+   "name": "KeInitializeApc",
+   "export": "KeInitializeApc",
+   "args": [
+    {
+     "pointer": "apc",
+     "offset": 8
+    },
+    {
+     "variable": "thread"
+    },
+    {
+     "recorder": "kernel routine"
+    },
+    {
+     "value": 0
+    },
+    {
+     "recorder": "normal routine"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 13107
+    }
+   ]
+  },
+  {
+   "scenario": "user apc",
+   "name": "KeInsertQueueApc",
+   "export": "KeInsertQueueApc",
+   "r3": "0000000000000001",
+   "capture": {
+    "kernel routine": "00000000000000000000000000000000",
+    "normal routine": "0000000000000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "pointer": "apc",
+     "offset": 8
+    },
+    {
+     "value": 4369
+    },
+    {
+     "value": 8738
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "user apc",
+   "name": "alertable wait",
+   "export": "KeDelayExecutionThread",
+   "r3": "00000000000000C0",
+   "capture": {
+    "kernel routine": "00000001000000000000000082030008",
+    "normal routine": "0000000100000000000000000000333300000000000011110000000000002222"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "interval",
+     "offset": 96
+    }
+   ]
+  },
+  {
+   "scenario": "user apc",
+   "name": "KeRemoveQueueApc",
+   "export": "KeRemoveQueueApc",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "apc",
+     "offset": 8
+    }
+   ]
+  },
+  {
+   "scenario": "user apc",
+   "name": "ObDereferenceObject",
+   "export": "ObDereferenceObject",
+   "args": [
+    {
+     "variable": "thread"
+    }
+   ]
+  },
+  {
+   "scenario": "kernel apc",
+   "name": "ObReferenceObjectByHandle",
+   "export": "ObReferenceObjectByHandle",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 4294967294
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "thread",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "kernel apc",
+   "name": "KeInitializeApc",
+   "export": "KeInitializeApc",
+   "args": [
+    {
+     "pointer": "apc",
+     "offset": 8
+    },
+    {
+     "variable": "thread"
+    },
+    {
+     "recorder": "kernel routine"
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "kernel apc",
+   "name": "KeInsertQueueApc",
+   "export": "KeInsertQueueApc",
+   "r3": "0000000000000001",
+   "capture": {
+    "kernel routine": "00000001000000000000000082030008"
+   },
+   "args": [
+    {
+     "pointer": "apc",
+     "offset": 8
+    },
+    {
+     "value": 4369
+    },
+    {
+     "value": 8738
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "kernel apc",
+   "name": "wait",
+   "export": "KeDelayExecutionThread",
+   "r3": "0000000000000000",
+   "capture": {
+    "kernel routine": "00000001000000000000000082030008"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "interval",
+     "offset": 64
+    }
+   ]
+  },
+  {
+   "scenario": "kernel apc",
+   "name": "KeRemoveQueueApc",
+   "export": "KeRemoveQueueApc",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "apc",
+     "offset": 8
+    }
+   ]
+  },
+  {
+   "scenario": "kernel apc",
+   "name": "ObDereferenceObject",
+   "export": "ObDereferenceObject",
+   "args": [
+    {
+     "variable": "thread"
+    }
+   ]
+  },
+  {
+   "scenario": "NtQueueApcThread",
+   "name": "NtQueueApcThread",
+   "export": "NtQueueApcThread",
+   "r3": "0000000000000000",
+   "capture": {
+    "normal routine": "0000000000000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "value": 4294967294
+    },
+    {
+     "recorder": "normal routine"
+    },
+    {
+     "value": 13107
+    },
+    {
+     "value": 4369
+    },
+    {
+     "value": 8738
+    }
+   ]
+  },
+  {
+   "scenario": "NtQueueApcThread",
+   "name": "alertable wait",
+   "export": "KeDelayExecutionThread",
+   "r3": "00000000000000C0",
+   "capture": {
+    "normal routine": "0000000100000000000000000000333300000000000011110000000000002222"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "interval",
+     "offset": 32
+    }
+   ]
+  }
+ ]
+}

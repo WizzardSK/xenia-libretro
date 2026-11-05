@@ -1941,11 +1941,10 @@ struct LVL_V128 : Sequence<LVL_V128, I<OPCODE_LVL, V128Op, I64Op>> {
     // Inline LVL using TBL.  The bswap-within-lanes base pattern plus the
     // address offset gives a TBL control vector.  Indices >= 16 naturally
     // produce zero from TBL, which is the correct LVL behaviour.
-    auto addr = ComputeMemoryAddress(e, i.src1);
     int d = i.dest.reg().getIdx();
 
-    // x0 = host address
-    e.add(e.x0, e.GetMembaseReg(), addr);
+    // x0 = host address. The aligned block never leaves the address's page.
+    ComputeGuestHostAddress(e, e.x0, i.src1, 1, false);
     // w17 = offset within 16-byte block
     e.and_(e.w17, e.w0, 0xF);
     // Align address down to 16-byte boundary and load.
@@ -1972,13 +1971,12 @@ struct LVR_V128 : Sequence<LVR_V128, I<OPCODE_LVR, V128Op, I64Op>> {
     // Indices 0-15 read zeros (from v0), 16-31 read mem (from v1).
     // base + offset produces indices > 15 exactly where LVR should output
     // the memory bytes, and <= 15 where it should output zero.
-    auto addr = ComputeMemoryAddress(e, i.src1);
     int d = i.dest.reg().getIdx();
     // Unqualified Label here is hir::Label.
     Xbyak_aarch64::Label endpoint;
 
-    // x0 = host address
-    e.add(e.x0, e.GetMembaseReg(), addr);
+    // x0 = host address. The aligned block never leaves the address's page.
+    ComputeGuestHostAddress(e, e.x0, i.src1, 1, false);
     // w17 = offset
     e.and_(e.w17, e.w0, 0xF);
     // An aligned address reads nothing, and it can sit one past a valid page.
@@ -2068,8 +2066,7 @@ struct STVL_V128 : Sequence<STVL_V128, I<OPCODE_STVL, VoidOp, I64Op, V128Op>> {
     e.str(QReg(0),
           ptr(e.sp, static_cast<uint32_t>(StackLayout::GUEST_SCRATCH)));
 
-    auto addr = ComputeMemoryAddress(e, i.src1);
-    e.add(e.x0, e.GetMembaseReg(), addr);
+    ComputeGuestHostAddress(e, e.x0, i.src1, 1, true);
     e.and_(e.w2, e.w0, 0xF);
     e.mov(e.w1, 16);
     e.sub(e.w2, e.w1, e.w2);
@@ -2093,8 +2090,7 @@ struct STVR_V128 : Sequence<STVR_V128, I<OPCODE_STVR, VoidOp, I64Op, V128Op>> {
     e.str(QReg(0),
           ptr(e.sp, static_cast<uint32_t>(StackLayout::GUEST_SCRATCH)));
 
-    auto addr = ComputeMemoryAddress(e, i.src1);
-    e.add(e.x0, e.GetMembaseReg(), addr);
+    ComputeGuestHostAddress(e, e.x0, i.src1, 1, true);
     e.and_(e.w2, e.w0, 0xF);
     e.and_(e.x0, e.x0, ~0xFull);
     e.add(e.x1, e.sp, static_cast<uint32_t>(StackLayout::GUEST_SCRATCH) + 16);

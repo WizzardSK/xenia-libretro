@@ -28,7 +28,6 @@ namespace gpu {
 
 class RegisterFile;
 class RenderTargetCache;
-class SpirvShader;
 class SpirvShaderTranslator;
 
 // Built-in geometry shader that expands a guest primitive type the host can't
@@ -45,12 +44,11 @@ enum class PipelineGeometryShader : uint32_t {
 
 // Guest shader logic shared by the D3D12 (spirv_to_dxil) and Vulkan backends:
 // the SpirvShaderTranslator (built per backend via the Host seam), the
-// SpirvShaderTranslator::Modification derivation, ucode->SPIR-V translation,
-// and the built-in geometry shader key. The shader object cache stays
-// per-backend (their SpirvShader subclasses differ). This operates on
-// shaders/translations passed in. The host-specific tail (DXIL/VkPipeline
-// bytecode, pipeline state and storage) stays in each backend behind the Host
-// seam below.
+// SpirvShaderTranslator::Modification derivation and the built-in geometry
+// shader key. The shader object cache stays per-backend (their SpirvShader
+// subclasses differ). The host-specific tail (DXIL/VkPipeline bytecode,
+// pipeline state and storage) stays in each backend behind the Host seam
+// below.
 class GuestSpirvShaderCache {
  public:
   // Implemented by each backend to supply the host-specific pieces the shared
@@ -99,23 +97,6 @@ class GuestSpirvShaderCache {
       reg::RB_DEPTHCONTROL normalized_depth_control,
       uint32_t normalized_color_mask,
       bool apply_polygon_offset_in_shader) const;
-
-  // Ensures a Translation for the modification on the given (backend-owned)
-  // shader exists WITHOUT translating to SPIR-V. Analyzes the ucode if needed.
-  // Main/draw thread only. Returns the (possibly untranslated) Translation.
-  Shader::Translation* EnsureTranslation(SpirvShader& shader,
-                                         uint64_t modification);
-  // Translates a Translation to SPIR-V on the given translator (the main
-  // thread's, or a worker's). use_try_claim coordinates concurrent translation
-  // of the same Translation. Returns the valid Translation or nullptr. The
-  // backend converts the SPIR-V to host bytecode afterward. Any thread.
-  Shader::Translation* TranslateSpirv(SpirvShaderTranslator& translator,
-                                      Shader::Translation& translation,
-                                      bool use_try_claim);
-  // Main-thread convenience: EnsureTranslation + TranslateSpirv on the shared
-  // translator.
-  Shader::Translation* EnsureAndTranslate(SpirvShader& shader,
-                                          uint64_t modification);
 
   // Built-in primitive-expansion geometry shader key (point/rect/quad). Derived
   // from SPIR-V modifications. Each backend builds the SPIR-V and converts it

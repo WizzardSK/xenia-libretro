@@ -23,6 +23,12 @@
 #if XE_PLATFORM_WIN32
 #include "xenia/base/platform_win.h"
 #endif
+#if XE_PLATFORM_MAC
+#include <mach/mach.h>
+#include <mach/mach_time.h>
+#include <mach/thread_policy.h>
+#include <pthread.h>
+#endif
 
 namespace dp = disruptorplus;
 
@@ -109,6 +115,24 @@ class TimerQueue {
     };
 
     xe::threading::set_name("xe::threading::TimerQueue");
+#if XE_PLATFORM_MAC
+    // Timer coalescing wakes an ordinary thread a quarter of the wait late, 1
+    // ms on a 4 ms timer. A time-constraint thread wakes within tens of us.
+    mach_timebase_info_data_t timebase;
+    mach_timebase_info(&timebase);
+    const auto ms_to_abs = [&](uint64_t ms) {
+      return uint32_t(ms * 1000000 * timebase.denom / timebase.numer);
+    };
+    thread_time_constraint_policy_data_t policy;
+    policy.period = 0;
+    policy.computation = ms_to_abs(1);
+    policy.constraint = ms_to_abs(2);
+    policy.preemptible = 1;
+    thread_policy_set(pthread_mach_thread_np(pthread_self()),
+                      THREAD_TIME_CONSTRAINT_POLICY,
+                      reinterpret_cast<thread_policy_t>(&policy),
+                      THREAD_TIME_CONSTRAINT_POLICY_COUNT);
+#endif
 
     while (!shutdown_.load(std::memory_order_relaxed)) {
       {

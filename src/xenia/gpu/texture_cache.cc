@@ -417,6 +417,15 @@ void TextureCache::RequestTextures(uint32_t used_texture_mask) {
   Texture* textures_to_load[64];  // max bits = 32, can be unsigned + signed
                                   // means max array size = 64
   uint32_t num_textures_to_load = 0;
+  // Textures bound to multiple fetch constants are only loaded once.
+  auto queue_texture_to_load = [&](Texture* texture) {
+    for (uint32_t i = 0; i < num_textures_to_load; ++i) {
+      if (textures_to_load[i] == texture) {
+        return;
+      }
+    }
+    textures_to_load[num_textures_to_load++] = texture;
+  };
   {
     SCOPE_profile_cpu_i("gpu", "TextureCache::UpdateBindingKeys");
     while (xe::bit_scan_forward(textures_remaining, &index)) {
@@ -508,10 +517,10 @@ void TextureCache::RequestTextures(uint32_t used_texture_mask) {
         binding.texture_signed = nullptr;
       }
       if (load_unsigned_data && binding.texture != nullptr) {
-        textures_to_load[num_textures_to_load++] = binding.texture;
+        queue_texture_to_load(binding.texture);
       }
       if (load_signed_data && binding.texture_signed != nullptr) {
-        textures_to_load[num_textures_to_load++] = binding.texture_signed;
+        queue_texture_to_load(binding.texture_signed);
       }
     }
   }
@@ -681,11 +690,17 @@ TextureCache::Texture::Texture(TextureCache& texture_cache,
 }
 
 TextureCache::Texture::~Texture() {
-  if (mips_watch_handle_) {
-    texture_cache().shared_memory().UnwatchMemoryRange(mips_watch_handle_);
-  }
-  if (base_watch_handle_) {
-    texture_cache().shared_memory().UnwatchMemoryRange(base_watch_handle_);
+  {
+    // A watch fired by a guest thread unlinks its range and clears the handle
+    // under the global lock, so check the handles under it too, or a stale
+    // range would be unlinked twice, corrupting the watch free lists.
+    auto global_lock = xe::global_critical_region::Acquire();
+    if (mips_watch_handle_) {
+      texture_cache().shared_memory().UnwatchMemoryRange(mips_watch_handle_);
+    }
+    if (base_watch_handle_) {
+      texture_cache().shared_memory().UnwatchMemoryRange(base_watch_handle_);
+    }
   }
 
   // Only remove from usage list if we were added to it (track_usage=true).
@@ -907,7 +922,7 @@ uint32_t TextureCache::GetIntegerScaleBits(
       }
       carries_width = false;
     } else if (!fetch.num_format && sign == xenos::TextureSign::kUnsigned) {
-      carries_width = point_sampled && width >= 4 && width <= 7;
+      carries_width = point_sampled && width >= 4 && width <= 6;
     }
 
     uint32_t component_scale = uint32_t(sign) << 4;

@@ -56,6 +56,10 @@ class Device {
   // for a shared file cursor, or a reader that serializes internally.
   virtual bool supports_concurrent_io() const { return false; }
 
+  // True when the file system queues every request, which then always pends on
+  // an async handle. FATX and GDFX complete a buffered transfer inline.
+  virtual bool queues_all_requests() const { return false; }
+
   virtual void Dump(StringBuffer* string_buffer) = 0;
   virtual Entry* ResolvePath(const std::string_view path) = 0;
 

@@ -33,6 +33,8 @@ class HostPathFile : public File {
   X_STATUS WriteSync(std::span<const uint8_t> buffer, size_t byte_offset,
                      size_t* out_bytes_written) override;
   X_STATUS SetLength(size_t length) override;
+  X_STATUS SetTimes(uint64_t create_timestamp, uint64_t access_timestamp,
+                    uint64_t write_timestamp) override;
 
  private:
   std::unique_ptr<xe::filesystem::FileHandle> file_handle_;

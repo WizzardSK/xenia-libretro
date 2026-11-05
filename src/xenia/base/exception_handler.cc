@@ -9,6 +9,8 @@
 
 #include "xenia/base/exception_handler.h"
 
+#include <cstddef>
+
 #include "xenia/base/platform.h"
 
 #if XE_ARCH_AMD64
@@ -28,6 +30,67 @@ void SetHostDefaultFpControl() {
   asm volatile("msr fpcr, %0" ::"r"(uint64_t(0)) : "memory");
 #endif
 }
+
+#if XE_ARCH_AMD64 && !XE_PLATFORM_WIN32
+static_assert(offsetof(HostThreadContext, rip) == 0);
+static_assert(offsetof(HostThreadContext, eflags) == 8);
+static_assert(offsetof(HostThreadContext, int_registers) == 16);
+static_assert(offsetof(HostThreadContext, xmm_registers) == 144);
+
+// The resume switches to the interrupted stack with registers still to load,
+// so a signal handler that runs without SA_ONSTACK would put its frame on top
+// of a context held there. Off the stack it stays out of reach.
+static thread_local HostThreadContext resume_context;
+
+XE_NOINLINE void ResumeHostContext(const HostThreadContext* context) {
+  resume_context = *context;
+  // rax holds the context until the stack carries the last two steps. The
+  // stack pointer has to go back before the first push, so the flags land
+  // below the resumed frame rather than in the caller's.
+  __asm__ volatile(
+      "vmovups 144(%%rax), %%xmm0\n"
+      "vmovups 160(%%rax), %%xmm1\n"
+      "vmovups 176(%%rax), %%xmm2\n"
+      "vmovups 192(%%rax), %%xmm3\n"
+      "vmovups 208(%%rax), %%xmm4\n"
+      "vmovups 224(%%rax), %%xmm5\n"
+      "vmovups 240(%%rax), %%xmm6\n"
+      "vmovups 256(%%rax), %%xmm7\n"
+      "vmovups 272(%%rax), %%xmm8\n"
+      "vmovups 288(%%rax), %%xmm9\n"
+      "vmovups 304(%%rax), %%xmm10\n"
+      "vmovups 320(%%rax), %%xmm11\n"
+      "vmovups 336(%%rax), %%xmm12\n"
+      "vmovups 352(%%rax), %%xmm13\n"
+      "vmovups 368(%%rax), %%xmm14\n"
+      "vmovups 384(%%rax), %%xmm15\n"
+      "movq 48(%%rax), %%rsp\n"
+      "movl 8(%%rax), %%ecx\n"
+      "pushq %%rcx\n"
+      "popfq\n"
+      "movq 24(%%rax), %%rcx\n"
+      "movq 32(%%rax), %%rdx\n"
+      "movq 40(%%rax), %%rbx\n"
+      "movq 56(%%rax), %%rbp\n"
+      "movq 64(%%rax), %%rsi\n"
+      "movq 72(%%rax), %%rdi\n"
+      "movq 80(%%rax), %%r8\n"
+      "movq 88(%%rax), %%r9\n"
+      "movq 96(%%rax), %%r10\n"
+      "movq 104(%%rax), %%r11\n"
+      "movq 112(%%rax), %%r12\n"
+      "movq 120(%%rax), %%r13\n"
+      "movq 128(%%rax), %%r14\n"
+      "movq 136(%%rax), %%r15\n"
+      "pushq (%%rax)\n"
+      "movq 16(%%rax), %%rax\n"
+      "ret\n"
+      :
+      : "a"(&resume_context)
+      : "memory");
+  __builtin_unreachable();
+}
+#endif  // XE_ARCH_AMD64 && !XE_PLATFORM_WIN32
 
 // Based on VIXL Instruction::IsLoad and IsStore.
 // https://github.com/Linaro/vixl/blob/d48909dd0ac62197edb75d26ed50927e4384a199/src/aarch64/instructions-aarch64.cc#L484
@@ -64,7 +127,9 @@ bool IsArm64LoadPrefetchStore(uint32_t instruction, bool& is_store_out) {
     return true;
   }
   if ((instruction & kArm64SystemSysFMask) == kArm64SystemSysFixed) {
-    is_store_out = true;
+    is_store_out =
+        (instruction & kArm64CacheOpByVaFMask) != kArm64CacheOpByVaFixed ||
+        (instruction & kArm64DcZvaFMask) == kArm64DcZvaFixed;
     return true;
   }
   if ((instruction & kArm64LoadStoreAnyFMask) != kArm64LoadStoreAnyFixed) {

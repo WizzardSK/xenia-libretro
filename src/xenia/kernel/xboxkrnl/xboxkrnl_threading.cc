@@ -64,15 +64,16 @@ namespace xboxkrnl {
 //   stw r3, 0x160(r11)
 // }
 
+// A NtCreate* call on a name in use opens the object only with OBJ_OPENIF and
+// the same type, returning X_STATUS_OBJECT_NAME_EXISTS. Otherwise it fails with
+// a collision, or a type mismatch under OBJ_OPENIF, and writes handle 0.
+// X_STATUS_SUCCESS means the name is free to create.
 template <typename T>
-object_ref<T> LookupNamedObject(KernelState* kernel_state,
-                                uint32_t obj_attributes_ptr) {
-  // If the name exists and its type matches, we can return that (ref+1)
-  // with a success of NAME_EXISTS.
-  // If the name exists and its type doesn't match, we do NAME_COLLISION.
-  // Otherwise, we add like normal.
+X_STATUS OpenNamedObject(KernelState* kernel_state, uint32_t obj_attributes_ptr,
+                         xe::be<uint32_t>* handle_ptr) {
+  constexpr uint32_t kObjOpenIf = 0x80;
   if (!obj_attributes_ptr) {
-    return nullptr;
+    return X_STATUS_SUCCESS;
   }
   auto obj_attributes =
       kernel_state->memory()->TranslateVirtual<X_OBJECT_ATTRIBUTES*>(
@@ -80,21 +81,34 @@ object_ref<T> LookupNamedObject(KernelState* kernel_state,
   assert_true(obj_attributes->name_ptr != 0);
   auto name = util::TranslateAnsiStringAddress(kernel_state->memory(),
                                                obj_attributes->name_ptr);
-  if (!name.empty()) {
-    X_HANDLE handle = X_INVALID_HANDLE_VALUE;
-    X_RESULT result =
-        kernel_state->object_table()->GetObjectByName(name, &handle);
-    if (XSUCCEEDED(result)) {
-      // Found something! It's been retained, so return.
-      auto obj = kernel_state->object_table()->LookupObject<T>(handle);
-      if (obj) {
-        // The caller will do as it likes.
-        obj->ReleaseHandle();
-        return obj;
-      }
-    }
+  if (name.empty()) {
+    return X_STATUS_SUCCESS;
   }
-  return nullptr;
+  auto object_table = kernel_state->object_table();
+  X_HANDLE handle = X_INVALID_HANDLE_VALUE;
+  if (XFAILED(object_table->GetObjectByName(name, &handle))) {
+    return X_STATUS_SUCCESS;
+  }
+  const bool open_if = obj_attributes->attributes & kObjOpenIf;
+  auto object = object_table->LookupObject<XObject>(handle);
+  if (object && open_if && object->type() == T::kObjectType) {
+    // The lookup's handle reference is the caller's.
+    if (handle_ptr) {
+      *handle_ptr = handle;
+    } else {
+      object_table->ReleaseHandle(handle);
+    }
+    return X_STATUS_OBJECT_NAME_EXISTS;
+  }
+  object_table->ReleaseHandle(handle);
+  if (!object) {
+    return X_STATUS_SUCCESS;
+  }
+  if (handle_ptr) {
+    *handle_ptr = 0;
+  }
+  return open_if ? X_STATUS_OBJECT_TYPE_MISMATCH
+                 : X_STATUS_OBJECT_NAME_COLLISION;
 }
 
 inline const std::map<uint32_t, std::string> ex_thread_flag_map = {
@@ -497,9 +511,10 @@ dword_result_t KeDelayExecutionThread_entry(dword_t processor_mode,
                                             lpqword_t interval_ptr,
                                             const ppc_context_t& context) {
   SCOPE_profile_cpu_i("guestsync", "KeDelayExecutionThread");
+  // The kernel reads the interval unconditionally, so a null one faults on the
+  // console. Yield rather than crash the host.
   uint64_t interval = interval_ptr ? static_cast<uint64_t>(*interval_ptr) : 0u;
-  return KeDelayExecutionThread(processor_mode, alertable,
-                                interval_ptr ? &interval : nullptr, context);
+  return KeDelayExecutionThread(processor_mode, alertable, &interval, context);
 }
 DECLARE_XBOXKRNL_EXPORT3(KeDelayExecutionThread, kThreading, kImplemented,
                          kBlocking, kHighFrequency);
@@ -646,18 +661,10 @@ dword_result_t NtCreateEvent_entry(
     lpdword_t handle_ptr, pointer_t<X_OBJECT_ATTRIBUTES> obj_attributes_ptr,
     dword_t event_type, dword_t initial_state) {
   // Check for an existing timer with the same name.
-  auto existing_object =
-      LookupNamedObject<XEvent>(kernel_state(), obj_attributes_ptr);
-  if (existing_object) {
-    if (existing_object->type() == XObject::Type::Event) {
-      if (handle_ptr) {
-        existing_object->RetainHandle();
-        *handle_ptr = existing_object->handle();
-      }
-      return X_STATUS_OBJECT_NAME_EXISTS;
-    } else {
-      return X_STATUS_INVALID_HANDLE;
-    }
+  if (X_STATUS result = OpenNamedObject<XEvent>(kernel_state(),
+                                                obj_attributes_ptr, handle_ptr);
+      result != X_STATUS_SUCCESS) {
+    return result;
   }
 
   auto ev = object_ref<XEvent>(new XEvent(kernel_state()));
@@ -800,18 +807,10 @@ dword_result_t NtCreateSemaphore_entry(
     lpdword_t handle_ptr, pointer_t<X_OBJECT_ATTRIBUTES> obj_attributes_ptr,
     dword_t count, dword_t limit) {
   // Check for an existing semaphore with the same name.
-  auto existing_object =
-      LookupNamedObject<XSemaphore>(kernel_state(), obj_attributes_ptr);
-  if (existing_object) {
-    if (existing_object->type() == XObject::Type::Semaphore) {
-      if (handle_ptr) {
-        existing_object->RetainHandle();
-        *handle_ptr = existing_object->handle();
-      }
-      return X_STATUS_OBJECT_NAME_EXISTS;
-    } else {
-      return X_STATUS_INVALID_HANDLE;
-    }
+  if (X_STATUS result = OpenNamedObject<XSemaphore>(
+          kernel_state(), obj_attributes_ptr, handle_ptr);
+      result != X_STATUS_SUCCESS) {
+    return result;
   }
 
   auto sem = object_ref<XSemaphore>(new XSemaphore(kernel_state()));
@@ -871,18 +870,10 @@ dword_result_t NtCreateMutant_entry(
     lpdword_t handle_out, pointer_t<X_OBJECT_ATTRIBUTES> obj_attributes,
     dword_t initial_owner) {
   // Check for an existing timer with the same name.
-  auto existing_object = LookupNamedObject<XMutant>(
-      kernel_state(), obj_attributes.guest_address());
-  if (existing_object) {
-    if (existing_object->type() == XObject::Type::Mutant) {
-      if (handle_out) {
-        existing_object->RetainHandle();
-        *handle_out = existing_object->handle();
-      }
-      return X_STATUS_OBJECT_NAME_EXISTS;
-    } else {
-      return X_STATUS_INVALID_HANDLE;
-    }
+  if (X_STATUS result = OpenNamedObject<XMutant>(
+          kernel_state(), obj_attributes.guest_address(), handle_out);
+      result != X_STATUS_SUCCESS) {
+    return result;
   }
 
   auto mutant = object_ref<XMutant>(new XMutant(kernel_state()));
@@ -933,18 +924,10 @@ dword_result_t NtCreateTimer_entry(
   // timer_type = NotificationTimer (0) or SynchronizationTimer (1)
 
   // Check for an existing timer with the same name.
-  auto existing_object =
-      LookupNamedObject<XTimer>(kernel_state(), obj_attributes_ptr);
-  if (existing_object) {
-    if (existing_object->type() == XObject::Type::Timer) {
-      if (handle_ptr) {
-        existing_object->RetainHandle();
-        *handle_ptr = existing_object->handle();
-      }
-      return X_STATUS_OBJECT_NAME_EXISTS;
-    } else {
-      return X_STATUS_INVALID_HANDLE;
-    }
+  if (X_STATUS result = OpenNamedObject<XTimer>(kernel_state(),
+                                                obj_attributes_ptr, handle_ptr);
+      result != X_STATUS_SUCCESS) {
+    return result;
   }
 
   auto timer = object_ref<XTimer>(new XTimer(kernel_state()));
@@ -994,21 +977,17 @@ dword_result_t NtSetTimerEx_entry(dword_t timer_handle, lpqword_t due_time_ptr,
 DECLARE_XBOXKRNL_EXPORT1(NtSetTimerEx, kThreading, kImplemented);
 
 dword_result_t NtCancelTimer_entry(dword_t timer_handle,
-                                   lpdword_t current_state_ptr) {
-  X_STATUS result = X_STATUS_SUCCESS;
-
+                                   pointer_t<uint8_t> current_state_ptr) {
   auto timer =
       kernel_state()->object_table()->LookupObject<XTimer>(timer_handle);
-  if (timer) {
-    result = timer->Cancel();
-  } else {
-    result = X_STATUS_INVALID_HANDLE;
+  if (!timer) {
+    return X_STATUS_INVALID_HANDLE;
   }
+  // The BOOLEAN signal state, which cancelling leaves as it is.
   if (current_state_ptr) {
-    *current_state_ptr = 0;
+    *current_state_ptr = timer->IsSignaled() ? 1 : 0;
   }
-
-  return result;
+  return timer->Cancel();
 }
 DECLARE_XBOXKRNL_EXPORT1(NtCancelTimer, kThreading, kImplemented);
 
@@ -1495,10 +1474,9 @@ static bool ProcessApcList(PPCContext* ctx, X_KTHREAD* current_thread,
   ctx->r[1] = old_stack_pointer - 32;
 
   while (!apc_queue.empty(ctx)) {
-    uint32_t apc_ptr = apc_queue.flink_ptr;
-
     XAPC* apc = apc_queue.ListEntryObject(
-        ctx->TranslateVirtual<X_LIST_ENTRY*>(apc_ptr));
+        ctx->TranslateVirtual<X_LIST_ENTRY*>(apc_queue.flink_ptr));
+    uint32_t apc_ptr = ctx->HostToGuestVirtual(apc);
 
     uint8_t* scratch_ptr = ctx->TranslateVirtual(scratch_address);
     xe::store_and_swap<uint32_t>(scratch_ptr + 0, apc->normal_routine);
@@ -1532,16 +1510,9 @@ static bool ProcessApcList(PPCContext* ctx, X_KTHREAD* current_thread,
     uint32_t arg2 = xe::load_and_swap<uint32_t>(scratch_ptr + 12);
 
     if (normal_routine) {
-      XThread* thread = list_index == 1 ? XThread::GetCurrentThread() : nullptr;
-      if (thread) {
-        thread->EnterUserApc();
-      }
       uint64_t normal_args[] = {normal_context, arg1, arg2};
       ctx->processor->Execute(ctx->thread_state, normal_routine, normal_args,
                               xe::countof(normal_args));
-      if (thread) {
-        thread->LeaveUserApc();
-      }
     }
 
     unlocked_irql = xeKeKfAcquireSpinLock(ctx, &current_thread->apc_lock);
@@ -1731,7 +1702,19 @@ uint32_t xeKeInsertQueueApc(XAPC* apc, uint32_t arg1, uint32_t arg2,
 dword_result_t KeInsertQueueApc_entry(pointer_t<XAPC> apc, lpvoid_t arg1,
                                       lpvoid_t arg2, dword_t priority_increment,
                                       const ppc_context_t& context) {
-  return xeKeInsertQueueApc(apc, arg1, arg2, priority_increment, context);
+  auto kpcr = context->TranslateVirtualGPR<X_KPCR*>(context->r[13]);
+  const bool kernel_apc_to_self =
+      apc->apc_mode == 0 &&
+      context->TranslateVirtual<X_KTHREAD*>(apc->thread_ptr) ==
+          context->TranslateVirtual(kpcr->prcb_data.current_thread);
+  uint32_t result =
+      xeKeInsertQueueApc(apc, arg1, arg2, priority_increment, context);
+  // Lowering IRQL as the APC lock is released runs a kernel APC queued to this
+  // thread.
+  if (result && kernel_apc_to_self) {
+    xeProcessKernelApcs(context);
+  }
+  return result;
 }
 DECLARE_XBOXKRNL_EXPORT1(KeInsertQueueApc, kThreading, kImplemented);
 
@@ -2229,6 +2212,34 @@ dword_result_t KeCancelTimer_entry(pointer_t<X_KTIMER> timer) {
   return was_set;
 }
 DECLARE_XBOXKRNL_EXPORT1(KeCancelTimer, kThreading, kImplemented);
+
+dword_result_t KeSetTimer_entry(pointer_t<X_KTIMER> timer, qword_t due_time,
+                                pointer_t<XDPC> dpc) {
+  return KeSetTimerEx_entry(timer, due_time, 0, dpc);
+}
+DECLARE_XBOXKRNL_EXPORT1(KeSetTimer, kThreading, kImplemented);
+
+void KeInitializeMutant_entry(pointer_t<X_KMUTANT> mutant,
+                              dword_t initial_owner) {
+  mutant.Zero();
+  mutant->header.type = X_OBJECT_TYPES::MutantObject;
+  mutant->header.signal_state = initial_owner ? 0 : 1;
+  // Created now so an initial owner is the calling thread.
+  XObject::GetNativeObject<XMutant>(kernel_state(), mutant);
+}
+DECLARE_XBOXKRNL_EXPORT1(KeInitializeMutant, kThreading, kImplemented);
+
+// Returns the previous signal state.
+dword_result_t KeReleaseMutant_entry(pointer_t<X_KMUTANT> mutant,
+                                     dword_t priority_increment,
+                                     dword_t abandon, dword_t wait) {
+  const int32_t previous = int32_t(uint32_t(mutant->header.signal_state));
+  if (auto native = XObject::GetNativeObject<XMutant>(kernel_state(), mutant)) {
+    native->ReleaseMutant(priority_increment, !!abandon, !!wait);
+  }
+  return previous;
+}
+DECLARE_XBOXKRNL_EXPORT1(KeReleaseMutant, kThreading, kImplemented);
 
 }  // namespace xboxkrnl
 }  // namespace kernel

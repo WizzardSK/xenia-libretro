@@ -46,7 +46,8 @@ PatchFileEditor::PatchFileEditor(std::string_view source_text,
     root = toml::parse(source_text);
   } catch (const std::exception& e) {
     XELOGE("PatchFileEditor: failed to parse {}: {}",
-           xe::path_to_utf8(storage_path_), e.what());
+           xe::strip_pii(xe::path_to_utf8(storage_path_)),
+           xe::strip_pii(e.what()));
     return;
   }
 
@@ -123,7 +124,7 @@ bool PatchFileEditor::Save() const {
   std::ofstream out(storage_path_, std::ios::binary | std::ios::trunc);
   if (!out.is_open()) {
     XELOGE("PatchFileEditor: failed to write {}",
-           xe::path_to_utf8(storage_path_));
+           xe::strip_pii(xe::path_to_utf8(storage_path_)));
     return false;
   }
   for (size_t i = 0; i < lines_.size(); ++i) {

@@ -10,11 +10,14 @@
 #ifndef XENIA_UI_CONFIG_HELPERS_H_
 #define XENIA_UI_CONFIG_HELPERS_H_
 
+#include <algorithm>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "xenia/base/platform.h"
+#include "xenia/net/host_interfaces.h"
 
 #include "xenia/xbox.h"
 
@@ -254,10 +257,24 @@ inline const std::vector<CvarEnumOption>* FindIntCvarEnumOptions(
   return nullptr;
 }
 
-// Maps a stored integer cvar value (as a string) to its UI dropdown display
-// name. Returns |value| unchanged for non-int-enum cvars or on no match.
-inline std::string IntCvarValueToDisplayName(const std::string& name,
-                                             const std::string& value) {
+// What systemlink_cross_platform_interface shows for "auto", with the
+// interface it picked when first asked.
+inline const std::string& AutoInterfaceDisplayName() {
+  static const std::string display_name = [] {
+    const auto host = xe::net::FindHostInterface("");
+    return host ? "auto (" + host->name + ")" : std::string("auto");
+  }();
+  return display_name;
+}
+
+// Maps a stored cvar value (as a string) to its UI dropdown display name.
+// Returns |value| unchanged for cvars without display names or on no match.
+inline std::string CvarValueToDisplayName(const std::string& name,
+                                          const std::string& value) {
+  if (name == "systemlink_cross_platform_interface") {
+    return value.empty() || value == "auto" ? AutoInterfaceDisplayName()
+                                            : value;
+  }
   const auto* options = FindIntCvarEnumOptions(name);
   if (!options) {
     return value;
@@ -274,10 +291,14 @@ inline std::string IntCvarValueToDisplayName(const std::string& name,
   return value;
 }
 
-// Maps a UI dropdown display name back to the integer cvar value (as a string).
-// Returns |display_name| unchanged for non-int-enum cvars or on no match.
-inline std::string DisplayNameToIntCvarValue(const std::string& name,
-                                             const std::string& display_name) {
+// Maps a UI dropdown display name back to the cvar value (as a string).
+// Returns |display_name| unchanged for cvars without display names or on no
+// match.
+inline std::string DisplayNameToCvarValue(const std::string& name,
+                                          const std::string& display_name) {
+  if (name == "systemlink_cross_platform_interface") {
+    return display_name == AutoInterfaceDisplayName() ? "auto" : display_name;
+  }
   const auto* options = FindIntCvarEnumOptions(name);
   if (!options) {
     return display_name;
@@ -290,7 +311,8 @@ inline std::string DisplayNameToIntCvarValue(const std::string& name,
   return display_name;
 }
 
-// Known enum-like cvars with their valid options
+// Known enum-like cvars with their valid options, the network interfaces as
+// they were on first use.
 inline const std::map<std::string, std::vector<std::string>>&
 GetKnownEnumOptions() {
   static const std::map<std::string, std::vector<std::string>> options = []() {
@@ -320,6 +342,7 @@ GetKnownEnumOptions() {
         {"postprocess_antialiasing", {"off", "fxaa", "fxaa_extreme"}},
         {"postprocess_scaling_and_sharpening", {"none", "cas", "fsr"}},
         {"spirv_version_override", {"auto", "1.0", "1.3", "1.4", "1.5", "1.6"}},
+        {"systemlink_transport", {"off", "tunnel", "kai"}},
         {"xma_decoder", {"old", "new", "master", "fake"}},
     };
     const auto names = [](const std::vector<CvarEnumOption>& opts) {
@@ -334,6 +357,11 @@ GetKnownEnumOptions() {
                              "internal_display_resolution"}) {
       m.emplace(name, names(*FindIntCvarEnumOptions(name)));
     }
+    auto& interfaces = m["systemlink_cross_platform_interface"];
+    interfaces.push_back(AutoInterfaceDisplayName());
+    for (auto& name : xe::net::HostInterfaceNames()) {
+      interfaces.push_back(std::move(name));
+    }
     return m;
   }();
   return options;
@@ -343,6 +371,19 @@ GetKnownEnumOptions() {
 // option, otherwise the cvar default (so a value invalidated by a config
 // change shows the default instead of blank), otherwise the first option.
 // Returns -1 only when there are no options.
+// The choices an enum cvar's dropdown offers while it holds |value|. A network
+// interface that is down stays one so saving other settings keeps it.
+inline std::vector<std::string> GetEnumChoices(
+    const std::string& name, const std::vector<std::string>& options,
+    const std::string& value) {
+  auto choices = options;
+  if (name == "systemlink_cross_platform_interface" && !value.empty() &&
+      std::find(choices.begin(), choices.end(), value) == choices.end()) {
+    choices.push_back(value);
+  }
+  return choices;
+}
+
 inline int GetEnumSelectionIndex(const std::vector<std::string>& options,
                                  const std::string& current_value,
                                  const std::string& default_value) {

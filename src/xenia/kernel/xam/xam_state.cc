@@ -9,6 +9,9 @@
 
 #include "xenia/kernel/xam/xam_state.h"
 #include "xenia/emulator.h"
+#include "xenia/vfs/virtual_file_system.h"
+
+#include "third_party/fmt/include/fmt/format.h"
 
 namespace xe {
 namespace kernel {
@@ -92,9 +95,10 @@ void XamState::LoadLanguageTypefacePatch() {
 }
 
 uint32_t XamState::GetLanguageTypefacePatch(uint32_t language) const {
-  // checks an out of bounds address to see if either a flag of 0x1000 or 0x2000
-  // is set. If first then use xttp1, if other use xttp2, else just return empty
-  // pointer. for now only usng xttp2
+  // The console's xam returns the xttp1 patch when the boot loader flags in
+  // XboxHardwareInfo have 0x1000, the xttp2 one with 0x2000, and none
+  // otherwise. Those flags tell which patch its flash has, so take the patch
+  // the system files have here.
   uint32_t index = 0;
   if (language == 17) {  // kSChinese
     index = 1;
@@ -103,8 +107,17 @@ uint32_t XamState::GetLanguageTypefacePatch(uint32_t language) const {
   } else {
     index = 3;
   }
-
-  return language_type_face_patch_[index];
+  static constexpr std::string_view kNames[] = {"XenonSCLatin", "XenonCLatin",
+                                                "XenonJKLatin"};
+  const std::string_view name = kNames[index - 1];
+  auto file_system = kernel_state_->file_system();
+  if (file_system->ResolvePath(fmt::format("media:\\{}.xttp1", name))) {
+    return language_type_face_patch_[index + 3];
+  }
+  if (file_system->ResolvePath(fmt::format("media:\\{}.xttp2", name))) {
+    return language_type_face_patch_[index];
+  }
+  return 0;
 }
 
 void XamState::LoadIptvServiceName() {

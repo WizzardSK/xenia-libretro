@@ -9,6 +9,7 @@
 
 #include "xenia/kernel/xboxkrnl/xboxkrnl_modules.h"
 #include "xenia/base/logging.h"
+#include "xenia/cpu/xex_module.h"
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/kernel/user_module.h"
 #include "xenia/kernel/util/shim_utils.h"
@@ -19,17 +20,14 @@ namespace xe {
 namespace kernel {
 namespace xboxkrnl {
 
-dword_result_t XexCheckExecutablePrivilege_entry(dword_t privilege) {
-  // BOOL
-  // DWORD Privilege
-
+static bool HasExecutablePrivilege(uint32_t privilege) {
   // Privilege is bit position in xe_xex2_system_flags enum - so:
   // Privilege=6 -> 0x00000040 -> XEX_SYSTEM_INSECURE_SOCKETS
   uint32_t mask = 1 << privilege;
 
   auto module = kernel_state()->GetExecutableModule();
   if (!module) {
-    return 0;
+    return false;
   }
 
   uint32_t flags = 0;
@@ -37,7 +35,33 @@ dword_result_t XexCheckExecutablePrivilege_entry(dword_t privilege) {
 
   return (flags & mask) > 0;
 }
+
+dword_result_t XexCheckExecutablePrivilege_entry(dword_t privilege) {
+  // BOOL
+  // DWORD Privilege
+  return HasExecutablePrivilege(privilege);
+}
 DECLARE_XBOXKRNL_EXPORT1(XexCheckExecutablePrivilege, kModules, kImplemented);
+
+// Takes the signed part of an XEX2 header's security info, from its RSA
+// signature on. The hypervisor checks it and decrypts its image key in place,
+// which the dashboard needs to read a disc's executable.
+dword_result_t XexTransformImageKey_entry(lpvoid_t security_info,
+                                          dword_t size) {
+  constexpr uint32_t kImageKeyOffset =
+      offsetof(xex2_security_info, aes_key) -
+      offsetof(xex2_security_info, rsa_signature);
+  if (!HasExecutablePrivilege(0)) {
+    return X_STATUS_ACCESS_DENIED;
+  }
+  if (!security_info || size < kImageKeyOffset + 0x10) {
+    return X_STATUS_TOO_MANY_SECRETS;
+  }
+  uint8_t* key = security_info.as<uint8_t*>() + kImageKeyOffset;
+  cpu::DecryptXex2ImageKey(key, key);
+  return X_STATUS_SUCCESS;
+}
+DECLARE_XBOXKRNL_EXPORT1(XexTransformImageKey, kModules, kImplemented);
 
 dword_result_t XexGetModuleHandle(std::string module_name,
                                   xe::be<uint32_t>* hmodule_ptr) {
@@ -89,6 +113,22 @@ dword_result_t XexGetModuleSection_entry(lpvoid_t hmodule, lpstring_t name,
 }
 DECLARE_XBOXKRNL_EXPORT1(XexGetModuleSection, kModules, kImplemented);
 
+// Returns the image base of the module containing pc (callers pass it to
+// RtlImageDirectoryEntryToData to find .pdata) and stores its loader entry. A
+// pc in no module returns 0 and leaves ldr_data_ptr alone. The kernel also
+// finds its own modules, which have no guest image here.
+dword_result_t XexPcToFileHeader_entry(dword_t pc, lpdword_t ldr_data_ptr) {
+  auto module = kernel_state()->GetUserModuleForAddress(pc);
+  if (!module) {
+    return 0;
+  }
+  if (ldr_data_ptr) {
+    *ldr_data_ptr = module->hmodule_ptr();
+  }
+  return module->xex_module()->base_address();
+}
+DECLARE_XBOXKRNL_EXPORT1(XexPcToFileHeader, kModules, kImplemented);
+
 inline const std::map<X_MODULE_FLAGS, std::string> xex_load_image_map = {
     {TITLE_PROCESS, "Title Process"},
     {TITLE_IMPORT, "Title Import"},
@@ -100,13 +140,40 @@ inline const std::map<X_MODULE_FLAGS, std::string> xex_load_image_map = {
     {BOUND_PATH, "Load By Bound Path"},
     {SILENT_LOAD, "Load Silently"}};
 
+// Takes a reference to the module |module_name| names, loading it with
+// |load_callback| first when it isn't loaded. Returns its hmodule, or 0.
+static uint32_t LoadImageReference(
+    const std::string_view module_name,
+    const std::function<object_ref<UserModule>()>& load_callback) {
+  uint32_t hmodule = 0;
+  if (auto module = kernel_state()->GetModule(module_name)) {
+    hmodule = module->hmodule_ptr();
+  } else if (auto user_module = load_callback()) {
+    kernel_state()->ApplyTitleUpdate(user_module);
+    kernel_state()->FinishLoadingUserModule(user_module);
+    // Give up object ownership, this reference will be released by the last
+    // XexUnloadImage call
+    hmodule = user_module.release()->hmodule_ptr();
+  }
+  if (hmodule) {
+    kernel_memory()
+        ->TranslateVirtual<X_LDR_DATA_TABLE_ENTRY*>(hmodule)
+        ->load_count++;
+  }
+  return hmodule;
+}
+
+uint32_t xeXexLoadImage(const std::string_view module_name) {
+  return LoadImageReference(module_name, [module_name] {
+    return kernel_state()->LoadUserModule(module_name);
+  });
+}
+
 dword_result_t xeXexLoadImage(
     lpstring_t module_name, dword_t module_flags, dword_t min_version,
     lpdword_t hmodule_ptr,
     const std::function<object_ref<UserModule>()>& load_callback,
     bool isFromMemory) {
-  X_STATUS result = X_STATUS_NO_SUCH_FILE;
-
   std::string summary = "Loading Xex Image:";
   uint32_t unused_flag = module_flags;
 
@@ -125,42 +192,15 @@ dword_result_t xeXexLoadImage(
     return X_ERROR_INVALID_PARAMETER;
   }
 
-  uint32_t hmodule = 0;
-  auto module = kernel_state()->GetModule(module_name.value());
-  if (module) {
-    if (isFromMemory) {
-      // Existing module found; return error status.
-      *hmodule_ptr = hmodule;
-      return X_STATUS_OBJECT_NAME_COLLISION;
-    } else {
-      // Existing module found.
-      hmodule = module->hmodule_ptr();
-      result = X_STATUS_SUCCESS;
-    }
-  } else {
-    // Not found; attempt to load as a user module.
-    auto user_module = load_callback();
-    if (user_module) {
-      kernel_state()->ApplyTitleUpdate(user_module);
-      kernel_state()->FinishLoadingUserModule(user_module);
-      // Give up object ownership, this reference will be released by the last
-      // XexUnloadImage call
-      auto user_module_raw = user_module.release();
-      hmodule = user_module_raw->hmodule_ptr();
-      result = X_STATUS_SUCCESS;
-    }
+  if (isFromMemory && kernel_state()->GetModule(module_name.value())) {
+    // Existing module found; return error status.
+    *hmodule_ptr = 0;
+    return X_STATUS_OBJECT_NAME_COLLISION;
   }
-
-  // Increment the module's load count.
-  if (hmodule) {
-    auto ldr_data =
-        kernel_memory()->TranslateVirtual<X_LDR_DATA_TABLE_ENTRY*>(hmodule);
-    ldr_data->load_count++;
-  }
-
+  const uint32_t hmodule =
+      LoadImageReference(module_name.value(), load_callback);
   *hmodule_ptr = hmodule;
-
-  return result;
+  return hmodule ? X_STATUS_SUCCESS : X_STATUS_NO_SUCH_FILE;
 }
 
 dword_result_t XexLoadImage_entry(lpstring_t module_name, dword_t module_flags,
@@ -196,15 +236,19 @@ dword_result_t XexLoadExecutable_entry(lpstring_t module_name,
 }
 DECLARE_XBOXKRNL_EXPORT1(XexLoadExecutable, kModules, kSketchy);
 
-dword_result_t XexUnloadImage_entry(lpvoid_t hmodule) {
-  auto module = XModule::GetFromHModule(kernel_state(), hmodule);
+X_STATUS xeXexUnloadImage(uint32_t hmodule) {
+  if (!hmodule) {
+    return X_STATUS_INVALID_HANDLE;
+  }
+  auto ldr_data =
+      kernel_memory()->TranslateVirtual<X_LDR_DATA_TABLE_ENTRY*>(hmodule);
+  auto module = XModule::GetFromHModule(kernel_state(), ldr_data);
   if (!module) {
     return X_STATUS_INVALID_HANDLE;
   }
 
   // Can't unload kernel modules from user code.
   if (module->module_type() != XModule::ModuleType::kKernelModule) {
-    auto ldr_data = hmodule.as<X_LDR_DATA_TABLE_ENTRY*>();
     if (--ldr_data->load_count == 0) {
       // No more references, free it.
       module->Release();
@@ -214,6 +258,10 @@ dword_result_t XexUnloadImage_entry(lpvoid_t hmodule) {
   }
 
   return X_STATUS_SUCCESS;
+}
+
+dword_result_t XexUnloadImage_entry(lpvoid_t hmodule) {
+  return xeXexUnloadImage(hmodule.guest_address());
 }
 DECLARE_XBOXKRNL_EXPORT1(XexUnloadImage, kModules, kImplemented);
 
@@ -334,6 +382,24 @@ dword_result_t XexLoadImageHeaders_entry(pointer_t<X_ANSI_STRING> path,
 
   } else {
     result_status = X_STATUS_BUFFER_TOO_SMALL;
+  }
+
+  // The security info's offset becomes its address in the buffer, which is
+  // how titles reach it.
+  if (result_status == X_STATUS_SUCCESS) {
+    const uint32_t security_offset = header->security_offset;
+    const uint32_t remaining =
+        security_offset < header_size ? header_size - security_offset : 0;
+    const uint8_t* data = reinterpret_cast<uint8_t*>(header.host_address());
+    const uint32_t security_size =
+        remaining >= 4 ? xe::load_and_swap<uint32_t>(data + security_offset)
+                       : 0;
+    // At least everything before the page descriptors.
+    if (security_size < 0x184 || security_size > remaining) {
+      result_status = X_STATUS_INVALID_IMAGE_FORMAT;
+    } else {
+      header->security_offset = header.guest_address() + security_offset;
+    }
   }
 
   vfs_file->Destroy();

@@ -9,15 +9,11 @@
 
 #include "xenia/gpu/guest_spirv_shader_cache.h"
 
-#include <thread>
-
 #include "xenia/base/assert.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/math.h"
-#include "xenia/base/string_buffer.h"
 #include "xenia/gpu/register_file.h"
 #include "xenia/gpu/render_target_cache.h"
-#include "xenia/gpu/spirv_shader.h"
 #include "xenia/gpu/spirv_shader_translator.h"
 
 namespace xe {
@@ -225,42 +221,6 @@ uint64_t GuestSpirvShaderCache::GetPixelShaderModification(
   }
 
   return modification.value;
-}
-
-Shader::Translation* GuestSpirvShaderCache::EnsureTranslation(
-    SpirvShader& shader, uint64_t modification) {
-  if (!shader.is_ucode_analyzed()) {
-    StringBuffer ucode_disasm;
-    shader.AnalyzeUcode(ucode_disasm);
-  }
-  return shader.GetOrCreateTranslation(modification);
-}
-
-Shader::Translation* GuestSpirvShaderCache::TranslateSpirv(
-    SpirvShaderTranslator& translator, Shader::Translation& translation,
-    bool use_try_claim) {
-  if (!translation.is_translated()) {
-    bool should_translate = true;
-    if (use_try_claim) {
-      should_translate = translation.TryClaimTranslation();
-      if (!should_translate) {
-        // Another thread is translating this same modification - wait for it.
-        while (!translation.is_translated()) {
-          std::this_thread::yield();
-        }
-      }
-    }
-    if (should_translate && !translator.TranslateAnalyzedShader(translation)) {
-      return nullptr;
-    }
-  }
-  return translation.is_valid() ? &translation : nullptr;
-}
-
-Shader::Translation* GuestSpirvShaderCache::EnsureAndTranslate(
-    SpirvShader& shader, uint64_t modification) {
-  Shader::Translation* translation = EnsureTranslation(shader, modification);
-  return TranslateSpirv(*translator_, *translation, /*use_try_claim=*/false);
 }
 
 bool GuestSpirvShaderCache::GetGeometryShaderKey(

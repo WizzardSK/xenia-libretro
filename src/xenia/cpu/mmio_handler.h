@@ -33,6 +33,9 @@ typedef void (*MMIOWriteCallback)(void* ppc_context, void* callback_context,
                                   uint32_t addr, uint32_t value);
 typedef void (*MmioAccessRecordCallback)(void* context,
                                          void* host_insn_address);
+// Releases the granule a faulting stwcx. has claimed and returns where it fails
+// from, or 0 when the fault is not in one.
+typedef uint64_t (*ReservedStoreFaultCallback)(void* context, Exception* ex);
 struct MMIORange {
   uint32_t address;
   uint32_t mask;
@@ -85,6 +88,12 @@ class MMIOHandler {
     user_membase_.store(user_membase, std::memory_order_relaxed);
   }
 
+  void SetReservedStoreFaultCallback(ReservedStoreFaultCallback callback,
+                                     void* context) {
+    reserved_store_fault_context_ = context;
+    reserved_store_fault_callback_ = callback;
+  }
+
  protected:
   MMIOHandler(uint8_t* virtual_membase, uint8_t* physical_membase,
               uint8_t* membase_end, HostToGuestVirtual host_to_guest_virtual,
@@ -96,6 +105,7 @@ class MMIOHandler {
 
   static bool ExceptionCallbackThunk(Exception* ex, void* data);
   bool ExceptionCallback(Exception* ex);
+  bool HandleAccessViolation(Exception* ex);
 
   uint8_t* virtual_membase_;
   uint8_t* physical_membase_;
@@ -112,6 +122,8 @@ class MMIOHandler {
   MmioAccessRecordCallback record_mmio_callback_;
 
   void* record_mmio_context_;
+  ReservedStoreFaultCallback reserved_store_fault_callback_ = nullptr;
+  void* reserved_store_fault_context_ = nullptr;
   static MMIOHandler* global_handler_;
 
   xe::global_critical_region global_critical_region_;

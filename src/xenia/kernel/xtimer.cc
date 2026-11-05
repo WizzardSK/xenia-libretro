@@ -58,6 +58,7 @@ void XTimer::Initialize(uint32_t timer_type) {
   switch (timer_type) {
     case 0:  // NotificationTimer
       timer_ = xe::threading::Timer::CreateManualResetTimer();
+      manual_reset_ = true;
       if (GuestScheduler::enabled()) {
         signal_ = xe::threading::Event::CreateManualResetEvent(false);
       }
@@ -215,6 +216,17 @@ X_STATUS XTimer::Cancel() {
   bool result = timer_->Cancel();
   RemoveApc();
   return result ? X_STATUS_SUCCESS : X_STATUS_UNSUCCESSFUL;
+}
+
+bool XTimer::IsSignaled() {
+  if (signal_) {
+    return signal_->Query().state != 0;
+  }
+  // A zero wait on the host timer would consume a synchronization timer's
+  // signal so only a notification timer can be read.
+  return manual_reset_ && xe::threading::Wait(timer_.get(), false,
+                                              std::chrono::milliseconds(0)) ==
+                              xe::threading::WaitResult::kSuccess;
 }
 
 void XTimer::RemoveApc() {

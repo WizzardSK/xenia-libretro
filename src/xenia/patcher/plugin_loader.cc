@@ -68,7 +68,8 @@ void PluginLoader::LoadTitleConfig(const uint32_t title_id) {
   try {
     plugins_config = ParseFile(title_plugins_config);
   } catch (...) {
-    XELOGE("Plugins: Cannot load plugin file {}", title_plugins_config);
+    XELOGE("Plugins: Cannot load plugin file {}",
+           xe::strip_pii(xe::path_to_utf8(title_plugins_config)));
     return;
   }
 
@@ -79,7 +80,8 @@ void PluginLoader::LoadTitleConfig(const uint32_t title_id) {
       plugins_config.get_as<std::string>("title_id")->get();
 
   if (!plugins_config.contains("plugin")) {
-    XELOGE("Plugins: Cannot find [[plugin]] table in {}", title_plugins_config);
+    XELOGE("Plugins: Cannot find [[plugin]] table in {}",
+           xe::strip_pii(xe::path_to_utf8(title_plugins_config)));
     return;
   }
 

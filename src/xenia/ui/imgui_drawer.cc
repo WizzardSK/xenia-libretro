@@ -261,6 +261,7 @@ std::optional<ImGuiKey> ImGuiDrawer::VirtualKeyToImGuiKey(VirtualKey vkey) {
       {ui::VirtualKey::kEnd, ImGuiKey_End},
       {ui::VirtualKey::kDelete, ImGuiKey_Delete},
       {ui::VirtualKey::kBack, ImGuiKey_Backspace},
+      {ui::VirtualKey::kSpace, ImGuiKey_Space},
       {ui::VirtualKey::kReturn, ImGuiKey_Enter},
       {ui::VirtualKey::kEscape, ImGuiKey_Escape},
       {ui::VirtualKey::kA, ImGuiKey_A},
@@ -416,7 +417,8 @@ bool ImGuiDrawer::LoadWindowsFont(ImGuiIO& io, ImFontConfig& font_config,
   io.Fonts->Build();
   // Something went wrong while loading custom font. Probably corrupted.
   if (!font->IsLoaded()) {
-    XELOGE("Failed to load custom font: {}", font_path);
+    XELOGE("Failed to load custom font: {}",
+           xe::strip_pii(xe::path_to_utf8(font_path)));
     io.Fonts->Clear();
   }
   CoTaskMemFree(static_cast<void*>(fonts_dir));
@@ -477,90 +479,23 @@ bool ImGuiDrawer::LoadWindowsFont(ImGuiIO& io, ImFontConfig& font_config,
 }
 
 bool ImGuiDrawer::LoadJapaneseFont(ImGuiIO& io, float font_size) {
-#if XE_PLATFORM_WIN32
-  PWSTR fonts_dir;
-  HRESULT result = SHGetKnownFolderPath(FOLDERID_Fonts, 0, NULL, &fonts_dir);
-  if (FAILED(result)) {
-    XELOGW("Unable to find Windows fonts directory");
-    return false;
-  }
-
-  std::filesystem::path jp_font_path = std::wstring(fonts_dir);
-  jp_font_path.append("msgothic.ttc");
-  if (std::filesystem::exists(jp_font_path)) {
-    ImFontConfig jp_font_config;
-    jp_font_config.MergeMode = true;
-    jp_font_config.OversampleH = jp_font_config.OversampleV = 2;
-    jp_font_config.PixelSnapH = true;
-    jp_font_config.FontNo = 0;
-    io.Fonts->AddFontFromFileTTF(xe::path_to_utf8(jp_font_path).c_str(),
-                                 font_size, &jp_font_config,
-                                 io.Fonts->GetGlyphRangesJapanese());
-  } else {
-    XELOGW("Unable to load Japanese font; JP characters will be boxes");
-  }
-  CoTaskMemFree(static_cast<void*>(fonts_dir));
-  return true;
-#endif
-
-#if XE_PLATFORM_LINUX && !XE_PLATFORM_ANDROID
-  // On Linux, find and merge CJK font using fontconfig
-  FcConfig* config = FcInitLoadConfigAndFonts();
-  if (!config) {
-    XELOGW(
-        "Unable to initialize fontconfig; CJK characters may not display "
-        "correctly");
-    return false;
-  }
-
-  // Create a pattern to search for fonts with CJK support
-  FcPattern* pattern = FcPatternCreate();
-  FcCharSet* charset = FcCharSetCreate();
-  FcCharSetAddChar(charset, 0x4E00);  // Add a CJK character to the charset
-  FcPatternAddCharSet(pattern, FC_CHARSET, charset);
-
-  // Configure the search
-  FcConfigSubstitute(config, pattern, FcMatchPattern);
-  FcDefaultSubstitute(pattern);
-
-  // Find the best matching font
-  FcResult result;
-  FcPattern* font = FcFontMatch(config, pattern, &result);
-
-  bool success = false;
-  if (font) {
-    FcChar8* file = nullptr;
-    if (FcPatternGetString(font, FC_FILE, 0, &file) == FcResultMatch) {
-      const char* font_path = reinterpret_cast<const char*>(file);
-
-      if (std::filesystem::exists(font_path)) {
-        ImFontConfig jp_font_config;
-        jp_font_config.MergeMode = true;
-        jp_font_config.OversampleH = jp_font_config.OversampleV = 2;
-        jp_font_config.PixelSnapH = true;
-
-        io.Fonts->AddFontFromFileTTF(font_path, font_size, &jp_font_config,
-                                     io.Fonts->GetGlyphRangesJapanese());
-        success = true;
-      }
-    }
-    FcPatternDestroy(font);
-  }
-
-  FcCharSetDestroy(charset);
-  FcPatternDestroy(pattern);
-  FcConfigDestroy(config);
-
-  if (!success) {
-    XELOGW(
-        "Unable to find CJK font; Japanese characters may not display "
-        "correctly");
-  }
-  return success;
-#endif
-
-  return false;
-};
+  // The bundled M PLUS 1p on every platform. stb_truetype can't load many
+  // system CJK fonts (CFF outlines, variable collections), and one that fails
+  // takes the whole atlas down with it.
+  ImFontConfig jp_font_config;
+  // Embedded buffer is const and outlives the atlas; let ImGui read it in
+  // place rather than copy + own.
+  jp_font_config.FontDataOwnedByAtlas = false;
+  jp_font_config.MergeMode = true;
+  jp_font_config.OversampleH = jp_font_config.OversampleV = 2;
+  jp_font_config.PixelSnapH = true;
+  ImFont* font = io.Fonts->AddFontFromMemoryTTF(
+      const_cast<unsigned char*>(
+          xe::ui::embedded_font::MPLUS1p_Regular_ttf_data),
+      static_cast<int>(xe::ui::embedded_font::MPLUS1p_Regular_ttf_size),
+      font_size, &jp_font_config, io.Fonts->GetGlyphRangesJapanese());
+  return font != nullptr;
+}
 
 void ImGuiDrawer::InitializeFonts(const float font_size) {
   auto& io = ImGui::GetIO();
@@ -847,7 +782,14 @@ ImGuiIO& ImGuiDrawer::GetIO() {
   return ImGui::GetIO();
 }
 
-void ImGuiDrawer::OnKeyDown(KeyEvent& e) { OnKey(e, true); }
+void ImGuiDrawer::OnKeyDown(KeyEvent& e) {
+  OnKey(e, true);
+  // Text typed into a field stays away from the game's keyboard input.
+  // Releases still pass since the key may have gone down before the field.
+  if (GetIO().WantTextInput) {
+    e.set_handled(true);
+  }
+}
 
 void ImGuiDrawer::OnKeyUp(KeyEvent& e) { OnKey(e, false); }
 
@@ -974,6 +916,7 @@ void ImGuiDrawer::ClearInput() {
   io.MousePos = ImVec2(-FLT_MAX, -FLT_MAX);
   std::memset(io.MouseDown, 0, sizeof(io.MouseDown));
   io.ClearInputKeys();
+  keys_down_.clear();
   touch_pointer_id_ = TouchEvent::kPointerIDNone;
   reset_mouse_position_after_next_frame_ = false;
 }
@@ -982,7 +925,14 @@ void ImGuiDrawer::OnKey(KeyEvent& e, bool is_down) {
   auto& io = GetIO();
   const VirtualKey virtual_key = e.virtual_key();
   if (auto imGuiKey = VirtualKeyToImGuiKey(virtual_key); imGuiKey) {
-    io.AddKeyEvent(*imGuiKey, is_down);
+    // Repeats of a key held since before the drawer attached aren't presses.
+    if (!is_down) {
+      keys_down_.erase(virtual_key);
+      io.AddKeyEvent(*imGuiKey, false);
+    } else if (!e.prev_state() || keys_down_.count(virtual_key)) {
+      keys_down_.insert(virtual_key);
+      io.AddKeyEvent(*imGuiKey, true);
+    }
   }
   switch (virtual_key) {
     case VirtualKey::kShift:

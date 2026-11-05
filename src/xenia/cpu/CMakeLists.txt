@@ -8,7 +8,7 @@ xe_platform_sources(xenia-cpu ${CMAKE_CURRENT_SOURCE_DIR}/ppc)
 target_include_directories(xenia-cpu PRIVATE
   ${PROJECT_SOURCE_DIR}/third_party/llvm/include
 )
-target_link_libraries(xenia-cpu PUBLIC xenia-base mspack)
+target_link_libraries(xenia-cpu PUBLIC mbedtls xenia-base mspack)
 xe_target_defaults(xenia-cpu)
 
 if(XENIA_BUILD_TESTS)

@@ -85,6 +85,8 @@ ThreadState::ThreadState(Processor* processor, uint32_t thread_id,
   // Stash pointers to common structures that callbacks may need.
   context_->global_mutex = &xe::global_critical_region::mutex();
   context_->virtual_membase = memory_->virtual_membase();
+  context_->tlb_read = memory_->kernel_tlb();
+  context_->tlb_write = memory_->kernel_tlb();
   context_->physical_membase = memory_->physical_membase();
   context_->processor = processor_;
   context_->thread_state = this;

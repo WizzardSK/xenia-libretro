@@ -9,6 +9,7 @@
 
 #include "xenia/base/logging.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 
@@ -130,34 +131,77 @@ X_RESULT InputSystem::GetCapabilities(uint32_t user_index, uint32_t flags,
   if (user_index >= XUserMaxUserCount) {
     return X_ERROR_DEVICE_NOT_CONNECTED;
   }
-  auto& binding = slot_bindings_[user_index];
-  if (!binding.driver || (flags & binding.driver->GetInputType()) == 0) {
-    return X_ERROR_DEVICE_NOT_CONNECTED;
+  bool connected = false;
+  for (const auto& binding : slot_bindings_[user_index]) {
+    if (!binding.driver || (flags & binding.driver->GetInputType()) == 0) {
+      continue;
+    }
+    X_INPUT_CAPABILITIES caps = {};
+    X_INPUT_CAPABILITIES* target = connected ? &caps : out_caps;
+    if (binding.driver->GetCapabilities(binding.driver_slot, flags, target) !=
+        X_ERROR_SUCCESS) {
+      continue;
+    }
+    if (binding.subtype_override != 0) {
+      target->sub_type = binding.subtype_override;
+    }
+    if (connected) {
+      MergeCapabilities(out_caps, caps);
+    }
+    connected = true;
   }
-  X_RESULT result =
-      binding.driver->GetCapabilities(binding.driver_slot, flags, out_caps);
-  if (result == X_ERROR_SUCCESS && binding.subtype_override != 0) {
-    out_caps->sub_type = binding.subtype_override;
+  return connected ? X_ERROR_SUCCESS : X_ERROR_DEVICE_NOT_CONNECTED;
+}
+
+// The devices in a slot read as one controller: the first one that isn't a
+// plain gamepad sets its type, and it has what any of them has.
+void InputSystem::MergeCapabilities(X_INPUT_CAPABILITIES* caps,
+                                    const X_INPUT_CAPABILITIES& other) {
+  if (caps->sub_type == X_INPUT_DEVSUBTYPE::XINPUT_DEVSUBTYPE_GAMEPAD) {
+    caps->type = other.type;
+    caps->sub_type = other.sub_type;
   }
-  return result;
+  caps->flags = caps->flags | other.flags;
+  auto& pad = caps->gamepad;
+  const auto& other_pad = other.gamepad;
+  pad.buttons = pad.buttons | other_pad.buttons;
+  pad.left_trigger = std::max(pad.left_trigger, other_pad.left_trigger);
+  pad.right_trigger = std::max(pad.right_trigger, other_pad.right_trigger);
+  pad.thumb_lx = pad.thumb_lx | other_pad.thumb_lx;
+  pad.thumb_ly = pad.thumb_ly | other_pad.thumb_ly;
+  pad.thumb_rx = pad.thumb_rx | other_pad.thumb_rx;
+  pad.thumb_ry = pad.thumb_ry | other_pad.thumb_ry;
+  auto& vibration = caps->vibration;
+  vibration.left_motor_speed = std::max<uint16_t>(
+      vibration.left_motor_speed, other.vibration.left_motor_speed);
+  vibration.right_motor_speed = std::max<uint16_t>(
+      vibration.right_motor_speed, other.vibration.right_motor_speed);
 }
 
 X_RESULT InputSystem::GetState(uint32_t user_index, uint32_t flags,
-                               X_INPUT_STATE* out_state) {
+                               X_INPUT_STATE* out_state, bool ui_active) {
   SCOPE_profile_cpu_f("hid");
 
-  // If UI is blocking input, return zeroed state to the game
-  if (ui_input_blockers_.load() > 0) {
+  X_RESULT result = GetStateForUI(user_index, flags, out_state);
+  if (result != X_ERROR_SUCCESS) {
+    return result;
+  }
+  out_state->packet_number =
+      out_state->packet_number + ui_input_blocking_edges_.load();
+
+  // While UI holds the input, connected controllers read as at rest and empty
+  // slots stay empty, as xam reports them. The packet number stays live here
+  // since xam freezes it only for its own UI.
+  if (ui_active || IsUIInputBlocked()) {
+    uint32_t packet_number = out_state->packet_number;
     std::memset(out_state, 0, sizeof(X_INPUT_STATE));
+    out_state->packet_number = packet_number;
     return X_ERROR_SUCCESS;
   }
 
-  X_RESULT result = GetStateForUI(user_index, flags, out_state);
-
   // Mask buttons that were held when a UI dialog closed until they're
   // released, so the close-press doesn't carry through into the game.
-  if (result == X_ERROR_SUCCESS && user_index < XUserMaxUserCount &&
-      consumed_buttons_[user_index] != 0) {
+  if (consumed_buttons_[user_index] != 0) {
     uint16_t buttons = out_state->gamepad.buttons;
     consumed_buttons_[user_index] &= buttons;
     out_state->gamepad.buttons = buttons & ~consumed_buttons_[user_index];
@@ -173,27 +217,71 @@ X_RESULT InputSystem::GetStateForUI(uint32_t user_index, uint32_t flags,
   if (user_index >= XUserMaxUserCount) {
     return X_ERROR_DEVICE_NOT_CONNECTED;
   }
-  auto& binding = slot_bindings_[user_index];
-  if (binding.driver) {
-    // Wrong device type for this slot is not a disconnect.
+  // The devices in the slot act as one controller.
+  InputDriver* connected_driver = nullptr;
+  bool other_type = false;
+  for (const auto& binding : slot_bindings_[user_index]) {
+    if (!binding.driver) {
+      continue;
+    }
     if ((flags & binding.driver->GetInputType()) == 0) {
-      return X_ERROR_DEVICE_NOT_CONNECTED;
+      other_type = true;
+      continue;
     }
-    X_RESULT r = binding.driver->GetState(binding.driver_slot, out_state);
-    if (r == X_ERROR_SUCCESS) {
-      UpdateUsedSlot(binding.driver, user_index, true);
-      AdjustDeadzoneLevels(user_index, &out_state->gamepad);
-      if (out_state->gamepad.buttons != 0) {
-        last_used_slot = user_index;
-      }
-      return r;
+    X_INPUT_STATE state = {};
+    X_INPUT_STATE* target = connected_driver ? &state : out_state;
+    if (binding.driver->GetState(binding.driver_slot, target) !=
+        X_ERROR_SUCCESS) {
+      continue;
     }
+    if (connected_driver) {
+      MergeState(out_state, state);
+    } else {
+      connected_driver = binding.driver;
+    }
+  }
+  // Wrong device type for this slot is not a disconnect.
+  if (!connected_driver && other_type) {
+    return X_ERROR_DEVICE_NOT_CONNECTED;
+  }
+  if (connected_driver) {
+    UpdateUsedSlot(connected_driver, user_index, true);
+    AdjustDeadzoneLevels(user_index, &out_state->gamepad);
+    if (out_state->gamepad.buttons != 0) {
+      last_used_slot = user_index;
+    }
+    return X_ERROR_SUCCESS;
   }
   UpdateUsedSlot(nullptr, user_index, false);
   return X_ERROR_DEVICE_NOT_CONNECTED;
 }
 
-void InputSystem::AddUIInputBlocker() { ui_input_blockers_.fetch_add(1); }
+// Any button pressed on either device is pressed, each axis takes whichever is
+// pushed further, and the packet number moves when either device's does.
+void InputSystem::MergeState(X_INPUT_STATE* state, const X_INPUT_STATE& other) {
+  state->packet_number = state->packet_number + other.packet_number;
+  auto& pad = state->gamepad;
+  const auto& other_pad = other.gamepad;
+  pad.buttons = pad.buttons | other_pad.buttons;
+  pad.left_trigger = std::max(pad.left_trigger, other_pad.left_trigger);
+  pad.right_trigger = std::max(pad.right_trigger, other_pad.right_trigger);
+  auto further = [](be<int16_t>& axis, int16_t other_axis) {
+    if (std::abs(static_cast<int32_t>(other_axis)) >
+        std::abs(static_cast<int32_t>(axis))) {
+      axis = other_axis;
+    }
+  };
+  further(pad.thumb_lx, other_pad.thumb_lx);
+  further(pad.thumb_ly, other_pad.thumb_ly);
+  further(pad.thumb_rx, other_pad.thumb_rx);
+  further(pad.thumb_ry, other_pad.thumb_ry);
+}
+
+void InputSystem::AddUIInputBlocker() {
+  if (ui_input_blockers_.fetch_add(1) == 0) {
+    ui_input_blocking_edges_.fetch_add(1);
+  }
+}
 
 void InputSystem::RemoveUIInputBlocker() {
   // Before removing the blocker, capture any currently pressed buttons.
@@ -206,7 +294,13 @@ void InputSystem::RemoveUIInputBlocker() {
     }
   }
 
-  ui_input_blockers_.fetch_sub(1);
+  // Discard before unblocking so no title gets keystrokes made in the UI.
+  for (auto& driver : drivers_) {
+    driver->DiscardKeystrokes();
+  }
+  if (ui_input_blockers_.fetch_sub(1) == 1) {
+    ui_input_blocking_edges_.fetch_add(1);
+  }
 }
 
 X_RESULT InputSystem::SetState(uint32_t user_index,
@@ -216,21 +310,39 @@ X_RESULT InputSystem::SetState(uint32_t user_index,
   if (user_index >= XUserMaxUserCount) {
     return X_ERROR_DEVICE_NOT_CONNECTED;
   }
-  auto& binding = slot_bindings_[user_index];
-  if (!binding.driver) {
-    return X_ERROR_DEVICE_NOT_CONNECTED;
+  X_RESULT result = X_ERROR_DEVICE_NOT_CONNECTED;
+  for (const auto& binding : slot_bindings_[user_index]) {
+    if (binding.driver &&
+        binding.driver->SetState(binding.driver_slot, &modified_vibration) ==
+            X_ERROR_SUCCESS) {
+      result = X_ERROR_SUCCESS;
+    }
   }
-  return binding.driver->SetState(binding.driver_slot, &modified_vibration);
+  return result;
 }
 
 X_RESULT InputSystem::GetKeystroke(uint32_t user_index, uint32_t flags,
-                                   X_INPUT_KEYSTROKE* out_keystroke) {
+                                   X_INPUT_KEYSTROKE* out_keystroke,
+                                   bool ui_active) {
   SCOPE_profile_cpu_f("hid");
 
-  // If UI is blocking input, return empty keystroke to the game.
-  if (ui_input_blockers_.load() > 0) {
+  // While UI holds the input, connected slots have no keystrokes and empty ones
+  // stay empty, as xam reports them. Never success, since a title draining
+  // keystrokes until EMPTY would spin forever.
+  if (ui_active || IsUIInputBlocked()) {
+    for (auto& driver : drivers_) {
+      driver->DiscardKeystrokes();
+    }
     std::memset(out_keystroke, 0, sizeof(X_INPUT_KEYSTROKE));
-    return X_ERROR_EMPTY;
+    X_INPUT_STATE state;
+    // Keyboard drivers feed every slot, like below.
+    bool connected =
+        GetStateForUI(user_index, flags, &state) == X_ERROR_SUCCESS ||
+        ((flags & InputType::Keyboard) &&
+         std::any_of(drivers_.begin(), drivers_.end(), [](const auto& driver) {
+           return driver->GetInputType() == InputType::Keyboard;
+         }));
+    return connected ? X_ERROR_EMPTY : X_ERROR_DEVICE_NOT_CONNECTED;
   }
 
   bool any_connected = false;
@@ -249,10 +361,12 @@ X_RESULT InputSystem::GetKeystroke(uint32_t user_index, uint32_t flags,
     return r;
   };
 
-  // Bound device for this slot.
+  // Bound devices for this slot.
   if (user_index < XUserMaxUserCount) {
-    auto& binding = slot_bindings_[user_index];
-    if (binding.driver && (flags & binding.driver->GetInputType()) != 0) {
+    for (const auto& binding : slot_bindings_[user_index]) {
+      if (!binding.driver || (flags & binding.driver->GetInputType()) == 0) {
+        continue;
+      }
       X_RESULT r = try_driver(binding.driver, binding.driver_slot);
       if (r == X_ERROR_SUCCESS) {
         return r;
@@ -379,100 +493,129 @@ void InputSystem::ReconcileBindings() {
   }
 
   // Pass 1: demote bindings whose device has gone away.
-  for (auto& b : slot_bindings_) {
-    if (!b.driver) {
-      continue;
-    }
-    bool found = false;
-    for (auto& l : live) {
-      if (l.driver == b.driver && l.info.driver_slot == b.driver_slot) {
-        found = true;
-        break;
+  for (auto& bindings : slot_bindings_) {
+    for (auto& b : bindings) {
+      if (!b.driver) {
+        continue;
       }
-    }
-    if (!found) {
-      b.driver = nullptr;
-      b.driver_slot = 0;
+      bool found = false;
+      for (auto& l : live) {
+        if (l.driver == b.driver && l.info.driver_slot == b.driver_slot) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        b.driver = nullptr;
+        b.driver_slot = 0;
+      }
     }
   }
 
-  // Pass 2: place devices that aren't currently bound.
-  for (auto& l : live) {
-    bool already_bound = false;
-    for (auto& b : slot_bindings_) {
-      if (b.driver == l.driver && b.driver_slot == l.info.driver_slot) {
-        already_bound = true;
+  // Pass 2: reattach returning devices by stable_id, before pass 3 places any
+  // device in their slots.
+  std::vector<const LiveDevice*> unbound;
+  for (const auto& l : live) {
+    if (FindBinding(l.driver, l.info.driver_slot)) {
+      continue;
+    }
+    SlotBinding* detached = nullptr;
+    for (auto& bindings : slot_bindings_) {
+      for (auto& b : bindings) {
+        if (!b.driver && !b.stable_id.empty() &&
+            b.stable_id == l.info.stable_id) {
+          detached = &b;
+          break;
+        }
+      }
+      if (detached) {
         break;
       }
     }
-    if (already_bound) {
+    if (!detached) {
+      unbound.push_back(&l);
       continue;
     }
+    detached->driver = l.driver;
+    detached->driver_slot = l.info.driver_slot;
+    detached->display_name = l.info.display_name;
+  }
 
-    // Reattach by stable_id (matches detached bindings).
-    bool placed = false;
-    if (!l.info.stable_id.empty()) {
-      for (auto& b : slot_bindings_) {
-        if (!b.driver && b.stable_id == l.info.stable_id) {
-          b.driver = l.driver;
-          b.driver_slot = l.info.driver_slot;
-          b.display_name = l.info.display_name;
-          placed = true;
+  // Pass 3: auto-bind devices that opt in, unless the user dismissed them this
+  // session. A device goes to a slot holding nothing from its own driver, so
+  // controllers spread across slots and the keyboard joins one.
+  for (const LiveDevice* l : unbound) {
+    if (!l->info.auto_bind) {
+      continue;
+    }
+    if (!l->info.stable_id.empty() && dismissed_ids_.count(l->info.stable_id)) {
+      continue;
+    }
+    auto is_free = [&](uint32_t slot) {
+      for (const auto& b : slot_bindings_[slot]) {
+        if (b.driver == l->driver) {
+          return false;
+        }
+      }
+      return true;
+    };
+    uint32_t slot = XUserMaxUserCount;
+    const int8_t preferred = l->info.preferred_slot;
+    if (preferred >= 0 && preferred < XUserMaxUserCount && is_free(preferred)) {
+      slot = preferred;
+    } else {
+      for (uint32_t s = 0; s < XUserMaxUserCount; ++s) {
+        if (is_free(s)) {
+          slot = s;
           break;
         }
       }
     }
-    if (placed) {
+    if (slot == XUserMaxUserCount) {
       continue;
     }
+    // A device that left the slot gives it up, and is placed like a new one if
+    // it returns.
+    auto& bindings = slot_bindings_[slot];
+    bindings.erase(
+        std::remove_if(bindings.begin(), bindings.end(),
+                       [](const SlotBinding& b) { return !b.driver; }),
+        bindings.end());
+    SlotBinding binding;
+    binding.driver = l->driver;
+    binding.driver_slot = l->info.driver_slot;
+    binding.stable_id = l->info.stable_id;
+    binding.display_name = l->info.display_name;
+    bindings.push_back(std::move(binding));
+  }
 
-    // No reattach available — auto-bind only if the device opts in and the
-    // user hasn't dismissed it this session.
-    if (!l.info.auto_bind) {
-      continue;
-    }
-    if (!l.info.stable_id.empty() && dismissed_ids_.count(l.info.stable_id)) {
-      continue;
-    }
-
-    // Try preferred slot if it's not currently active.
-    if (l.info.preferred_slot >= 0 &&
-        l.info.preferred_slot < XUserMaxUserCount) {
-      auto& b = slot_bindings_[l.info.preferred_slot];
-      if (!b.driver) {
-        b.driver = l.driver;
-        b.driver_slot = l.info.driver_slot;
-        b.stable_id = l.info.stable_id;
-        b.display_name = l.info.display_name;
-        continue;
-      }
-    }
-
-    // Place in the first slot with no active driver. A detached binding
-    // (driver==null but stable_id set) gets its identity overwritten — the
-    // original device, if it returns, will auto-bind to the next free slot.
-    for (auto& b : slot_bindings_) {
+  // Pass 4: a device with a native mode uses it unless its type is overridden.
+  for (auto& bindings : slot_bindings_) {
+    for (auto& b : bindings) {
       if (b.driver) {
-        continue;
+        b.driver->SetNativeMode(b.driver_slot, !b.subtype_override);
       }
-      const bool was_detached_other = b.stable_id != l.info.stable_id;
-      b.driver = l.driver;
-      b.driver_slot = l.info.driver_slot;
-      b.stable_id = l.info.stable_id;
-      b.display_name = l.info.display_name;
-      if (was_detached_other) {
-        b.subtype_override = 0;
-      }
-      break;
     }
   }
+}
 
-  // Pass 3: a device with a native mode uses it unless its type is overridden.
-  for (auto& b : slot_bindings_) {
-    if (b.driver) {
-      b.driver->SetNativeMode(b.driver_slot, !b.subtype_override);
+InputSystem::SlotBinding* InputSystem::FindBinding(InputDriver* driver,
+                                                   uint8_t driver_slot,
+                                                   uint32_t* guest_slot) {
+  if (!driver) {
+    return nullptr;
+  }
+  for (uint32_t s = 0; s < XUserMaxUserCount; ++s) {
+    for (auto& b : slot_bindings_[s]) {
+      if (b.driver == driver && b.driver_slot == driver_slot) {
+        if (guest_slot) {
+          *guest_slot = s;
+        }
+        return &b;
+      }
     }
   }
+  return nullptr;
 }
 
 std::vector<InputSystem::EnumeratedDevice> InputSystem::EnumerateDevices() {
@@ -481,12 +624,9 @@ std::vector<InputSystem::EnumeratedDevice> InputSystem::EnumerateDevices() {
   for (auto& d : drivers_) {
     for (auto& info : d->EnumerateDevices()) {
       int bound_slot = -1;
-      for (uint32_t s = 0; s < XUserMaxUserCount; ++s) {
-        if (slot_bindings_[s].driver == d.get() &&
-            slot_bindings_[s].driver_slot == info.driver_slot) {
-          bound_slot = static_cast<int>(s);
-          break;
-        }
+      uint32_t guest_slot;
+      if (FindBinding(d.get(), info.driver_slot, &guest_slot)) {
+        bound_slot = static_cast<int>(guest_slot);
       }
       out.push_back({d.get(), std::move(info), bound_slot});
     }
@@ -501,41 +641,61 @@ void InputSystem::BindSlot(uint32_t guest_slot, InputDriver* driver,
     return;
   }
 
-  // If this device is already bound elsewhere, vacate that slot so it moves.
-  for (uint32_t s = 0; s < XUserMaxUserCount; ++s) {
-    if (s == guest_slot) {
-      continue;
-    }
-    auto& b = slot_bindings_[s];
-    if (b.driver == driver && b.driver_slot == driver_slot) {
-      b = {};
-    } else if (!stable_id.empty() && b.stable_id == stable_id) {
-      b = {};
-    }
-  }
-
   if (!stable_id.empty()) {
     dismissed_ids_.erase(stable_id);
   }
 
-  // Whether the slot was empty or held a different device, the override (if
-  // any) belonged to the previous device and must not carry to the new one.
-  const bool different_device =
-      slot_bindings_[guest_slot].stable_id != stable_id ||
-      slot_bindings_[guest_slot].driver != driver ||
-      slot_bindings_[guest_slot].driver_slot != driver_slot;
-  auto& target = slot_bindings_[guest_slot];
-  target.driver = driver;
-  target.driver_slot = driver_slot;
-  target.stable_id = std::move(stable_id);
-  target.display_name = std::move(display_name);
-  if (different_device) {
-    target.subtype_override = 0;
+  // The device joins the ones bound here, moving from any other slot along
+  // with its type override.
+  uint32_t bound_slot = 0;
+  SlotBinding* binding = FindBinding(driver, driver_slot, &bound_slot);
+  if (!binding || bound_slot != guest_slot) {
+    SlotBinding moved;
+    if (binding) {
+      moved.subtype_override = binding->subtype_override;
+      auto& from = slot_bindings_[bound_slot];
+      from.erase(from.begin() + (binding - from.data()));
+    }
+    moved.driver = driver;
+    moved.driver_slot = driver_slot;
+    moved.stable_id = std::move(stable_id);
+    moved.display_name = std::move(display_name);
+    slot_bindings_[guest_slot].push_back(std::move(moved));
+    binding = &slot_bindings_[guest_slot].back();
   }
 
   driver->OnBoundToSlot(driver_slot, guest_slot);
-  driver->SetNativeMode(driver_slot, !target.subtype_override);
+  driver->SetNativeMode(driver_slot, !binding->subtype_override);
+  NotifyBindingsChanged();
+}
 
+void InputSystem::SetSubtypeOverride(InputDriver* driver, uint8_t driver_slot,
+                                     uint8_t subtype) {
+  SlotBinding* binding = FindBinding(driver, driver_slot);
+  if (!binding || binding->subtype_override == subtype) {
+    return;
+  }
+  binding->subtype_override = subtype;
+  driver->SetNativeMode(driver_slot, !subtype);
+  NotifyBindingsChanged();
+}
+
+void InputSystem::UnbindDevice(InputDriver* driver, uint8_t driver_slot) {
+  uint32_t guest_slot = 0;
+  SlotBinding* binding = FindBinding(driver, driver_slot, &guest_slot);
+  if (!binding) {
+    return;
+  }
+  if (!binding->stable_id.empty()) {
+    dismissed_ids_.insert(binding->stable_id);
+  }
+  auto& bindings = slot_bindings_[guest_slot];
+  bindings.erase(bindings.begin() + (binding - bindings.data()));
+  driver->OnUnboundFromSlot(driver_slot);
+  NotifyBindingsChanged();
+}
+
+void InputSystem::NotifyBindingsChanged() {
   if (kernel::kernel_state()) {
     kernel::kernel_state()->BroadcastNotification(
         kXNotificationSystemInputDevicesChanged, 0);
@@ -545,51 +705,9 @@ void InputSystem::BindSlot(uint32_t guest_slot, InputDriver* driver,
   }
 }
 
-void InputSystem::SetSlotSubtypeOverride(uint32_t guest_slot, uint8_t subtype) {
-  if (guest_slot >= XUserMaxUserCount) {
-    return;
-  }
-  auto& binding = slot_bindings_[guest_slot];
-  if (binding.subtype_override == subtype) {
-    return;
-  }
-  binding.subtype_override = subtype;
-  if (binding.driver) {
-    binding.driver->SetNativeMode(binding.driver_slot, !subtype);
-  }
-  if (kernel::kernel_state()) {
-    kernel::kernel_state()->BroadcastNotification(
-        kXNotificationSystemInputDevicesChanged, 0);
-  }
-  if (bindings_changed_cb_) {
-    bindings_changed_cb_();
-  }
-}
-
-void InputSystem::UnbindSlot(uint32_t guest_slot) {
-  if (guest_slot >= XUserMaxUserCount) {
-    return;
-  }
-  auto previous = slot_bindings_[guest_slot];
-  slot_bindings_[guest_slot] = {};
-  if (!previous.stable_id.empty()) {
-    dismissed_ids_.insert(previous.stable_id);
-  }
-  if (previous.driver) {
-    previous.driver->OnUnboundFromSlot(previous.driver_slot);
-  }
-  if (kernel::kernel_state()) {
-    kernel::kernel_state()->BroadcastNotification(
-        kXNotificationSystemInputDevicesChanged, 0);
-  }
-  if (bindings_changed_cb_) {
-    bindings_changed_cb_();
-  }
-}
-
-// Format: four ';'-separated slot entries of "stable_id[:subtype]". Subtype is
-// omitted when zero; an empty entry means an unbound slot. Stable IDs are
-// "keyboard" or 32-hex-char SDL GUIDs, so ';' and ':' need no escaping.
+// Format: four ';'-separated slots, each a ','-separated list of
+// "stable_id[:subtype]" with the subtype omitted when zero. Stable IDs are
+// "keyboard" or 32-hex-char SDL GUIDs, so ';', ',' and ':' need no escaping.
 std::string InputSystem::SerializeSlotBindingsForPassthrough() const {
   std::string out;
   bool any = false;
@@ -597,15 +715,20 @@ std::string InputSystem::SerializeSlotBindingsForPassthrough() const {
     if (s) {
       out += ';';
     }
-    const auto& b = slot_bindings_[s];
-    if (b.stable_id.empty()) {
-      continue;
-    }
-    any = true;
-    out += b.stable_id;
-    if (b.subtype_override) {
-      out += ':';
-      out += std::to_string(b.subtype_override);
+    const size_t slot_start = out.size();
+    for (const auto& b : slot_bindings_[s]) {
+      if (b.stable_id.empty()) {
+        continue;
+      }
+      if (out.size() > slot_start) {
+        out += ',';
+      }
+      any = true;
+      out += b.stable_id;
+      if (b.subtype_override) {
+        out += ':';
+        out += std::to_string(b.subtype_override);
+      }
     }
   }
   return any ? out : std::string();
@@ -623,9 +746,19 @@ void InputSystem::LoadSlotBindingsFromPassthrough() {
     if (sep == std::string::npos) {
       sep = s.size();
     }
-    std::string entry = s.substr(pos, sep - pos);
+    const std::string slot_entries = s.substr(pos, sep - pos);
     pos = sep + 1;
-    if (!entry.empty()) {
+    size_t entry_pos = 0;
+    while (entry_pos < slot_entries.size()) {
+      size_t comma = slot_entries.find(',', entry_pos);
+      if (comma == std::string::npos) {
+        comma = slot_entries.size();
+      }
+      std::string entry = slot_entries.substr(entry_pos, comma - entry_pos);
+      entry_pos = comma + 1;
+      if (entry.empty()) {
+        continue;
+      }
       uint8_t subtype = 0;
       size_t colon = entry.find(':');
       if (colon != std::string::npos) {
@@ -633,12 +766,10 @@ void InputSystem::LoadSlotBindingsFromPassthrough() {
         subtype = static_cast<uint8_t>(v);
         entry.resize(colon);
       }
-      auto& b = slot_bindings_[slot];
-      b.driver = nullptr;
-      b.driver_slot = 0;
+      SlotBinding b;
       b.stable_id = std::move(entry);
-      b.display_name.clear();
       b.subtype_override = subtype;
+      slot_bindings_[slot].push_back(std::move(b));
     }
     ++slot;
   }

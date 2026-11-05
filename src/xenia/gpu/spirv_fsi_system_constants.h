@@ -38,7 +38,8 @@ void WriteFragmentShaderInterlockSystemConstants(
     bool& dirty, const RegisterFile& regs, bool primitive_polygonal,
     reg::RB_DEPTHCONTROL normalized_depth_control,
     uint32_t normalized_color_mask, uint32_t draw_resolution_scale_x,
-    uint32_t draw_resolution_scale_y, uint32_t zpd_fsi_counter_index);
+    uint32_t draw_resolution_scale_y, uint32_t zpd_fsi_counter_index,
+    int32_t window_offset_tiles);
 
 }  // namespace gpu
 }  // namespace xe

@@ -73,8 +73,8 @@ class D3D12RenderTargetCache final : public RenderTargetCache {
 
   bool Update(bool is_rasterization_done,
               reg::RB_DEPTHCONTROL normalized_depth_control,
-              uint32_t normalized_color_mask,
-              const Shader& vertex_shader) override;
+              uint32_t normalized_color_mask, const Shader& vertex_shader,
+              int32_t window_offset_tiles) override;
 
   void InvalidateCommandListRenderTargets() {
     are_current_command_list_render_targets_valid_ = false;
@@ -151,6 +151,8 @@ class D3D12RenderTargetCache final : public RenderTargetCache {
   }
 
   RenderTarget* CreateRenderTarget(RenderTargetKey key) override;
+  void RenderTargetReused(RenderTarget& render_target,
+                          RenderTargetKey old_key) override;
 
   bool IsHostDepthEncodingDifferent(
       xenos::DepthRenderTargetFormat format) const override;
@@ -316,6 +318,14 @@ class D3D12RenderTargetCache final : public RenderTargetCache {
     uint32_t temporary_srv_descriptor_index_stencil_ = UINT32_MAX;
     uint32_t temporary_sort_index_ = 0;
   };
+
+  // Transitions render targets using their sample positions for depth.
+  // Multisampled depth drawn at Xenos sample positions is decompressed in place
+  // before leaving DEPTH_WRITE. Otherwise, shader reads may use the default
+  // positions to interpret compressed depth.
+  // https://microsoft.github.io/DirectX-Specs/d3d/ProgrammableSamplePositions.html
+  void TransitionRenderTarget(D3D12RenderTarget& render_target,
+                              D3D12_RESOURCE_STATES new_state);
 
   // Root parameters of the ownership transfer pixel shaders, in the register
   // layout Mesa's spirv_to_dxil emits for the emitter's descriptor sets: each

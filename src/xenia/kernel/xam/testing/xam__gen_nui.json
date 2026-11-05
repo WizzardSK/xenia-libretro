@@ -1,0 +1,425 @@
+{
+ "corpus": "nui",
+ "source": "RGH Jasper, kernel and xam 2.0.17559, 2026-10-24",
+ "steps": [
+  {
+   "scenario": "nui initial state",
+   "name": "flags at start",
+   "export": "XamNuiHudGetInitializeFlags",
+   "r3": "0000000000000000",
+   "args": []
+  },
+  {
+   "scenario": "nui initial state",
+   "name": "versions at start",
+   "export": "XamNuiHudGetVersions",
+   "r3": "0000000082030000",
+   "capture": {
+    "xam version": "0000000000000000",
+    "xtl version": "0000000000000000"
+   },
+   "args": [
+    {
+     "pointer": "xam version",
+     "offset": 0
+    },
+    {
+     "pointer": "xtl version",
+     "offset": 8
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize fm4 flags",
+   "name": "initialize",
+   "export": "XMsgInProcessCall",
+   "r3": "FFFFFFFF80004005",
+   "capture": {
+    "buffer": "0000000000000005000000000000511cc0000830cdcdcdcdcdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 254
+    },
+    {
+     "value": 176131
+    },
+    {
+     "pointer": "buffer",
+     "offset": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize fm4 flags",
+   "name": "flags after initialize",
+   "export": "XamNuiHudGetInitializeFlags",
+   "r3": "00000000C0000830",
+   "args": []
+  },
+  {
+   "scenario": "title initialize fm4 flags",
+   "name": "versions after initialize",
+   "export": "XamNuiHudGetVersions",
+   "r3": "0000000082030020",
+   "capture": {
+    "xam version": "0000000000000005",
+    "xtl version": "000000000000511c"
+   },
+   "args": [
+    {
+     "pointer": "xam version",
+     "offset": 32
+    },
+    {
+     "pointer": "xtl version",
+     "offset": 40
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize fm4 flags",
+   "name": "shutdown",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 254
+    },
+    {
+     "value": 176132
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize fm4 flags",
+   "name": "flags after shutdown",
+   "export": "XamNuiHudGetInitializeFlags",
+   "r3": "0000000000000000",
+   "args": []
+  },
+  {
+   "scenario": "title initialize fm4 flags",
+   "name": "versions after shutdown",
+   "export": "XamNuiHudGetVersions",
+   "r3": "0000000082030030",
+   "capture": {
+    "xam version": "0000000000000000",
+    "xtl version": "0000000000000000"
+   },
+   "args": [
+    {
+     "pointer": "xam version",
+     "offset": 48
+    },
+    {
+     "pointer": "xtl version",
+     "offset": 56
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize bit 31 clear",
+   "name": "initialize",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "capture": {
+    "buffer": "0000000000000005000000000000511c40000830cdcdcdcdcdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 254
+    },
+    {
+     "value": 176131
+    },
+    {
+     "pointer": "buffer",
+     "offset": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize bit 31 clear",
+   "name": "flags after initialize",
+   "export": "XamNuiHudGetInitializeFlags",
+   "r3": "0000000040000830",
+   "args": []
+  },
+  {
+   "scenario": "title initialize bit 31 clear",
+   "name": "versions after initialize",
+   "export": "XamNuiHudGetVersions",
+   "r3": "0000000082030020",
+   "capture": {
+    "xam version": "0000000000000005",
+    "xtl version": "000000000000511c"
+   },
+   "args": [
+    {
+     "pointer": "xam version",
+     "offset": 32
+    },
+    {
+     "pointer": "xtl version",
+     "offset": 40
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize bit 31 clear",
+   "name": "shutdown",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 254
+    },
+    {
+     "value": 176132
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize bit 31 clear",
+   "name": "flags after shutdown",
+   "export": "XamNuiHudGetInitializeFlags",
+   "r3": "0000000000000000",
+   "args": []
+  },
+  {
+   "scenario": "title initialize bit 31 clear",
+   "name": "versions after shutdown",
+   "export": "XamNuiHudGetVersions",
+   "r3": "0000000082030030",
+   "capture": {
+    "xam version": "0000000000000000",
+    "xtl version": "0000000000000000"
+   },
+   "args": [
+    {
+     "pointer": "xam version",
+     "offset": 48
+    },
+    {
+     "pointer": "xtl version",
+     "offset": 56
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize version 4",
+   "name": "initialize",
+   "export": "XMsgInProcessCall",
+   "r3": "FFFFFFFF80004005",
+   "capture": {
+    "buffer": "0000000000000004000000000000511cc0000830cdcdcdcdcdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 254
+    },
+    {
+     "value": 176131
+    },
+    {
+     "pointer": "buffer",
+     "offset": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize version 4",
+   "name": "flags after initialize",
+   "export": "XamNuiHudGetInitializeFlags",
+   "r3": "0000000000000000",
+   "args": []
+  },
+  {
+   "scenario": "title initialize version 4",
+   "name": "versions after initialize",
+   "export": "XamNuiHudGetVersions",
+   "r3": "0000000082030020",
+   "capture": {
+    "xam version": "0000000000000000",
+    "xtl version": "0000000000000000"
+   },
+   "args": [
+    {
+     "pointer": "xam version",
+     "offset": 32
+    },
+    {
+     "pointer": "xtl version",
+     "offset": 40
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize version 4",
+   "name": "shutdown",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 254
+    },
+    {
+     "value": 176132
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize version 4",
+   "name": "flags after shutdown",
+   "export": "XamNuiHudGetInitializeFlags",
+   "r3": "0000000000000000",
+   "args": []
+  },
+  {
+   "scenario": "title initialize version 4",
+   "name": "versions after shutdown",
+   "export": "XamNuiHudGetVersions",
+   "r3": "0000000082030030",
+   "capture": {
+    "xam version": "0000000000000000",
+    "xtl version": "0000000000000000"
+   },
+   "args": [
+    {
+     "pointer": "xam version",
+     "offset": 48
+    },
+    {
+     "pointer": "xtl version",
+     "offset": 56
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize version 4 bit 31 clear",
+   "name": "initialize",
+   "export": "XMsgInProcessCall",
+   "r3": "FFFFFFFF80004005",
+   "capture": {
+    "buffer": "0000000000000004000000000000511c40000830cdcdcdcdcdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 254
+    },
+    {
+     "value": 176131
+    },
+    {
+     "pointer": "buffer",
+     "offset": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize version 4 bit 31 clear",
+   "name": "flags after initialize",
+   "export": "XamNuiHudGetInitializeFlags",
+   "r3": "0000000000000000",
+   "args": []
+  },
+  {
+   "scenario": "title initialize version 4 bit 31 clear",
+   "name": "versions after initialize",
+   "export": "XamNuiHudGetVersions",
+   "r3": "0000000082030020",
+   "capture": {
+    "xam version": "0000000000000000",
+    "xtl version": "0000000000000000"
+   },
+   "args": [
+    {
+     "pointer": "xam version",
+     "offset": 32
+    },
+    {
+     "pointer": "xtl version",
+     "offset": 40
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize version 4 bit 31 clear",
+   "name": "shutdown",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 254
+    },
+    {
+     "value": 176132
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "title initialize version 4 bit 31 clear",
+   "name": "flags after shutdown",
+   "export": "XamNuiHudGetInitializeFlags",
+   "r3": "0000000000000000",
+   "args": []
+  },
+  {
+   "scenario": "title initialize version 4 bit 31 clear",
+   "name": "versions after shutdown",
+   "export": "XamNuiHudGetVersions",
+   "r3": "0000000082030030",
+   "capture": {
+    "xam version": "0000000000000000",
+    "xtl version": "0000000000000000"
+   },
+   "args": [
+    {
+     "pointer": "xam version",
+     "offset": 48
+    },
+    {
+     "pointer": "xtl version",
+     "offset": 56
+    }
+   ]
+  }
+ ]
+}

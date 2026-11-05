@@ -144,9 +144,10 @@ constexpr VulkanTextureCache::HostFormatPair
          xenos::XE_GPU_TEXTURE_SWIZZLE_RRRR,
          true},
         // k_8_B
-        {{kLoadShaderIndexUnknown},
-         {kLoadShaderIndexUnknown},
-         xenos::XE_GPU_TEXTURE_SWIZZLE_RRRR},
+        {{kLoadShaderIndex8bpb, VK_FORMAT_R8_UNORM},
+         {kLoadShaderIndex8bpb, VK_FORMAT_R8_SNORM},
+         xenos::XE_GPU_TEXTURE_SWIZZLE_RRRR,
+         true},
         // k_8_8
         {{kLoadShaderIndex16bpb, VK_FORMAT_R8G8_UNORM},
          {kLoadShaderIndex16bpb, VK_FORMAT_R8G8_SNORM},
@@ -172,9 +173,10 @@ constexpr VulkanTextureCache::HostFormatPair
          {kLoadShaderIndexUnknown},
          xenos::XE_GPU_TEXTURE_SWIZZLE_RGGG},
         // k_8_8_8_8_A
-        {{kLoadShaderIndexUnknown},
-         {kLoadShaderIndexUnknown},
-         xenos::XE_GPU_TEXTURE_SWIZZLE_RGBA},
+        {{kLoadShaderIndex32bpb, VK_FORMAT_R8G8B8A8_UNORM},
+         {kLoadShaderIndex32bpb, VK_FORMAT_R8G8B8A8_SNORM},
+         xenos::XE_GPU_TEXTURE_SWIZZLE_RGBA,
+         true},
         // k_4_4_4_4
         // Components swapped in the load shader for simplicity.
         {{kLoadShaderIndexRGBA4ToARGB4, VK_FORMAT_B4G4R4A4_UNORM_PACK16},
@@ -1302,8 +1304,8 @@ bool VulkanTextureCache::LoadTextureDataFromResidentMemoryImpl(Texture& texture,
 
   // The loop counter can mean two things depending on whether the packed mip
   // tail is stored as mip 0, because in this case, it would be ambiguous since
-  // both the base and the mips would be on "level 0", but stored in separate
-  // places.
+  // both the base and the mips would be on "level 0", but loaded using separate
+  // layouts.
   uint32_t loop_level_first, loop_level_last;
   if (level_packed == 0) {
     // Packed mip tail is the level 0 - may need to load mip tails for the base,
@@ -1971,13 +1973,15 @@ bool VulkanTextureCache::LoadTextureDataFromResidentMemoryImpl(Texture& texture,
   } else {
     // Same layout/usage but another upload may have written the image earlier
     // in this submission - emit a TRANSFER_WRITE -> TRANSFER_WRITE barrier so
-    // the next copy into it is ordered after any prior one.
+    // the next copy into it is ordered after any prior one. The masks are
+    // equal, so it must not be skipped as a no-op.
     command_processor_.PushImageMemoryBarrier(
         vulkan_texture.image(), ui::vulkan::util::InitializeSubresourceRange(),
         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
         VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED, false);
   }
   command_processor_.SubmitBarriers(true);
   command_processor_.InsertDebugMarker(

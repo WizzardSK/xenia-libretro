@@ -120,7 +120,8 @@ std::optional<ExtractedMetadata> TryExtractMetadata(
 int OutputSingleFile(const std::filesystem::path& path) {
   auto extracted = TryExtractMetadata(path);
   if (!extracted) {
-    XELOGE("Failed to extract metadata from: {}", xe::path_to_utf8(path));
+    XELOGE("Failed to extract metadata from: {}",
+           xe::strip_pii(xe::path_to_utf8(path)));
     return 1;
   }
 
@@ -137,14 +138,14 @@ int OutputSingleFile(const std::filesystem::path& path) {
 int ScanDirectory(const std::filesystem::path& dir) {
   std::error_code ec;
   if (!std::filesystem::is_directory(dir, ec) || ec) {
-    XELOGE("Path is not a directory: {}", xe::path_to_utf8(dir));
+    XELOGE("Path is not a directory: {}", xe::strip_pii(xe::path_to_utf8(dir)));
     return 1;
   }
 
   std::vector<ExtractedMetadata> found_files;
   size_t files_scanned = 0;
 
-  XELOGI("Scanning directory: {}", xe::path_to_utf8(dir));
+  XELOGI("Scanning directory: {}", xe::strip_pii(xe::path_to_utf8(dir)));
 
   // Use iterator with proper error handling.
   auto options = std::filesystem::directory_options::skip_permission_denied;
@@ -165,7 +166,8 @@ int ScanDirectory(const std::filesystem::path& dir) {
       files_scanned++;
 
       if (auto extracted = TryExtractMetadata(entry.path())) {
-        XELOGI("Found: {} [{}] {}", xe::path_to_utf8(extracted->path),
+        XELOGI("Found: {} [{}] {}",
+               xe::strip_pii(xe::path_to_utf8(extracted->path)),
                extracted->format, extracted->title_id);
         found_files.push_back(std::move(*extracted));
       }
@@ -186,7 +188,7 @@ int ScanDirectory(const std::filesystem::path& dir) {
   std::cout << "# Bootable files found: " << found_files.size() << "\n\n";
 
   toml::table report;
-  report.insert("scan_directory", xe::path_to_utf8(dir));
+  report.insert("scan_directory", std::string(xe::path_to_utf8(dir)));
   report.insert("files_scanned", static_cast<int64_t>(files_scanned));
   report.insert("bootable_files_found",
                 static_cast<int64_t>(found_files.size()));
@@ -194,7 +196,7 @@ int ScanDirectory(const std::filesystem::path& dir) {
   toml::array files_array;
   for (const auto& file : found_files) {
     toml::table file_entry;
-    file_entry.insert("path", xe::path_to_utf8(file.path));
+    file_entry.insert("path", std::string(xe::path_to_utf8(file.path)));
     file_entry.insert("format", file.format);
     file_entry.insert("title_id", file.title_id);
     if (!file.module_name.empty()) {

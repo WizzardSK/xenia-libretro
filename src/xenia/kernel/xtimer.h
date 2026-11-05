@@ -36,6 +36,7 @@ class XTimer : public XObject {
   X_STATUS SetTimer(int64_t due_time, uint32_t period_ms, uint32_t routine,
                     uint32_t routine_arg, bool resume, uint32_t dpc = 0);
   X_STATUS Cancel();
+  bool IsSignaled();
 
   // Disarms every timer so none fires into a kernel being torn down.
   static void CancelAll();
@@ -56,6 +57,7 @@ class XTimer : public XObject {
   // Guest scheduler only. Set by the expiry callback, so a waiter it wakes
   // finds it signaled.
   std::unique_ptr<xe::threading::Event> signal_;
+  bool manual_reset_ = false;
   std::mutex timer_lock_;
 
   // Reused across expiries like the KAPC a KTIMER embeds.

@@ -8,8 +8,12 @@
  */
 
 #include "xenia/apu/audio_media_player.h"
+
+#include <random>
+
 #include "xenia/apu/audio_driver.h"
 #include "xenia/apu/audio_system.h"
+#include "xenia/apu/pacing_audio_driver.h"
 #include "xenia/apu/xma_context.h"
 #include "xenia/base/logging.h"
 #include "xenia/kernel/guest_scheduler.h"
@@ -424,19 +428,21 @@ std::span<uint8_t> AudioMediaPlayer::LoadSongToMemory() {
     return {};
   }
 
-  std::span<uint8_t> buffer = {
-      static_cast<uint8_t*>(av_malloc(vfs_file->entry()->size())),
-      vfs_file->entry()->size()};
-
-  if (buffer.empty()) {
+  const size_t file_size = vfs_file->entry()->size();
+  uint8_t* data =
+      file_size ? static_cast<uint8_t*>(av_malloc(file_size)) : nullptr;
+  if (!data) {
+    vfs_file->Destroy();
     return {};
   }
+  std::span<uint8_t> buffer = {data, file_size};
 
   size_t bytes_read = 0;
   result = vfs_file->ReadSync(buffer, 0, &bytes_read);
+  vfs_file->Destroy();
   if (result != X_ERROR_SUCCESS) {
     // Read failed. We need to manually release resources from av_malloc.
-    av_freep(buffer.data());
+    av_free(data);
     return {};
   }
 
@@ -481,6 +487,35 @@ X_STATUS AudioMediaPlayer::SetVolume(float volume) {
 
   driver_->SetVolume(volume_);
   return X_STATUS_SUCCESS;
+}
+
+AudioMediaPlayer::ControllerSettings& AudioMediaPlayer::GetControllerSettings(
+    XmpClient xmp_client) {
+  PlaybackController controller = PlaybackController::kUser;
+  if (xmp_client == XmpClient::kGame) {
+    controller = PlaybackController::kGame;
+  } else if (xmp_client == XmpClient::kMce) {
+    controller = PlaybackController::kMce;
+  }
+
+  return controller_settings_[uint32_t(controller)];
+}
+
+void AudioMediaPlayer::SetPlaybackController(
+    PlaybackController playback_controller) {
+  const bool changed = playback_controller != playback_controller_;
+  playback_controller_ = playback_controller;
+  if (!changed ||
+      uint32_t(playback_controller) >= xe::countof(controller_settings_)) {
+    return;
+  }
+
+  const ControllerSettings& settings =
+      controller_settings_[uint32_t(playback_controller)];
+  SetPlaybackMode(settings.playback_mode);
+  SetRepeatMode(settings.repeat_mode);
+  SetPlaybackFlags(settings.playback_flags);
+  SetVolume(settings.volume);
 }
 
 bool AudioMediaPlayer::IsLastSongInPlaylist() const {
@@ -541,6 +576,9 @@ bool AudioMediaPlayer::SetupDriver(uint32_t sample_rate, uint32_t channels) {
   DeleteDriver();
 
   std::unique_lock<xe_mutex> guard(driver_mutex_);
+  if (!sample_rate || !channels || channels > AudioDriver::kFrameSamplesMax) {
+    return false;
+  }
   driver_semaphore_ = xe::threading::Semaphore::Create(
       AudioSystem::kMaximumQueuedFrames, AudioSystem::kMaximumQueuedFrames);
 
@@ -548,20 +586,27 @@ bool AudioMediaPlayer::SetupDriver(uint32_t sample_rate, uint32_t channels) {
     return false;
   }
 
-  driver_ = std::unique_ptr<AudioDriver>(audio_system_->CreateDriver(
-      driver_semaphore_.get(), sample_rate, channels, false));
-
-  if (!driver_) {
-    driver_semaphore_.reset();
-    return false;
+  driver_.reset(audio_system_->CreateDriver(driver_semaphore_.get(),
+                                            sample_rate, channels, false));
+  if (driver_ && driver_->Initialize()) {
+    return true;
   }
-
-  if (!driver_->Initialize()) {
-    driver_semaphore_.reset();
+  if (driver_) {
     driver_->Shutdown();
     driver_.reset();
+  }
+  driver_ = std::make_unique<PacingAudioDriver>(
+      driver_semaphore_.get(), sample_rate,
+      AudioDriver::kFrameSamplesMax / channels);
+  if (!driver_->Initialize()) {
+    driver_.reset();
+    driver_semaphore_.reset();
     return false;
   }
+  XELOGW(
+      "APU: {} failed to create or initialize a media driver; "
+      "continuing silently",
+      audio_system_->name());
 
   return true;
 }
@@ -569,13 +614,11 @@ bool AudioMediaPlayer::SetupDriver(uint32_t sample_rate, uint32_t channels) {
 void AudioMediaPlayer::DeleteDriver() {
   std::unique_lock<xe_mutex> guard(driver_mutex_);
   if (driver_) {
-    if (driver_semaphore_) {
-      driver_semaphore_.reset();
-    }
-
+    // Stop the driver before destroying the semaphore used by its callbacks.
     driver_->Shutdown();
     driver_.reset();
   }
+  driver_semaphore_.reset();
 }
 
 }  // namespace apu

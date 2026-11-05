@@ -211,7 +211,8 @@ void ImGuiContextMenu::OnDraw(ImGuiIO& io) {
       focused_index_ = GetNextSelectableItem(focused_index_, 1);
     }
     if (ImGui::IsKeyPressed(ImGuiKey_Enter) ||
-        ImGui::IsKeyPressed(ImGuiKey_KeypadEnter)) {
+        ImGui::IsKeyPressed(ImGuiKey_KeypadEnter) ||
+        ImGui::IsKeyPressed(ImGuiKey_Space)) {
       ActivateItem(focused_index_);
     }
 

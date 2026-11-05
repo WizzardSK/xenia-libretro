@@ -115,7 +115,7 @@ void PrintConfigToLog(const std::filesystem::path& file_path) {
     config_dump += (category_mark ? "\n" : "") + config_line + "\n";
   }
   config_dump += "----------- END OF CONFIG DUMP ----";
-  XELOGI("{}", config_dump);
+  XELOGI("{}", xe::strip_pii(config_dump));
 
   file.close();
 }
@@ -266,7 +266,8 @@ void ReadConfig(const std::filesystem::path& file_path,
         XELOGI("Command line overrides:");
         has_overrides = true;
       }
-      XELOGI("  {} = {}", config_var->name(), config_var->commandline_value());
+      XELOGI("  {} = {}", config_var->name(),
+             xe::strip_pii(config_var->commandline_value()));
     }
   }
 
@@ -296,7 +297,7 @@ void ReadConfig(const std::filesystem::path& file_path,
     cvar::config_type_mismatch_warnings->clear();
   }
 
-  XELOGI("Loaded config: {}", file_path);
+  XELOGI("Loaded config: {}", xe::strip_pii(xe::path_to_utf8(file_path)));
 }
 
 uint32_t LoadGameConfigForFile(const std::filesystem::path& game_path) {
@@ -362,12 +363,13 @@ uint32_t LoadGameConfigForFile(const std::filesystem::path& game_path) {
   }
 
   if (title_id == 0) {
-    XELOGI("Could not extract title_id from: {}", xe::path_to_utf8(game_path));
+    XELOGI("Could not extract title_id from: {}",
+           xe::strip_pii(xe::path_to_utf8(game_path)));
     return 0;
   }
 
   XELOGI("Extracted title_id {:08X} from: {}", title_id,
-         xe::path_to_utf8(game_path));
+         xe::strip_pii(xe::path_to_utf8(game_path)));
 
   // Load the game config directly into cvars.
   const auto game_config_path = GetGameConfigPath(title_id);
@@ -377,7 +379,8 @@ uint32_t LoadGameConfigForFile(const std::filesystem::path& game_path) {
 
   try {
     const auto config = ParseConfig(game_config_path);
-    XELOGI("Loading game config: {}", xe::path_to_utf8(game_config_path));
+    XELOGI("Loading game config: {}",
+           xe::strip_pii(xe::path_to_utf8(game_config_path)));
 
     size_t override_count = 0;
     for (auto& it : *cvar::ConfigVars) {
@@ -401,7 +404,8 @@ uint32_t LoadGameConfigForFile(const std::filesystem::path& game_path) {
     XELOGI("Applied {} game config override(s)", override_count);
   } catch (const std::exception& e) {
     XELOGE("Failed to parse game config {}: {}",
-           xe::path_to_utf8(game_config_path), e.what());
+           xe::strip_pii(xe::path_to_utf8(game_config_path)),
+           xe::strip_pii(e.what()));
   }
 
   return title_id;
@@ -429,7 +433,8 @@ void SaveGameConfig(uint32_t title_id, const toml::table& config_table) {
     XELOGI("Saved game config for title {:08X}", title_id);
   } catch (const std::exception& e) {
     XELOGE("Failed to save game config {}: {}",
-           xe::path_to_utf8(game_config_path), e.what());
+           xe::strip_pii(xe::path_to_utf8(game_config_path)),
+           xe::strip_pii(e.what()));
     throw;
   }
 }
@@ -552,7 +557,8 @@ toml::table LoadGameConfig(uint32_t title_id) {
       config_table = toml::parse_file(xe::path_to_utf8(game_config_path));
     } catch (const std::exception& e) {
       XELOGE("Failed to parse game config {}: {}",
-             xe::path_to_utf8(game_config_path), e.what());
+             xe::strip_pii(xe::path_to_utf8(game_config_path)),
+             xe::strip_pii(e.what()));
     }
   }
   return config_table;
@@ -565,7 +571,8 @@ void ReloadConfig() {
 
   if (std::filesystem::exists(config_path)) {
     ReadConfig(config_path, false);
-    XELOGI("Reloaded config from: {}", xe::path_to_utf8(config_path));
+    XELOGI("Reloaded config from: {}",
+           xe::strip_pii(xe::path_to_utf8(config_path)));
   }
 }
 
@@ -672,7 +679,8 @@ void SaveConfig() {
 
   auto handle = xe::filesystem::OpenFile(config_path, "wb");
   if (!handle) {
-    XELOGE("Failed to open '{}' for writing.", config_path);
+    XELOGE("Failed to open '{}' for writing.",
+           xe::strip_pii(xe::path_to_utf8(config_path)));
   } else {
     fwrite(sb.buffer(), 1, sb.length(), handle);
     fclose(handle);

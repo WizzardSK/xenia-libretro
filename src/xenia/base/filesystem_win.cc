@@ -21,8 +21,8 @@
 
 namespace xe {
 
-std::string path_to_utf8(const std::filesystem::path& path) {
-  return xe::to_utf8(path.u16string());
+Utf8Path path_to_utf8(const std::filesystem::path& path) {
+  return Utf8Path(xe::to_utf8(path.u16string()));
 }
 
 std::u16string path_to_utf16(const std::filesystem::path& path) {
@@ -160,6 +160,15 @@ class Win32FileHandle : public FileHandle {
     }
     return true;
   }
+  bool SetTimes(uint64_t create_timestamp, uint64_t access_timestamp,
+                uint64_t write_timestamp) override {
+    FILETIME create = {DWORD(create_timestamp), DWORD(create_timestamp >> 32)};
+    FILETIME access = {DWORD(access_timestamp), DWORD(access_timestamp >> 32)};
+    FILETIME write = {DWORD(write_timestamp), DWORD(write_timestamp >> 32)};
+    return SetFileTime(handle_, create_timestamp ? &create : nullptr,
+                       access_timestamp ? &access : nullptr,
+                       write_timestamp ? &write : nullptr) != FALSE;
+  }
   void Flush() override { FlushFileBuffers(handle_); }
 
  private:
@@ -190,12 +199,24 @@ std::unique_ptr<FileHandle> FileHandle::OpenExisting(
   if (desired_access & FileAccess::kFileAppendData) {
     open_access |= FILE_APPEND_DATA;
   }
-  DWORD share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE;
+  if (desired_access & FileAccess::kFileWriteAttributes) {
+    open_access |= FILE_WRITE_ATTRIBUTES;
+  }
+  // A guest renames a file through a handle it has open on it.
+  DWORD share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
   // We assume we've already created the file in the caller.
   DWORD creation_disposition = OPEN_EXISTING;
   HANDLE handle = CreateFileW(
       path.c_str(), open_access, share_mode, nullptr, creation_disposition,
       FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+  if (handle == INVALID_HANDLE_VALUE && (open_access & FILE_WRITE_ATTRIBUTES) &&
+      GetLastError() == ERROR_ACCESS_DENIED) {
+    // A file the host won't let us restamp still opens, its times fixed.
+    open_access &= ~FILE_WRITE_ATTRIBUTES;
+    handle = CreateFileW(
+        path.c_str(), open_access, share_mode, nullptr, creation_disposition,
+        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+  }
   if (handle == INVALID_HANDLE_VALUE) {
     // TODO(benvanik): pick correct response.
     return nullptr;
@@ -266,10 +287,6 @@ std::vector<FileInfo> ListFilesUnsorted(const std::filesystem::path& path) {
 }
 
 }  // namespace internal
-
-bool SetAttributes(const std::filesystem::path& path, uint64_t attributes) {
-  return SetFileAttributes(path.c_str(), static_cast<DWORD>(attributes));
-}
 
 }  // namespace filesystem
 }  // namespace xe

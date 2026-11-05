@@ -9,15 +9,16 @@
 
 #include "xenia/kernel/xboxkrnl/xboxkrnl_ob.h"
 
+#include <cstddef>
 #include <unordered_map>
 #include <utility>
-#include <vector>
 
 #include "xenia/base/logging.h"
 #include "xenia/cpu/processor.h"
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/kernel/xboxkrnl/xboxkrnl_private.h"
 #include "xenia/kernel/xboxkrnl/xboxkrnl_threading.h"
+#include "xenia/kernel/xevent.h"
 #include "xenia/kernel/xthread.h"
 #include "xenia/xbox.h"
 
@@ -25,83 +26,274 @@ namespace xe {
 namespace kernel {
 namespace xboxkrnl {
 
-// Guest objects whose last reference was dropped on this thread. NtClose and
-// ObDereferenceObject run their type's procedures.
-struct PendingGuestObjectDelete {
-  uint32_t body;
-  uint32_t type_ptr;
-};
-static thread_local std::vector<PendingGuestObjectDelete>
-    pending_guest_object_deletes;
-
-// An object of a type the title defines itself, which has no dispatch header
-// for a host object to keep its handle in. The handle table only names it.
-// TODO(has207): NtClose doesn't call the type's close procedure. It takes the
-// object's handle count, which xenia doesn't keep apart from references.
+// A stand-in for an object of a type the title defines itself, which has no
+// dispatch header for a host object to keep its handle in. The handle table
+// only names it. The guest header keeps its counts.
 class XGuestObject : public XObject {
  public:
-  XGuestObject(KernelState* kernel_state, uint32_t body, uint32_t type_ptr)
-      : XObject(kernel_state, Type::Undefined),
-        body_(body),
-        type_ptr_(type_ptr) {
+  XGuestObject(KernelState* kernel_state, uint32_t body)
+      : XObject(kernel_state, Type::Undefined), body_(body) {
     auto global_lock = global_critical_region::AcquireDirect();
     by_body_[body] = this;
   }
   ~XGuestObject() override {
     auto global_lock = global_critical_region::AcquireDirect();
-    by_body_.erase(body_);
-    // A host thread can't run guest code. At teardown that is fine and
-    // elsewhere the guest memory leaks.
-    if (XThread::IsInThread()) {
-      pending_guest_object_deletes.push_back({body_, type_ptr_});
+    // A new object at the same address may have replaced it.
+    auto it = by_body_.find(body_);
+    if (it != by_body_.end() && it->second == this) {
+      by_body_.erase(it);
     }
   }
 
   uint32_t body() const { return body_; }
-  uint32_t type_ptr() const { return type_ptr_; }
 
-  static XGuestObject* FromBody(uint32_t body) {
+  static object_ref<XObject> FromBody(uint32_t body) {
     auto global_lock = global_critical_region::AcquireDirect();
+    // One whose last reference just went is still mapped until its destructor
+    // runs.
     auto it = by_body_.find(body);
-    return it != by_body_.end() ? it->second : nullptr;
+    if (it == by_body_.end() || !it->second->TryRetain()) {
+      return object_ref<XObject>();
+    }
+    return object_ref<XObject>(it->second);
+  }
+  static bool HasBody(uint32_t body) {
+    auto global_lock = global_critical_region::AcquireDirect();
+    return by_body_.count(body) != 0;
   }
 
  private:
   uint32_t body_;
-  uint32_t type_ptr_;
   static inline std::unordered_map<uint32_t, XGuestObject*> by_body_;
 };
 
-// Runs the type's delete and free procedures for the guest objects this thread
-// released.
-static void RunPendingGuestObjectDeletes() {
-  // The procedures can block and resume on another host thread. Take the queue
-  // before running any. Objects they release are run by the nested call.
-  std::vector<PendingGuestObjectDelete> pending_deletes =
-      std::move(pending_guest_object_deletes);
-  pending_guest_object_deletes.clear();
-  auto thread_state = cpu::ThreadState::Get();
-  for (const PendingGuestObjectDelete& pending : pending_deletes) {
-    auto type =
-        kernel_memory()->TranslateVirtual<X_OBJECT_TYPE*>(pending.type_ptr);
-    auto processor = kernel_state()->processor();
-    if (type->delete_proc) {
-      uint64_t args[] = {pending.body};
-      processor->Execute(thread_state, type->delete_proc, args, 1);
+namespace {
+
+// Objects whose pointer and handle counts the guest header keeps, as the kernel
+// does for all of them, and whose type's procedures run as those drop. Xenia's
+// own objects keep theirs on the host.
+
+// The header of an object of a type the title defines, or null.
+X_OBJECT_HEADER* TitleObjectHeader(uint32_t body) {
+  if (body < sizeof(X_OBJECT_HEADER)) {
+    return nullptr;
+  }
+  const uint32_t header_ptr = body - uint32_t(sizeof(X_OBJECT_HEADER));
+  if (kernel_memory()->QueryRangeAccess(header_ptr, sizeof(X_OBJECT_HEADER)) !=
+      xe::memory::PageAccess::kReadWrite) {
+    return nullptr;
+  }
+  auto header = kernel_memory()->TranslateVirtual<X_OBJECT_HEADER*>(header_ptr);
+  const uint32_t type_ptr = header->object_type_ptr;
+  const uint32_t globals = kernel_state()->GetKernelGuestGlobals();
+  // CreateNative leaves its objects' pointer counts at 0. A guest object of one
+  // of the kernel's types has its type in the kernel globals.
+  if (header->pointer_count <= 0 ||
+      (type_ptr >= globals &&
+       type_ptr < globals + sizeof(KernelGuestGlobals)) ||
+      kernel_memory()->QueryRangeAccess(type_ptr, sizeof(X_OBJECT_TYPE)) ==
+          xe::memory::PageAccess::kNoAccess) {
+    return nullptr;
+  }
+  // The kernel frees every object through its type.
+  auto type = kernel_memory()->TranslateVirtual<X_OBJECT_TYPE*>(type_ptr);
+  return type->free_proc ? header : nullptr;
+}
+
+// The body of a counted object, or 0.
+uint32_t CountedBody(XObject* object) {
+  if (auto guest_object = dynamic_cast<XGuestObject*>(object)) {
+    return guest_object->body();
+  }
+  // Xenia's own objects, without probing guest memory.
+  if (object->allocated_guest_object()) {
+    return 0;
+  }
+  const uint32_t body = object->guest_object();
+  return TitleObjectHeader(body) ? body : 0;
+}
+uint32_t CountedBody(uint32_t body) {
+  return XGuestObject::HasBody(body) || TitleObjectHeader(body) ? body : 0;
+}
+
+X_OBJECT_HEADER* CountedHeader(uint32_t body) {
+  return kernel_memory()->TranslateVirtual<X_OBJECT_HEADER*>(
+      body - uint32_t(sizeof(X_OBJECT_HEADER)));
+}
+
+void ReferenceCounted(uint32_t body) {
+  auto header = CountedHeader(body);
+  auto global_lock = global_critical_region::AcquireDirect();
+  header->pointer_count = header->pointer_count + 1;
+}
+
+// Drops a pointer reference. The last runs the type's delete procedure and
+// frees the object through the type.
+void DereferenceCounted(uint32_t body) {
+  auto header = CountedHeader(body);
+  uint32_t type_ptr;
+  uint32_t allocation = body - uint32_t(sizeof(X_OBJECT_HEADER));
+  {
+    auto global_lock = global_critical_region::AcquireDirect();
+    const int32_t pointer_count = header->pointer_count - 1;
+    header->pointer_count = pointer_count;
+    if (pointer_count) {
+      return;
     }
+    type_ptr = header->object_type_ptr;
     // A named object's allocation starts with its name info.
-    uint32_t allocation = pending.body - uint32_t(sizeof(X_OBJECT_HEADER));
-    auto header =
-        kernel_memory()->TranslateVirtual<X_OBJECT_HEADER*>(allocation);
     if (header->flags & OBJECT_HEADER_FLAG_NAMED_OBJECT) {
       allocation -= uint32_t(sizeof(X_OBJECT_HEADER_NAME_INFO));
     }
-    if (type->free_proc) {
-      uint64_t args[] = {allocation};
-      processor->Execute(thread_state, type->free_proc, args, 1);
-    }
+  }
+  // A host thread can't run guest code. At teardown that is fine and elsewhere
+  // the guest memory leaks.
+  if (!XThread::IsInThread()) {
+    XELOGW("Object {:08X} deleted on a host thread, its memory leaks", body);
+    return;
+  }
+  auto type = kernel_memory()->TranslateVirtual<X_OBJECT_TYPE*>(type_ptr);
+  auto processor = kernel_state()->processor();
+  auto thread_state = cpu::ThreadState::Get();
+  if (type->delete_proc) {
+    uint64_t args[] = {body};
+    processor->Execute(thread_state, type->delete_proc, args, 1);
+  }
+  if (type->free_proc) {
+    uint64_t args[] = {allocation};
+    processor->Execute(thread_state, type->free_proc, args, 1);
   }
 }
+
+// Closes one handle's open. The type's close procedure gets the handle count
+// from before it, then the handle's reference drops.
+void CloseCounted(uint32_t body) {
+  auto header = CountedHeader(body);
+  int32_t handle_count;
+  uint32_t close_proc;
+  {
+    auto global_lock = global_critical_region::AcquireDirect();
+    handle_count = header->handle_count;
+    header->handle_count = handle_count - 1;
+    close_proc = kernel_memory()
+                     ->TranslateVirtual<X_OBJECT_TYPE*>(header->object_type_ptr)
+                     ->close_proc;
+  }
+  if (close_proc) {
+    if (XThread::IsInThread()) {
+      auto thread = XThread::GetCurrentThread();
+      thread->EnterCriticalRegion();
+      uint64_t args[] = {body, uint32_t(handle_count)};
+      kernel_state()->processor()->Execute(thread->thread_state(), close_proc,
+                                           args, 2);
+      thread->LeaveCriticalRegion();
+    } else {
+      XELOGW("Object {:08X}: close procedure skipped on a host thread", body);
+    }
+  }
+  // The last handle unlinks the object from its directory, which drops the
+  // directory's reference.
+  bool unlinked = false;
+  {
+    auto global_lock = global_critical_region::AcquireDirect();
+    if (!header->handle_count &&
+        (header->flags & (OBJECT_HEADER_FLAG_CONTAINED_IN_DIRECTORY |
+                          OBJECT_HEADER_FLAG_IS_PERMANENT)) ==
+            OBJECT_HEADER_FLAG_CONTAINED_IN_DIRECTORY) {
+      header->flags =
+          int16_t(header->flags & ~OBJECT_HEADER_FLAG_CONTAINED_IN_DIRECTORY);
+      unlinked = true;
+    }
+  }
+  if (unlinked) {
+    DereferenceCounted(body);
+  }
+  DereferenceCounted(body);
+}
+
+// Whether a body holds a dispatcher object: one xenia already wraps, or one an
+// inlined KeInitialize* laid out with its size and an empty wait list. Any
+// other body would get the wrapper's handle stash written over its data.
+bool IsInitializedDispatcher(uint32_t body) {
+  auto header = kernel_memory()->TranslateVirtual<X_DISPATCH_HEADER*>(body);
+  if (header->wait_list.flink_ptr == kXObjSignature) {
+    return true;
+  }
+  size_t size;
+  switch (header->type) {
+    case X_OBJECT_TYPES::EventNotificationObject:
+    case X_OBJECT_TYPES::EventSynchronizationObject:
+      size = sizeof(X_KEVENT);
+      break;
+    case X_OBJECT_TYPES::MutantObject:
+      size = sizeof(X_KMUTANT);
+      break;
+    case X_OBJECT_TYPES::SemaphoreObject:
+      size = sizeof(X_KSEMAPHORE);
+      break;
+    case X_OBJECT_TYPES::TimerNotificationObject:
+    case X_OBJECT_TYPES::TimerSynchronizationObject:
+      size = sizeof(X_KTIMER);
+      break;
+    default:
+      return false;
+  }
+  const uint32_t wait_list =
+      body + uint32_t(offsetof(X_DISPATCH_HEADER, wait_list));
+  return header->size == size / 4 && header->wait_list.flink_ptr == wait_list &&
+         header->wait_list.blink_ptr == wait_list;
+}
+
+// The host object that names a counted object's handles. A title type's
+// dispatcher body gets its wrapper when |allow_wrapper|, so waits on the handle
+// work, even if a stand-in already names its other handles. Anything else gets
+// the stand-in, a new one coming with its first handle and setting |created|.
+object_ref<XObject> CountedObject(uint32_t body, bool allow_wrapper,
+                                  bool* created) {
+  *created = false;
+  if (allow_wrapper && TitleObjectHeader(body) &&
+      IsInitializedDispatcher(body)) {
+    auto object = XObject::GetNativeObject<XObject>(
+        kernel_state(), kernel_memory()->TranslateVirtual(body));
+    if (object) {
+      object->SetNativeType();
+      return object;
+    }
+  }
+  if (auto object = XGuestObject::FromBody(body)) {
+    return object;
+  }
+  *created = true;
+  return object_ref<XObject>(new XGuestObject(kernel_state(), body));
+}
+
+// Gives a counted object a new handle, which takes |pointer_bias| references.
+X_STATUS OpenCounted(uint32_t body, uint32_t pointer_bias, bool allow_wrapper,
+                     object_ref<XObject>* out_object, X_HANDLE* out_handle) {
+  bool created;
+  auto object = CountedObject(body, allow_wrapper, &created);
+  X_HANDLE handle = object->handle();
+  if (!created) {
+    const X_STATUS result =
+        kernel_state()->object_table()->AddHandle(object.get(), &handle, true);
+    if (XFAILED(result)) {
+      return result;
+    }
+  }
+  auto header = CountedHeader(body);
+  {
+    auto global_lock = global_critical_region::AcquireDirect();
+    header->pointer_count = header->pointer_count + int32_t(pointer_bias);
+    header->handle_count = header->handle_count + 1;
+  }
+  *out_handle = handle;
+  if (out_object) {
+    *out_object = std::move(object);
+  }
+  return X_STATUS_SUCCESS;
+}
+
+}  // namespace
 
 void xeObSplitName(X_ANSI_STRING input_string,
                    X_ANSI_STRING* leading_path_component,
@@ -293,9 +485,18 @@ dword_result_t ObOpenObjectByName_entry(lpunknown_t obj_attributes_ptr,
   auto name = util::TranslateAnsiStringAddress(kernel_memory(),
                                                obj_attributes->name_ptr);
 
+  auto object_table = kernel_state()->object_table();
   X_HANDLE handle = X_INVALID_HANDLE_VALUE;
-  X_STATUS result =
-      kernel_state()->object_table()->GetObjectByName(name, &handle);
+  X_STATUS result = object_table->GetObjectByName(name, &handle);
+  if (XSUCCEEDED(result)) {
+    // A counted object gets a handle of its own like any open, in place of the
+    // lookup's reference to the named one.
+    auto object = object_table->LookupObject<XObject>(handle);
+    if (uint32_t body = object ? CountedBody(object.get()) : 0) {
+      object_table->ReleaseHandle(handle);
+      result = OpenCounted(body, 1, true, nullptr, &handle);
+    }
+  }
   if (XSUCCEEDED(result)) {
     *handle_ptr = handle;
   }
@@ -308,10 +509,22 @@ DECLARE_XBOXKRNL_EXPORT1(ObOpenObjectByName, kNone, kImplemented);
 dword_result_t ObOpenObjectByPointer_entry(lpvoid_t object_ptr,
                                            lpdword_t out_handle_ptr) {
   *out_handle_ptr = 0;
+  if (uint32_t body = CountedBody(object_ptr.guest_address())) {
+    X_HANDLE handle;
+    const X_STATUS result = OpenCounted(body, 1, true, nullptr, &handle);
+    if (XSUCCEEDED(result)) {
+      *out_handle_ptr = handle;
+    }
+    return result;
+  }
+
   auto object = XObject::GetNativeObject<XObject>(kernel_state(), object_ptr);
   if (!object) {
     return X_STATUS_UNSUCCESSFUL;
   }
+
+  // Keep the guest type for ObReferenceObjectByHandle.
+  object->SetNativeType();
 
   // A host object's own handle is not in the title's numbering and must never
   // reach the guest, so give it a guest one. AddHandle retains, so this needs
@@ -361,18 +574,22 @@ dword_result_t ObReferenceObjectByHandle_entry(dword_t handle,
   // chrispy: gotta preinit this to 0, kernel is expected to do that
   *out_object_ptr = 0;
 
-  auto object = kernel_state()->object_table()->LookupObject<XObject>(handle);
+  // A close can't free the object between the lookup and the reference.
+  auto global_lock = global_critical_region::AcquireDirect();
+  auto object =
+      kernel_state()->object_table()->LookupObject<XObject>(handle, true);
   if (!object) {
     return X_STATUS_INVALID_HANDLE;
   }
 
-  if (auto guest_object = dynamic_cast<XGuestObject*>(object.get())) {
-    if (object_type_ptr && object_type_ptr != guest_object->type_ptr()) {
+  if (uint32_t body = CountedBody(object.get())) {
+    if (object_type_ptr &&
+        object_type_ptr != CountedHeader(body)->object_type_ptr) {
       return X_STATUS_OBJECT_TYPE_MISMATCH;
     }
-    object->RetainHandle();
+    ReferenceCounted(body);
     if (out_object_ptr.guest_address()) {
-      *out_object_ptr = guest_object->body();
+      *out_object_ptr = body;
     }
     return X_STATUS_SUCCESS;
   }
@@ -380,16 +597,22 @@ dword_result_t ObReferenceObjectByHandle_entry(dword_t handle,
   uint32_t native_ptr = object->guest_object();
 
   if (object_type_ptr) {
-    auto& object_types =
-        kernel_state()->host_object_type_enum_to_guest_object_type_ptr_;
-
-    if (object_types.contains(object->type())) {
-      if (object_type_ptr != object_types[object->type()]) {
-        return X_STATUS_OBJECT_TYPE_MISMATCH;
+    // Use guest type recorded when opening the object,
+    // or host type mapping if none was recorded.
+    uint32_t actual_type_ptr = object->guest_object_type();
+    if (!actual_type_ptr) {
+      auto& object_types =
+          kernel_state()->host_object_type_enum_to_guest_object_type_ptr_;
+      auto it = object_types.find(object->type());
+      if (it != object_types.end()) {
+        actual_type_ptr = it->second;
+      } else {
+        assert_unhandled_case(object->type());
+        native_ptr = 0xDEADF00D;
       }
-    } else {
-      assert_unhandled_case(object->type());
-      native_ptr = 0xDEADF00D;
+    }
+    if (actual_type_ptr && object_type_ptr != actual_type_ptr) {
+      return X_STATUS_OBJECT_TYPE_MISMATCH;
     }
   }
 
@@ -419,8 +642,12 @@ dword_result_t ObReferenceObjectByName_entry(pointer_t<X_ANSI_STRING> name,
   X_STATUS result =
       kernel_state()->object_table()->GetObjectByName(name_str, &handle);
   if (XSUCCEEDED(result)) {
-    return ObReferenceObjectByHandle_entry(handle, object_type_ptr,
-                                           out_object_ptr);
+    result = ObReferenceObjectByHandle_entry(handle, object_type_ptr,
+                                             out_object_ptr);
+    // The reference is ObReferenceObjectByHandle's, not the lookup's.
+    kernel_state()->object_table()->ReleaseHandle(handle);
+  } else if (out_object_ptr.guest_address()) {
+    *out_object_ptr = 0;
   }
 
   return result;
@@ -436,9 +663,8 @@ void xeObDereferenceObject(PPCContext* context, uint32_t native_ptr) {
     XELOGE("Null native ptr in ObDereferenceObject!");
     return;
   }
-  if (auto guest_object = XGuestObject::FromBody(native_ptr)) {
-    guest_object->ReleaseHandle();
-    RunPendingGuestObjectDeletes();
+  if (CountedBody(native_ptr)) {
+    DereferenceCounted(native_ptr);
     return;
   }
 
@@ -462,8 +688,8 @@ void ObDereferenceObject_entry(dword_t native_ptr, const ppc_context_t& ctx) {
 DECLARE_XBOXKRNL_EXPORT1(ObDereferenceObject, kNone, kImplemented);
 
 void ObReferenceObject_entry(dword_t native_ptr) {
-  if (auto guest_object = XGuestObject::FromBody(native_ptr)) {
-    guest_object->RetainHandle();
+  if (CountedBody(native_ptr)) {
+    ReferenceCounted(native_ptr);
     return;
   }
   // Check if a dummy value from ObReferenceObjectByHandle.
@@ -531,32 +757,77 @@ DECLARE_XBOXKRNL_EXPORT1(ObDeleteSymbolicLink, kNone, kImplemented);
 
 dword_result_t NtDuplicateObject_entry(dword_t handle, lpdword_t new_handle_ptr,
                                        dword_t options) {
-  // NOTE: new_handle_ptr can be zero to just close a handle.
   // NOTE: this function seems to be used to get the current thread handle
   //       (passed handle=-2).
-  // This function actually just creates a new handle to the same object.
-  // Most games use it to get real handles to the current thread or whatever.
-
-  X_HANDLE new_handle = X_INVALID_HANDLE_VALUE;
-  X_STATUS result =
-      kernel_state()->object_table()->DuplicateHandle(handle, &new_handle);
-
+  // The kernel references the source's object, closes the source if asked,
+  // then opens the object again. The copy takes the slot the close frees, so a
+  // closed source's value comes back. A failure writes 0.
+  auto object_table = kernel_state()->object_table();
+  const bool close_source = options & 1;  // DUPLICATE_CLOSE_SOURCE
+  X_HANDLE new_handle = 0;
+  X_STATUS result = X_STATUS_SUCCESS;
+  object_ref<XObject> object;
+  uint32_t body = 0;
+  {
+    // A close can't free the object between the lookup and the reference.
+    auto global_lock = global_critical_region::AcquireDirect();
+    object = object_table->LookupObject<XObject>(handle, true);
+    body = object ? CountedBody(object.get()) : 0;
+    if (body) {
+      ReferenceCounted(body);
+    }
+  }
+  if (!object) {
+    result = X_STATUS_INVALID_HANDLE;
+  } else if (body) {
+    if (close_source) {
+      // The slot stays for the copy.
+      CloseCounted(body);
+      auto header = CountedHeader(body);
+      auto global_lock = global_critical_region::AcquireDirect();
+      header->pointer_count = header->pointer_count + 1;
+      header->handle_count = header->handle_count + 1;
+      new_handle = handle;
+    } else {
+      result = OpenCounted(body, 1, true, nullptr, &new_handle);
+    }
+    DereferenceCounted(body);
+  } else if (close_source && handle < 0xFFFFFFFE) {
+    // Nothing to close or open again for xenia's own objects.
+    new_handle = handle;
+  } else {
+    result = object_table->DuplicateHandle(handle, &new_handle);
+  }
   if (new_handle_ptr) {
-    *new_handle_ptr = new_handle;
+    *new_handle_ptr = XSUCCEEDED(result) ? new_handle : 0;
   }
-
-  if (options == 1 /* DUPLICATE_CLOSE_SOURCE */) {
-    // Always close the source object.
-    kernel_state()->object_table()->RemoveHandle(handle);
-  }
-
   return result;
 }
 DECLARE_XBOXKRNL_EXPORT1(NtDuplicateObject, kNone, kImplemented);
 
 uint32_t NtClose(uint32_t handle) {
-  const uint32_t result = kernel_state()->object_table()->ReleaseHandle(handle);
-  RunPendingGuestObjectDeletes();
+  auto object_table = kernel_state()->object_table();
+  object_ref<XObject> object;
+  uint32_t body;
+  bool closed;
+  X_STATUS result;
+  {
+    // The slot can't be reused between the lookup and the release.
+    auto global_lock = global_critical_region::AcquireDirect();
+    object = object_table->LookupObject<XObject>(handle, true);
+    if (!object) {
+      return X_STATUS_INVALID_HANDLE;
+    }
+    body = CountedBody(object.get());
+    result = object_table->ReleaseHandle(handle);
+    // A slot an extra handle reference keeps stays open.
+    closed =
+        object_table->LookupObject<XObject>(handle, true).get() != object.get();
+  }
+  // The handle leaves the table before the close procedure runs.
+  if (XSUCCEEDED(result) && body && closed) {
+    CloseCounted(body);
+  }
   return result;
 }
 
@@ -580,22 +851,42 @@ DECLARE_XBOXKRNL_EXPORT1(ObCreateObject, kNone, kImplemented);
 
 dword_result_t ObInsertObject_entry(dword_t object,
                                     pointer_t<X_OBJECT_ATTRIBUTES> attributes,
-                                    dword_t pointer_bias,
-                                    lpdword_t out_handle) {
+                                    dword_t pointer_bias, lpdword_t out_handle,
+                                    const ppc_context_t& ctx) {
   if (!object || !out_handle) {
     return X_STATUS_INVALID_PARAMETER;
   }
-  auto header = kernel_memory()->TranslateVirtual<X_OBJECT_HEADER*>(
-      object - uint32_t(sizeof(X_OBJECT_HEADER)));
   // The creation reference passes to the handle and the caller gets
   // |pointer_bias| more, which it later drops with ObDereferenceObject.
-  auto guest_object = object_ref<XGuestObject>(
-      new XGuestObject(kernel_state(), object, header->object_type_ptr));
-  for (uint32_t i = 0; i < pointer_bias; ++i) {
-    guest_object->RetainHandle();
+  object_ref<XObject> inserted;
+  X_HANDLE handle;
+  const X_STATUS result =
+      OpenCounted(object, pointer_bias, true, &inserted, &handle);
+  if (XFAILED(result)) {
+    return result;
   }
-  guest_object->SetAttributes(attributes.guest_address());
-  *out_handle = guest_object->handle();
+  inserted->SetAttributes(attributes.guest_address());
+  if (!inserted->name().empty() &&
+      kernel_state()->object_table()->IsNameMappedTo(inserted->name(),
+                                                     handle)) {
+    // The directory holds a reference until the last handle closes.
+    auto header = CountedHeader(object);
+    auto global_lock = global_critical_region::AcquireDirect();
+    header->pointer_count = header->pointer_count + 1;
+    header->flags =
+        int16_t(header->flags | OBJECT_HEADER_FLAG_CONTAINED_IN_DIRECTORY);
+    if (header->flags & OBJECT_HEADER_FLAG_NAMED_OBJECT) {
+      // The name info before the header holds the name in the directory.
+      const uint32_t name_info_ptr =
+          object -
+          uint32_t(sizeof(X_OBJECT_HEADER_NAME_INFO) + sizeof(X_OBJECT_HEADER));
+      auto name_info =
+          kernel_memory()->TranslateVirtual<X_OBJECT_HEADER_NAME_INFO*>(
+              name_info_ptr);
+      header->hash_index = int8_t(xeObHashObjectName(&name_info->name, ctx));
+    }
+  }
+  *out_handle = handle;
   return X_STATUS_SUCCESS;
 }
 DECLARE_XBOXKRNL_EXPORT1(ObInsertObject, kNone, kSketchy);

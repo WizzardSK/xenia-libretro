@@ -67,7 +67,12 @@ int InstrEmit_branch(PPCHIRBuilder& f, const char* src, uint64_t cia,
     if (nia_value == f.function()->address() && lk) {
       is_recursion = true;
     }
-    Label* label = is_recursion ? NULL : f.LookupLabel(nia_value);
+    // Dynamic code makes a bl into its own body a call too. XeFu calls an x86
+    // CALL's stub that way and returns past the bl from elsewhere, which only
+    // finds the frame to return into when the bl made one.
+    Label* label = is_recursion || (lk && f.dynamic_code())
+                       ? NULL
+                       : f.LookupLabel(nia_value);
     if (label) {
       // Branch to label.
       uint32_t branch_flags = 0;

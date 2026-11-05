@@ -153,6 +153,11 @@ bool PPCScanner::Scan(GuestFunction* function, FunctionDebugInfo* debug_info) {
         LOGPPC("bl {:08X} -> {:08X}", address, target);
         // Queue call target if needed.
         // GetOrInsertFunction(target);
+        if (furthest_target <= address &&
+            module->EndsBeforeCallReturn(address + 4)) {
+          LOGPPC("function end {:08X} (bl before another function)", address);
+          ends_fn = true;
+        }
       } else {
         LOGPPC("b {:08X} -> {:08X}", address, target);
 

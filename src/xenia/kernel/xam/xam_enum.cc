@@ -13,6 +13,7 @@
 #include "xenia/kernel/util/shim_utils.h"
 #include "xenia/kernel/xam/xam_module.h"
 #include "xenia/kernel/xam/xam_private.h"
+#include "xenia/kernel/xam/xam_state.h"
 #include "xenia/kernel/xenumerator.h"
 #include "xenia/xbox.h"
 
@@ -30,15 +31,15 @@ uint32_t xeXamEnumerate(uint32_t handle, uint32_t flags, lpvoid_t buffer_ptr,
     return X_ERROR_INVALID_HANDLE;
   }
 
-  auto run = [e, buffer_ptr, buffer_size, overlapped_ptr](
+  auto run = [e, flags, buffer_ptr, buffer_size, overlapped_ptr](
                  uint32_t& extended_error, uint32_t& length) -> X_RESULT {
     X_RESULT result;
     uint32_t item_count = 0;
     if (!buffer_ptr) {
       result = X_ERROR_INVALID_PARAMETER;
     } else {
-      result =
-          e->WriteItems(buffer_ptr.as<uint8_t*>(), buffer_size, &item_count);
+      result = e->WriteItems(buffer_ptr.as<uint8_t*>(), buffer_size,
+                             &item_count, flags);
     }
     extended_error = X_HRESULT_FROM_WIN32(result);
     length = item_count;
@@ -70,8 +71,11 @@ dword_result_t XamEnumerate_entry(dword_t handle, dword_t flags,
                                   lpdword_t items_returned,
                                   pointer_t<XAM_OVERLAPPED> overlapped) {
   uint32_t dummy = 0;
-  auto result = xeXamEnumerate(handle, flags, buffer, buffer_length,
-                               !overlapped ? &dummy : nullptr, overlapped);
+  // The console's XamEnumerate sets the top bit of the flags it passes on, so
+  // a title enumerating content aggregated for title 0 gets every title's.
+  auto result = xeXamEnumerate(
+      handle, flags | ContentAggregateEnumerator::kAllTitlesFlag, buffer,
+      buffer_length, !overlapped ? &dummy : nullptr, overlapped);
   if (!overlapped && items_returned) {
     *items_returned = dummy;
   }

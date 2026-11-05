@@ -10,7 +10,9 @@
 #ifndef XENIA_KERNEL_XAM_XAM_STATE_H_
 #define XENIA_KERNEL_XAM_XAM_STATE_H_
 
+#include <array>
 #include <memory>
+#include <optional>
 
 #include "xenia/kernel/xam/achievement_manager.h"
 #include "xenia/kernel/xam/app_manager.h"
@@ -70,11 +72,19 @@ class XamState {
   uint32_t GetIptvNameAddress() const { return iptv_name_address_; }
 
   X_DASH_APP_INFO dash_app_info_ = {};
-  uint32_t dash_backstack_nodes_count_ = 0;
-  X_DASH_BACKSTACK_DATA dash_backstack_data_[2] = {};
   uint32_t content_register_callback = 0;
 
   std::atomic<bool> is_xam_dialog_present_ = false;
+
+  // Packet number of the last controller state the title read, per user,
+  // which it keeps reading while xam's UI holds the input.
+  std::array<uint32_t, XUserMaxUserCount> title_input_packet_numbers_ = {};
+
+  // The online schema XamGetOnlineSchema hands out, made on first use.
+  uint32_t online_schema_address_ = 0;
+  // xam's string table XamLookupCommonStringByIndex reads, loaded on first use.
+  // 0 when it can't be loaded.
+  std::optional<uint32_t> common_string_table_;
 
  private:
   void LoadLanguageLocaleFallback();

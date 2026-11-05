@@ -239,14 +239,9 @@ class XexModule : public xe::cpu::Module {
     return (xex_header()->module_flags & XEX_MODULE_TITLE) != 0;
   }
 
-  bool is_valid_executable() const {
-    assert_not_zero(base_address_);
-    if (!base_address_) {
-      return false;
-    }
-    uint8_t* buffer = memory()->TranslateVirtual(base_address_);
-    return *(uint32_t*)buffer == 0x905A4D;
-  }
+  bool is_valid_executable() const;
+  // A module of resources alone has no code, nor a PE image.
+  bool has_code() const;
 
   bool is_patch() const {
     assert_not_null(xex_header());
@@ -281,6 +276,8 @@ class XexModule : public xe::cpu::Module {
   void ReadSecurityInfo();
 
   int ReadImage(const void* xex_addr, size_t xex_length, const uint8_t* key);
+  bool AllocImage(uint32_t size);
+  void ReleaseImage();
   int ReadImageUncompressed(const void* xex_addr, size_t xex_length);
   int ReadImageBasicCompressed(const void* xex_addr, size_t xex_length);
   int ReadImageCompressed(const void* xex_addr, size_t xex_length);
@@ -307,6 +304,7 @@ class XexModule : public xe::cpu::Module {
 
   uint8_t session_key_[0x10];
   bool is_dev_kit_ = false;
+  bool image_allocated_ = false;  // Image memory at base_address_ is ours?
 
   bool loaded_ = false;         // Loaded into memory?
   bool finished_load_ = false;  // PE/imports/symbols/etc all loaded?
@@ -322,6 +320,9 @@ class XexModule : public xe::cpu::Module {
   std::string image_sha_str_;
   XexInfoCache info_cache_;
 };
+
+// Decrypts a retail XEX2 image key, which only the hypervisor can on a console.
+void DecryptXex2ImageKey(const uint8_t* encrypted_key, uint8_t* key);
 
 }  // namespace cpu
 }  // namespace xe

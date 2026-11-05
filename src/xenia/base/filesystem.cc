@@ -37,6 +37,26 @@ std::vector<uint8_t> ReadAllBytes(const std::filesystem::path& path) {
   return data;
 }
 
+bool WriteAllBytes(const std::filesystem::path& path,
+                   std::span<const uint8_t> data) {
+  std::ofstream f(path, std::ios::binary | std::ios::trunc);
+  f.write(reinterpret_cast<const char*>(data.data()),
+          std::streamsize(data.size()));
+  f.close();
+  return !f.fail();
+}
+
+std::filesystem::path FindChildIgnoringCase(const std::filesystem::path& parent,
+                                            const std::string_view name) {
+  std::error_code ec;
+  for (const auto& child : std::filesystem::directory_iterator(parent, ec)) {
+    if (xe::utf8::equal_case(xe::path_to_utf8(child.path().filename()), name)) {
+      return child.path();
+    }
+  }
+  return {};
+}
+
 std::string ReadAllText(const std::filesystem::path& path) {
   std::ifstream f(path, std::ios::binary | std::ios::ate);
   if (!f) {

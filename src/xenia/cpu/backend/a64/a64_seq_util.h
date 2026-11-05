@@ -355,16 +355,106 @@ inline bool GuestMemDirectIndex(const I64Op& guest, int* out_w_idx) {
   return true;
 }
 
-// The fallback address lives in x0; emit_access must not clobber it first.
+// The 32-bit guest address: the guest register itself, or w0. A fused mask is
+// applied here and returned in |out_mask|, else all ones.
+inline WReg GuestAddressW(A64Emitter& e, const I64Op& guest,
+                          uint32_t* out_mask) {
+  *out_mask = UINT32_MAX;
+  if (guest.is_constant) {
+    e.mov(e.w0, static_cast<uint64_t>(static_cast<uint32_t>(guest.constant())));
+    return e.w0;
+  }
+  int mask_src_reg;
+  if (e.ConsumeFusedAddressMask(guest.reg().getIdx(), &mask_src_reg,
+                                out_mask)) {
+    e.and_(e.w0, WReg(mask_src_reg), static_cast<uint64_t>(*out_mask));
+    return e.w0;
+  }
+  return WReg(guest.reg().getIdx());
+}
+
+// Loads the table entry for |address|'s 4 KB page into x16, so x16 plus
+// |address| zero-extended is the host address. An access of |size| bytes that
+// reaches the next page uses the membase instead, from the tail, and a |size|
+// of 1 never does. Clobbers w17 and NZCV.
+inline void EmitGuestTlbLookup(A64Emitter& e, const WReg& address,
+                               bool is_write, uint32_t size) {
+  using namespace Xbyak_aarch64;
+  static_assert(offsetof(ppc::PPCContext, tlb_write) < 32768);
+  const size_t table_offset = is_write ? offsetof(ppc::PPCContext, tlb_write)
+                                       : offsetof(ppc::PPCContext, tlb_read);
+  e.ldr(e.x16, ptr(e.GetContextReg(), static_cast<uint32_t>(table_offset)));
+  e.lsr(e.w17, address, 12);
+  e.ldr(e.x16, ptr(e.x16, e.x17, LSL, 3));
+  if (size <= 1) {
+    return;
+  }
+  auto& join = e.NewCachedLabel();
+  const int address_idx = address.getIdx();
+  auto& cross =
+      e.AddToTail([address_idx, &join](A64Emitter& e, Xbyak_aarch64::Label&) {
+        // x16 = membase + remapped address - address, so the remap wraps.
+        const WReg address(address_idx);
+        e.mov(e.w17, uint64_t(0xE0000000u));
+        e.cmp(address, e.w17);
+        e.add(e.w17, address, 1, 12);
+        e.csel(e.w17, e.w17, address, HS);
+        e.add(e.x16, e.GetMembaseReg(), e.x17);
+        e.sub(e.x16, e.x16, address, UXTW);
+        e.b(join);
+      });
+  // Carries out when the page offset plus size - 1 passes 0xFFF.
+  e.orr(e.w17, address, uint64_t(0xFFFFF000u));
+  e.cmn(e.w17, size - 1);
+  e.b(HS, cross);
+  e.LKeepingRemapBound(join);
+}
+
+// The access size that can reach the next page, 1 when none can. A constant
+// address is checked here, a mask that clears the low bits proves alignment.
+inline uint32_t GuestTlbCrossSize(const I64Op& guest, uint32_t mask,
+                                  uint32_t size) {
+  if (guest.is_constant) {
+    const uint32_t offset = static_cast<uint32_t>(guest.constant()) & 0xFFF;
+    return offset + size <= 0x1000 ? 1 : size;
+  }
+  return (mask & (size - 1)) ? size : 1;
+}
+
+// emit_access gets the address of a |size| byte access, which can use x0 and on
+// the TLB path has x16 as its base. emit_access must not write either first.
 template <typename Fn>
-inline void EmitGuestMemAccess(A64Emitter& e, const I64Op& guest,
-                               Fn&& emit_access) {
+inline void EmitGuestMemAccess(A64Emitter& e, const I64Op& guest, uint32_t size,
+                               bool is_write, Fn&& emit_access) {
+  if (e.guest_tlb()) {
+    uint32_t mask;
+    const WReg address = GuestAddressW(e, guest, &mask);
+    EmitGuestTlbLookup(e, address, is_write,
+                       GuestTlbCrossSize(guest, mask, size));
+    emit_access(ptr(e.x16, address, Xbyak_aarch64::UXTW));
+    return;
+  }
   int w_idx;
   if (GuestMemDirectIndex(guest, &w_idx)) {
     emit_access(ptr(e.GetMembaseReg(), WReg(w_idx), Xbyak_aarch64::UXTW));
   } else {
     emit_access(ptr(e.GetMembaseReg(), ComputeMemoryAddress(e, guest)));
   }
+}
+
+// dst = the host address of a |size| byte access at |guest|.
+inline void ComputeGuestHostAddress(A64Emitter& e, const XReg& dst,
+                                    const I64Op& guest, uint32_t size,
+                                    bool is_write) {
+  if (e.guest_tlb()) {
+    uint32_t mask;
+    const WReg address = GuestAddressW(e, guest, &mask);
+    EmitGuestTlbLookup(e, address, is_write,
+                       GuestTlbCrossSize(guest, mask, size));
+    e.add(dst, e.x16, address, Xbyak_aarch64::UXTW);
+    return;
+  }
+  e.add(dst, e.GetMembaseReg(), ComputeMemoryAddress(e, guest));
 }
 
 // Adds a displacement to a guest address in W registers, so it wraps at 32
@@ -429,7 +519,29 @@ inline XReg ComputeMemoryAddressOffset(A64Emitter& e, const I64Op& guest,
 // Guest addresses wrap at 32 bits: a nonzero displacement is added in W first.
 template <typename OffsetOp, typename Fn>
 inline void EmitGuestMemAccessOffset(A64Emitter& e, const I64Op& guest,
-                                     const OffsetOp& offset, Fn&& emit_access) {
+                                     const OffsetOp& offset, uint32_t size,
+                                     bool is_write, Fn&& emit_access) {
+  if (e.guest_tlb()) {
+    WReg address = e.w0;
+    uint32_t cross_size = size;
+    if (guest.is_constant && offset.is_constant) {
+      const uint32_t constant = static_cast<uint32_t>(guest.constant()) +
+                                static_cast<uint32_t>(offset.constant());
+      e.mov(e.w0, static_cast<uint64_t>(constant));
+      if ((constant & 0xFFF) + size <= 0x1000) {
+        cross_size = 1;
+      }
+    } else if (guest.is_constant) {
+      e.mov(e.w0,
+            static_cast<uint64_t>(static_cast<uint32_t>(guest.constant())));
+      AddGuestMemoryOffset(e, e.x0, offset);
+    } else {
+      address = WReg(AddGuestMemoryOffset(e, guest.reg(), offset).getIdx());
+    }
+    EmitGuestTlbLookup(e, address, is_write, cross_size);
+    emit_access(ptr(e.x16, address, Xbyak_aarch64::UXTW));
+    return;
+  }
   int w_idx;
   if (offset.is_constant && offset.constant() == 0 &&
       GuestMemDirectIndex(guest, &w_idx)) {

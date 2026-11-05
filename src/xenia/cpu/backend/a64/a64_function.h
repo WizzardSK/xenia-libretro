@@ -32,7 +32,11 @@ class A64Function : public GuestFunction {
     return machine_code_length_.load(std::memory_order_acquire);
   }
 
-  void Setup(uint8_t* machine_code, size_t machine_code_length);
+  // The bytes its frame takes, which the prolog subtracts from sp.
+  size_t stack_size() const { return stack_size_; }
+
+  void Setup(uint8_t* machine_code, size_t machine_code_length,
+             size_t stack_size);
 
  protected:
   bool CallImpl(ThreadState* thread_state, uint32_t return_address) override;
@@ -40,6 +44,7 @@ class A64Function : public GuestFunction {
  private:
   std::atomic<uint8_t*> machine_code_{nullptr};
   std::atomic<size_t> machine_code_length_{0};
+  size_t stack_size_ = 0;
 };
 
 }  // namespace a64

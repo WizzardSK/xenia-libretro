@@ -1,0 +1,2800 @@
+{
+ "corpus": "io",
+ "source": "RGH Jasper, kernel and xam 2.0.17559, 2026-10-28",
+ "steps": [
+  {
+   "scenario": "tree",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 40
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 16
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 33
+    }
+   ]
+  },
+  {
+   "scenario": "tree",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "tree",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 56
+    },
+    {
+     "value": 1074790400
+    },
+    {
+     "pointer": "attributes",
+     "offset": 104
+    },
+    {
+     "pointer": "iosb",
+     "offset": 64
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 128
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 5
+    },
+    {
+     "value": 96
+    }
+   ]
+  },
+  {
+   "scenario": "tree",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "open file",
+   "name": "IoCreateFile",
+   "export": "IoCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000001"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 48
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 96
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "open file",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "target of existing file",
+   "name": "IoCreateFile",
+   "export": "IoCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000004"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 48
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 32
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "target of existing file",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information+0x30": "0000001000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 64
+    },
+    {
+     "pointer": "network open information",
+     "offset": 72
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "target of existing file",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "target of missing file",
+   "name": "IoCreateFile",
+   "export": "IoCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000005"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 48
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 32
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "target of missing file",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information+0x30": "0000001000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 64
+    },
+    {
+     "pointer": "network open information",
+     "offset": 72
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "target of missing file",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "target of directory",
+   "name": "IoCreateFile",
+   "export": "IoCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000004"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 40
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 32
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "target of directory",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information+0x30": "0000001000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 56
+    },
+    {
+     "pointer": "network open information",
+     "offset": 64
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "target of directory",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "target in missing directory",
+   "name": "IoCreateFile",
+   "export": "IoCreateFile",
+   "r3": "00000000C000003A",
+   "capture": {
+    "iosb": "c000003a00000000",
+    "handle": "00000000"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 56
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 32
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "open missing file",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "00000000C0000034",
+   "capture": {
+    "iosb": "c000003400000000",
+    "handle": "00000000"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 48
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 96
+    }
+   ]
+  },
+  {
+   "scenario": "create existing file",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "00000000C0000035",
+   "capture": {
+    "iosb": "c000003500000000",
+    "handle": "00000000"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 48
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 2
+    },
+    {
+     "value": 96
+    }
+   ]
+  },
+  {
+   "scenario": "open directory as a file",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "00000000C00000BA",
+   "capture": {
+    "iosb": "c00000ba00000000",
+    "handle": "00000000"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 40
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 96
+    }
+   ]
+  },
+  {
+   "scenario": "basic information of file",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000001"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 48
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 96
+    }
+   ]
+  },
+  {
+   "scenario": "basic information of file",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "FFFFFFFFC000000D",
+   "capture": {
+    "query iosb": "cdcdcdcdcdcdcdcd",
+    "basic information+0x20": "0000000000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 64
+    },
+    {
+     "pointer": "basic information",
+     "offset": 72
+    },
+    {
+     "value": 40
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "basic information of file",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "basic information of directory",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000001"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 40
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 33
+    }
+   ]
+  },
+  {
+   "scenario": "basic information of directory",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "FFFFFFFFC000000D",
+   "capture": {
+    "query iosb": "cdcdcdcdcdcdcdcd",
+    "basic information+0x20": "0000000000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 56
+    },
+    {
+     "pointer": "basic information",
+     "offset": 64
+    },
+    {
+     "value": 40
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "basic information of directory",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "basic information short buffer",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000001"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 48
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 96
+    }
+   ]
+  },
+  {
+   "scenario": "basic information short buffer",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "FFFFFFFFC0000004",
+   "capture": {
+    "query iosb": "cdcdcdcdcdcdcdcd",
+    "basic information+0x20": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 64
+    },
+    {
+     "pointer": "basic information",
+     "offset": 72
+    },
+    {
+     "value": 36
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "basic information short buffer",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 2148532480
+    },
+    {
+     "pointer": "attributes",
+     "offset": 56
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 128
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 96
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "set attributes 0x80 at 0x20",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb": "0000000000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 72
+    },
+    {
+     "pointer": "information",
+     "offset": 80
+    },
+    {
+     "value": 40
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information+0x30": "0000008000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 120
+    },
+    {
+     "pointer": "network open information",
+     "offset": 128
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "set attributes 0x1 at 0x20",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb": "0000000000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 184
+    },
+    {
+     "pointer": "information",
+     "offset": 192
+    },
+    {
+     "value": 40
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information+0x30": "0000008000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 232
+    },
+    {
+     "pointer": "network open information",
+     "offset": 240
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "set attributes 0x0 at 0x20",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb": "0000000000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 296
+    },
+    {
+     "pointer": "information",
+     "offset": 304
+    },
+    {
+     "value": 40
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information+0x30": "0000008000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 344
+    },
+    {
+     "pointer": "network open information",
+     "offset": 352
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "set attributes 0x80 at 0x20",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb": "0000000000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 408
+    },
+    {
+     "pointer": "information",
+     "offset": 416
+    },
+    {
+     "value": 40
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information+0x30": "0000008000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 456
+    },
+    {
+     "pointer": "network open information",
+     "offset": 464
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "set attributes 0x80 at 0x24",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb": "0000000000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 520
+    },
+    {
+     "pointer": "information",
+     "offset": 528
+    },
+    {
+     "value": 40
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information+0x30": "0000008000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 568
+    },
+    {
+     "pointer": "network open information",
+     "offset": 576
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "set attributes 0x1 at 0x24",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb": "0000000000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 632
+    },
+    {
+     "pointer": "information",
+     "offset": 640
+    },
+    {
+     "value": 40
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information+0x30": "0000008000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 680
+    },
+    {
+     "pointer": "network open information",
+     "offset": 688
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "set attributes 0x0 at 0x24",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb": "0000000000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 744
+    },
+    {
+     "pointer": "information",
+     "offset": 752
+    },
+    {
+     "value": 40
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information+0x30": "0000008000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 792
+    },
+    {
+     "pointer": "network open information",
+     "offset": 800
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "set attributes 0x80 at 0x24",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb": "0000000000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 856
+    },
+    {
+     "pointer": "information",
+     "offset": 864
+    },
+    {
+     "value": 40
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information+0x30": "0000008000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 904
+    },
+    {
+     "pointer": "network open information",
+     "offset": 912
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "set attributes 0x10 at 0x20",
+   "export": "NtSetInformationFile",
+   "r3": "FFFFFFFFC000000D",
+   "capture": {
+    "set iosb": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 968
+    },
+    {
+     "pointer": "information",
+     "offset": 976
+    },
+    {
+     "value": 40
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information+0x30": "0000008000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 1016
+    },
+    {
+     "pointer": "network open information",
+     "offset": 1024
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "set position",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb": "0000000000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 1080
+    },
+    {
+     "pointer": "information",
+     "offset": 1088
+    },
+    {
+     "value": 8
+    },
+    {
+     "value": 14
+    }
+   ]
+  },
+  {
+   "scenario": "set basic information",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "set times",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 3222274048
+    },
+    {
+     "pointer": "attributes",
+     "offset": 48
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 128
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 5
+    },
+    {
+     "value": 96
+    }
+   ]
+  },
+  {
+   "scenario": "set times",
+   "name": "NtWriteFile",
+   "export": "NtWriteFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "write iosb": "0000000000000200"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "write iosb",
+     "offset": 64
+    },
+    {
+     "pointer": "data",
+     "offset": 72
+    },
+    {
+     "value": 512
+    },
+    {
+     "pointer": "offset",
+     "offset": 584
+    }
+   ]
+  },
+  {
+   "scenario": "set times",
+   "name": "set all times",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb[:0x4]": "00000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 592
+    },
+    {
+     "pointer": "information",
+     "offset": 600
+    },
+    {
+     "value": 40
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "set times",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information[:0x20]": "01d710b41600600001d848b362b7fb0001d97fe98505d60001d97fe98505d600"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 640
+    },
+    {
+     "pointer": "network open information",
+     "offset": 648
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "set times",
+   "name": "set write time",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb[:0x4]": "00000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 704
+    },
+    {
+     "pointer": "information",
+     "offset": 712
+    },
+    {
+     "value": 40
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "set times",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information[:0x20]": "01d710b41600600001d848b362b7fb0001dab8b1fc27310001dab8b1fc273100"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 752
+    },
+    {
+     "pointer": "network open information",
+     "offset": 760
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "set times",
+   "name": "set write time past an even second",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb[:0x4]": "00000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 816
+    },
+    {
+     "pointer": "information",
+     "offset": 824
+    },
+    {
+     "value": 40
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "set times",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information[:0x20]": "01d710b41600600001d848b362b7fb0001dbefe81d43df0001dbefe81d43df00"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 864
+    },
+    {
+     "pointer": "network open information",
+     "offset": 872
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "set times",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "set times",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000001"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 928
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 976
+    },
+    {
+     "pointer": "iosb",
+     "offset": 936
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 96
+    }
+   ]
+  },
+  {
+   "scenario": "set times",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information[:0x20]": "01d710b41600600001d848b362b7fb0001dbefe81d43df0001dbefe81d43df00"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 992
+    },
+    {
+     "pointer": "network open information",
+     "offset": 1000
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "set times",
+   "name": "set write time without write access",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb[:0x4]": "00000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 1056
+    },
+    {
+     "pointer": "information",
+     "offset": 1064
+    },
+    {
+     "value": 40
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "set times",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information[:0x20]": "01d710b41600600001d848b362b7fb0001d97fe98505d60001d97fe98505d600"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 1104
+    },
+    {
+     "pointer": "network open information",
+     "offset": 1112
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "set times",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "set end of file",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000001"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 1074790400
+    },
+    {
+     "pointer": "attributes",
+     "offset": 48
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 96
+    }
+   ]
+  },
+  {
+   "scenario": "set end of file",
+   "name": "set end of file",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb": "0000000000000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 64
+    },
+    {
+     "pointer": "information",
+     "offset": 72
+    },
+    {
+     "value": 8
+    },
+    {
+     "value": 20
+    }
+   ]
+  },
+  {
+   "scenario": "set end of file",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "write past end of file",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 1074790528
+    },
+    {
+     "pointer": "attributes",
+     "offset": 48
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 5
+    },
+    {
+     "value": 96
+    }
+   ]
+  },
+  {
+   "scenario": "write past end of file",
+   "name": "set end of file",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb[:0x4]": "00000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 64
+    },
+    {
+     "pointer": "information",
+     "offset": 72
+    },
+    {
+     "value": 8
+    },
+    {
+     "value": 20
+    }
+   ]
+  },
+  {
+   "scenario": "write past end of file",
+   "name": "set allocation size",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb[:0x4]": "00000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 80
+    },
+    {
+     "pointer": "information",
+     "offset": 88
+    },
+    {
+     "value": 8
+    },
+    {
+     "value": 19
+    }
+   ]
+  },
+  {
+   "scenario": "write past end of file",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "write past end of file",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000001"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 96
+    },
+    {
+     "value": 1074790528
+    },
+    {
+     "pointer": "attributes",
+     "offset": 144
+    },
+    {
+     "pointer": "iosb",
+     "offset": 104
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 104
+    }
+   ]
+  },
+  {
+   "scenario": "write past end of file",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information+0x28[:0x8]": "00000000000002fb"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 160
+    },
+    {
+     "pointer": "network open information",
+     "offset": 168
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "write past end of file",
+   "name": "NtWriteFile",
+   "export": "NtWriteFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "write iosb": "0000000000000400"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "write iosb",
+     "offset": 224
+    },
+    {
+     "pointer": "data",
+     "offset": 232
+    },
+    {
+     "value": 1024
+    },
+    {
+     "pointer": "offset",
+     "offset": 1256
+    }
+   ]
+  },
+  {
+   "scenario": "write past end of file",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information+0x28[:0x8]": "0000000000000400"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 1264
+    },
+    {
+     "pointer": "network open information",
+     "offset": 1272
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "write past end of file",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "overwrite then size again",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 1074790528
+    },
+    {
+     "pointer": "attributes",
+     "offset": 56
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 5
+    },
+    {
+     "value": 96
+    }
+   ]
+  },
+  {
+   "scenario": "overwrite then size again",
+   "name": "NtWriteFile",
+   "export": "NtWriteFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "write iosb": "0000000000000400"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "write iosb",
+     "offset": 72
+    },
+    {
+     "pointer": "data",
+     "offset": 80
+    },
+    {
+     "value": 1024
+    },
+    {
+     "pointer": "offset",
+     "offset": 1104
+    }
+   ]
+  },
+  {
+   "scenario": "overwrite then size again",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "overwrite then size again",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000003"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 1112
+    },
+    {
+     "value": 1074790528
+    },
+    {
+     "pointer": "attributes",
+     "offset": 1168
+    },
+    {
+     "pointer": "iosb",
+     "offset": 1120
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 5
+    },
+    {
+     "value": 96
+    }
+   ]
+  },
+  {
+   "scenario": "overwrite then size again",
+   "name": "set end of file",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb[:0x4]": "00000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 1184
+    },
+    {
+     "pointer": "information",
+     "offset": 1192
+    },
+    {
+     "value": 8
+    },
+    {
+     "value": 20
+    }
+   ]
+  },
+  {
+   "scenario": "overwrite then size again",
+   "name": "set allocation size",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb[:0x4]": "00000000"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 1200
+    },
+    {
+     "pointer": "information",
+     "offset": 1208
+    },
+    {
+     "value": 8
+    },
+    {
+     "value": 19
+    }
+   ]
+  },
+  {
+   "scenario": "overwrite then size again",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "overwrite then size again",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000001"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 1216
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 1272
+    },
+    {
+     "pointer": "iosb",
+     "offset": 1224
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 96
+    }
+   ]
+  },
+  {
+   "scenario": "overwrite then size again",
+   "name": "NtQueryInformationFile",
+   "export": "NtQueryInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "query iosb": "0000000000000038",
+    "network open information+0x28[:0x8]": "0000000000000400"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "pointer": "query iosb",
+     "offset": 1288
+    },
+    {
+     "pointer": "network open information",
+     "offset": 1296
+    },
+    {
+     "value": 56
+    },
+    {
+     "value": 34
+    }
+   ]
+  },
+  {
+   "scenario": "overwrite then size again",
+   "name": "NtReadFile",
+   "export": "NtReadFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "read iosb": "0000000000000400",
+    "read data[:0x10]": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+    "read data+0x3f0": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
+   },
+   "args": [
+    {
+     "variable": "handle"
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "read iosb",
+     "offset": 1352
+    },
+    {
+     "pointer": "read data",
+     "offset": 1360
+    },
+    {
+     "value": 1024
+    },
+    {
+     "pointer": "read offset",
+     "offset": 2384
+    }
+   ]
+  },
+  {
+   "scenario": "overwrite then size again",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "rename",
+   "name": "NtCreateFile",
+   "export": "NtCreateFile",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 0
+    },
+    {
+     "value": 1074855936
+    },
+    {
+     "pointer": "attributes",
+     "offset": 48
+    },
+    {
+     "pointer": "iosb",
+     "offset": 8
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 128
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 5
+    },
+    {
+     "value": 96
+    }
+   ]
+  },
+  {
+   "scenario": "rename",
+   "name": "rename under \\??",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb[:0x4]": "00000000"
+   },
+   "args": [
+    {
+     "variable": "source"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 88
+    },
+    {
+     "pointer": "information",
+     "offset": 96
+    },
+    {
+     "value": 16
+    },
+    {
+     "value": 10
+    }
+   ]
+  },
+  {
+   "scenario": "rename",
+   "name": "IoCreateFile",
+   "export": "IoCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000004"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 112
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 160
+    },
+    {
+     "pointer": "iosb",
+     "offset": 120
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 32
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "rename",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "rename",
+   "name": "IoCreateFile",
+   "export": "IoCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000005"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 176
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 224
+    },
+    {
+     "pointer": "iosb",
+     "offset": 184
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 32
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "rename",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "rename",
+   "name": "rename back",
+   "export": "NtSetInformationFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "set iosb[:0x4]": "00000000"
+   },
+   "args": [
+    {
+     "variable": "source"
+    },
+    {
+     "pointer": "set iosb",
+     "offset": 264
+    },
+    {
+     "pointer": "information",
+     "offset": 272
+    },
+    {
+     "value": 16
+    },
+    {
+     "value": 10
+    }
+   ]
+  },
+  {
+   "scenario": "rename",
+   "name": "IoCreateFile",
+   "export": "IoCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000005"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 288
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 336
+    },
+    {
+     "pointer": "iosb",
+     "offset": 296
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 32
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "rename",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "rename",
+   "name": "IoCreateFile",
+   "export": "IoCreateFile",
+   "r3": "0000000000000000",
+   "capture": {
+    "iosb": "0000000000000004"
+   },
+   "args": [
+    {
+     "pointer": "handle",
+     "offset": 352
+    },
+    {
+     "value": 2148532224
+    },
+    {
+     "pointer": "attributes",
+     "offset": 400
+    },
+    {
+     "pointer": "iosb",
+     "offset": 360
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 32
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "rename",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "handle"
+    }
+   ]
+  },
+  {
+   "scenario": "rename",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "source"
+    }
+   ]
+  },
+  {
+   "scenario": "StfsCreateDevice wrong size",
+   "name": "StfsCreateDevice",
+   "export": "StfsCreateDevice",
+   "r3": "FFFFFFFFC000000D",
+   "args": [
+    {
+     "pointer": "parameters",
+     "offset": 0
+    },
+    {
+     "value": 80
+    }
+   ]
+  }
+ ]
+}

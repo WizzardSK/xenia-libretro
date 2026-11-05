@@ -216,11 +216,23 @@ class RenderTargetCache {
   virtual void ClearCache();
 
   virtual void BeginFrame();
+  // Call once per frame. Render targets used in the last few frames aren't
+  // reused.
+  void AdvanceRenderTargetUseFrame() { ++render_target_use_frame_; }
+
+  // Keeps each tile on one window offset path. If a draw has to leave its
+  // offset in the viewport, later draws with the same offset, surface pitch,
+  // and MSAA do the same until a frame passes without one. This keeps a tiled
+  // depth prepass, and the passes using it, on the same transform instead of
+  // moving the tile between host render targets.
+  int32_t GetWindowOffsetTiles(const RegisterFile& regs,
+                               reg::RB_DEPTHCONTROL normalized_depth_control,
+                               uint32_t normalized_color_mask, uint64_t frame);
 
   virtual bool Update(bool is_rasterization_done,
                       reg::RB_DEPTHCONTROL normalized_depth_control,
                       uint32_t normalized_color_mask,
-                      const Shader& vertex_shader);
+                      const Shader& vertex_shader, int32_t window_offset_tiles);
 
   // Returns bits where 0 is whether a depth render target is currently bound on
   // the host and 1... are whether the same applies to color render targets, and
@@ -229,23 +241,21 @@ class RenderTargetCache {
   uint32_t GetLastUpdateBoundRenderTargets(
       uint32_t* depth_and_color_formats_out = nullptr) const;
 
-  // Records the render target the last update draws into (the first bound
-  // color one, else depth) as drawn in `frame`, and returns whether it was also
-  // drawn in one of the kDrawTargetRecurringFrames frames before - telling a
-  // pass redrawn every frame from a one-off render to a texture, for async
-  // pipeline stand-ins. True with no render target, as nothing is kept then.
-  static constexpr uint64_t kDrawTargetRecurringFrames = 4;
-  bool TrackLastUpdateDrawTarget(uint64_t frame);
-  // Whether the last update's render target is at most
-  // kDrawTargetSmallPitchTiles wide (160 pixels without MSAA) - generated data
-  // like impostors or lookup tables, often kept past the frame even when
-  // redrawn every frame (4541094A's tree impostors).
-  static constexpr uint32_t kDrawTargetSmallPitchTiles = 2;
-  bool IsLastUpdateDrawTargetSmall() const {
-    return !last_update_draw_target_.IsEmpty() &&
-           last_update_draw_target_.pitch_tiles_at_32bpp <=
-               kDrawTargetSmallPitchTiles;
-  }
+  // Why a draw has to wait for its real pipeline rather than use an async
+  // stand-in (a placeholder, or skipping the draw), or nullptr if a stand-in is
+  // fine. A stand-in only suits a pass redrawn every frame. The draw waits for
+  // a new vertex shader drawing to a render target not drawn recently (maybe a
+  // one-off render to a texture), a small render target (generated data) or
+  // pixel shader memexport, whose output isn't redone. A new vertex shader with
+  // memexport waits too, as its output may be written only once. Nothing uses a
+  // stand-in while the storage warm-up runs or for shaders in
+  // async_shader_inline_hashes. Call once per draw, after Update.
+  const char* GetPipelineStandInWaitReason(uint64_t frame,
+                                           Shader& vertex_shader,
+                                           const Shader* pixel_shader,
+                                           bool vertex_memexport_used,
+                                           bool pixel_memexport_used,
+                                           bool storage_warm_up_running);
   std::string GetLastUpdateDrawTargetName() const;
 
   // Writes the EDRAM contents into the trace, so a replay starts from the same
@@ -318,6 +328,10 @@ class RenderTargetCache {
       // enough. The only classes are the global scale and 1x1. Keys never
       // carry arbitrary scales.
       uint32_t scale_native : 1;  // 27
+      // The render target's rows are in the next EDRAM addressing period past
+      // its base, 64bpp color rows span two. The rows in the first period at
+      // the same base are another render target.
+      uint32_t next_period : 1;  // 28
     };
 
     RenderTargetKey() : key(0) { static_assert_size(*this, sizeof(key)); }
@@ -362,6 +376,14 @@ class RenderTargetCache {
     uint32_t GetPitchTiles() const {
       return pitch_tiles_at_32bpp << uint32_t(Is64bpp());
     }
+    // The tile index, past the tile count for the tail wrapped around the end
+    // of EDRAM and again for the next period, minus the base it's the offset
+    // into the render target's rows.
+    uint32_t GetNonWrappedTileIndex(uint32_t tile_index) const {
+      return tile_index +
+             (tile_index < base_tiles ? xenos::kEdramTileCount : 0) +
+             (uint32_t(next_period) << xenos::kEdramBaseTilesBits);
+    }
     static constexpr uint32_t GetWidth(uint32_t pitch_tiles_at_32bpp,
                                        xenos::MsaaSamples msaa_samples) {
       return pitch_tiles_at_32bpp *
@@ -373,9 +395,10 @@ class RenderTargetCache {
     }
 
     std::string GetDebugName() const {
-      return fmt::format("RT @ {}t, <{}t>, {}xMSAA, {}{}", base_tiles,
+      return fmt::format("RT @ {}t, <{}t>, {}xMSAA, {}{}{}", base_tiles,
                          GetPitchTiles(), uint32_t(1) << uint32_t(msaa_samples),
-                         GetFormatName(), scale_native ? ", native" : "");
+                         GetFormatName(), scale_native ? ", native" : "",
+                         next_period ? ", next period" : "");
     }
   };
 
@@ -396,12 +419,18 @@ class RenderTargetCache {
     RenderTarget(RenderTarget&& render_target) = delete;
     RenderTarget& operator=(RenderTarget&& render_target) = delete;
     RenderTargetKey key() const { return key_; }
+    // For the cache reusing it at another key of the same shape.
+    void SetKey(RenderTargetKey key) { key_ = key; }
+    // render_target_use_frame_ of the last update or resolve that got it.
+    uint64_t last_use_frame() const { return last_use_frame_; }
+    void SetLastUseFrame(uint64_t frame) { last_use_frame_ = frame; }
 
    protected:
     RenderTarget(RenderTargetKey key) : key_(key) {}
 
    private:
     RenderTargetKey key_;
+    uint64_t last_use_frame_ = 0;
   };
 
   struct Transfer {
@@ -430,17 +459,27 @@ class RenderTargetCache {
     // Cutout can be specified for resolve clears - not to transfer areas that
     // will be cleared to a single value anyway.
     static uint32_t GetRangeRectangles(uint32_t start_tiles, uint32_t end_tiles,
-                                       uint32_t base_tiles,
-                                       uint32_t pitch_tiles,
-                                       xenos::MsaaSamples msaa_samples,
-                                       bool is_64bpp, Rectangle* rectangles_out,
+                                       RenderTargetKey key,
+                                       Rectangle* rectangles_out,
+                                       const Rectangle* cutout = nullptr) {
+      return GetRangeRectangles(start_tiles, end_tiles, key, key.Is64bpp(),
+                                rectangles_out, cutout);
+    }
+    // is_64bpp is the host layout, which Metal widens for k_8_8_8_8_GAMMA.
+    static uint32_t GetRangeRectangles(uint32_t start_tiles, uint32_t end_tiles,
+                                       RenderTargetKey key, bool is_64bpp,
+                                       Rectangle* rectangles_out,
                                        const Rectangle* cutout = nullptr);
-    uint32_t GetRectangles(uint32_t base_tiles, uint32_t pitch_tiles,
-                           xenos::MsaaSamples msaa_samples, bool is_64bpp,
+    uint32_t GetRectangles(RenderTargetKey key, Rectangle* rectangles_out,
+                           const Rectangle* cutout = nullptr) const {
+      return GetRangeRectangles(start_tiles, end_tiles, key, rectangles_out,
+                                cutout);
+    }
+    uint32_t GetRectangles(RenderTargetKey key, bool is_64bpp,
                            Rectangle* rectangles_out,
                            const Rectangle* cutout = nullptr) const {
-      return GetRangeRectangles(start_tiles, end_tiles, base_tiles, pitch_tiles,
-                                msaa_samples, is_64bpp, rectangles_out, cutout);
+      return GetRangeRectangles(start_tiles, end_tiles, key, is_64bpp,
+                                rectangles_out, cutout);
     }
     bool AreSourcesSame(const Transfer& other_transfer) const {
       return source == other_transfer.source &&
@@ -607,6 +646,15 @@ class RenderTargetCache {
                                  xenos::MsaaSamples msaa_samples) const;
 
   virtual RenderTarget* CreateRenderTarget(RenderTargetKey key) = 0;
+  // Whether the implementation still references the render target outside of
+  // the common code.
+  virtual bool CanReuseRenderTarget(const RenderTarget& render_target) const {
+    return true;
+  }
+  // For the implementation to update what depends on the key of a render
+  // target given a new one by ReuseRenderTarget.
+  virtual void RenderTargetReused(RenderTarget& render_target,
+                                  RenderTargetKey old_key) {}
 
   // Whether depth buffer is encoded differently on the host, thus after
   // aliasing naively, precision may be lost - host depth must only be
@@ -832,6 +880,12 @@ class RenderTargetCache {
   }
 
   RenderTarget* GetOrCreateRenderTarget(RenderTargetKey key);
+  // Every key gets a render target as tall as the EDRAM, and some titles place
+  // the same surfaces at changing EDRAM bases, so rather than creating one per
+  // base, gives the key to the least recently used render target of the same
+  // host size and format that holds no EDRAM data and hasn't been used in the
+  // last few frames. Returns nullptr if there's none.
+  RenderTarget* ReuseRenderTarget(RenderTargetKey key);
 
   // Checks if changing ownership of the range to the specified render target
   // would require transferring data - primarily for barrier placement on the
@@ -853,11 +907,35 @@ class RenderTargetCache {
       uint32_t length_tiles, std::vector<Transfer>* transfers_append_out,
       const Transfer::Rectangle* resolve_clear_cutout = nullptr,
       bool keep_depth_bits = false);
+  // Calls the function with the key of every render target owning an EDRAM
+  // range, holding the only copy of its tiles, possibly repeatedly for one.
+  template <typename Function>
+  void ForEachEdramOwner(Function function) const {
+    for (const auto& ownership_range_pair : ownership_ranges_) {
+      const OwnershipRange& range = ownership_range_pair.second;
+      for (RenderTargetKey owner :
+           {range.render_target, range.depth_bits_target,
+            range.host_depth_render_target_unorm24,
+            range.host_depth_render_target_float24}) {
+        if (!owner.IsEmpty()) {
+          function(owner);
+        }
+      }
+    }
+  }
 
   // If failed to create, may contain nullptr to prevent attempting to create a
   // render target twice.
   std::unordered_map<RenderTargetKey, RenderTarget*, RenderTargetKey::Hasher>
       render_targets_;
+
+  // Render targets used fewer frames ago aren't reused, so surfaces alternating
+  // between EDRAM bases every frame keep a render target for each, and one
+  // update or resolve clear doesn't reuse a render target it has already got.
+  static constexpr uint64_t kRenderTargetReuseUnusedFrames = 4;
+  uint64_t render_target_use_frame_ = 0;
+  // Keys of the render targets owning EDRAM ranges, gathered for reuse.
+  std::vector<RenderTargetKey> reuse_owners_;
 
   // Map of host render targets currently containing the most up-to-date version
   // of the tile. Has no gaps, unused parts are represented by empty render
@@ -866,17 +944,47 @@ class RenderTargetCache {
   // since standard containers use dynamic allocation for elements, though
   // changes to this throughout a frame are pretty rare.
   std::map<uint32_t, OwnershipRange> ownership_ranges_;
+  // PA_SC_WINDOW_OFFSET of the last interlock draw with the offset in the
+  // EDRAM bases, 0 for one with it in the viewport, UINT32_MAX after a full
+  // barrier. Bits 15 and 31 aren't used.
+  uint32_t interlock_last_window_offset_ = UINT32_MAX;
+  // Tiles with the window offset kept in the viewport, the offset with the
+  // surface pitch and MSAA, with the last frame a draw was at them.
+  struct WindowOffsetKeptInViewport {
+    uint32_t window_offset;
+    uint32_t surface_pitch;
+    xenos::MsaaSamples msaa_samples;
+    uint64_t frame;
+  };
+  std::vector<WindowOffsetKeptInViewport> window_offsets_kept_in_viewport_;
 
   // Render targets actually used by the draw call with the last successful
   // update. 0 is depth, color starting from 1, nullptr if not bound.
   // Only valid for non-pixel-shader-interlock paths.
   RenderTarget*
-      last_update_used_render_targets_[1 + xenos::kMaxColorRenderTargets];
+      last_update_used_render_targets_[1 + xenos::kMaxColorRenderTargets] = {};
   // Keys of the color render targets of the last successful update whose
   // blending reads the destination, empty for the other slots. Cleared for
   // transfers gathered outside a draw, like before a resolve clear.
   RenderTargetKey
       last_update_blend_reading_color_rts_[xenos::kMaxColorRenderTargets];
+  // Records the render target the last update draws into (the first bound
+  // color one, else depth) as drawn in `frame` and returns whether it was also
+  // drawn in one of the kDrawTargetRecurringFrames frames before. That tells a
+  // pass redrawn every frame from a one-off render to a texture. True with no
+  // render target, as nothing is kept then.
+  static constexpr uint64_t kDrawTargetRecurringFrames = 4;
+  bool TrackLastUpdateDrawTarget(uint64_t frame);
+  // Whether the last update's render target is at most
+  // kDrawTargetSmallPitchTiles wide (160 pixels without MSAA). That's generated
+  // data like impostors or lookup tables, often kept past the frame even when
+  // redrawn every frame (4541094A's tree impostors).
+  static constexpr uint32_t kDrawTargetSmallPitchTiles = 2;
+  bool IsLastUpdateDrawTargetSmall() const {
+    return !last_update_draw_target_.IsEmpty() &&
+           last_update_draw_target_.pitch_tiles_at_32bpp <=
+               kDrawTargetSmallPitchTiles;
+  }
   // See TrackLastUpdateDrawTarget.
   RenderTargetKey last_update_draw_target_;
   // The latest frame each render target was drawn in, and the one before it,
@@ -893,9 +1001,8 @@ class RenderTargetCache {
   // whether it's safe to enable depth / stencil or writing to a specific color
   // render target in the pipeline for this draw call.
   // Only valid for non-pixel-shader-interlock paths.
-  RenderTarget*
-      last_update_accumulated_render_targets_[1 +
-                                              xenos::kMaxColorRenderTargets];
+  RenderTarget* last_update_accumulated_render_targets_
+      [1 + xenos::kMaxColorRenderTargets] = {};
   // If false, the next update must copy last_update_used_render_targets_ to
   // last_update_accumulated_render_targets_ - it's not beneficial or even
   // incorrect to keep the previously bound render targets.

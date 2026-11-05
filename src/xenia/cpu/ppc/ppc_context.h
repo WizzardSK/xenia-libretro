@@ -450,6 +450,11 @@ typedef struct alignas(64) PPCContext_s {
   // this names a block it provably reached.
   uint32_t last_safepoint_pc;
 
+  // The tables Memory::kernel_tlb and user_tlb describe, for the address space
+  // virtual_membase shows. Null on hosts without them.
+  const uint64_t* tlb_read;
+  const uint64_t* tlb_write;
+
   template <typename T = uint8_t*>
   inline T TranslateVirtual(uint32_t guest_address) XE_RESTRICT const {
     static_assert(std::is_pointer_v<T>);

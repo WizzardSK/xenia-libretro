@@ -14,7 +14,6 @@
 
 #include "xenia/base/assert.h"
 #include "xenia/base/byte_order.h"
-#include "xenia/base/clock.h"
 #include "xenia/base/cvar.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/math.h"
@@ -530,7 +529,7 @@ void D3D12CommandProcessor::SetPrimitiveTopology(
   }
 }
 
-std::string D3D12CommandProcessor::GetTitleStateSuffix() const {
+std::string D3D12CommandProcessor::MakeTitleStateSuffix() const {
   if (!render_target_cache_) {
     return {};
   }
@@ -609,6 +608,7 @@ bool D3D12CommandProcessor::SetupContext() {
   command_list_->Close();
   command_list_->QueryInterface(IID_PPV_ARGS(&command_list_1_));
   command_list_->QueryInterface(IID_PPV_ARGS(&command_list_2_));
+  command_list_->QueryInterface(IID_PPV_ARGS(&command_list_9_));
 
   bindless_resources_used_ =
       cvars::d3d12_bindless &&
@@ -667,12 +667,27 @@ bool D3D12CommandProcessor::SetupContext() {
     return false;
   }
 
+  // ROV always uses Xenos' MSAA sample positions.
+  // xenos_sample_positions targets host RTs with programmable position support.
+  xenos_sample_positions_used_ =
+      command_list_1_ != nullptr &&
+      provider.GetProgrammableSamplePositionsTier() !=
+          D3D12_PROGRAMMABLE_SAMPLE_POSITIONS_TIER_NOT_SUPPORTED &&
+      (render_target_cache_->GetPath() ==
+           RenderTargetCache::Path::kPixelShaderInterlock ||
+       cvars::xenos_sample_positions);
+
   // Hybrid RTV queries count pre-test coverage in the pixel shader and clear
   // their counter slot with WriteBufferImmediate, so they need CommandList2.
   zpd_hybrid_supported_ = cvars::occlusion_query_full_counters &&
                           command_list_2_ &&
                           render_target_cache_->GetPath() ==
                               RenderTargetCache::Path::kHostRenderTargets;
+  // The pixel shader interlock path applies the depth bias in the shader.
+  depth_bias_dynamic_ = provider.IsDynamicDepthBiasSupported() &&
+                        command_list_9_ &&
+                        render_target_cache_->GetPath() ==
+                            RenderTargetCache::Path::kHostRenderTargets;
 
   // Initialize resource binding.
   constant_buffer_pool_ = std::make_unique<ui::d3d12::D3D12UploadBufferPool>(
@@ -876,7 +891,7 @@ bool D3D12CommandProcessor::SetupContext() {
 
   pipeline_cache_ = std::make_unique<PipelineCache>(
       *this, *register_file_, *render_target_cache_.get(),
-      bindless_resources_used_, zpd_hybrid_supported_);
+      bindless_resources_used_, zpd_hybrid_supported_, depth_bias_dynamic_);
   if (!pipeline_cache_->Initialize()) {
     XELOGE("Failed to initialize the graphics pipeline cache");
     return false;
@@ -1504,6 +1519,7 @@ void D3D12CommandProcessor::ShutdownContext() {
   deferred_command_list_.Reset();
   ui::d3d12::util::ReleaseAndNull(command_list_1_);
   ui::d3d12::util::ReleaseAndNull(command_list_2_);
+  ui::d3d12::util::ReleaseAndNull(command_list_9_);
   ui::d3d12::util::ReleaseAndNull(command_list_);
   ClearCommandAllocatorCache();
 
@@ -2343,8 +2359,7 @@ void D3D12CommandProcessor::OnPrimaryBufferEnd() {
   PumpQueryResolves();
   PumpPendingRetire();
 
-  if (cvars::submit_on_primary_buffer_end && submission_open_ &&
-      CanEndSubmissionImmediately()) {
+  if (cvars::submit_on_primary_buffer_end && submission_open_) {
     EndSubmission(false);
   }
 }
@@ -2742,21 +2757,20 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
     }
   }
 
+  // Put the window offset into the EDRAM bases when possible.
+  int32_t window_offset_tiles = render_target_cache_->GetWindowOffsetTiles(
+      regs, normalized_depth_control, normalized_color_mask, frame_current_);
+
   // Set up the render targets - this may perform dispatches and draws.
-  if (!render_target_cache_->Update(is_rasterization_done,
-                                    normalized_depth_control,
-                                    normalized_color_mask, *vertex_shader)) {
+  if (!render_target_cache_->Update(
+          is_rasterization_done, normalized_depth_control,
+          normalized_color_mask, *vertex_shader, window_offset_tiles)) {
     return false;
   }
-  // An async pipeline stand-in (a placeholder, or skipping the draw) is only
-  // fine for a pass redrawn every frame. Wait for the real pipeline instead for
-  // a render target not drawn recently (maybe a one-off render to a texture), a
-  // small one (generated data) or memexport, whose output isn't redone.
-  bool draw_target_recurring =
-      render_target_cache_->TrackLastUpdateDrawTarget(frame_current_);
-  bool draw_target_small = render_target_cache_->IsLastUpdateDrawTargetSmall();
-  bool stand_in_allowed =
-      draw_target_recurring && !draw_target_small && !memexport_used;
+  const char* stand_in_wait_reason =
+      render_target_cache_->GetPipelineStandInWaitReason(
+          frame_current_, *vertex_shader, pixel_shader, memexport_used_vertex,
+          memexport_used_pixel, pipeline_cache_->IsStorageWarmUpRunning());
 
   // Create the pipeline (for this, need the actually used render target formats
   // from the render target cache), translating the shaders - doing this now to
@@ -2779,43 +2793,51 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
   } else {
     bound_depth_and_color_render_target_bits = 0;
   }
-  // The ucode interpreter can rasterize a not-yet-translated vertex shader
-  // while its real shaders compile in the background (mirrors the Vulkan path).
-  // Eligible only for plain non-expanded vertex shaders with no textures /
-  // subroutines / memexport / loops, which the interpreter core handles.
-  bool use_interpreter =
-      cvars::async_shader_vs_interpreter &&
-      !vertex_shader_translation->is_translated() &&
-      active_vertex_shader_ucode_address() != 0 &&
-      primitive_processing_result.host_vertex_shader_type ==
-          Shader::HostVertexShaderType::kVertex &&
-      primitive_processing_result.host_primitive_type !=
-          xenos::PrimitiveType::kPointList &&
-      primitive_processing_result.host_primitive_type !=
-          xenos::PrimitiveType::kRectangleList &&
-      primitive_processing_result.host_primitive_type !=
-          xenos::PrimitiveType::kQuadList &&
-      vertex_shader->texture_bindings().empty() &&
-      !vertex_shader->uses_subroutine_calls() &&
-      vertex_shader->memexport_eM_written() == 0 &&
-      vertex_shader->constant_register_map().loop_bitmap == 0;
+  // A skipped occlusion query draw counts nothing and gets what it tests
+  // culled. A placeholder mostly overcounts as it skips the guest shader's
+  // pixel kills. Surveys never count for a report.
+  const bool skip_allowed = !active_segment_.report_measuring() || viz_survey;
+  AsyncPipelineDraw async_draw;
+  async_draw.async_available = pipeline_cache_->IsAsyncCreationAvailable();
+  async_draw.stand_in_allowed = stand_in_wait_reason == nullptr;
+  async_draw.skip_allowed = skip_allowed;
+  async_draw.has_pixel_shader = pixel_shader != nullptr;
+  async_draw.vertex_shader_translated =
+      vertex_shader_translation->is_translated();
+  async_draw.placeholder_supported = pipeline_cache_->IsPlaceholderSupported();
+  async_draw.interpreter_eligible = CanInterpretVertexShader(
+      *vertex_shader, active_vertex_shader_ucode_address(),
+      primitive_processing_result.host_vertex_shader_type,
+      primitive_processing_result.host_primitive_type);
+  const AsyncPipelinePlan async_plan = PlanAsyncPipeline(async_draw);
   void* pipeline_handle;
   ID3D12RootSignature* root_signature;
+  uint64_t inline_work_start = BeginInlinePipelineWork(stand_in_wait_reason);
   if (!pipeline_cache_->ConfigurePipeline(
           vertex_shader_translation, pixel_shader_translation,
           primitive_processing_result, normalized_depth_control,
           normalized_color_mask, apply_host_depth_polygon_offset, zpd_hybrid,
           viz_survey, bound_depth_and_color_render_target_bits,
-          bound_depth_and_color_render_target_formats, use_interpreter,
+          bound_depth_and_color_render_target_formats, async_plan,
           &pipeline_handle, &root_signature)) {
     return false;
   }
+  EndInlinePipelineWork(inline_work_start, *render_target_cache_,
+                        stand_in_wait_reason, *vertex_shader, pixel_shader);
 
   if (cvars::async_shader_compilation) {
-    if (zpd_hybrid &&
-        pipeline_cache_->GetD3D12PipelineByHandle(pipeline_handle) == nullptr) {
-      // The counting pipeline isn't ready - draw without counting rather than
-      // stall, and re-configure for the plain modification.
+    bool hybrid_stand_in = false;
+    if (zpd_hybrid) {
+      bool hybrid_placeholder, hybrid_interpreter_placeholder;
+      hybrid_stand_in = pipeline_cache_->GetD3D12PipelineForDraw(
+                            pipeline_handle, &hybrid_placeholder,
+                            &hybrid_interpreter_placeholder) == nullptr ||
+                        hybrid_placeholder;
+    }
+    if (hybrid_stand_in) {
+      // The counting pipeline isn't ready (a placeholder doesn't count the
+      // Total). Draw without counting rather than stall, re-configured for the
+      // plain modification.
       zpd_hybrid = false;
       pixel_shader_modification = pixel_shader_modification_without_zpd;
       if (pixel_shader) {
@@ -2827,64 +2849,25 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
               primitive_processing_result, normalized_depth_control,
               normalized_color_mask, apply_host_depth_polygon_offset, false,
               viz_survey, bound_depth_and_color_render_target_bits,
-              bound_depth_and_color_render_target_formats, use_interpreter,
+              bound_depth_and_color_render_target_formats, async_plan,
               &pipeline_handle, &root_signature)) {
         return false;
       }
     }
-    if (active_segment_.report_measuring()) {
-      // Occlusion-query draws need the real pixel shader - the no-op
-      // placeholder skips the guest shader's pixel kills and would miscount.
-      // Wait for it.
-      if (pipeline_cache_->GetD3D12PipelineByHandle(pipeline_handle) ==
-              nullptr ||
-          pipeline_cache_->IsPlaceholderPipeline(pipeline_handle)) {
-        if (cvars::occlusion_query_log) {
-          XELOGI(
-              "ZPD: Awaiting real D3D12 pipeline for active query draw "
-              "VS={:016X} PS={:016X}",
-              vertex_shader ? vertex_shader->ucode_data_hash() : 0,
-              pixel_shader ? pixel_shader->ucode_data_hash() : 0);
-        }
-        if (pipeline_cache_->AwaitRealD3D12PipelineByHandle(pipeline_handle) ==
-            nullptr) {
-          XELOGE(
-              "IssueDraw: Pipeline unavailable after await for active query "
-              "draw VS={:016X} PS={:016X}",
-              vertex_shader ? vertex_shader->ucode_data_hash() : 0,
-              pixel_shader ? pixel_shader->ucode_data_hash() : 0);
-          return false;
-        }
-      }
-    } else if (!stand_in_allowed &&
-               pipeline_cache_->IsPipelineCreationPending(pipeline_handle)) {
-      uint64_t await_start = xe::Clock::QueryHostTickCount();
-      pipeline_cache_->AwaitRealD3D12PipelineByHandle(pipeline_handle);
-      XELOGI(
-          "Awaited real pipeline for a draw into {} ({}): VS {:016X}, PS "
-          "{:016X}, {:.2f} ms",
-          render_target_cache_->GetLastUpdateDrawTargetName(),
-          draw_target_small        ? "small render target"
-          : !draw_target_recurring ? "not drawn recently"
-                                   : "memexport",
-          vertex_shader->ucode_data_hash(),
-          pixel_shader ? pixel_shader->ucode_data_hash() : 0,
-          double(xe::Clock::QueryHostTickCount() - await_start) * 1000.0 /
-              double(xe::Clock::QueryHostTickFrequency()));
-    }
-    if (pipeline_cache_->GetD3D12PipelineByHandle(pipeline_handle) == nullptr) {
-      // No pipeline and no placeholder available (async_shader_skip_draws with
-      // no interpreter stand-in, bindful async, or a failed placeholder) - skip
-      // the draw until the real pipeline is ready.
-      XELOGI(
-          "Skipping draw - pipeline not ready: VS {:016X} mod {:016X}, PS "
-          "{:016X} mod {:016X}",
-          vertex_shader->ucode_data_hash(), vertex_shader_modification.value,
-          pixel_shader ? pixel_shader->ucode_data_hash() : 0,
-          pixel_shader_modification.value);
-      OnVIZSurveyDraw(false);
-      return true;
-    }
+  }
+  if (!AwaitDrawPipeline(
+          *render_target_cache_, stand_in_wait_reason, skip_allowed,
+          *vertex_shader, pixel_shader,
+          [&]() {
+            return pipeline_cache_->GetD3D12PipelineByHandle(pipeline_handle) !=
+                   nullptr;
+          },
+          [&]() {
+            return pipeline_cache_->IsPipelineCreationPending(pipeline_handle);
+          },
+          [&]() { pipeline_cache_->ExpeditePipeline(pipeline_handle); })) {
+    OnVIZSurveyDraw(false);
+    return true;
   }
   // The interpreter reads the guest ucode from shared memory by its program
   // address. A cached interpreter placeholder reused for an inline
@@ -2933,17 +2916,20 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
   ID3D12PipelineState* draw_pipeline_state =
       pipeline_cache_->GetD3D12PipelineForDraw(
           pipeline_handle, &placeholder_pipeline, &interpreter_placeholder);
+  // Binding a pipeline loads its own depth bias, dynamic or not.
   if (placeholder_pipeline) {
     if (current_external_pipeline_ != draw_pipeline_state) {
       deferred_command_list_.D3DSetPipelineState(draw_pipeline_state);
       current_external_pipeline_ = draw_pipeline_state;
       current_guest_pipeline_ = nullptr;
+      ff_depth_bias_update_needed_ = true;
     }
   } else if (current_guest_pipeline_ != pipeline_handle) {
     deferred_command_list_.SetPipelineStateHandle(
         reinterpret_cast<void*>(pipeline_handle));
     current_guest_pipeline_ = pipeline_handle;
     current_external_pipeline_ = nullptr;
+    ff_depth_bias_update_needed_ = true;
   }
 
   // Get dynamic rasterizer state. Using the resolution scale of this draw,
@@ -2970,8 +2956,9 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
       normalized_depth_control,
       host_render_targets_used &&
           render_target_cache_->depth_float24_convert_in_pixel_shader(),
-      host_render_targets_used, pixel_shader && pixel_shader->writes_depth());
-  gviargs.SetupRegisterValues(regs);
+      host_render_targets_used, pixel_shader && pixel_shader->writes_depth(),
+      !host_render_targets_used || xenos_sample_positions_used_);
+  gviargs.SetupRegisterValues(regs, window_offset_tiles != 0);
 
   if (gviargs == previous_viewport_info_args_) {
     viewport_info = previous_viewport_info_;
@@ -2982,7 +2969,7 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
   }
   // todo: use SIMD for getscissor + scaling here, should reduce code size more
   draw_util::Scissor scissor;
-  draw_util::GetScissor(regs, scissor);
+  draw_util::GetScissor(regs, scissor, true, window_offset_tiles != 0);
 #if XE_ARCH_AMD64 == 1
   __m128i* scisp = (__m128i*)&scissor;
   *scisp = _mm_mullo_epi32(
@@ -2994,10 +2981,19 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
   scissor.extent[0] *= draw_resolution_scale_x;
   scissor.extent[1] *= draw_resolution_scale_y;
 #endif
-  // Update viewport, scissor, blend factor and stencil reference.
+  // Update viewport, scissor, blend factor, stencil reference and depth bias.
   UpdateFixedFunctionState(viewport_info, scissor, primitive_polygonal,
                            normalized_depth_control, normalized_color_mask,
-                           bound_depth_and_color_render_target_bits);
+                           bound_depth_and_color_render_target_bits,
+                           apply_host_depth_polygon_offset);
+
+  // Pipelines with one sample draw with the default pattern, including host RT
+  // ones with nothing bound.
+  xenos::MsaaSamples host_msaa_samples =
+      pipeline_cache_->GetHostMsaaSamplesByHandle(pipeline_handle);
+  UpdateSamplePositions(host_msaa_samples != xenos::MsaaSamples::k1X
+                            ? regs.Get<reg::RB_SURFACE_INFO>().msaa_samples
+                            : xenos::MsaaSamples::k1X);
 
   // The spirv_to_dxil guest path fills SPIR-V system constants and binds the
   // Mesa root signature itself.
@@ -3007,7 +3003,7 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
           normalized_depth_control, normalized_color_mask,
           apply_host_depth_polygon_offset ? &host_depth_polygon_offset
                                           : nullptr,
-          interpreter_placeholder)) {
+          interpreter_placeholder, window_offset_tiles)) {
     return false;
   }
   // Must not call anything that can change the descriptor heap from now on!
@@ -3047,6 +3043,15 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
                 vfetch_index, vfetch_constant.dword_0, vfetch_constant.dword_1);
             return false;
           default:
+            if (cvars::gpu_allow_invalid_fetch_constants) {
+              XELOGW(
+                  "Vertex fetch constant {} ({:08X} {:08X}) has a texture "
+                  "type - allowing due to "
+                  "--gpu_allow_invalid_fetch_constants=true.",
+                  vfetch_index, vfetch_constant.dword_0,
+                  vfetch_constant.dword_1);
+              break;
+            }
             XELOGW(
                 "Vertex fetch constant {} ({:08X} {:08X}) is completely "
                 "invalid!",
@@ -3304,10 +3309,11 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
           memexport_range.base_address_dwords << 2, memexport_range.size_bytes,
           !route_to_host);
     }
-    if (route_to_host) {
-      // Output landed in host_buffer_ (guest RAM), already CPU coherent, so no
-      // readback. Record the written pages so geometry consumers route to the
-      // host buffer and texture loads copy their range into the device buffer.
+    if (route_to_host || shared_memory_->is_zero_copy()) {
+      // Output lands in guest RAM (host_buffer_, or buffer_ under zero-copy)
+      // with no readback needed. Record the written pages for fences and
+      // coherency requests. With the host buffer, geometry consumers also route
+      // to it and texture loads copy their range into the device buffer.
       for (const draw_util::MemExportRange& memexport_range :
            memexport_ranges_) {
         MarkMemexportPagesWritten(
@@ -3315,10 +3321,9 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type,
             memexport_range.size_bytes,
             IsMemexportAwaited(memexport_used_vertex, memexport_used_pixel));
       }
-    } else if (cvars::memexport_enable && !shared_memory_->is_zero_copy()) {
-      // No host buffer to route to, and buffer_ is device-local, so the CPU
-      // only sees the output if it is read back. Under zero-copy buffer_ is
-      // guest RAM already, and a readback there would clobber it.
+    } else if (cvars::memexport_enable) {
+      // There is no host buffer to route to and buffer_ is device-local. The
+      // CPU only sees the output if it is read back.
       StageMemexportReadback();
     }
   }
@@ -3376,6 +3381,7 @@ void D3D12CommandProcessor::FlushMemexportStagingReadback() {
     return;
   }
   // Staged output is about to reach guest RAM, so no fence need await it.
+  memexport_fence_pending_ = false;
   memexport_await_pending_ = false;
   // Staging copies are recorded in the submission of the export they copy.
   AwaitMemexportSubmission(memexport_last_submission_);
@@ -3866,6 +3872,7 @@ bool D3D12CommandProcessor::BeginSubmission(bool is_guest_command) {
     ff_scissor_update_needed_ = true;
     ff_blend_factor_update_needed_ = true;
     ff_stencil_ref_update_needed_ = true;
+    ff_depth_bias_update_needed_ = true;
     current_guest_pipeline_ = nullptr;
     current_external_pipeline_ = nullptr;
     current_graphics_root_signature_ = nullptr;
@@ -3878,6 +3885,7 @@ bool D3D12CommandProcessor::BeginSubmission(bool is_guest_command) {
       sampler_bindful_heap_current_ = nullptr;
     }
     primitive_topology_ = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+    current_sample_positions_ = xenos::MsaaSamples::k1X;
 
     render_target_cache_->BeginSubmission();
 
@@ -3953,6 +3961,8 @@ bool D3D12CommandProcessor::BeginSubmission(bool is_guest_command) {
     primitive_processor_->BeginFrame();
 
     texture_cache_->BeginFrame();
+
+    render_target_cache_->AdvanceRenderTargetUseFrame();
   }
 
   return true;
@@ -4017,7 +4027,7 @@ bool D3D12CommandProcessor::EndSubmission(bool is_swap) {
     command_allocator->Reset();
     command_list_->Reset(command_allocator, nullptr);
     deferred_command_list_.Execute(command_list_, command_list_1_,
-                                   command_list_2_);
+                                   command_list_2_, command_list_9_);
     command_list_->Close();
     ID3D12CommandList* execute_command_lists[] = {command_list_};
     direct_queue->ExecuteCommandLists(1, execute_command_lists);
@@ -4116,10 +4126,6 @@ bool D3D12CommandProcessor::EndSubmission(bool is_swap) {
   return true;
 }
 
-bool D3D12CommandProcessor::CanEndSubmissionImmediately() const {
-  return !submission_open_ || !pipeline_cache_->IsCreatingPipelines();
-}
-
 void D3D12CommandProcessor::ClearCommandAllocatorCache() {
   while (command_allocator_submitted_first_) {
     auto next = command_allocator_submitted_first_->next;
@@ -4137,12 +4143,47 @@ void D3D12CommandProcessor::ClearCommandAllocatorCache() {
   command_allocator_writable_last_ = nullptr;
 }
 
+void D3D12CommandProcessor::UpdateSamplePositions(
+    xenos::MsaaSamples msaa_samples) {
+  if (!xenos_sample_positions_used_ ||
+      current_sample_positions_ == msaa_samples) {
+    return;
+  }
+
+  SubmitBarriers();
+  current_sample_positions_ = msaa_samples;
+
+  D3D12_SAMPLE_POSITION positions[4] = {};
+
+  if (msaa_samples == xenos::MsaaSamples::k1X) {
+    // Single sample pipelines (or ForcedSampleCount 1) use the default pattern.
+    deferred_command_list_.D3DSetSamplePositions(0, 0, positions);
+    return;
+  }
+
+  int8_t xenos_positions[4][2];
+
+  uint32_t position_count = draw_util::GetHostSampleXenosPositions(
+      msaa_samples, render_target_cache_->msaa_2x_supported(),
+      render_target_cache_->GetPath() ==
+          RenderTargetCache::Path::kPixelShaderInterlock,
+      xenos_positions);
+
+  for (uint32_t i = 0; i < position_count; ++i) {
+    positions[i].X = xenos_positions[i][0];
+    positions[i].Y = xenos_positions[i][1];
+  }
+
+  deferred_command_list_.D3DSetSamplePositions(position_count, 1, positions);
+}
+
 void D3D12CommandProcessor::UpdateFixedFunctionState(
     const draw_util::ViewportInfo& viewport_info,
     const draw_util::Scissor& scissor, bool primitive_polygonal,
     reg::RB_DEPTHCONTROL normalized_depth_control,
     uint32_t normalized_color_mask,
-    uint32_t bound_depth_and_color_render_target_bits) {
+    uint32_t bound_depth_and_color_render_target_bits,
+    bool depth_bias_in_pixel_shader) {
 #if XE_GPU_FINE_GRAINED_DRAW_SCOPES
   SCOPE_profile_cpu_f("gpu");
 #endif  // XE_GPU_FINE_GRAINED_DRAW_SCOPES
@@ -4249,6 +4290,26 @@ void D3D12CommandProcessor::UpdateFixedFunctionState(
       deferred_command_list_.D3DOMSetStencilRef(ff_stencil_ref_);
       ff_stencil_ref_update_needed_ = false;
     }
+
+    // Depth bias.
+    if (depth_bias_dynamic_) {
+      float depth_bias = 0.0f;
+      float depth_bias_slope_scaled = 0.0f;
+      if (!depth_bias_in_pixel_shader) {
+        pipeline_cache_->GetHostDepthBias(primitive_polygonal, depth_bias,
+                                          depth_bias_slope_scaled);
+      }
+      ff_depth_bias_update_needed_ |=
+          ff_depth_bias_ != depth_bias ||
+          ff_depth_bias_slope_scaled_ != depth_bias_slope_scaled;
+      if (ff_depth_bias_update_needed_) {
+        ff_depth_bias_ = depth_bias;
+        ff_depth_bias_slope_scaled_ = depth_bias_slope_scaled;
+        deferred_command_list_.D3DRSSetDepthBias(depth_bias, 0.0f,
+                                                 depth_bias_slope_scaled);
+        ff_depth_bias_update_needed_ = false;
+      }
+    }
   }
 }
 bool D3D12CommandProcessor::UpdateBindingsMesa(
@@ -4259,7 +4320,7 @@ bool D3D12CommandProcessor::UpdateBindingsMesa(
     reg::RB_DEPTHCONTROL normalized_depth_control,
     uint32_t normalized_color_mask,
     const draw_util::HostDepthPolygonOffset* host_depth_polygon_offset,
-    bool interpreter_placeholder) {
+    bool interpreter_placeholder, int32_t window_offset_tiles) {
 #if XE_GPU_FINE_GRAINED_DRAW_SCOPES
   SCOPE_profile_cpu_f("gpu");
 #endif  // XE_GPU_FINE_GRAINED_DRAW_SCOPES
@@ -4389,6 +4450,13 @@ bool D3D12CommandProcessor::UpdateBindingsMesa(
   sc.tessellation_vertex_index_min_max[0] = regs[XE_GPU_REG_VGT_MIN_VTX_INDX];
   sc.tessellation_vertex_index_min_max[1] = regs[XE_GPU_REG_VGT_MAX_VTX_INDX];
 
+  // Window offset carried in the EDRAM bases.
+  if (window_offset_tiles) {
+    auto pa_sc_window_offset = regs.Get<reg::PA_SC_WINDOW_OFFSET>();
+    sc.param_gen_window_offset[0] = float(pa_sc_window_offset.window_x_offset);
+    sc.param_gen_window_offset[1] = float(pa_sc_window_offset.window_y_offset);
+  }
+
   // Point size, and the NDC size of a guest pixel, which the line geometry
   // shader also uses to expand resolution-scaled lines to 1 guest pixel wide.
   if (vgt_draw_initiator.prim_type == xenos::PrimitiveType::kPointList ||
@@ -4424,18 +4492,21 @@ bool D3D12CommandProcessor::UpdateBindingsMesa(
     auto color_info = regs.Get<reg::RB_COLOR_INFO>(
         reg::RB_COLOR_INFO::rt_register_indices[i]);
     int32_t color_exp_bias = color_info.color_exp_bias;
+    float color_exp_bias_scale = xe::memory::Reinterpret<float>(
+        int32_t(0x3F800000 + (color_exp_bias << 23)));
     if ((color_info.color_format == xenos::ColorRenderTargetFormat::k_16_16 ||
          color_info.color_format ==
              xenos::ColorRenderTargetFormat::k_16_16_16_16) &&
         render_target_cache_->GetPath() ==
             RenderTargetCache::Path::kHostRenderTargets &&
         !render_target_cache_->IsFixed16TruncatedToMinus1To1()) {
-      // Remap from -32...32 to -1...1, getting the full range. In the FSI path
-      // the EDRAM store handles the format, so the bias must not be applied.
-      color_exp_bias -= 5;
+      // Remap to -1...1 by scaling the output values by 1024/32767, losing
+      // blending correctness, but getting the full range apart from -32,
+      // which SNORM folds into -32767/1024. In the FSI path the EDRAM store
+      // handles the format, so the scale must not be applied.
+      color_exp_bias_scale *= 1024.0f / 32767.0f;
     }
-    sc.color_exp_bias[i] = xe::memory::Reinterpret<float>(
-        int32_t(0x3F800000 + (color_exp_bias << 23)));
+    sc.color_exp_bias[i] = color_exp_bias_scale;
   }
 
   // Host depth polygon offset (applied in the pixel shader when depth is not
@@ -4511,8 +4582,8 @@ bool D3D12CommandProcessor::UpdateBindingsMesa(
     WriteFragmentShaderInterlockSystemConstants(
         sc, sc.flags, fsi_dirty, regs, primitive_polygonal,
         normalized_depth_control, normalized_color_mask,
-        draw_resolution_scale_x, draw_resolution_scale_y,
-        zpd_fsi_counter_index);
+        draw_resolution_scale_x, draw_resolution_scale_y, zpd_fsi_counter_index,
+        window_offset_tiles);
   } else {
     // Hybrid queries on the host render target path count pre-test coverage
     // into the same counter slot from the pixel shader.
@@ -5182,19 +5253,9 @@ bool D3D12CommandProcessor::AwaitQueryResolve(ReportHandle report_handle,
                                               uint64_t wait_for_submission) {
   assert_not_zero(wait_for_submission);
 
-  // Resolve is still pending. Wait for async pipeline creation to finish.
+  // The resolve is still in the open submission.
   if (wait_for_submission >= GetCurrentSubmission()) {
-    if (!submission_open_) {
-      return false;
-    }
-    if (!CanEndSubmissionImmediately()) {
-      if (cvars::occlusion_query_log) {
-        XELOGI(
-            "ZPD: Awaiting pending D3D12 pipeline for active query retirement");
-      }
-      pipeline_cache_->AwaitPipelineCompletion();
-    }
-    if (!CanEndSubmissionImmediately() || !EndSubmission(false)) {
+    if (!submission_open_ || !EndSubmission(false)) {
       return false;
     }
   }

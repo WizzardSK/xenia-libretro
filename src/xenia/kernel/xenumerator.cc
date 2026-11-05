@@ -9,6 +9,9 @@
 
 #include "xenia/kernel/xenumerator.h"
 
+#include "xenia/kernel/kernel_state.h"
+#include "xenia/vfs/devices/stfs_xbox.h"
+
 namespace xe {
 namespace kernel {
 
@@ -185,12 +188,37 @@ uint32_t XTitleEnumerator::WriteItems(uint8_t* buffer_data,
 uint32_t XUserStatsEnumerator::WriteItems(uint8_t* buffer_data,
                                           uint32_t buffer_size,
                                           uint32_t* written_count) {
-  size_t count = std::min(items_.size() - current_item_, items_per_enumerate());
-  if (!count) {
+  if (written_) {
     return X_ERROR_NO_MORE_FILES;
   }
 
-  size_t size = count * item_size();
+  if (buffer_size < buffer_size_) {
+    return X_ERROR_INSUFFICIENT_BUFFER;
+  }
+
+  // There is no stats server so every view reads back with no rows. 4D5307EA
+  // walks the views and copies a view's first row and that row's columns
+  // without checking the result or num_rows. Zeroing the buffer keeps those
+  // empty.
+  std::memset(buffer_data, 0, buffer_size);
+  auto results = reinterpret_cast<XUSER_STATS_READ_RESULTS*>(buffer_data);
+  results->num_views = static_cast<uint32_t>(view_ids_.size());
+  results->views_ptr = memory()->HostToGuestVirtual(buffer_data) +
+                       sizeof(XUSER_STATS_READ_RESULTS);
+  // 584111FA and 5841089F dereference rows_ptr even with no rows.
+  const uint32_t rows_ptr =
+      results->views_ptr +
+      static_cast<uint32_t>(view_ids_.size() * sizeof(XUSER_STATS_VIEW));
+  auto views = reinterpret_cast<XUSER_STATS_VIEW*>(results + 1);
+  for (size_t i = 0; i < view_ids_.size(); ++i) {
+    views[i].view_id = view_ids_[i];
+    views[i].rows_ptr = rows_ptr;
+  }
+  written_ = true;
+
+  if (written_count) {
+    *written_count = 1;
+  }
 
   return X_ERROR_SUCCESS;
 }
@@ -267,6 +295,66 @@ uint32_t ContentEnumerator::WriteItems(uint8_t* buffer_data,
 
   if (written_count) {
     *written_count = static_cast<uint32_t>(actual_count);
+  }
+
+  return X_ERROR_SUCCESS;
+}
+
+// Reads the package's header, so only for items being written.
+static xam::XCONTENT_DATA_INTERNAL InternalContentData(
+    KernelState* kernel_state, const xam::XCONTENT_AGGREGATE_DATA& data) {
+  xam::XCONTENT_DATA_INTERNAL item = {};
+  item.device_id = data.device_id;
+  item.content_type = data.content_type;
+  item.display_name_raw = data.display_name_raw;
+  std::memcpy(item.file_name_raw, data.file_name_raw,
+              sizeof(data.file_name_raw));
+  item.xuid = data.xuid;
+  item.title_id = data.title_id;
+
+  std::vector<uint8_t> metadata;
+  if (!kernel_state->content_manager()->GetContentMetadata(data.xuid, data,
+                                                           &metadata)) {
+    const auto* header =
+        reinterpret_cast<const vfs::XContentMetadata*>(metadata.data());
+    item.content_size = header->content_size;
+    xe::string_util::copy_and_swap_truncating(
+        item.title_name, header->title_name(), xe::countof(item.title_name));
+  }
+  return item;
+}
+
+uint32_t ContentAggregateEnumerator::WriteItems(uint8_t* buffer_data,
+                                                uint32_t buffer_size,
+                                                uint32_t* written_count) {
+  return WriteItems(buffer_data, buffer_size, written_count, 0);
+}
+
+uint32_t ContentAggregateEnumerator::WriteItems(uint8_t* buffer_data,
+                                                uint32_t buffer_size,
+                                                uint32_t* written_count,
+                                                uint32_t flags) {
+  assert_false(buffer_size < item_size());
+  const size_t available_count =
+      std::min(items_per_enumerate(), buffer_size / item_size());
+  size_t count = 0;
+  for (; current_item_ < items_.size() && count < available_count;
+       ++current_item_) {
+    const Item& item = items_[current_item_];
+    if (item.other_title && !(flags & kAllTitlesFlag)) {
+      continue;
+    }
+    const xam::XCONTENT_DATA_INTERNAL data =
+        InternalContentData(kernel_state(), item.data);
+    std::memcpy(buffer_data + count * item_size(), &data, item_size());
+    ++count;
+  }
+  if (!count) {
+    return X_ERROR_NO_MORE_FILES;
+  }
+
+  if (written_count) {
+    *written_count = static_cast<uint32_t>(count);
   }
 
   return X_ERROR_SUCCESS;

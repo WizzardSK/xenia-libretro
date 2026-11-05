@@ -1,0 +1,79 @@
+/**
+ ******************************************************************************
+ * Xenia : Xbox 360 Emulator Research Project                                 *
+ ******************************************************************************
+ * Copyright 2026 Ben Vanik. All rights reserved.                             *
+ * Released under the BSD license - see LICENSE in the root for more details. *
+ ******************************************************************************
+ */
+
+#ifndef XENIA_VFS_XBOX_ORIGINAL_DATA_H_
+#define XENIA_VFS_XBOX_ORIGINAL_DATA_H_
+
+#include <cstdint>
+#include <filesystem>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include "xenia/xbox.h"
+
+namespace xe {
+namespace vfs {
+
+// An original Xbox saved game, one folder under UDATA\<title id>.
+struct XboxOriginalSave {
+  std::filesystem::path path;
+  // From its SaveMeta.xbx.
+  std::string name;
+};
+
+// Downloaded content, one folder under TDATA\<title id>\$c.
+struct XboxOriginalContent {
+  std::filesystem::path path;
+  // From its ContentMeta.xbx, empty when that names nothing.
+  std::string name;
+};
+
+// `name` in `dir`, in any case since a copied tree can spell it differently.
+// Empty when there is none.
+std::filesystem::path FindXboxOriginalPath(const std::filesystem::path& dir,
+                                           std::string_view name);
+
+// Where |xuid|'s original Xbox saves are in the HDD's Compatibility folder: the
+// profile's own UDATA, or the shared one for 0, no one signed in. Before any
+// profile has its own, every profile reads the shared one.
+std::filesystem::path FindXboxOriginalSaves(
+    const std::filesystem::path& compatibility, uint64_t xuid);
+
+// Makes |xuid|'s own UDATA if it has none and returns it, empty when it can't,
+// and the shared Xbox1 folder it is mounted on. The first profile to get one
+// starts with a copy of the shared saves, which predate per-profile saves.
+std::filesystem::path PrepareXboxOriginalSaves(
+    const std::filesystem::path& compatibility, uint64_t xuid);
+
+// The saves in a title's UDATA folder. One without a name is logged and left
+// out.
+std::vector<XboxOriginalSave> ListXboxOriginalSaves(
+    const std::filesystem::path& title_dir);
+
+// The packages in a title's $c folder, named in `language` where they can be.
+std::vector<XboxOriginalContent> ListXboxOriginalContent(
+    const std::filesystem::path& content_dir, XLanguage language);
+
+// The Name in a SaveMeta.xbx, empty when it has none.
+std::string ReadSaveMetaName(std::span<const uint8_t> data);
+
+// The TitleName a TitleMeta.xbx, or the $$XTINFO section of an executable it is
+// made from, gives in its default section, else in any.
+std::string ReadTitleMetaName(std::span<const uint8_t> data);
+
+// The name a ContentMeta.xbx gives in `language`, else its default one.
+std::string ReadContentMetaName(std::span<const uint8_t> data,
+                                XLanguage language);
+
+}  // namespace vfs
+}  // namespace xe
+
+#endif  // XENIA_VFS_XBOX_ORIGINAL_DATA_H_

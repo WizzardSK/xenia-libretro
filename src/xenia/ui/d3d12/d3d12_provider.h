@@ -122,6 +122,9 @@ class D3D12Provider : public GraphicsProvider {
   bool IsAlphaBlendFactorSupported() const {
     return alpha_blend_factor_supported_;
   }
+  bool IsDynamicDepthBiasSupported() const {
+    return dynamic_depth_bias_supported_;
+  }
   D3D12_RESOURCE_BINDING_TIER GetResourceBindingTier() const {
     return resource_binding_tier_;
   }
@@ -198,6 +201,7 @@ class D3D12Provider : public GraphicsProvider {
   bool rasterizer_ordered_views_supported_;
   bool barycentrics_supported_;
   bool alpha_blend_factor_supported_;
+  bool dynamic_depth_bias_supported_;
   bool unaligned_block_textures_supported_;
   uint16_t highest_shader_model_;
 };

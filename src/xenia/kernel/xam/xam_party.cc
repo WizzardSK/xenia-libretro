@@ -19,15 +19,35 @@ namespace xam {
 // XamPartyPartyCreate, XamPartyLeave, XamPartySendInvite, XamPartyJoinEx, &
 // XamPartyRemoveLocalUsers share one function
 
+// XPARTY_USER_LIST: a count padded to 8 bytes and 32 XPARTY_USER_INFO of
+// 0x78 bytes.
+constexpr size_t kPartyUserListSize = 0xF08;
+
 dword_result_t XamPartyGetUserList_entry(dword_t caller,
                                          lpvoid_t party_list_ptr) {
   if (caller != 1) {
     return X_E_NOT_IMPLEMENTED;
   }
+  // Titles read the count without checking the result.
+  if (party_list_ptr) {
+    party_list_ptr.Zero(kPartyUserListSize);
+  }
   // 5345085D, 45410923
   return 0x807D0003;  // X_PARTY_E_NOT_IN_PARTY
 }
 DECLARE_XAM_EXPORT1(XamPartyGetUserList, kNone, kStub);
+
+// The internal list has the same count and 32 users of 0x80 bytes.
+constexpr size_t kPartyUserListInternalSize = 0x1008;
+
+dword_result_t XamPartyGetUserListInternal_entry(lpvoid_t party_list_ptr) {
+  if (party_list_ptr) {
+    party_list_ptr.Zero(kPartyUserListInternalSize);
+  }
+  // FFFE07D1
+  return 0x807D0003;  // X_PARTY_E_NOT_IN_PARTY
+}
+DECLARE_XAM_EXPORT1(XamPartyGetUserListInternal, kNone, kStub);
 
 // Shares same function as XamPartyAddLocalUsers, XamPartyKickUser,
 // XamPartyGetJoinable, XamPartySetJoinable, & XamPartyGetInfoEx

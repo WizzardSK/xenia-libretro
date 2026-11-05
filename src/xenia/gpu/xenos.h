@@ -434,6 +434,35 @@ constexpr float UNorm24To32(uint32_t n24) {
   return float(n24 + (n24 >> 23)) * (1.0f / float(1 << 24));
 }
 
+// The shader ALU's RCP, RSQ, SQRT, EXP and LOG each evaluate a cubic in the low
+// bits of the mantissa, or of the fraction for EXP, using the integer
+// coefficients of one of 32 segments.
+struct ScalarEstimate {
+  // Offset bits below a sticky bit that the square leaves out.
+  uint32_t square_input_shift;
+  uint32_t square_shift;
+  // How much coarser the square in the cubic term is.
+  uint32_t square_coarse_shift;
+  // Offset bits below the block that sets the cubic coefficient.
+  uint32_t block_shift;
+  uint32_t cubic_shift;
+  bool cubic_rounds_up;
+  // C0 and the magnitudes of C1, C2 and C3 of each segment. RSQ and SQRT use
+  // segments 16-31 for operands with an odd exponent.
+  uint32_t coefficients[32][4];
+};
+extern const ScalarEstimate kRcpEstimate;
+extern const ScalarEstimate kRsqEstimate;
+extern const ScalarEstimate kSqrtEstimate;
+extern const ScalarEstimate kExpEstimate;
+extern const ScalarEstimate kLogEstimate;
+// The scalar ALU ops as the console computes them, bit for bit.
+float Rcp(float value);
+float Rsq(float value);
+float Sqrt(float value);
+float Exp(float value);
+float Log(float value);
+
 // Scale for conversion of slope scales from PA_SU_POLY_OFFSET_FRONT/BACK_SCALE
 // units to those used when the slope is computed from the difference between
 // adjacent pixels, for conversion from the guest to common host APIs or to
@@ -494,18 +523,11 @@ enum class TextureFormat : uint32_t {
   k_6_5_5 = 5,
   k_8_8_8_8 = 6,
   k_2_10_10_10 = 7,
-  // Possibly similar to k_8, but may be storing alpha instead of red when
-  // resolving/memexporting, though not exactly known. From the point of view of
-  // sampling, it should be treated the same as k_8 (given that textures have
-  // the last - and single-component textures have the only - component
-  // replicated into all the remaining ones before the swizzle).
+  // Aliases of k_8.
   // Used as:
   // - Texture in 4B4E083C - text, starting from the "Loading..." and the "This
   //   game saves data automatically" messages. The swizzle in the fetch
-  //   constant is 111W (suggesting that internally the only component may be
-  //   the alpha one, not red).
-  // TODO(Triang3l): Investigate how k_8_A and k_8_B work in resolves and
-  // memexports, whether they store alpha/blue of the input or red.
+  //   constant is 111W.
   k_8_A = 8,
   k_8_B = 9,
   k_8_8 = 10,
@@ -519,7 +541,7 @@ enum class TextureFormat : uint32_t {
   // Used for videos in 54540829.
   k_Y1_Cr_Y0_Cb_REP = 12,
   k_16_16_EDRAM = 13,
-  // Likely same as k_8_8_8_8.
+  // Alias of k_8_8_8_8.
   // Used as:
   // - Memexport destination in 4D5308BC - multiple small draws when looking
   //   back at the door behind the player in the first room of gameplay.
@@ -620,7 +642,6 @@ constexpr bool IsColorResolveFormatBitwiseEquivalent(
     // title that keeps the encoding to fetch it back with kGamma re-aliases the
     // surface as k_8_8_8_8.
     case ColorRenderTargetFormat::k_8_8_8_8_GAMMA:
-      // TODO(Triang3l): Investigate k_8_8_8_8_A.
       return color_format == ColorFormat::k_8_8_8_8 ||
              color_format == ColorFormat::k_8_8_8_8_A ||
              color_format == ColorFormat::k_8_8_8_8_AS_16_16_16_16;
@@ -1043,7 +1064,7 @@ constexpr uint32_t kMaxResolveSize =
 enum class CopyCommand : uint32_t {
   kRaw = 0,
   kConvert = 1,
-  kConstantOne = 2,
+  kConvertTo1111 = 2,
   kNull = 3,  // ?
 };
 
@@ -1196,9 +1217,10 @@ constexpr uint32_t kTexture1DMaxWidth = 1 << kTexture1DMaxWidthLog2;
 // Emulation cap on rows materialized for wide (> 8192) 1D textures mapped to
 // 2D. Games may declare huge index-space widths (2^23 seen in the wild) with
 // only a little real data behind them - materializing the full width would
-// read far past the allocation, even past the 512 MB physical space. Must
-// match between the texture cache and the shader translators.
-constexpr uint32_t kTexture1DWideMaxRows = 64;
+// read far past the allocation, even past the 512 MB physical space. 5345084D
+// has data in all 96 rows of a 786432-texel k_8_8_8_8 texture. Must match
+// between the texture cache and the shader translators.
+constexpr uint32_t kTexture1DWideMaxRows = 128;
 constexpr uint32_t kTexture2DCubeMaxWidthHeightLog2 = 13;
 constexpr uint32_t kTexture2DCubeMaxWidthHeight =
     1 << kTexture2DCubeMaxWidthHeightLog2;

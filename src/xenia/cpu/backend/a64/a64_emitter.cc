@@ -42,6 +42,12 @@ using namespace Xbyak_aarch64;
 // Defined in a64_backend.cc.
 extern uint64_t ResolveFunction(void* raw_context, uint64_t target_address);
 extern uint64_t ResolveDynamicCall(void* raw_context, uint64_t target_address);
+extern uint64_t ResolveDirectDynamicCall(void* raw_context,
+                                         uint64_t target_address);
+extern uint64_t ResolveCachedReturnSiteCall(void* raw_context,
+                                            uint64_t target_address);
+extern uint64_t ResolveCachedReturnSiteTail(void* raw_context,
+                                            uint64_t target_address);
 extern uint64_t ResolveDynamicTailCall(void* raw_context,
                                        uint64_t target_address);
 
@@ -99,6 +105,7 @@ bool A64Emitter::Emit(GuestFunction* function, hir::HIRBuilder* builder,
   sequence_samples_.clear();
 
   current_guest_function_ = function->address();
+  guest_tlb_ = processor_->memory()->guest_tlbs_active();
 
   // Reset state.
   stack_size_ = StackLayout::GUEST_STACK_SIZE;
@@ -776,7 +783,12 @@ void A64Emitter::Call(const hir::Instr* instr, GuestFunction* function) {
 
   auto fn = static_cast<A64Function*>(function);
 
-  if (fn->machine_code()) {
+  // Calls to dynamic code look the target up every time, since a direct call
+  // would keep reaching the old copy once the code is rewritten.
+  const bool rewritable = processor()->dynamic_code_enabled() &&
+                          code_cache_->has_indirection_table() &&
+                          !code_cache_->HasIndirectionSlot(function->address());
+  if (fn->machine_code() && !rewritable) {
     // Direct call — function is already compiled.
     mov(x9, reinterpret_cast<uint64_t>(fn->machine_code()));
     if (!(instr->flags & hir::CALL_TAIL)) {
@@ -813,7 +825,7 @@ void A64Emitter::Call(const hir::Instr* instr, GuestFunction* function) {
     }
   } else if (code_cache_->has_indirection_table()) {
     mov(w16, function->address());
-    EmitDynamicCallLookup((instr->flags & hir::CALL_TAIL) != 0);
+    EmitDynamicCallLookup((instr->flags & hir::CALL_TAIL) != 0, true);
   } else {
     // No indirection table: resolve at runtime.
     mov(x0, x20);  // context
@@ -843,7 +855,8 @@ void A64Emitter::Call(const hir::Instr* instr, GuestFunction* function) {
 
 bool A64Emitter::TryInlinePPCGprLrSaveRestore(const hir::Instr* instr,
                                               const GuestFunction* function) {
-  if (!function->IsSaverest() ||
+  // The inlined form addresses the stack through the membase.
+  if (guest_tlb_ || !function->IsSaverest() ||
       function->SaverestType() != SaveRestoreType::GPR) {
     return false;
   }
@@ -945,9 +958,19 @@ void A64Emitter::CallIndirect(const hir::Instr* instr, int reg_index) {
       mov(w15, code_cache_->indirection_guest_size());
       cmp(w14, w15);
       const bool tail_call = (instr->flags & hir::CALL_TAIL) != 0;
-      Label& resolve_natively =
-          AddToTail([target_ready, tail_call](A64Emitter& e, Label& lbl) {
+      const bool possible_return =
+          tail_call && (instr->flags & hir::CALL_POSSIBLE_RETURN) &&
+          cvars::a64_enable_host_guest_stack_synchronization;
+      Label& resolve_natively = AddToTail(
+          [target_ready, tail_call, possible_return](A64Emitter& e, Label&) {
+            if (possible_return) {
+              e.str(e.wzr, e.BackendCtxPtr(offsetof(A64BackendContext,
+                                                    dynamic_target_in_body)));
+            }
             e.EmitDynamicCallLookup(tail_call);
+            if (possible_return) {
+              e.EmitDropCallingFrame();
+            }
             e.b(*target_ready);
           });
       b(HS, resolve_natively);
@@ -1058,9 +1081,11 @@ void A64Emitter::CallExtern(const hir::Instr* instr, const Function* function) {
   }
 }
 
-void A64Emitter::EmitDynamicCallLookup(bool tail) {
+void A64Emitter::EmitDynamicCallLookup(bool tail, bool direct) {
+  const bool direct_call = direct && !tail;
   Label miss;
   Label done;
+  Label check_kind;
   ldr(x14, ptr(x19, static_cast<uint32_t>(
                         offsetof(A64BackendContext, dynamic_call_cache))));
   cbz(x14, miss);
@@ -1073,20 +1098,86 @@ void A64Emitter::EmitDynamicCallLookup(bool tail) {
                         offsetof(A64DynamicCallCacheEntry, guest_address))));
   cmp(w15, w16);
   b(NE, miss);
+  if (!direct_call) {
+    static_assert(kA64DynamicCallAny == 0);
+    ldr(w15, ptr(x14, static_cast<uint32_t>(
+                          offsetof(A64DynamicCallCacheEntry, kind))));
+    cbnz(w15, check_kind);
+  }
   ldr(x9, ptr(x14, static_cast<uint32_t>(
                        offsetof(A64DynamicCallCacheEntry, host_address))));
   // An entry the cache was initialized with holds no address.
   cbz(x9, miss);
   b(done);
+  if (!direct_call) {
+    L(check_kind);
+    cmp(w15, uint32_t(kA64DynamicCallReturnSite));
+    b(NE, miss);
+    mov(w1, w16);
+    CallNativeSafe(reinterpret_cast<void*>(tail ? ResolveCachedReturnSiteTail
+                                                : ResolveCachedReturnSiteCall));
+    mov(x9, x0);
+    b(done);
+  }
 
   L(miss);
   // The host call can clobber x16, so hand the address over as its argument.
   mov(w1, w16);
-  CallNativeSafe(reinterpret_cast<void*>(tail ? ResolveDynamicTailCall
-                                              : ResolveDynamicCall));
+  CallNativeSafe(reinterpret_cast<void*>(direct_call ? ResolveDirectDynamicCall
+                                         : tail      ? ResolveDynamicTailCall
+                                                     : ResolveDynamicCall));
   mov(x9, x0);
 
   L(done);
+}
+
+void A64Emitter::EmitDropCallingFrame() {
+  // A blr that returns into neither this frame nor its caller enters the target
+  // in the caller's frame, as if the caller had tail-called it.
+  Label keep_frame;
+  // Only a function's entry can take a frame.
+  ldr(w10, BackendCtxPtr(offsetof(A64BackendContext, dynamic_target_in_body)));
+  cbnz(w10, keep_frame);
+  ldr(w10,
+      BackendCtxPtr(offsetof(A64BackendContext, current_stackpoint_depth)));
+  // This frame, its caller, and the frame the caller returns into.
+  cmp(w10, 3);
+  b(LO, keep_frame);
+  static_assert(sizeof(A64BackendStackpoint) == 16);
+  static_assert(offsetof(A64BackendStackpoint, host_stack_) == 0);
+  // x11 = &stackpoints[depth - 3], the frame the caller returns into. The
+  // caller's record follows it.
+  ldr(x11, BackendCtxPtr(offsetof(A64BackendContext, stackpoints)));
+  sub(w12, w10, 3);
+  add(x11, x11, w12, UXTW, 4);
+  ldr(x12, ptr(x11, static_cast<uint32_t>(sizeof(A64BackendStackpoint))));
+  // The caller called this frame directly, so its stack pointer is just above
+  // this frame.
+  if (stack_size() <= 4095) {
+    add(x13, sp, static_cast<uint32_t>(stack_size()));
+  } else {
+    mov(x13, static_cast<uint64_t>(stack_size()));
+    add(x13, sp, x13, UXTX);
+  }
+  cmp(x12, x13);
+  b(NE, keep_frame);
+  ldr(x13, ptr(x11, static_cast<uint32_t>(0)));
+  cmp(x13, x12);
+  b(LS, keep_frame);
+  // A caller entered from host code returns into host code.
+  ldr(w14, ptr(x12, static_cast<uint32_t>(StackLayout::GUEST_RET_ADDR)));
+  mov(w15, kHostReturnAddress);
+  cmp(w14, w15);
+  b(EQ, keep_frame);
+  // Pass the caller's return addresses over and return where it would.
+  ldr(x0, ptr(x12, static_cast<uint32_t>(StackLayout::GUEST_RET_ADDR)));
+  ldr(x30, ptr(x12, static_cast<uint32_t>(StackLayout::HOST_RET_ADDR)));
+  mov(sp, x13);
+  sub(w10, w10, 2);
+  str(w10,
+      BackendCtxPtr(offsetof(A64BackendContext, current_stackpoint_depth)));
+  br(x9);
+  L(keep_frame);
 }
 
 void A64Emitter::CallNative(void* fn) { CallNativeSafe(fn); }

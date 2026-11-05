@@ -1853,7 +1853,7 @@ void* PosixCondition<Thread>::ThreadStartRoutine(void* parameter) {
 #endif
   catch (const std::exception& e) {
     XELOGE("Host thread '{}' terminated by uncaught exception: {}",
-           thread->handle_.name(), e.what());
+           thread->handle_.name(), xe::strip_pii(e.what()));
   } catch (...) {
     XELOGE("Host thread '{}' terminated by unknown exception",
            thread->handle_.name());

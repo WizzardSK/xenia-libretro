@@ -52,6 +52,31 @@ void ObjectTable::Reset() {
   table_ = nullptr;
   free(host_table_);
   host_table_ = nullptr;
+  allocated_bodies_.clear();
+}
+
+void ObjectTable::AddAllocatedBody(uint32_t body, XObject* object) {
+  auto global_lock = global_critical_region_.Acquire();
+  allocated_bodies_[body] = object;
+}
+
+void ObjectTable::RemoveAllocatedBody(uint32_t body, const XObject* object) {
+  auto global_lock = global_critical_region_.Acquire();
+  auto it = allocated_bodies_.find(body);
+  if (it != allocated_bodies_.end() && it->second == object) {
+    allocated_bodies_.erase(it);
+  }
+}
+
+object_ref<XObject> ObjectTable::LookupAllocatedBody(uint32_t body) {
+  auto global_lock = global_critical_region_.Acquire();
+  // One whose last reference just went is still mapped until its destructor
+  // runs.
+  auto it = allocated_bodies_.find(body);
+  if (it == allocated_bodies_.end() || !it->second->TryRetain()) {
+    return object_ref<XObject>();
+  }
+  return object_ref<XObject>(it->second);
 }
 
 X_STATUS ObjectTable::FindFreeSlot(uint32_t* out_slot, bool host) {
@@ -180,7 +205,7 @@ X_STATUS ObjectTable::RetainHandle(X_HANDLE handle) {
   auto global_lock = global_critical_region_.Acquire();
 
   ObjectTableEntry* entry = LookupTableInLock(handle);
-  if (!entry) {
+  if (!entry || !entry->object) {
     return X_STATUS_INVALID_HANDLE;
   }
 
@@ -195,7 +220,7 @@ X_STATUS ObjectTable::ReleaseHandle(X_HANDLE handle) {
 }
 X_STATUS ObjectTable::ReleaseHandleInLock(X_HANDLE handle) {
   ObjectTableEntry* entry = LookupTableInLock(handle);
-  if (!entry) {
+  if (!entry || !entry->object || entry->handle_ref_count <= 0) {
     return X_STATUS_INVALID_HANDLE;
   }
 
@@ -236,9 +261,20 @@ X_STATUS ObjectTable::RemoveHandle(X_HANDLE handle) {
 
     XELOGD("Removed handle:{:08X} for {}", handle, typeid(*object).name());
 
-    // Remove object name from mapping to prevent naming collision.
+    // The name moves to another of the object's guest handles and goes with
+    // its last.
     if (!object->name().empty()) {
-      RemoveNameMapping(object->name());
+      auto it = name_table_.find(string_key_case(object->name()));
+      if (it != name_table_.end() && it->second == handle) {
+        auto next = std::ranges::find_if(object->handles(), [](X_HANDLE h) {
+          return !XObject::is_handle_host_object(h);
+        });
+        if (next != object->handles().end()) {
+          it->second = *next;
+        } else {
+          name_table_.erase(it);
+        }
+      }
     }
     // Release now that the object has been removed from the table.
     object->Release();
@@ -298,10 +334,10 @@ ObjectTable::ObjectTableEntry* ObjectTable::LookupTableInLock(X_HANDLE handle) {
   const bool is_host_object = XObject::is_handle_host_object(handle);
   uint32_t slot = GetHandleSlot(handle, is_host_object);
   if (is_host_object) {
-    if (slot <= host_table_capacity_) {
+    if (slot < host_table_capacity_) {
       return &host_table_[slot];
     }
-  } else if (slot <= table_capacity_) {
+  } else if (slot < table_capacity_) {
     return &table_[slot];
   }
 
@@ -403,6 +439,12 @@ X_STATUS ObjectTable::AddNameMapping(const std::string_view name,
   return X_STATUS_SUCCESS;
 }
 
+bool ObjectTable::IsNameMappedTo(const std::string_view name, X_HANDLE handle) {
+  auto global_lock = global_critical_region_.Acquire();
+  auto it = name_table_.find(string_key_case(name));
+  return it != name_table_.end() && it->second == handle;
+}
+
 void ObjectTable::RemoveNameMapping(const std::string_view name) {
   // Names are case-insensitive.
   auto global_lock = global_critical_region_.Acquire();
@@ -471,9 +513,9 @@ X_STATUS ObjectTable::RestoreHandle(X_HANDLE handle, XObject* object) {
   const bool is_host_object = XObject::is_handle_host_object(handle);
   uint32_t slot = GetHandleSlot(handle, is_host_object);
   uint32_t capacity = is_host_object ? host_table_capacity_ : table_capacity_;
-  assert_true(capacity >= slot);
+  assert_true(capacity > slot);
 
-  if (capacity >= slot) {
+  if (capacity > slot) {
     auto& entry = is_host_object ? host_table_[slot] : table_[slot];
     entry.object = object;
     object->Retain();

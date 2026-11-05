@@ -13,6 +13,7 @@ from glob import glob
 from json import loads as jsonloads
 import hashlib
 import os
+from re import fullmatch as re_fullmatch
 import platform
 from shutil import rmtree, copy2, which as shutil_which
 import subprocess
@@ -109,6 +110,48 @@ def import_subprocess_environment(args):
                     break
 
 VSVERSION_MINIMUM = 2022
+VS_GENERATOR_MAP = {
+    2022: "Visual Studio 17 2022",
+    2026: "Visual Studio 18 2026",
+}
+vs_install_path = None
+
+
+def get_vs_generator(vs_path, product_line_version, platform_type):
+    """Returns the CMake Visual Studio generator and optional platform toolset.
+
+    For newer VS versions, use the latest generator in the table with the newest
+    toolset found in the installation.
+    """
+    vs_generator = VS_GENERATOR_MAP.get(product_line_version)
+    if vs_generator:
+        return vs_generator, None
+    latest_known = max(VS_GENERATOR_MAP.keys())
+    vs_generator = VS_GENERATOR_MAP[latest_known]
+    print(f"  Note: VS {product_line_version} detected.")
+    print(f"  Using \"{vs_generator}\" generator with that instance.")
+    toolset = None
+    vc_dir = os.path.join(vs_path or "", "MSBuild", "Microsoft", "VC")
+    if os.path.isdir(vc_dir):
+        # Newest VC targets folder (e.g. v180)
+        vc_versions = sorted(
+            (d for d in os.listdir(vc_dir) if re_fullmatch(r"v\d+", d)),
+            key=lambda d: int(d[1:]))
+        for vc_version in reversed(vc_versions):
+            toolsets_dir = os.path.join(
+                vc_dir, vc_version, "Platforms", platform_type, "PlatformToolsets")
+            if not os.path.isdir(toolsets_dir):
+                continue
+            toolsets = sorted(
+                (d for d in os.listdir(toolsets_dir) if re_fullmatch(r"v\d+", d)),
+                key=lambda d: int(d[1:]))
+            if toolsets:
+                toolset = toolsets[-1]
+                break
+    print(f"  Using \"{toolset}\" toolset.")
+    return vs_generator, toolset
+
+
 def import_vs_environment():
     """Finds the installed Visual Studio version and imports
     interesting environment variables into os.environ.
@@ -124,21 +167,24 @@ def import_vs_environment():
     install_path = None
     env_tool_args = None
 
+    # Absolute: with NoDefaultCurrentDirectoryInExePath set, Windows doesn't
+    # look in the working directory for a relative path without a backslash.
     vswhere = subprocess.check_output(
-        "tools/vswhere/vswhere.exe -version \"[17,)\" -latest -prerelease -format json -utf8 -products"
-        " Microsoft.VisualStudio.Product.Enterprise"
-        " Microsoft.VisualStudio.Product.Professional"
-        " Microsoft.VisualStudio.Product.Community"
-        " Microsoft.VisualStudio.Product.BuildTools",
+        [
+            os.path.join(self_path, "tools", "vswhere", "vswhere.exe"),
+            "-version", "[17,)", "-latest", "-prerelease",
+            "-format", "json", "-utf8", "-products",
+            "Microsoft.VisualStudio.Product.Enterprise",
+            "Microsoft.VisualStudio.Product.Professional",
+            "Microsoft.VisualStudio.Product.Community",
+            "Microsoft.VisualStudio.Product.BuildTools",
+        ],
         encoding="utf-8",
     )
     if vswhere:
         vswhere = jsonloads(vswhere)
     if vswhere and len(vswhere) > 0:
-        # Map internal version to year version: 17->2022, 18->2026, etc.
-        internal_version = int(vswhere[0].get("catalog", {}).get("productLineVersion", 17))
-        version_map = {17: 2022, 18: 2026}
-        version = version_map.get(internal_version, VSVERSION_MINIMUM)
+        version = int(vswhere[0].get("catalog", {}).get("productLineVersion", VSVERSION_MINIMUM))
         install_path = vswhere[0].get("installationPath", None)
 
     vsdevcmd_path = os.path.join(install_path, "Common7", "Tools", "VsDevCmd.bat")
@@ -150,6 +196,9 @@ def import_vs_environment():
 
     if not version:
         return None
+
+    global vs_install_path
+    vs_install_path = install_path
 
     import_subprocess_environment(env_tool_args)
     os.environ["VSVERSION"] = f"{version}"
@@ -1307,7 +1356,7 @@ class TestCommand(BaseBuildCommand):
         super(TestCommand, self).__init__(
             subparsers,
             name="test",
-            help_short="Runs automated tests that have been built with `xb build`.",
+            help_short="Builds and runs automated tests.",
             help_long="""
             To pass arguments to the test executables separate them with `--`.
             For example, you can run only the instr_foo.s tests with:
@@ -1333,6 +1382,8 @@ class TestCommand(BaseBuildCommand):
             "xenia-cpu-ppc-tests"
             ]
         args["target"] = test_targets
+        # Test targets only exist when XENIA_BUILD_TESTS is enabled.
+        args["build_tests"] = True
 
         # Build all targets (if desired).
         if not args["no_build"]:
@@ -1905,13 +1956,21 @@ class DevenvCommand(Command):
         vs_build_dir = "build-vs" if effective_arch == ("arm64" if is_native_arm64 else "x64") else f"build-vs-{effective_arch}"
         config_title = config.title()
         print(f"Configuring Visual Studio build tree ({vs_arch}, {config_title}) in {vs_build_dir}...")
-        # -A <arch> without -G lets CMake pick whichever VS generator matches
-        # the installed toolchain (VS 2022, 2026, ...).
-        ret = subprocess.call([
+        cmake_args = [
             "cmake", "-S", ".", "-B", vs_build_dir, "-A", vs_arch,
             f"-DCMAKE_BUILD_TYPE={config_title}",
             f"-DCMAKE_CONFIGURATION_TYPES={config_title}",
-        ])
+        ]
+        # Without -G, CMake falls back to the CMAKE_GENERATOR environment
+        # variable, commonly Ninja, which rejects -A.
+        vs_generator, toolset = get_vs_generator(vs_install_path, vs_version,
+                                                 vs_arch)
+        cmake_args += ["-G", vs_generator]
+        if toolset:
+            cmake_args += ["-T", toolset]
+        if vs_install_path:
+            cmake_args.append(f"-DCMAKE_GENERATOR_INSTANCE={vs_install_path}")
+        ret = subprocess.call(cmake_args)
         if ret != 0:
             print_error("cmake configure failed for the VS build tree")
             return ret

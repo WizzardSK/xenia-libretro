@@ -48,18 +48,29 @@ class InputSystem {
 
   X_RESULT GetCapabilities(uint32_t user_index, uint32_t flags,
                            X_INPUT_CAPABILITIES* out_caps);
+  // ui_active here and in GetKeystroke holds the input for UI outside the input
+  // blockers, such as xam's.
   X_RESULT GetState(uint32_t user_index, uint32_t flags,
-                    X_INPUT_STATE* out_state);
+                    X_INPUT_STATE* out_state, bool ui_active = false);
   // GetState variant for UI that bypasses the input blocker
   X_RESULT GetStateForUI(uint32_t user_index, uint32_t flags,
                          X_INPUT_STATE* out_state);
   X_RESULT SetState(uint32_t user_index, X_INPUT_VIBRATION* vibration);
   X_RESULT GetKeystroke(uint32_t user_index, uint32_t flags,
-                        X_INPUT_KEYSTROKE* out_keystroke);
+                        X_INPUT_KEYSTROKE* out_keystroke,
+                        bool ui_active = false);
 
   // Block/unblock input to the game (for UI dialogs)
   void AddUIInputBlocker();
   void RemoveUIInputBlocker();
+  bool IsUIInputBlocked() const { return ui_input_blockers_.load() > 0; }
+
+  // Called when a title launches.
+  void ResetKeystrokes() {
+    for (auto& driver : drivers_) {
+      driver->ResetKeystrokes();
+    }
+  }
 
   bool GetVibrationCvar();
   void ToggleVibration();
@@ -74,7 +85,7 @@ class InputSystem {
 
   std::unique_lock<xe_unlikely_mutex> lock();
 
-  // Which device currently feeds a guest controller slot.
+  // A device feeding a guest controller slot, alone or with others.
   struct SlotBinding {
     InputDriver* driver = nullptr;  // null = empty or detached
     uint8_t driver_slot = 0;
@@ -96,12 +107,14 @@ class InputSystem {
   };
 
   std::vector<EnumeratedDevice> EnumerateDevices();
+  // Adds the device to the slot alongside any already bound there.
   void BindSlot(uint32_t guest_slot, InputDriver* driver, uint8_t driver_slot,
                 std::string stable_id, std::string display_name);
-  void UnbindSlot(uint32_t guest_slot);
+  void UnbindDevice(InputDriver* driver, uint8_t driver_slot);
   // Pass subtype = 0 to clear the override and use the device's detected type.
-  void SetSlotSubtypeOverride(uint32_t guest_slot, uint8_t subtype);
-  const SlotBinding& GetSlotBinding(uint32_t guest_slot) const {
+  void SetSubtypeOverride(InputDriver* driver, uint8_t driver_slot,
+                          uint8_t subtype);
+  const std::vector<SlotBinding>& GetSlotBindings(uint32_t guest_slot) const {
     return slot_bindings_[guest_slot];
   }
 
@@ -132,12 +145,20 @@ class InputSystem {
       "New controller connected to slot {}."};
 
   void UpdateUsedSlot(InputDriver* driver, uint8_t slot, bool connected);
+  static void MergeState(X_INPUT_STATE* state, const X_INPUT_STATE& other);
+  static void MergeCapabilities(X_INPUT_CAPABILITIES* caps,
+                                const X_INPUT_CAPABILITIES& other);
   void AdjustDeadzoneLevels(const uint8_t slot, X_INPUT_GAMEPAD* gamepad);
   X_INPUT_VIBRATION ModifyVibrationLevel(X_INPUT_VIBRATION* vibration);
 
   // Detach gone devices, reattach by stable_id, auto-bind new devices to the
-  // first empty guest slot. Cheap; safe to call from the polling path.
+  // first free guest slot. Cheap; safe to call from the polling path.
   void ReconcileBindings();
+  // A connected device's binding, and the slot it's in when guest_slot isn't
+  // null. Null if the device isn't bound.
+  SlotBinding* FindBinding(InputDriver* driver, uint8_t driver_slot,
+                           uint32_t* guest_slot = nullptr);
+  void NotifyBindingsChanged();
 
   // Seeds slot_bindings_ as detached entries from the passthrough cvar;
   // ReconcileBindings reattaches them by stable_id as devices appear.
@@ -150,7 +171,7 @@ class InputSystem {
   std::unique_ptr<Portal> portal_;
 
   std::bitset<XUserMaxUserCount> connected_slots = {};
-  std::array<SlotBinding, XUserMaxUserCount> slot_bindings_{};
+  std::array<std::vector<SlotBinding>, XUserMaxUserCount> slot_bindings_{};
   // True while a NotifyDevicesChanged() reconcile is pending on the UI
   // thread; coalesces bursts of hotplug events into a single reconcile.
   std::atomic<bool> reconcile_pending_{false};
@@ -167,6 +188,10 @@ class InputSystem {
 
   // Reference count for UI elements blocking game input
   std::atomic<int> ui_input_blockers_{0};
+  // Times blocking started or ended, added to packet numbers so a game sees a
+  // new state at both edges. Bumped after the count changes so the last read
+  // of each phase has a new number.
+  std::atomic<uint32_t> ui_input_blocking_edges_{0};
 
   // Buttons that should be masked from game input until released (per slot).
   // This prevents button presses used to close UI dialogs from being

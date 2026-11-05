@@ -41,7 +41,8 @@ class DeferredCommandList {
   void Reset();
   void Execute(ID3D12GraphicsCommandList* command_list,
                ID3D12GraphicsCommandList1* command_list_1,
-               ID3D12GraphicsCommandList2* command_list_2);
+               ID3D12GraphicsCommandList2* command_list_2,
+               ID3D12GraphicsCommandList9* command_list_9);
 
   D3D12_RECT* ClearDepthStencilViewAllocatedRects(
       D3D12_CPU_DESCRIPTOR_HANDLE depth_stencil_view,
@@ -303,6 +304,32 @@ class DeferredCommandList {
     arg = stencil_ref;
   }
 
+  void D3DResolveSubresourceRegion(ID3D12Resource* dst_resource,
+                                   UINT dst_subresource, UINT dst_x, UINT dst_y,
+                                   ID3D12Resource* src_resource,
+                                   UINT src_subresource,
+                                   const D3D12_RECT* src_rect,
+                                   DXGI_FORMAT format,
+                                   D3D12_RESOLVE_MODE resolve_mode) {
+    auto& args = *reinterpret_cast<D3DResolveSubresourceRegionArguments*>(
+        WriteCommand(Command::kD3DResolveSubresourceRegion,
+                     sizeof(D3DResolveSubresourceRegionArguments)));
+    args.dst_resource = dst_resource;
+    args.dst_subresource = dst_subresource;
+    args.dst_x = dst_x;
+    args.dst_y = dst_y;
+    args.src_resource = src_resource;
+    args.src_subresource = src_subresource;
+    if (src_rect) {
+      args.has_src_rect = true;
+      args.src_rect = *src_rect;
+    } else {
+      args.has_src_rect = false;
+    }
+    args.format = format;
+    args.resolve_mode = resolve_mode;
+  }
+
   void D3DResourceBarrier(UINT num_barriers,
                           const D3D12_RESOURCE_BARRIER* barriers) {
     if (num_barriers == 0) {
@@ -317,6 +344,15 @@ class DeferredCommandList {
     *reinterpret_cast<UINT*>(args) = num_barriers;
     std::memcpy(args + header_size, barriers,
                 num_barriers * sizeof(D3D12_RESOURCE_BARRIER));
+  }
+
+  void D3DRSSetDepthBias(FLOAT depth_bias, FLOAT depth_bias_clamp,
+                         FLOAT slope_scaled_depth_bias) {
+    auto& args = *reinterpret_cast<D3DRSSetDepthBiasArguments*>(WriteCommand(
+        Command::kD3DRSSetDepthBias, sizeof(D3DRSSetDepthBiasArguments)));
+    args.depth_bias = depth_bias;
+    args.depth_bias_clamp = depth_bias_clamp;
+    args.slope_scaled_depth_bias = slope_scaled_depth_bias;
   }
 
   void RSSetScissorRect(const D3D12_RECT& rect) {
@@ -535,7 +571,9 @@ class DeferredCommandList {
     kD3DOMSetBlendFactor,
     kD3DOMSetRenderTargets,
     kD3DOMSetStencilRef,
+    kD3DResolveSubresourceRegion,
     kD3DResourceBarrier,
+    kD3DRSSetDepthBias,
     kRSSetScissorRect,
     kRSSetViewport,
     kD3DSetComputeRoot32BitConstants,
@@ -695,6 +733,25 @@ class DeferredCommandList {
   struct SetDescriptorHeapsArguments {
     ID3D12DescriptorHeap* cbv_srv_uav_descriptor_heap;
     ID3D12DescriptorHeap* sampler_descriptor_heap;
+  };
+
+  struct D3DResolveSubresourceRegionArguments {
+    ID3D12Resource* dst_resource;
+    UINT dst_subresource;
+    UINT dst_x;
+    UINT dst_y;
+    ID3D12Resource* src_resource;
+    UINT src_subresource;
+    D3D12_RECT src_rect;
+    bool has_src_rect;
+    DXGI_FORMAT format;
+    D3D12_RESOLVE_MODE resolve_mode;
+  };
+
+  struct D3DRSSetDepthBiasArguments {
+    FLOAT depth_bias;
+    FLOAT depth_bias_clamp;
+    FLOAT slope_scaled_depth_bias;
   };
 
   struct D3DSetSamplePositionsArguments {

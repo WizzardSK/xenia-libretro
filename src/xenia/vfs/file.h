@@ -47,6 +47,12 @@ class File {
   }
 
   virtual X_STATUS SetLength(size_t length) { return X_STATUS_NOT_IMPLEMENTED; }
+  // Sets the FILETIMEs that aren't 0.
+  virtual X_STATUS SetTimes(uint64_t create_timestamp,
+                            uint64_t access_timestamp,
+                            uint64_t write_timestamp) {
+    return X_STATUS_UNSUCCESSFUL;
+  }
   virtual X_STATUS Rename(const std::filesystem::path file_path) {
     return X_STATUS_NOT_IMPLEMENTED;
   }

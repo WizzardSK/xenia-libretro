@@ -1,0 +1,660 @@
+{
+ "corpus": "smoke",
+ "source": "RGH Jasper, kernel and xam 2.0.17559, Japanese UI, 2026-10-22",
+ "steps": [
+  {
+   "scenario": "identity",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "r3": "0000000000000000",
+   "capture": {
+    "xuid": "<X0>"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "identity",
+   "name": "XamUserGetName",
+   "export": "XamUserGetName",
+   "r3": "0000000000000000",
+   "capture": {
+    "gamertag": "<NAME0>00<fill>"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "gamertag",
+     "offset": 8
+    },
+    {
+     "value": 16
+    }
+   ]
+  },
+  {
+   "scenario": "signin state",
+   "name": "user 0x0",
+   "export": "XamUserGetSigninState",
+   "r3": "0000000000000001",
+   "args": [
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "signin state",
+   "name": "user 0x1",
+   "export": "XamUserGetSigninState",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 1
+    }
+   ]
+  },
+  {
+   "scenario": "signin state",
+   "name": "user 0x2",
+   "export": "XamUserGetSigninState",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 2
+    }
+   ]
+  },
+  {
+   "scenario": "signin state",
+   "name": "user 0x3",
+   "export": "XamUserGetSigninState",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 3
+    }
+   ]
+  },
+  {
+   "scenario": "signin state",
+   "name": "user 0x4",
+   "export": "XamUserGetSigninState",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "signin state",
+   "name": "user 0xfd",
+   "export": "XamUserGetSigninState",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 253
+    }
+   ]
+  },
+  {
+   "scenario": "signin state",
+   "name": "user 0xfe",
+   "export": "XamUserGetSigninState",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 254
+    }
+   ]
+  },
+  {
+   "scenario": "signin state",
+   "name": "user 0xff",
+   "export": "XamUserGetSigninState",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 255
+    }
+   ]
+  },
+  {
+   "scenario": "xuid user 0x0 mask 1",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "r3": "0000000000000000",
+   "capture": {
+    "xuid": "<X0>"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xuid user 0x0 mask 2",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "r3": "FFFFFFFF80070525",
+   "capture": {
+    "xuid": "0000000000000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 2
+    },
+    {
+     "pointer": "xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xuid user 0x0 mask 7",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "r3": "0000000000000000",
+   "capture": {
+    "xuid": "<X0>"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 7
+    },
+    {
+     "pointer": "xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xuid user 0x1 mask 1",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "r3": "FFFFFFFF80070525",
+   "capture": {
+    "xuid": "0000000000000000"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xuid user 0x1 mask 2",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "r3": "FFFFFFFF80070525",
+   "capture": {
+    "xuid": "0000000000000000"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 2
+    },
+    {
+     "pointer": "xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xuid user 0x1 mask 7",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "r3": "FFFFFFFF80070525",
+   "capture": {
+    "xuid": "0000000000000000"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 7
+    },
+    {
+     "pointer": "xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xuid user 0x4 mask 1",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "r3": "FFFFFFFF80070057",
+   "capture": {
+    "xuid": "0000000000000000"
+   },
+   "args": [
+    {
+     "value": 4
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xuid user 0x4 mask 2",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "r3": "FFFFFFFF80070057",
+   "capture": {
+    "xuid": "0000000000000000"
+   },
+   "args": [
+    {
+     "value": 4
+    },
+    {
+     "value": 2
+    },
+    {
+     "pointer": "xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xuid user 0x4 mask 7",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "r3": "FFFFFFFF80070057",
+   "capture": {
+    "xuid": "0000000000000000"
+   },
+   "args": [
+    {
+     "value": 4
+    },
+    {
+     "value": 7
+    },
+    {
+     "pointer": "xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xuid user 0xff mask 1",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "r3": "FFFFFFFF80070057",
+   "capture": {
+    "xuid": "0000000000000000"
+   },
+   "args": [
+    {
+     "value": 255
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xuid user 0xff mask 2",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "r3": "FFFFFFFF80070057",
+   "capture": {
+    "xuid": "0000000000000000"
+   },
+   "args": [
+    {
+     "value": 255
+    },
+    {
+     "value": 2
+    },
+    {
+     "pointer": "xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xuid user 0xff mask 7",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "r3": "FFFFFFFF80070057",
+   "capture": {
+    "xuid": "0000000000000000"
+   },
+   "args": [
+    {
+     "value": 255
+    },
+    {
+     "value": 7
+    },
+    {
+     "pointer": "xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xuid null",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "faults": true,
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 7
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "name user 0x0 size 16",
+   "name": "XamUserGetName",
+   "export": "XamUserGetName",
+   "r3": "0000000000000000",
+   "capture": {
+    "buffer": "cdcdcdcdcdcdcdcd<NAME0>00<fill>"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "buffer+0x8",
+     "offset": 8
+    },
+    {
+     "value": 16
+    }
+   ]
+  },
+  {
+   "scenario": "name user 0x0 size 4",
+   "name": "XamUserGetName",
+   "export": "XamUserGetName",
+   "r3": "0000000000000000",
+   "capture": {
+    "buffer": "cdcdcdcdcdcdcdcd<NAME0:3>00<fill>"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "buffer+0x8",
+     "offset": 8
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "name user 0x0 size 0",
+   "name": "XamUserGetName",
+   "export": "XamUserGetName",
+   "r3": "0000000000000000",
+   "capture": {
+    "buffer": "cdcdcdcdcdcdcdcd<NAME0>00<fill>"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "buffer+0x8",
+     "offset": 8
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "name user 0x1 size 16",
+   "name": "XamUserGetName",
+   "export": "XamUserGetName",
+   "r3": "0000000000000525",
+   "capture": {
+    "buffer": "cdcdcdcdcdcdcdcd00cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "pointer": "buffer+0x8",
+     "offset": 8
+    },
+    {
+     "value": 16
+    }
+   ]
+  },
+  {
+   "scenario": "device name capacity 0",
+   "name": "XamContentGetDeviceName",
+   "export": "XamContentGetDeviceName",
+   "r3": "0000000000000000",
+   "capture": {
+    "buffer": "cdcdcdcdcdcd0000cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "pointer": "buffer+0x8",
+     "offset": 8
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "device name capacity 1",
+   "name": "XamContentGetDeviceName",
+   "export": "XamContentGetDeviceName",
+   "r3": "0000000000000000",
+   "capture": {
+    "buffer": "cdcdcdcdcdcdcdcd0000cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "pointer": "buffer+0x8",
+     "offset": 8
+    },
+    {
+     "value": 1
+    }
+   ]
+  },
+  {
+   "scenario": "device name capacity 4",
+   "name": "XamContentGetDeviceName",
+   "export": "XamContentGetDeviceName",
+   "r3": "0000000000000000",
+   "capture": {
+    "buffer": "cdcdcdcdcdcdcdcd30cf30fc30c90000cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "pointer": "buffer+0x8",
+     "offset": 8
+    },
+    {
+     "value": 4
+    }
+   ]
+  },
+  {
+   "scenario": "device name capacity 64",
+   "name": "XamContentGetDeviceName",
+   "export": "XamContentGetDeviceName",
+   "r3": "0000000000000000",
+   "capture": {
+    "buffer": "cdcdcdcdcdcdcdcd30cf30fc30c930c930e930a430d6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "pointer": "buffer+0x8",
+     "offset": 8
+    },
+    {
+     "value": 64
+    }
+   ]
+  },
+  {
+   "scenario": "device name unknown device",
+   "name": "XamContentGetDeviceName",
+   "export": "XamContentGetDeviceName",
+   "r3": "000000000000048F",
+   "capture": {
+    "buffer": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 85
+    },
+    {
+     "pointer": "buffer+0x8",
+     "offset": 8
+    },
+    {
+     "value": 64
+    }
+   ]
+  },
+  {
+   "scenario": "device state 0x1",
+   "name": "sync",
+   "export": "XamContentGetDeviceState",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "device state 0x1",
+   "name": "overlapped",
+   "export": "XamContentGetDeviceState",
+   "r3": "00000000000003E5",
+   "completed": true,
+   "capture": {
+    "overlapped": "00000000000000000000000000000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "pointer": "overlapped",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "device state 0x55",
+   "name": "sync",
+   "export": "XamContentGetDeviceState",
+   "r3": "000000000000048F",
+   "args": [
+    {
+     "value": 85
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "device state 0x55",
+   "name": "overlapped",
+   "export": "XamContentGetDeviceState",
+   "r3": "00000000000003E5",
+   "completed": true,
+   "capture": {
+    "overlapped": "0000065b00000000000000000000000000000000000000008007048f"
+   },
+   "args": [
+    {
+     "value": 85
+    },
+    {
+     "pointer": "overlapped",
+     "offset": 0
+    }
+   ]
+  }
+ ]
+}

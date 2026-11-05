@@ -4,6 +4,7 @@ What changed in the libretro core of this fork, newest first. Changes that come 
 
 ## Unreleased
 
+- Upstream Xenia Edge merged up to 074d3f0 (the release of November 5), from 8dc77b0 (October 7): some five hundred commits, among them Vulkan pipeline, memexport and depth bias fixes, gamma resolves, XAM and kernel fixes, and system link networking (Akrido: GTA IV's red lights came out blue, which the standalone of this version draws right).
 - Core info: no longer marked experimental (NNshi).
 - Linux: the core exports only the libretro API (a version script); it exported some sixteen thousand of its own symbols, which could clash with libraries the frontend loads.
 - Music Player Volume is 70% by default, as in standalone Xenia Edge; at 100% the music of a game that does not set its own volume could clip (NNshi).

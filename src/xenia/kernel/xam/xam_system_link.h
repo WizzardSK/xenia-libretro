@@ -1,0 +1,76 @@
+/**
+ ******************************************************************************
+ * Xenia : Xbox 360 Emulator Research Project                                 *
+ ******************************************************************************
+ * Copyright 2026 Ben Vanik. All rights reserved.                             *
+ * Released under the BSD license - see LICENSE in the root for more details. *
+ ******************************************************************************
+ */
+
+#ifndef XENIA_KERNEL_XAM_XAM_SYSTEM_LINK_H_
+#define XENIA_KERNEL_XAM_XAM_SYSTEM_LINK_H_
+
+#include <memory>
+
+#include "xenia/kernel/xobject.h"
+#include "xenia/net/system_link.h"
+
+namespace xe {
+namespace kernel {
+
+class KernelState;
+class XHostThread;
+
+namespace xam {
+
+// Whether System Link is on, which is also whether the console has a network
+// link.
+bool SystemLinkEnabled();
+
+// Whether the running title has cross-platform System Link.
+bool CrossPlatformTitle(KernelState* kernel_state);
+// Whether the running title uses cross-platform System Link.
+bool CrossPlatformSystemLink(KernelState* kernel_state);
+
+// Starts System Link for the running title over the configured transport, on
+// UDP |port| for cross-platform System Link. Null when it is off or cannot
+// start.
+std::unique_ptr<net::SystemLink> CreateSystemLink(KernelState* kernel_state,
+                                                  uint16_t port);
+
+// The running title's System Link, started on first use. Null when it is off
+// or could not start, then the title gets no System Link at all.
+std::shared_ptr<net::SystemLink> GetSystemLink(KernelState* kernel_state);
+
+// Hands a title with its own network stack, such as the original Xbox
+// emulator, the raw Ethernet frames that arrive on the System Link LAN.
+class EthernetIntercept {
+ public:
+  explicit EthernetIntercept(KernelState* kernel_state);
+  ~EthernetIntercept();
+
+  // XnpEthernetInterceptSetCallbacks: |receive| gets |context| and each frame
+  // that arrives on |link|, at DISPATCH_LEVEL as xam calls it. 0 removes the
+  // callback of |caller|. Returns a Winsock error.
+  uint32_t SetCallbacks(net::SystemLink& link, uint32_t caller,
+                        uint32_t receive, uint32_t context);
+
+ private:
+  struct Queue;
+
+  bool Start();
+  // |queue| is a reference since a fiber's stack is freed without unwinding.
+  static void Deliver(KernelState* kernel_state, Queue& queue, uint32_t buffer);
+
+  KernelState* kernel_state_;
+  std::shared_ptr<Queue> queue_;
+  object_ref<XHostThread> thread_;
+  // Guest memory the frame is in while |receive| runs.
+  uint32_t buffer_ = 0;
+};
+
+}  // namespace xam
+}  // namespace kernel
+}  // namespace xe
+
+#endif  // XENIA_KERNEL_XAM_XAM_SYSTEM_LINK_H_

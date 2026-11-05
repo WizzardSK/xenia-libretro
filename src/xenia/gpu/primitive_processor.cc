@@ -351,6 +351,8 @@ bool PrimitiveProcessor::Process(ProcessingResult& result_out) {
             // - 415607E1 - nets above barrels in the beginning of the first
             //   mission (turn right after the end of the intro) -
             //   kTriangleList.
+            // - 4D53085B - faces of the characters in the campaign cinematics -
+            //   indexed kTriangleStrip.
             host_vertex_shader_type =
                 Shader::HostVertexShaderType::kTriangleDomainCPIndexed;
             break;

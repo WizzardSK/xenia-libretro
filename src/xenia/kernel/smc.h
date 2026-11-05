@@ -11,6 +11,7 @@
 #define XENIA_KERNEL_SMC_H_
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -28,10 +29,11 @@ enum X_DVD_DISC_STATE {
   UNKNOWN_DISC2,
 };
 
+// The dashboard reads a disc only at 0 and fails at 2.
 enum class X_DVD_TRAY_STATE : uint8_t {
-  OPEN,
-  UNKNOWN,
   CLOSED,
+  UNKNOWN,
+  OPEN,
   OPENING,
   CLOSING
 };
@@ -222,6 +224,9 @@ class SystemManagementController {
   X_DVD_TRAY_STATE GetTrayState() const { return dvd_tray_state_; }
 
   void SetTrayState(X_DVD_TRAY_STATE state);
+  // Opens or closes the tray. Opened by a system title, it closes again once
+  // the app has picked a disc for the drive or none.
+  void MoveTray(bool open);
 
   void CallCommand(X_SMC_DATA* smc_message, X_SMC_DATA* smc_response);
 
@@ -248,7 +253,8 @@ class SystemManagementController {
                                          X_SMC_DATA* smc_response)>>
       smc_commands_;
 
-  X_DVD_TRAY_STATE dvd_tray_state_ = X_DVD_TRAY_STATE::OPEN;
+  // Set from the UI thread too, when a disc is picked.
+  std::atomic<X_DVD_TRAY_STATE> dvd_tray_state_ = X_DVD_TRAY_STATE::CLOSED;
   REMOTE_CONTROL ir_address_ = REMOTE_CONTROL::MEDIA_REMOTE_360;
   TILT_STATE tilt_state_ = TILT_STATE::VERTICAL;
 

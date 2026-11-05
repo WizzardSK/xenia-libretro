@@ -961,6 +961,18 @@ class Shader {
   uint32_t point_fetch_coordinate_registers() const {
     return point_fetch_coordinate_registers_;
   }
+  // Whether the result of the vector or the scalar operation of the ALU
+  // instruction at the address may reach a vertex fetch index, the address
+  // register, a memory export or a floor, trunc or frc operand, where rounding
+  // it differently may change the outcome by a whole unit. Vertex shaders only.
+  bool IsAluVectorResultRoundingSensitive(uint32_t address) const {
+    return address < alu_rounding_sensitive_results_.size() &&
+           (alu_rounding_sensitive_results_[address] & 0b01);
+  }
+  bool IsAluScalarResultRoundingSensitive(uint32_t address) const {
+    return address < alu_rounding_sensitive_results_.size() &&
+           (alu_rounding_sensitive_results_[address] & 0b10);
+  }
 
   // Exclusive upper bound of the indexes of paired control flow instructions
   // (each corresponds to 3 dwords).
@@ -1079,6 +1091,11 @@ class Shader {
         expected, new_index, std::memory_order_relaxed);
   }
 
+  // Whether a draw has used this vertex shader, or the storage warm-up builds a
+  // pipeline with it.
+  bool is_drawn() const { return is_drawn_; }
+  void set_drawn() { is_drawn_ = true; }
+
   // Dumps the shader's microcode binary and, if analyzed, disassembly, to files
   // in the given directory based on ucode hash. Returns the name of the written
   // file. Can be called at any time, doesn't require the shader to be
@@ -1121,6 +1138,9 @@ class Shader {
   std::vector<uint64_t> cf_register_components_written_;
   std::vector<uint64_t> reentered_label_register_components_written_;
   uint32_t point_fetch_coordinate_registers_ = 0;
+  // Per instruction address, bit 0 for the vector and bit 1 for the scalar
+  // operation (see IsAluVectorResultRoundingSensitive).
+  std::vector<uint8_t> alu_rounding_sensitive_results_;
   uint32_t cf_pair_index_bound_ = 0;
   uint32_t register_static_address_bound_ = 0;
   uint32_t writes_interpolators_ = 0;
@@ -1149,6 +1169,8 @@ class Shader {
 
   std::atomic<uint32_t> ucode_storage_index_{UINT32_MAX};
 
+  bool is_drawn_ = false;
+
  private:
   void GatherExecInformation(
       const ParsedExecInstruction& instr,
@@ -1172,6 +1194,7 @@ class Shader {
                                   uint32_t exec_cf_index);
   void GatherRegisterWriteInformation(const InstructionResult& result,
                                       uint32_t exec_cf_index);
+  void GatherAluRoundingSensitivity();
 };
 
 }  // namespace gpu

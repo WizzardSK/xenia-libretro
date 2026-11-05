@@ -14,6 +14,7 @@
 #include <string>
 
 #include "xenia/kernel/util/shim_utils.h"
+#include "xenia/kernel/xam/xam.h"
 #include "xenia/ui/imgui_dialog.h"
 #include "xenia/ui/imgui_drawer.h"
 #include "xenia/ui/imgui_gamepad_dialog.h"
@@ -82,9 +83,9 @@ class XamGamepadDialog : public xe::ui::ImGuiGamepadDialog {
 class MessageBoxDialog : public XamGamepadDialog {
  public:
   MessageBoxDialog(xe::ui::ImGuiDrawer* imgui_drawer,
-                   xe::hid::InputSystem* input_system, std::string& title,
-                   std::string& description, std::vector<std::string> buttons,
-                   uint32_t default_button)
+                   xe::hid::InputSystem* input_system, const std::string& title,
+                   const std::string& description,
+                   std::vector<std::string> buttons, uint32_t default_button)
       : XamGamepadDialog(imgui_drawer, input_system),
         title_(title),
         description_(description),

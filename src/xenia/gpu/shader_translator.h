@@ -43,6 +43,8 @@ class ShaderTranslator {
   // Shader and modification currently being translated.
   Shader::Translation& current_translation() const { return *translation_; }
   Shader& current_shader() const { return current_translation().shader(); }
+  // Address of the fetch or ALU instruction being translated.
+  uint32_t current_instruction_address() const { return instruction_address_; }
 
   // Register count from SQ_PROGRAM_CNTL, stored by the implementation in its
   // modification bits.
@@ -163,6 +165,9 @@ class ShaderTranslator {
 
   // Current control flow dword index.
   uint32_t cf_index_ = 0;
+
+  // Current fetch or ALU instruction address.
+  uint32_t instruction_address_ = 0;
 
   // Kept for supporting vfetch_mini.
   ucode::VertexFetchInstruction previous_vfetch_full_;

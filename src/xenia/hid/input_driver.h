@@ -77,6 +77,12 @@ class InputDriver {
   // Chooses between a device's native mode and the driver's own mapping.
   virtual void SetNativeMode(uint8_t /*driver_slot*/, bool /*enabled*/) {}
 
+  // Drops queued keystrokes made while UI held the input so the title doesn't
+  // get them once it closes.
+  virtual void DiscardKeystrokes() {}
+  // Forgets keystrokes the previous title received or left queued.
+  virtual void ResetKeystrokes() {}
+
   // Drivers invoke NotifyDevicesChanged() after their EnumerateDevices result
   // changes (hotplug add/remove). InputSystem registers this callback during
   // AddDriver to reconcile the binding table in response.

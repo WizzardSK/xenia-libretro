@@ -16,6 +16,8 @@
 #include "xenia/base/cvar.h"
 #include "xenia/base/debugging.h"
 #include "xenia/base/logging.h"
+#include "xenia/base/platform.h"
+#include "xenia/base/threading.h"
 #include "xenia/cpu/ppc/ppc_context.h"
 #include "xenia/cpu/thread_state.h"
 
@@ -52,6 +54,25 @@ uint64_t TrapDebugPrint(void* raw_context) {
     debugging::DebugPrint("(DebugPrint) {}", message);
   }
   return 0;
+}
+
+uint32_t AwaitReserveGranule(const std::atomic<uint32_t>& granule) {
+  // Bounded so a claim that never ends leaves the guest loop at its safepoint.
+  constexpr uint32_t kSpinsPerYield = 64;
+  constexpr uint32_t kYields = 4;
+  uint32_t generation = granule.load(std::memory_order_acquire);
+  for (uint32_t yields = 0; (generation & 1) && yields < kYields; ++yields) {
+    for (uint32_t spins = 0; (generation & 1) && spins < kSpinsPerYield;
+         ++spins) {
+      SpinPause();
+      generation = granule.load(std::memory_order_acquire);
+    }
+    if (generation & 1) {
+      threading::MaybeYield();
+      generation = granule.load(std::memory_order_acquire);
+    }
+  }
+  return generation;
 }
 
 uint32_t Backend::ReservedLoad32(ppc::PPCContext* context, uint32_t address) {

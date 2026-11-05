@@ -47,6 +47,12 @@ DEFINE_bool(use_50Hz_mode, false, "Enables usage of PAL-50 mode.", "Console");
 DEFINE_path(trace_gpu_prefix, "scratch/gpu/",
             "Prefix path for GPU trace files.", "GPU.Debug");
 DEFINE_bool(trace_gpu_stream, false, "Trace all GPU packets.", "GPU.Debug");
+DEFINE_string(trace_gpu_frames, "",
+              "Comma-separated frame numbers to capture as single frame GPU "
+              "traces, the same way as a manual frame trace request, for "
+              "example \"300,1200\". Frames are counted by the swaps "
+              "before them, and each trace is named after its frame number.",
+              "GPU.Debug");
 
 DEFINE_path(
     dump_shaders, "",
@@ -214,10 +220,16 @@ DEFINE_bool(
     async_shader_skip_draws, true,
     "Skip draws whose shaders can't render immediately via a placeholder "
     "(no interpreter stand-in, e.g. tessellation or textured/memexport/loop "
-    "vertex shaders) until their real pipeline compiles in the background, "
-    "instead of translating them on the draw thread. Avoids stutter but the "
-    "geometry pops in a few frames later.",
+    "vertex shaders, or no pixel shader) until their real pipeline compiles in "
+    "the background. Avoids stutter but what they draw appears a few frames "
+    "late.",
     "GPU");
+DEFINE_string(
+    async_shader_inline_hashes, "",
+    "Comma-separated vertex or pixel shader ucode hashes (hex, as logged) "
+    "whose draws always wait for their real pipeline instead of using an "
+    "async stand-in. For bisecting which stand-in causes a rendering issue.",
+    "GPU.Debug");
 
 DEFINE_bool(
     shader_profiling, false,
@@ -266,9 +278,35 @@ DEFINE_bool(
     "GPU");
 
 DEFINE_bool(
-    mulsc_round_toward_zero, false,
-    "Round mulsc products toward zero instead of to nearest even. This fixes "
-    "bad geometry in several Volition Engine titles and possibly others. "
-    "This rounding behavior hasn't been confirmed on real hardware, so it's "
-    "disabled by default.",
+    alu_round_toward_zero, true,
+    "Round vertex shader ALU sums and products toward zero, with unfused "
+    "multiply-adds and overflow saturating, instead of rounding to nearest "
+    "even. This is what the Xenos does and fixes bad geometry in several "
+    "Volition Engine titles. Pixel shaders keep rounding to nearest, the "
+    "extra instructions per operation are too slow there. Unless the host "
+    "GPU supports the rounding mode, vertex shaders only round results that "
+    "may reach a vertex fetch index, the address register, a memory export "
+    "or a floor, trunc or frc this way.",
     "GPU");
+
+DEFINE_bool(xenos_sample_positions, false,
+            "Rasterize 2x and 4x MSAA render targets at the Xenos sample "
+            "positions, like real hardware, if the GPU and driver support it.\n"
+            "Only applies to RTV/FBO - ROV/FSI render targets always use Xenos "
+            "positions since they safely map coverage and calculate depth "
+            "in-shader.",
+            "GPU");
+
+DEFINE_bool(texture_point_snap, false,
+            "Snap normalized point sampled 2D texture coordinates to texel "
+            "centers, and pick the guest texel when the resolution is scaled. "
+            "Fixes texture seams in titles that use virtual textures, e.g. "
+            "idTech 5, but may cause rendering issues in other titles.",
+            "GPU");
+
+DEFINE_bool(texture_border_color_frac, true,
+            "Compute getBCF, the share of a texture fetch's footprint that "
+            "falls on the border. The Xbox backward compatibility emulator "
+            "uses it to apply border colors. Disabling it returns 0 and "
+            "texture borders come out black in original Xbox titles.",
+            "GPU");

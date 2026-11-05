@@ -218,11 +218,12 @@ union EdramTransferAddressConstant {
     uint32_t source_pitch : xenos::kEdramPitchTilesBits;
     // Destination base in tiles minus source base in tiles (not vice versa
     // because this is a transform of the coordinate system, not addresses
-    // themselves).
-    // + 1 bit because this is a signed difference between two EDRAM bases.
+    // themselves), wrapped, the shader wraps the sum anyway.
     // 0 for host_depth_source_is_copy (ignored in this case anyway as
     // destination == source anyway).
-    int32_t source_to_dest : xenos::kEdramBaseTilesBits + 1;
+    uint32_t source_to_dest : xenos::kEdramBaseTilesBits;
+    // The source render target is in the next period (64bpp color only).
+    uint32_t source_next_period : 1;
   };
   EdramTransferAddressConstant() : constant(0) {
     static_assert_size(*this, sizeof(constant));

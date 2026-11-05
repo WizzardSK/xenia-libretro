@@ -73,15 +73,18 @@ void XEvent::InitializeNative(void* native_ptr,
 
 int32_t XEvent::Set(uint32_t priority_increment, bool wait) {
   set_priority_increment(priority_increment);
+  // KeSetEvent returns the signal state from before.
+  int32_t old_signal_state;
   {
     std::lock_guard<std::mutex> lock(state_lock_);
-    memory()->TranslateVirtual<X_KEVENT*>(guest_object())->header.signal_state =
-        1;
+    auto* kevent = memory()->TranslateVirtual<X_KEVENT*>(guest_object());
+    old_signal_state = kevent->header.signal_state;
+    kevent->header.signal_state = 1;
     host_signaled_ = true;
     event_->Set();
   }
   WakeCooperativeWaiters();
-  return 1;
+  return old_signal_state;
 }
 
 int32_t XEvent::Pulse(uint32_t priority_increment, bool wait) {
@@ -114,11 +117,13 @@ int32_t XEvent::Pulse(uint32_t priority_increment, bool wait) {
 
 int32_t XEvent::Reset() {
   std::lock_guard<std::mutex> lock(state_lock_);
-  memory()->TranslateVirtual<X_KEVENT*>(guest_object())->header.signal_state =
-      0;
+  // KeResetEvent returns the signal state from before.
+  auto* kevent = memory()->TranslateVirtual<X_KEVENT*>(guest_object());
+  const int32_t old_signal_state = kevent->header.signal_state;
+  kevent->header.signal_state = 0;
   host_signaled_ = false;
   event_->Reset();
-  return 1;
+  return old_signal_state;
 }
 
 void XEvent::WaitCallback() {

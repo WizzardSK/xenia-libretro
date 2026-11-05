@@ -10,7 +10,20 @@
 #ifndef XENIA_KERNEL_XSESSION_H_
 #define XENIA_KERNEL_XSESSION_H_
 
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <utility>
+#include <vector>
+
+#include "xenia/kernel/xobject.h"
+#include "xenia/net/xnet_secure.h"
+
 namespace xe {
+namespace net {
+class SystemLink;
+}  // namespace net
+
 namespace kernel {
 
 enum SessionFlags {
@@ -39,14 +52,81 @@ enum SessionFlags {
 
   // HELPERS
   SYSTEMLINK_FEATURES = HOST | SYSTEMLINK,
-  LIVE_FEATURES = PRESENCE | STATS | MATCHMAKING | ARBITRATION
 };
 
-inline bool IsOfflineSession(const SessionFlags flags) { return !flags; }
+struct XSESSION_INFO {
+  net::KeyId session_id;
+  net::secure::Address host_address;
+  net::Key key_exchange_key;
+};
+static_assert_size(XSESSION_INFO, 0x3C);
 
-inline bool IsXboxLiveSession(const SessionFlags flags) {
-  return !IsOfflineSession(flags) && flags & SessionFlags::LIVE_FEATURES;
-}
+class XSession : public XObject {
+ public:
+  static const Type kObjectType = Type::Session;
+
+  explicit XSession(KernelState* kernel_state);
+
+  X_STATUS Initialize();
+
+  // The session whose guest body is at |guest_ptr|.
+  static object_ref<XSession> FromGuest(KernelState* kernel_state,
+                                        uint32_t guest_ptr);
+
+  // A host gets a new key and its own XNADDR in the session info. A peer
+  // network session keeps the key registered until DeleteSession, even after
+  // its handle closes.
+  X_RESULT Create(uint32_t flags, uint32_t user_index,
+                  uint32_t max_public_slots, uint32_t max_private_slots,
+                  uint32_t session_info_ptr, uint32_t nonce_ptr);
+  X_RESULT DeleteSession();
+  // Local users join and leave by index, remote ones by XUID.
+  void Join(uint32_t count, uint32_t xuids_ptr, uint32_t user_indices_ptr,
+            uint32_t private_slots_ptr);
+  void Leave(uint32_t count, uint32_t xuids_ptr, uint32_t user_indices_ptr);
+  void Start();
+  void End();
+  X_RESULT Modify(uint32_t flags, uint32_t max_public_slots,
+                  uint32_t max_private_slots);
+  // Fills XSESSION_LOCAL_DETAILS and as many members as fit in the buffer.
+  X_RESULT GetDetails(uint32_t size_ptr, uint32_t details_ptr);
+
+ private:
+  enum State : uint32_t {
+    kLobby = 0,
+    kRegistration = 1,
+    kInGame = 2,
+    kReporting = 3,
+    kDeleted = 4,
+  };
+
+  struct Member {
+    uint64_t xuid = 0;
+    uint32_t user_index = 0;
+    bool private_slot = false;
+  };
+
+  // A context of the user who created the session, 0 when unset.
+  uint32_t CreatorContext(uint32_t id) const;
+  // Public and private slots the members take, with mutex_ held.
+  std::pair<uint32_t, uint32_t> UsedSlots() const;
+
+  std::weak_ptr<net::SystemLink> system_link_;
+  std::optional<net::KeyId> registered_key_;
+
+  // Requests for one session can arrive on several threads.
+  std::mutex mutex_;
+  uint32_t flags_ = 0;
+  uint32_t user_index_ = XUserIndexNone;
+  uint32_t max_public_slots_ = 0;
+  uint32_t max_private_slots_ = 0;
+  uint32_t game_type_ = 0;
+  uint32_t game_mode_ = 0;
+  State state_ = kLobby;
+  uint64_t nonce_ = 0;
+  XSESSION_INFO info_{};
+  std::vector<Member> members_;
+};
 
 }  // namespace kernel
 }  // namespace xe

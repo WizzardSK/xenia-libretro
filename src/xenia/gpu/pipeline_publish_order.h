@@ -13,6 +13,8 @@
 #include <cstdint>
 #include <map>
 #include <mutex>
+#include <optional>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -48,12 +50,38 @@ class PipelinePublishOrder {
       return;
     }
     std::lock_guard<std::mutex> lock(mutex_);
-    parked_.emplace(sequence, std::move(value));
+    if (expedited_.erase(sequence)) {
+      store(value);
+      parked_.emplace(sequence, std::nullopt);
+    } else {
+      parked_.emplace(sequence, std::move(value));
+    }
     auto it = parked_.begin();
     while (it != parked_.end() && it->first == cursor_) {
-      store(it->second);
+      if (it->second) {
+        store(*it->second);
+      }
       it = parked_.erase(it);
       ++cursor_;
+    }
+  }
+
+  // Stores |sequence|, a pipeline a draw waits for, ahead of its turn. That's
+  // right away if it's already held back, else as soon as it's published. Its
+  // turn then passes without a store.
+  template <typename F>
+  void Expedite(uint32_t sequence, F&& store) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (sequence < cursor_) {
+      // Unordered, or already stored.
+      return;
+    }
+    auto it = parked_.find(sequence);
+    if (it == parked_.end()) {
+      expedited_.insert(sequence);
+    } else if (it->second) {
+      store(*it->second);
+      it->second.reset();
     }
   }
 
@@ -63,9 +91,12 @@ class PipelinePublishOrder {
     std::vector<T> parked;
     std::lock_guard<std::mutex> lock(mutex_);
     for (auto& entry : parked_) {
-      parked.push_back(std::move(entry.second));
+      if (entry.second) {
+        parked.push_back(std::move(*entry.second));
+      }
     }
     parked_.clear();
+    expedited_.clear();
     cursor_ = 1;
     sequence_next_ = 1;
     return parked;
@@ -76,7 +107,10 @@ class PipelinePublishOrder {
   // Not guarded by mutex_ - see NextSequence.
   uint32_t sequence_next_ = 1;
   uint32_t cursor_ = 1;
-  std::map<uint32_t, T> parked_;
+  // Empty for one stored ahead of its turn.
+  std::map<uint32_t, std::optional<T>> parked_;
+  // Not published yet, to be stored as soon as they are.
+  std::set<uint32_t> expedited_;
 };
 
 }  // namespace gpu

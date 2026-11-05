@@ -138,8 +138,13 @@ class A64Emitter : public Xbyak_aarch64::CodeGenerator {
                                     const GuestFunction* function);
   void CallNative(void* fn);
   void CallNativeSafe(void* fn);
-  // Loads the host address for the guest address in w16 into x9.
-  void EmitDynamicCallLookup(bool tail);
+  // Loads the host address for the guest address in w16 into x9. A direct bl,
+  // |direct| without |tail|, takes any entry. Other lookups take Any entries
+  // and check a return site's for a live frame.
+  void EmitDynamicCallLookup(bool tail, bool direct = false);
+  // Jumps to the dynamic blr target in x9 on the caller's frame, or falls
+  // through when the records don't allow that.
+  void EmitDropCallingFrame();
   void SetReturnAddress(uint64_t value);
 
   // Backend context register = x19.
@@ -381,6 +386,10 @@ class A64Emitter : public Xbyak_aarch64::CodeGenerator {
   void set_physical_remap_bound_valid() { physical_remap_bound_valid_ = true; }
   void DropPhysicalRemapBound() { physical_remap_bound_valid_ = false; }
 
+  // Whether this function translates guest addresses through the context's
+  // tables rather than the membase. Decided when the function is emitted.
+  bool guest_tlb() const { return guest_tlb_; }
+
   // Get or create a xbyak_aarch64 label for a HIR label ID.
   Xbyak_aarch64::Label& GetLabel(uint32_t label_id);
 
@@ -410,6 +419,7 @@ class A64Emitter : public Xbyak_aarch64::CodeGenerator {
   XexModule* guest_module_ = nullptr;
   uint64_t feature_flags_ = 0;
   uint32_t current_guest_function_ = 0;
+  bool guest_tlb_ = false;
 
   Xbyak_aarch64::Label* epilog_label_ = nullptr;
 

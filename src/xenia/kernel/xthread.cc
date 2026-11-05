@@ -61,8 +61,11 @@ XThread::XThread(KernelState* kernel_state, uint32_t stack_size,
                  uint32_t xapi_thread_startup, uint32_t start_address,
                  uint32_t start_context, uint32_t creation_flags,
                  bool guest_thread, bool main_thread, uint32_t guest_process)
-    // The main thread is the loader's, so its handle is not the title's.
-    : XObject(kernel_state, kObjectType, !guest_thread || main_thread),
+    // Neither the loader's main thread nor a thread created for its KTHREAD
+    // pointer takes a title handle.
+    : XObject(kernel_state, kObjectType,
+              !guest_thread || main_thread ||
+                  (creation_flags & xboxkrnl::ReturnKThreadPtr)),
       thread_id_(++next_xthread_id_),
       guest_thread_(guest_thread),
       main_thread_(main_thread) {
@@ -825,8 +828,6 @@ void XThread::Reenter(uint32_t address) {
   // Called when the game switches fiber stacks (e.g., via
   // KeSetCurrentStackPointers in games like Forza Horizon 2).
   // Must unwind through all frames between here and Execute().
-  // No user APC routine frame survives the unwind.
-  user_apc_depth_ = 0;
 #if !XE_PLATFORM_WIN32
   // Throw a C++ exception that unwinds through JIT frames (using DWARF
   // .eh_frame info) and host frames (using compiler-generated DWARF),

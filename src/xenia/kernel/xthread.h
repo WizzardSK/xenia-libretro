@@ -473,11 +473,6 @@ class XThread : public XObject, public cpu::Thread {
   // APC_LEVEL, outside a critical region and outside another kernel APC.
   bool HasDeliverableKernelApc();
 
-  // True while a user APC routine runs on this thread.
-  bool in_user_apc() const { return user_apc_depth_ != 0; }
-  void EnterUserApc() { ++user_apc_depth_; }
-  void LeaveUserApc() { --user_apc_depth_; }
-
   int32_t priority() const { return priority_; }
   int32_t QueryPriority();
   // KeQueryBasePriorityThread: the base priority as a signed increment relative
@@ -805,8 +800,6 @@ class XThread : public XObject, public cpu::Thread {
   bool guest_thread_ = false;
   bool main_thread_ = false;  // Entry-point thread
   bool running_ = false;
-  // Nested, as a routine can itself wait alertably.
-  uint32_t user_apc_depth_ = 0;
 
   int32_t priority_ = 0;       // current effective priority (may be decayed)
   int32_t base_priority_ = 0;  // priority floor — decay never goes below this

@@ -9,7 +9,11 @@
 
 #include "xenia/kernel/xam/app_manager.h"
 
+#include <algorithm>
+#include <cstring>
+
 #include "xenia/kernel/kernel_state.h"
+#include "xenia/kernel/util/shim_utils.h"
 #include "xenia/kernel/xam/apps/messenger_app.h"
 #include "xenia/kernel/xam/apps/xam_app.h"
 #include "xenia/kernel/xam/apps/xgi_app.h"
@@ -51,12 +55,51 @@ X_HRESULT AppManager::DispatchMessageSync(uint32_t app_id, uint32_t message,
 
 X_HRESULT AppManager::DispatchMessageAsync(uint32_t app_id, uint32_t message,
                                            uint32_t buffer_ptr,
-                                           uint32_t buffer_length) {
+                                           uint32_t buffer_length,
+                                           uint32_t overlapped_ptr) {
   const auto& it = app_lookup_.find(app_id);
   if (it == app_lookup_.end()) {
     return X_E_NOTFOUND;
   }
-  return it->second->DispatchMessageSync(message, buffer_ptr, buffer_length);
+  App* app = it->second;
+  if (!overlapped_ptr) {
+    return app->DispatchMessageSync(message, buffer_ptr, buffer_length);
+  }
+
+  // A title can depend on the request staying pending for a while after this
+  // returns: one registers its in-game message handler only in a frame that
+  // sees the session it hosts still being created. The delay before deferred
+  // work runs provides that. The caller's buffer may be gone by then.
+  // TODO(has207): Give XMsg requests their own worker. The kernel dispatch
+  // thread also runs DPCs and XAM dialogs, which hold it until they close.
+  Memory* memory = kernel_memory();
+  uint32_t copy_ptr = 0;
+  if (buffer_ptr) {
+    // A zero-length request still gets a valid pointer.
+    copy_ptr = memory->SystemHeapAlloc(std::max(buffer_length, 1u));
+    if (!copy_ptr) {
+      return X_E_FAIL;
+    }
+    std::memcpy(memory->TranslateVirtual(copy_ptr),
+                memory->TranslateVirtual(buffer_ptr), buffer_length);
+  }
+  kernel_state()->CompleteOverlappedDeferredEx(
+      [app, message, copy_ptr, buffer_length](uint32_t& extended_error,
+                                              uint32_t& length) -> X_RESULT {
+        const X_HRESULT result =
+            app->DispatchMessageSync(message, copy_ptr, buffer_length);
+        extended_error = result;
+        // Some titles take a nonzero length as failure.
+        length = result ? 0xFFFFFFFF : 0;
+        return result;
+      },
+      overlapped_ptr, nullptr,
+      [memory, copy_ptr]() {
+        if (copy_ptr) {
+          memory->SystemHeapFree(copy_ptr);
+        }
+      });
+  return X_ERROR_IO_PENDING;
 }
 
 }  // namespace xam

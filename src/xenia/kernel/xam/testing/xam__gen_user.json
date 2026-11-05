@@ -1,0 +1,2170 @@
+{
+ "corpus": "user",
+ "source": "RGH Jasper, kernel and xam 2.0.17559, 2026-10-24",
+ "steps": [
+  {
+   "scenario": "identity",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "r3": "0000000000000000",
+   "capture": {
+    "xuid": "<X0>"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "identity",
+   "name": "XamUserGetName",
+   "export": "XamUserGetName",
+   "r3": "0000000000000000",
+   "capture": {
+    "gamertag": "<NAME0>00<fill>"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "gamertag",
+     "offset": 8
+    },
+    {
+     "value": 16
+    }
+   ]
+  },
+  {
+   "scenario": "signin info",
+   "name": "user 0x1",
+   "export": "XamUserGetSigninInfo",
+   "r3": "FFFFFFFF80070525",
+   "capture": {
+    "info": "0000000000000000000000000000000000000000000000fe00000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "info",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "signin info",
+   "name": "user 0x4",
+   "export": "XamUserGetSigninInfo",
+   "r3": "FFFFFFFF80070057",
+   "capture": {
+    "info": "0000000000000000000000000000000000000000000000fe00000000000000000000000000000000"
+   },
+   "args": [
+    {
+     "value": 4
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "info",
+     "offset": 40
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction flags",
+   "name": "user 0x0",
+   "export": "XamUserContentRestrictionGetFlags",
+   "r3": "00000000000004DD",
+   "capture": {
+    "flags": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "flags",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction flags",
+   "name": "user 0x1",
+   "export": "XamUserContentRestrictionGetFlags",
+   "r3": "0000000000000525",
+   "capture": {
+    "flags": "00000000"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "pointer": "flags",
+     "offset": 8
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction flags",
+   "name": "user 0x4",
+   "export": "XamUserContentRestrictionGetFlags",
+   "r3": "0000000000000057",
+   "capture": {
+    "flags": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 4
+    },
+    {
+     "pointer": "flags",
+     "offset": 16
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction flags",
+   "name": "user 0xff",
+   "export": "XamUserContentRestrictionGetFlags",
+   "r3": "00000000000004DD",
+   "capture": {
+    "flags": "00000000"
+   },
+   "args": [
+    {
+     "value": 255
+    },
+    {
+     "pointer": "flags",
+     "offset": 24
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x0 type 0",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000490",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "rating",
+     "offset": 0
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 8
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x0 type 1",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000490",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "rating",
+     "offset": 16
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 24
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x0 type 2",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000490",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 2
+    },
+    {
+     "pointer": "rating",
+     "offset": 32
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 40
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x0 type 3",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000057",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "pointer": "rating",
+     "offset": 48
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 56
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x0 type 4",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000490",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "rating",
+     "offset": 64
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 72
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x0 type 5",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000490",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 5
+    },
+    {
+     "pointer": "rating",
+     "offset": 80
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 88
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x1 type 0",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000490",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "rating",
+     "offset": 96
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 104
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x1 type 1",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000490",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "rating",
+     "offset": 112
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 120
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x1 type 2",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000490",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 2
+    },
+    {
+     "pointer": "rating",
+     "offset": 128
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 136
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x1 type 3",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000057",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 3
+    },
+    {
+     "pointer": "rating",
+     "offset": 144
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 152
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x1 type 4",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000490",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "rating",
+     "offset": 160
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 168
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x1 type 5",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000490",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 5
+    },
+    {
+     "pointer": "rating",
+     "offset": 176
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 184
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x4 type 0",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000057",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 4
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "rating",
+     "offset": 192
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 200
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x4 type 1",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000057",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 4
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "rating",
+     "offset": 208
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 216
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x4 type 2",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000057",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 4
+    },
+    {
+     "value": 2
+    },
+    {
+     "pointer": "rating",
+     "offset": 224
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 232
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x4 type 3",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000057",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 4
+    },
+    {
+     "value": 3
+    },
+    {
+     "pointer": "rating",
+     "offset": 240
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 248
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x4 type 4",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000057",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 4
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "rating",
+     "offset": 256
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 264
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0x4 type 5",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000057",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 4
+    },
+    {
+     "value": 5
+    },
+    {
+     "pointer": "rating",
+     "offset": 272
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 280
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0xff type 0",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000490",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 255
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "rating",
+     "offset": 288
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 296
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0xff type 1",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000490",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 255
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "rating",
+     "offset": 304
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 312
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0xff type 2",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000490",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 255
+    },
+    {
+     "value": 2
+    },
+    {
+     "pointer": "rating",
+     "offset": 320
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 328
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0xff type 3",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000057",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 255
+    },
+    {
+     "value": 3
+    },
+    {
+     "pointer": "rating",
+     "offset": 336
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 344
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0xff type 4",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000490",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 255
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "rating",
+     "offset": 352
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 360
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction rating",
+   "name": "user 0xff type 5",
+   "export": "XamUserContentRestrictionGetRating",
+   "r3": "0000000000000490",
+   "capture": {
+    "rating": "cdcdcdcd",
+    "descriptors": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 255
+    },
+    {
+     "value": 5
+    },
+    {
+     "pointer": "rating",
+     "offset": 368
+    },
+    {
+     "pointer": "descriptors",
+     "offset": 376
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction check access",
+   "name": "type 0",
+   "export": "XamUserContentRestrictionCheckAccess",
+   "r3": "0000000000000000",
+   "capture": {
+    "access": "00000001"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "access",
+     "offset": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction check access",
+   "name": "type 0 overlapped",
+   "export": "XamUserContentRestrictionCheckAccess",
+   "r3": "0000000000000000",
+   "completed": true,
+   "capture": {
+    "access": "00000001",
+    "overlapped": "cdcdcdcdcdcdcdcd00000000000000000000000000000000cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "access",
+     "offset": 8
+    },
+    {
+     "pointer": "overlapped",
+     "offset": 16
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction check access",
+   "name": "type 1",
+   "export": "XamUserContentRestrictionCheckAccess",
+   "r3": "0000000000000000",
+   "capture": {
+    "access": "00000001"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "access",
+     "offset": 48
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction check access",
+   "name": "type 1 overlapped",
+   "export": "XamUserContentRestrictionCheckAccess",
+   "r3": "0000000000000000",
+   "completed": true,
+   "capture": {
+    "access": "00000001",
+    "overlapped": "cdcdcdcdcdcdcdcd00000000000000000000000000000000cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "access",
+     "offset": 56
+    },
+    {
+     "pointer": "overlapped",
+     "offset": 64
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction check access",
+   "name": "mode 1 overlapped",
+   "export": "XamUserContentRestrictionCheckAccess",
+   "r3": "0000000000000000",
+   "completed": true,
+   "capture": {
+    "access": "00000001",
+    "overlapped": "cdcdcdcdcdcdcdcd00000000000000000000000000000000cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "access",
+     "offset": 96
+    },
+    {
+     "pointer": "overlapped",
+     "offset": 104
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction check access",
+   "name": "mode 2 overlapped",
+   "export": "XamUserContentRestrictionCheckAccess",
+   "r3": "0000000000000000",
+   "completed": true,
+   "capture": {
+    "access": "00000001",
+    "overlapped": "cdcdcdcdcdcdcdcd00000000000000000000000000000000cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 2
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "access",
+     "offset": 136
+    },
+    {
+     "pointer": "overlapped",
+     "offset": 144
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction check access",
+   "name": "mode 3 overlapped",
+   "export": "XamUserContentRestrictionCheckAccess",
+   "r3": "0000000000000000",
+   "completed": true,
+   "capture": {
+    "access": "00000001",
+    "overlapped": "cdcdcdcdcdcdcdcd00000000000000000000000000000000cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "access",
+     "offset": 176
+    },
+    {
+     "pointer": "overlapped",
+     "offset": 184
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction check access",
+   "name": "mode 4 overlapped",
+   "export": "XamUserContentRestrictionCheckAccess",
+   "r3": "0000000000000057",
+   "completed": true,
+   "capture": {
+    "access": "cdcdcdcd",
+    "overlapped": "cdcdcdcdcdcdcdcd00000000000000000000000000000000cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "access",
+     "offset": 216
+    },
+    {
+     "pointer": "overlapped",
+     "offset": 224
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction check access",
+   "name": "user 0x4",
+   "export": "XamUserContentRestrictionCheckAccess",
+   "r3": "0000000000000057",
+   "capture": {
+    "access": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 4
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "access",
+     "offset": 256
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction check access",
+   "name": "user 0xff",
+   "export": "XamUserContentRestrictionCheckAccess",
+   "r3": "0000000000000000",
+   "capture": {
+    "access": "00000001"
+   },
+   "args": [
+    {
+     "value": 255
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "access",
+     "offset": 264
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction check access",
+   "name": "user 0x0 type 3",
+   "export": "XamUserContentRestrictionCheckAccess",
+   "r3": "0000000000000057",
+   "capture": {
+    "access": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 7
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "access",
+     "offset": 272
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction check access",
+   "name": "user 0x1 type 3",
+   "export": "XamUserContentRestrictionCheckAccess",
+   "r3": "0000000000000057",
+   "capture": {
+    "access": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 7
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "access",
+     "offset": 280
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "content restriction check access",
+   "name": "null access",
+   "export": "XamUserContentRestrictionCheckAccess",
+   "r3": "0000000000000057",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "read profile settings",
+   "name": "own xuid",
+   "export": "XamUserGetXUID",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "xuids",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "read profile settings",
+   "name": "1 xuids buffer 0x300",
+   "export": "XamUserReadProfileSettings",
+   "r3": "0000000000000000",
+   "capture": {
+    "buffer size": "00000300",
+    "buffer": "00000001820300a000000001cdcdcdcd<X0>10040002cdcdcdcd01cdcdcdcdcdcdcd0000000000000000cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "xuids",
+     "offset": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "setting ids",
+     "offset": 136
+    },
+    {
+     "pointer": "buffer size",
+     "offset": 144
+    },
+    {
+     "pointer": "buffer",
+     "offset": 152
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "read profile settings",
+   "name": "0 xuids buffer 0x300",
+   "export": "XamUserReadProfileSettings",
+   "r3": "000000000000065B",
+   "capture": {
+    "buffer size": "00000300",
+    "buffer": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "xuids",
+     "offset": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "setting ids",
+     "offset": 136
+    },
+    {
+     "pointer": "buffer size",
+     "offset": 144
+    },
+    {
+     "pointer": "buffer",
+     "offset": 152
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "read profile settings",
+   "name": "17 xuids buffer 0x300",
+   "export": "XamUserReadProfileSettings",
+   "r3": "000000000000065B",
+   "capture": {
+    "buffer size": "00000300",
+    "buffer": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 17
+    },
+    {
+     "pointer": "xuids",
+     "offset": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "setting ids",
+     "offset": 136
+    },
+    {
+     "pointer": "buffer size",
+     "offset": 144
+    },
+    {
+     "pointer": "buffer",
+     "offset": 152
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "read profile settings",
+   "name": "0 xuids buffer 0x0",
+   "export": "XamUserReadProfileSettings",
+   "r3": "000000000000007A",
+   "capture": {
+    "buffer size": "00000008",
+    "buffer": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "xuids",
+     "offset": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "setting ids",
+     "offset": 136
+    },
+    {
+     "pointer": "buffer size",
+     "offset": 144
+    },
+    {
+     "pointer": "buffer",
+     "offset": 152
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "read profile settings",
+   "name": "17 xuids buffer 0x0",
+   "export": "XamUserReadProfileSettings",
+   "r3": "000000000000007A",
+   "capture": {
+    "buffer size": "000002b0",
+    "buffer": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 17
+    },
+    {
+     "pointer": "xuids",
+     "offset": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "setting ids",
+     "offset": 136
+    },
+    {
+     "pointer": "buffer size",
+     "offset": 144
+    },
+    {
+     "pointer": "buffer",
+     "offset": 152
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "subscription type",
+   "name": "user 0x4",
+   "export": "XamUserGetSubscriptionType",
+   "r3": "FFFFFFFF80070057",
+   "capture": {
+    "length": "cdcdcdcd",
+    "payment": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 4
+    },
+    {
+     "pointer": "length",
+     "offset": 0
+    },
+    {
+     "pointer": "payment",
+     "offset": 8
+    }
+   ]
+  },
+  {
+   "scenario": "subscription type",
+   "name": "user 0x1",
+   "export": "XamUserGetSubscriptionType",
+   "r3": "FFFFFFFF80070525",
+   "capture": {
+    "length": "cdcdcdcd",
+    "payment": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "pointer": "length",
+     "offset": 16
+    },
+    {
+     "pointer": "payment",
+     "offset": 24
+    }
+   ]
+  },
+  {
+   "scenario": "subscription type",
+   "name": "user 0x0 null outputs",
+   "export": "XamUserGetSubscriptionType",
+   "r3": "FFFFFFFF80070057",
+   "capture": {
+    "length": "cdcdcdcd",
+    "payment": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "subscription type",
+   "name": "user 0x0",
+   "export": "XamUserGetSubscriptionType",
+   "r3": "FFFFFFFF80070525",
+   "capture": {
+    "length": "cdcdcdcd",
+    "payment": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "length",
+     "offset": 48
+    },
+    {
+     "pointer": "payment",
+     "offset": 56
+    }
+   ]
+  },
+  {
+   "scenario": "user tenure",
+   "name": "user 0x1",
+   "export": "XamUserGetUserTenure",
+   "r3": "FFFFFFFF80070525",
+   "capture": {
+    "level": "cdcdcdcd",
+    "milestone": "cdcdcdcd",
+    "milestone date": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "pointer": "level",
+     "offset": 0
+    },
+    {
+     "pointer": "milestone",
+     "offset": 8
+    },
+    {
+     "pointer": "milestone date",
+     "offset": 16
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "user tenure",
+   "name": "user 0x4",
+   "export": "XamUserGetUserTenure",
+   "r3": "FFFFFFFF80070057",
+   "capture": {
+    "level": "cdcdcdcd",
+    "milestone": "cdcdcdcd",
+    "milestone date": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 4
+    },
+    {
+     "pointer": "level",
+     "offset": 24
+    },
+    {
+     "pointer": "milestone",
+     "offset": 32
+    },
+    {
+     "pointer": "milestone date",
+     "offset": 40
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "user tenure",
+   "name": "user 0xff",
+   "export": "XamUserGetUserTenure",
+   "r3": "FFFFFFFF80070057",
+   "capture": {
+    "level": "cdcdcdcd",
+    "milestone": "cdcdcdcd",
+    "milestone date": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 255
+    },
+    {
+     "pointer": "level",
+     "offset": 48
+    },
+    {
+     "pointer": "milestone",
+     "offset": 56
+    },
+    {
+     "pointer": "milestone date",
+     "offset": 64
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "titles played enumerator",
+   "name": "user 0x1 count 4",
+   "export": "XamUserCreateTitlesPlayedEnumerator",
+   "r3": "000000000000065B",
+   "capture": {
+    "buffer size": "000002a0",
+    "handle": "ffffffff"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "buffer size",
+     "offset": 0
+    },
+    {
+     "pointer": "handle",
+     "offset": 8
+    }
+   ]
+  },
+  {
+   "scenario": "titles played enumerator",
+   "name": "user 0x4 count 4",
+   "export": "XamUserCreateTitlesPlayedEnumerator",
+   "r3": "0000000000000057",
+   "capture": {
+    "buffer size": "cdcdcdcd",
+    "handle": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "buffer size",
+     "offset": 16
+    },
+    {
+     "pointer": "handle",
+     "offset": 24
+    }
+   ]
+  },
+  {
+   "scenario": "titles played enumerator",
+   "name": "user 0x0 count 0",
+   "export": "XamUserCreateTitlesPlayedEnumerator",
+   "r3": "0000000000000057",
+   "capture": {
+    "buffer size": "cdcdcdcd",
+    "handle": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "buffer size",
+     "offset": 32
+    },
+    {
+     "pointer": "handle",
+     "offset": 40
+    }
+   ]
+  },
+  {
+   "scenario": "gamer tile key",
+   "name": "hex",
+   "export": "XamParseGamerTileKey",
+   "r3": "0000000000000000",
+   "capture": {
+    "hex key": "04000000000000000000003282030000",
+    "title": "fffe07d1",
+    "big": "00010001",
+    "small": "00020001"
+   },
+   "args": [
+    {
+     "pointer": "hex key",
+     "offset": 56
+    },
+    {
+     "pointer": "title",
+     "offset": 72
+    },
+    {
+     "pointer": "big",
+     "offset": 80
+    },
+    {
+     "pointer": "small",
+     "offset": 88
+    }
+   ]
+  },
+  {
+   "scenario": "gamer tile key",
+   "name": "not hex",
+   "export": "XamParseGamerTileKey",
+   "r3": "0000000000000000",
+   "capture": {
+    "not hex key": "04000000000000000000003282030060",
+    "title": "00000000",
+    "big": "00000000",
+    "small": "00000000"
+   },
+   "args": [
+    {
+     "pointer": "not hex key",
+     "offset": 152
+    },
+    {
+     "pointer": "title",
+     "offset": 168
+    },
+    {
+     "pointer": "big",
+     "offset": 176
+    },
+    {
+     "pointer": "small",
+     "offset": 184
+    }
+   ]
+  },
+  {
+   "scenario": "gamer tile key",
+   "name": "partly hex",
+   "export": "XamParseGamerTileKey",
+   "r3": "0000000000000000",
+   "capture": {
+    "partly hex key": "040000000000000000000032820300c0",
+    "title": "00001234",
+    "big": "00010001",
+    "small": "00020001"
+   },
+   "args": [
+    {
+     "pointer": "partly hex key",
+     "offset": 248
+    },
+    {
+     "pointer": "title",
+     "offset": 264
+    },
+    {
+     "pointer": "big",
+     "offset": 272
+    },
+    {
+     "pointer": "small",
+     "offset": 280
+    }
+   ]
+  },
+  {
+   "scenario": "gamer tile key",
+   "name": "short",
+   "export": "XamParseGamerTileKey",
+   "r3": "0000000000000000",
+   "capture": {
+    "short key": "04000000000000000000001282030120",
+    "title": "fffe07d1",
+    "big": "00000000",
+    "small": "00000000"
+   },
+   "args": [
+    {
+     "pointer": "short key",
+     "offset": 312
+    },
+    {
+     "pointer": "title",
+     "offset": 328
+    },
+    {
+     "pointer": "big",
+     "offset": 336
+    },
+    {
+     "pointer": "small",
+     "offset": 344
+    }
+   ]
+  },
+  {
+   "scenario": "gamer tile key",
+   "name": "long",
+   "export": "XamParseGamerTileKey",
+   "r3": "0000000000000000",
+   "capture": {
+    "long key": "04000000000000000000006282030160",
+    "title": "4d5307e6",
+    "big": "4d5307e6",
+    "small": "4d5307e6"
+   },
+   "args": [
+    {
+     "pointer": "long key",
+     "offset": 472
+    },
+    {
+     "pointer": "title",
+     "offset": 488
+    },
+    {
+     "pointer": "big",
+     "offset": 496
+    },
+    {
+     "pointer": "small",
+     "offset": 504
+    }
+   ]
+  },
+  {
+   "scenario": "gamer tile key",
+   "name": "avatar",
+   "export": "XamParseGamerTileKey",
+   "r3": "0000000000000000",
+   "capture": {
+    "avatar key": "04000000000000000000003282030200",
+    "title": "fffe07d1",
+    "big": "00020000",
+    "small": "00010000"
+   },
+   "args": [
+    {
+     "pointer": "avatar key",
+     "offset": 568
+    },
+    {
+     "pointer": "title",
+     "offset": 584
+    },
+    {
+     "pointer": "big",
+     "offset": 592
+    },
+    {
+     "pointer": "small",
+     "offset": 600
+    }
+   ]
+  },
+  {
+   "scenario": "gamer tile key",
+   "name": "high half 2",
+   "export": "XamParseGamerTileKey",
+   "r3": "0000000000000000",
+   "capture": {
+    "high half 2 key": "04000000000000000000003282030260",
+    "title": "fffe07d1",
+    "big": "00020000",
+    "small": "00010000"
+   },
+   "args": [
+    {
+     "pointer": "high half 2 key",
+     "offset": 664
+    },
+    {
+     "pointer": "title",
+     "offset": 680
+    },
+    {
+     "pointer": "big",
+     "offset": 688
+    },
+    {
+     "pointer": "small",
+     "offset": 696
+    }
+   ]
+  },
+  {
+   "scenario": "gamer tile key",
+   "name": "int32",
+   "export": "XamParseGamerTileKey",
+   "r3": "0000000000000000",
+   "capture": {
+    "int32 key": "01000000000000000000000000000000",
+    "title": "fffe07d1",
+    "big": "00020000",
+    "small": "00010000"
+   },
+   "args": [
+    {
+     "pointer": "int32 key",
+     "offset": 704
+    },
+    {
+     "pointer": "title",
+     "offset": 720
+    },
+    {
+     "pointer": "big",
+     "offset": 728
+    },
+    {
+     "pointer": "small",
+     "offset": 736
+    }
+   ]
+  },
+  {
+   "scenario": "gamer tile key",
+   "name": "null string",
+   "export": "XamParseGamerTileKey",
+   "r3": "0000000000000000",
+   "capture": {
+    "null string key": "04000000000000000000000000000000",
+    "title": "fffe07d1",
+    "big": "00020000",
+    "small": "00010000"
+   },
+   "args": [
+    {
+     "pointer": "null string key",
+     "offset": 744
+    },
+    {
+     "pointer": "title",
+     "offset": 760
+    },
+    {
+     "pointer": "big",
+     "offset": 768
+    },
+    {
+     "pointer": "small",
+     "offset": 776
+    }
+   ]
+  },
+  {
+   "scenario": "write gamer tile",
+   "name": "user 0x4",
+   "export": "XamWriteGamerTile",
+   "r3": "000000000000065B",
+   "args": [
+    {
+     "value": 4
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 4294967295
+    },
+    {
+     "value": 4294967295
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "online language and country",
+   "name": "own offline xuid",
+   "export": "XamUserGetXUID",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "offline xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "online language and country",
+   "name": "own online xuid",
+   "export": "XamUserGetXUID",
+   "r3": "FFFFFFFF80070525",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 2
+    },
+    {
+     "pointer": "online xuid",
+     "offset": 8
+    }
+   ]
+  },
+  {
+   "scenario": "online language and country",
+   "name": "language offline",
+   "export": "XamUserGetOnlineLanguageFromXUID",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "variable": "offline xuid"
+    }
+   ]
+  },
+  {
+   "scenario": "online language and country",
+   "name": "country offline",
+   "export": "XamUserGetOnlineCountryFromXUID",
+   "r3": "0000000000000035",
+   "args": [
+    {
+     "variable": "offline xuid"
+    }
+   ]
+  },
+  {
+   "scenario": "online language and country",
+   "name": "language online",
+   "export": "XamUserGetOnlineLanguageFromXUID",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "variable": "online xuid"
+    }
+   ]
+  },
+  {
+   "scenario": "online language and country",
+   "name": "country online",
+   "export": "XamUserGetOnlineCountryFromXUID",
+   "r3": "0000000000000035",
+   "args": [
+    {
+     "variable": "online xuid"
+    }
+   ]
+  },
+  {
+   "scenario": "online language and country",
+   "name": "language zero",
+   "export": "XamUserGetOnlineLanguageFromXUID",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "online language and country",
+   "name": "country zero",
+   "export": "XamUserGetOnlineCountryFromXUID",
+   "r3": "0000000000000035",
+   "args": [
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "online language and country",
+   "name": "language unknown",
+   "export": "XamUserGetOnlineLanguageFromXUID",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "value": 2814749767106559
+    }
+   ]
+  },
+  {
+   "scenario": "online language and country",
+   "name": "country unknown",
+   "export": "XamUserGetOnlineCountryFromXUID",
+   "r3": "0000000000000035",
+   "args": [
+    {
+     "value": 2814749767106559
+    }
+   ]
+  }
+ ]
+}

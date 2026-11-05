@@ -25,16 +25,11 @@
 #include "xenia/cpu/export_resolver.h"
 #include "xenia/kernel/guest_scheduler.h"
 #include "xenia/kernel/kernel.h"
-#include "xenia/kernel/smc.h"
+#include "xenia/kernel/nui.h"
 #include "xenia/kernel/util/kernel_fwd.h"
 #include "xenia/kernel/util/native_list.h"
 #include "xenia/kernel/util/object_table.h"
 #include "xenia/kernel/util/xmp_volume_patch.h"
-#include "xenia/kernel/xam/achievement_manager.h"
-#include "xenia/kernel/xam/app_manager.h"
-#include "xenia/kernel/xam/content_manager.h"
-#include "xenia/kernel/xam/user_profile.h"
-#include "xenia/kernel/xam/xam_state.h"
 #include "xenia/kernel/xam/xdbf/spa_info.h"
 #include "xenia/kernel/xconfig.h"
 #include "xenia/kernel/xevent.h"
@@ -46,6 +41,16 @@ class Emulator;
 namespace cpu {
 class Processor;
 }  // namespace cpu
+namespace kernel {
+class SystemManagementController;
+namespace xam {
+class AchievementManager;
+class AppManager;
+class ContentManager;
+class XamState;
+struct XCONTENT_AGGREGATE_DATA;
+}  // namespace xam
+}  // namespace kernel
 }  // namespace xe
 
 namespace xe {
@@ -212,13 +217,11 @@ class KernelState {
 
   SystemManagementController* smc() const { return smc_.get(); }
 
-  xam::AchievementManager* achievement_manager() const {
-    return xam_state()->achievement_manager();
-  }
-  xam::AppManager* app_manager() const { return xam_state()->app_manager(); }
-  xam::ContentManager* content_manager() const {
-    return xam_state()->content_manager();
-  }
+  NUIController* nui() const { return nui_.get(); }
+
+  xam::AchievementManager* achievement_manager() const;
+  xam::AppManager* app_manager() const;
+  xam::ContentManager* content_manager() const;
 
   XmpVolumePatch* xmp_volume_patch() const { return xmp_volume_patch_.get(); }
   void InitXmpVolumePatch();
@@ -258,6 +261,8 @@ class KernelState {
   bool IsModuleLoaded(const std::string_view name);
   object_ref<XModule> GetModule(const std::string_view name,
                                 bool user_only = false);
+  // Returns the loaded XEX module whose image contains the guest address.
+  object_ref<UserModule> GetUserModuleForAddress(uint32_t address);
 
   object_ref<XThread> LaunchModule(object_ref<UserModule> module);
   object_ref<UserModule> GetExecutableModule();
@@ -294,6 +299,10 @@ class KernelState {
   // when it registered a handler, otherwise terminates the title.
   // This DOES NOT RETURN.
   void ExitToDashboard();
+  // ExitToDashboard for a title that powers off, with the host UI's power off
+  // handler.
+  // This DOES NOT RETURN.
+  void PowerOff();
 
   // Gracefully stops the dispatch thread. Call before force-terminating
   // threads to avoid corrupting the CV it's blocked on.
@@ -313,8 +322,10 @@ class KernelState {
   util::NativeList* dpc_list() { return &dpc_list_; }
 
   void CompleteOverlapped(uint32_t overlapped_ptr, X_RESULT result);
+  // The completion routine runs on thread_handle, the requester's thread.
   void CompleteOverlappedEx(uint32_t overlapped_ptr, X_RESULT result,
-                            uint32_t extended_error, uint32_t length);
+                            uint32_t extended_error, uint32_t length,
+                            X_HANDLE thread_handle);
 
   void CompleteOverlappedImmediate(uint32_t overlapped_ptr, X_RESULT result);
   void CompleteOverlappedImmediateEx(uint32_t overlapped_ptr, X_RESULT result,
@@ -429,6 +440,7 @@ class KernelState {
   std::unique_ptr<SystemManagementController> smc_;
   std::unique_ptr<XmpVolumePatch> xmp_volume_patch_;
   std::unique_ptr<XConfig> xconfig_;
+  std::unique_ptr<NUIController> nui_;
 
   KernelVersion kernel_version_;
 

@@ -48,6 +48,8 @@ struct XexVersion {
 struct XexMetadata {
   XexFormat format = XexFormat::kUnknown;
   std::string module_name;
+  // The only path the executable may load from.
+  std::string bounding_path;
 
   // From XEX_HEADER_EXECUTION_INFO
   uint32_t title_id = 0;
@@ -57,6 +59,9 @@ struct XexMetadata {
   XexVersion base_version = {};
   uint8_t disc_number = 0;
   uint8_t disc_count = 0;
+
+  // From the security info
+  uint32_t allowed_media_types = 0;
 
   // From XEX_HEADER_GAME_RATINGS
   struct {
@@ -68,6 +73,9 @@ struct XexMetadata {
     uint8_t oflc_au = 0xFF;
     uint8_t oflc_nz = 0xFF;
   } ratings;
+
+  // True for an executable no disc can hold, so one an STFS package held.
+  bool RunsFromPackageOnly() const;
 
   toml::table ToToml() const;
 };

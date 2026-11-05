@@ -212,8 +212,8 @@ class PrimitiveProcessor {
   // Also include padding for co-alignment of the source and the destination for
   // SIMD.
   static constexpr uint32_t kMinRequiredConvertedIndexBufferSize =
-      sizeof(uint32_t) * (UINT16_MAX - 2) * 3 *
-      +XE_GPU_PRIMITIVE_PROCESSOR_SIMD_SIZE;
+      sizeof(uint32_t) * (UINT16_MAX - 2) * 3 +
+      XE_GPU_PRIMITIVE_PROCESSOR_SIMD_SIZE;
 
   PrimitiveProcessor(const RegisterFile& register_file, Memory& memory,
                      TraceWriter& trace_writer, SharedMemory& shared_memory)

@@ -113,6 +113,9 @@ class SpirvBuilder : public spv::Builder {
   // Makes a constant of a float scalar or vector value_type with all
   // components set to value.
   spv::Id smearFloatConstant(float value, spv::Id value_type);
+  // The same for uint and int scalars and vectors.
+  spv::Id smearUintConstant(uint32_t value, spv::Id value_type);
+  spv::Id smearIntConstant(int32_t value, spv::Id value_type);
 
   // Helper to use for building nested control flow with if-then-else with
   // additions over SpvBuilder::If.

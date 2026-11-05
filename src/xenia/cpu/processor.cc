@@ -131,22 +131,36 @@ class DynamicCodeModule : public Module {
     return memory_->TranslateForRead(memory_->UserModeKernelAddress(address));
   }
 
- protected:
-  std::unique_ptr<Function> CreateFunction(uint32_t address) override {
-    auto function = processor_->backend()->CreateGuestFunction(this, address);
-    // Dynamic code has no .pdata so only the swept range bounds the scan. It's
-    // used only where the range ends on an unconditional branch. A range that
-    // covers part of a function, like a patch or an old sweep of reused
-    // memory, rarely does and doesn't cut the function off. A branch that
-    // links counts too: XeFu ends its blocks with a bl that never returns.
-    const uint32_t end = function ? processor_->SweptCodeEnd(address) : 0;
+  // A call is taken to return unless the code after it is a known entry. XeFu
+  // packs the stubs of x86 CALLs back to back, each ending in a bl to its
+  // dispatcher that never returns, and the next stub's entry is declared by
+  // the call to it. An entry left from older code there only splits the
+  // function, since the code after the call still runs next.
+  bool EndsBeforeCallReturn(uint32_t address) override {
+    return LookupSymbol(address, false) != nullptr;
+  }
+
+  // Dynamic code has no .pdata so only the swept range bounds the scan. It's
+  // used only where the range ends on an unconditional branch. A range that
+  // covers part of a function, like a patch or an old sweep of reused memory,
+  // rarely does and doesn't cut the function off. A branch that links counts
+  // too: XeFu ends its blocks with a bl that never returns. Taken when the
+  // function is compiled, since a call can declare it before its code is
+  // written.
+  void BoundFunction(GuestFunction* function) {
+    const uint32_t address = function->address();
+    const uint32_t end = processor_->SweptCodeEnd(address);
     const uint32_t last = ((end + 3) & ~uint32_t(3)) - 4;
     if (end && last > address && ContainsAddress(last) &&
         IsUnconditionalBranch(
             xe::load_and_swap<uint32_t>(TranslateCode(last)))) {
       function->set_end_address(last);
     }
-    return function;
+  }
+
+ protected:
+  std::unique_ptr<Function> CreateFunction(uint32_t address) override {
+    return processor_->backend()->CreateGuestFunction(this, address);
   }
 
  private:
@@ -440,13 +454,14 @@ bool Processor::AddModule(std::unique_ptr<Module> module) {
   return true;
 }
 
-void Processor::RemoveModule(const std::string_view name) {
+void Processor::RemoveModule(const Module* module) {
   auto global_lock = global_critical_region_.Acquire();
 
+  // A title update has the same name as the module it patches.
   auto itr = std::ranges::find_if(
       std::as_const(modules_),
-      [name](std::unique_ptr<xe::cpu::Module> const& module) {
-        return module->name() == name;
+      [module](std::unique_ptr<xe::cpu::Module> const& entry) {
+        return entry.get() == module;
       });
 
   if (itr != modules_.cend()) {
@@ -720,7 +735,7 @@ Function* Processor::ResolveFunction(uint32_t address) {
     // read the old code, so it runs again. Code of a loaded module doesn't,
     // since its loader set up some of its symbols and a new symbol would lack
     // that.
-    const bool dynamic = module && module == dynamic_code_module_.get();
+    const bool dynamic = IsDynamicCode(module);
     uint64_t sweep_count = 0;
     if (dynamic) {
       auto global_lock = global_critical_region_.Acquire();
@@ -916,6 +931,10 @@ bool Processor::DemandFunction(Function* function) {
   if (symbol_status == Symbol::Status::kNew) {
     // Symbol is undefined, so define now.
     assert_true(function->is_guest());
+    if (IsDynamicCode(module)) {
+      static_cast<DynamicCodeModule*>(module)->BoundFunction(
+          static_cast<GuestFunction*>(function));
+    }
     if (!frontend_->DefineFunction(static_cast<GuestFunction*>(function),
                                    debug_info_flags_)) {
       function->set_status(Symbol::Status::kFailed);

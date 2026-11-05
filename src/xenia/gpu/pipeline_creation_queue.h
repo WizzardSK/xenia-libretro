@@ -10,13 +10,16 @@
 #ifndef XENIA_GPU_PIPELINE_CREATION_QUEUE_H_
 #define XENIA_GPU_PIPELINE_CREATION_QUEUE_H_
 
+#include <algorithm>
+#include <atomic>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <functional>
+#include <list>
 #include <memory>
 #include <mutex>
-#include <queue>
 #include <string>
 #include <utility>
 #include <vector>
@@ -38,22 +41,46 @@ class PipelineCreationQueue {
  public:
   using Publication = std::pair<TRequest, THandle>;
   // Creates one pipeline, returning a null handle if it failed. Runs on a
-  // creation thread, with that thread's context.
+  // creation thread with that thread's context, or with its own on the thread
+  // expediting the request or finishing a warm-up.
   using Creator = std::function<THandle(const TRequest&, TThreadContext*)>;
   // Swaps a created pipeline - or a failure, a null handle - into its entry.
-  // Called in queue order, under the publish order's lock, never the queue's.
+  // Called in queue order unless expedited, under the publish order's lock
+  // for ordered requests, never the queue's.
   using Store = std::function<void(const TRequest&, THandle)>;
   // The state one creation thread builds and owns for its lifetime.
   using ContextFactory = std::function<std::unique_ptr<TThreadContext>()>;
+  // Told true when the queue or a BusyScope turns busy and false once all are
+  // idle again.
+  // Called under the queue's lock, so the reports arrive in order.
+  using BusyChanged = std::function<void(bool)>;
 
-  // Prepares the queue. Call it even with no creation threads - the storage
-  // warm-up may start some later.
+  // Reports pipeline work done outside the queue, such as a pipeline created on
+  // the draw thread, through BusyChanged while it lasts. FinishWarmUp ignores
+  // it.
+  class BusyScope {
+   public:
+    explicit BusyScope(PipelineCreationQueue& owner) : owner_(owner) {
+      owner_.AddOutsideWork(1);
+    }
+    ~BusyScope() { owner_.AddOutsideWork(-1); }
+    BusyScope(const BusyScope&) = delete;
+    BusyScope& operator=(const BusyScope&) = delete;
+
+   private:
+    PipelineCreationQueue& owner_;
+  };
+
+  // Prepares the queue. Call it even with no creation threads, as the storage
+  // warm-up goes through it all the same.
   void Initialize(const char* thread_name, Creator creator, Store store,
-                  ContextFactory context_factory) {
+                  ContextFactory context_factory, BusyChanged busy_changed) {
     thread_name_ = thread_name;
     creator_ = std::move(creator);
     store_ = std::move(store);
     context_factory_ = std::move(context_factory);
+    busy_changed_ = std::move(busy_changed);
+    busy_reported_ = false;
     threads_busy_ = 0;
     completion_set_event_ = false;
     threads_shutdown_from_ = SIZE_MAX;
@@ -65,19 +92,29 @@ class PipelineCreationQueue {
   // back for publishing, for the backend to destroy - nothing will publish it
   // now.
   std::vector<Publication> Shutdown() {
+    {
+      // Silenced first, so threads finishing don't report into the teardown.
+      std::lock_guard<std::mutex> lock(lock_);
+      busy_changed_ = nullptr;
+    }
     SetThreadCount(0);
     completion_event_.reset();
+    std::vector<Publication> held;
+    for (Created& created : publish_order_.Reset()) {
+      held.emplace_back(std::move(created.taken->second), created.handle);
+    }
     {
       std::lock_guard<std::mutex> lock(lock_);
-      queue_ = {};
+      queue_.clear();
+      taken_.clear();
       completion_callback_ = nullptr;
+      awaiting_completion_.store(false, std::memory_order_release);
       completion_set_event_ = false;
     }
-    return publish_order_.Reset();
+    return held;
   }
 
   bool has_threads() const { return !threads_.empty(); }
-  size_t thread_count() const { return threads_.size(); }
 
   // Grows or shrinks the pool. Shrink with the queue drained - a thread only
   // leaves between requests, so anything still queued would be stranded.
@@ -118,17 +155,70 @@ class PipelineCreationQueue {
     PushRequest(std::move(request), false);
   }
 
-  // Whether anything is queued or being created.
-  bool IsBusy() {
-    if (threads_.empty()) {
-      return false;
-    }
-    std::lock_guard<std::mutex> lock(lock_);
-    return IsBusyLocked();
-  }
-
   // Wakes a creation thread without waiting for it.
   void Notify() { cond_.notify_one(); }
+
+  // Finishes a storage warm-up queued with PushUnordered. When blocking, or
+  // with no creation threads to leave it to, it's created here with |context|.
+  // Otherwise |completion_callback| is taken to be invoked once everything
+  // queued is created, and left with the caller if that already is.
+  void FinishWarmUp(bool blocking, TThreadContext* context,
+                    std::function<void()>& completion_callback) {
+    if (blocking || threads_.empty()) {
+      DrainOnCallingThread(context);
+      AwaitCompletion();
+      return;
+    }
+    TakeCompletionCallback(completion_callback);
+  }
+
+  // Whether FinishWarmUp is still waiting for everything queued to be created.
+  bool IsAwaitingCompletion() const {
+    return awaiting_completion_.load(std::memory_order_acquire);
+  }
+
+  // Stores the request |match| picks without waiting for anything queued
+  // before it, for a draw that can't use a stand-in. It's created here with
+  // |context| if no creation thread has taken it yet. Returns once it's
+  // stored.
+  template <typename Match>
+  void Expedite(Match match, TThreadContext* context) {
+    auto matches = [&](const std::pair<uint32_t, TRequest>& entry) {
+      return match(entry.second);
+    };
+    std::unique_lock<std::mutex> lock(lock_);
+    auto queued = std::find_if(queue_.begin(), queue_.end(), matches);
+    if (queued != queue_.end()) {
+      auto taken = taken_.insert(taken_.end(), std::move(*queued));
+      queue_.erase(queued);
+      ++threads_busy_;
+      lock.unlock();
+      publish_order_.Expedite(taken->first, StoreCreated());
+      Create(taken, context);
+      return;
+    }
+    auto taken = std::find_if(taken_.begin(), taken_.end(), matches);
+    if (taken == taken_.end()) {
+      return;
+    }
+    uint32_t sequence = taken->first;
+    lock.unlock();
+    publish_order_.Expedite(sequence, StoreCreated());
+    lock.lock();
+    stored_cond_.wait(lock, [&]() {
+      return std::none_of(taken_.begin(), taken_.end(), matches);
+    });
+  }
+
+ private:
+  using TakenList = std::list<std::pair<uint32_t, TRequest>>;
+  // What the publish order carries for one created request.
+  struct Created {
+    typename TakenList::iterator taken;
+    THandle handle;
+  };
+
+  bool IsBusyLocked() const { return !queue_.empty() || threads_busy_ != 0; }
 
   // Blocks until everything queued has been created.
   void AwaitCompletion() {
@@ -159,33 +249,48 @@ class PipelineCreationQueue {
     }
     completion_callback_ = std::move(callback);
     callback = nullptr;
+    awaiting_completion_.store(true, std::memory_order_release);
   }
 
   // Creates whatever is queued on the calling thread, with a context of its
-  // own. For the storage warm-up, which has a thread to spare.
+  // own.
   void DrainOnCallingThread(TThreadContext* context) {
     while (CreateOneQueued(context)) {
     }
   }
 
- private:
-  bool IsBusyLocked() const { return !queue_.empty() || threads_busy_ != 0; }
+  void AddOutsideWork(int delta) {
+    std::lock_guard<std::mutex> lock(lock_);
+    outside_work_ += delta;
+    ReportBusyLocked();
+  }
+
+  void ReportBusyLocked() {
+    bool busy = IsBusyLocked() || outside_work_ != 0;
+    if (busy_reported_ == busy) {
+      return;
+    }
+    busy_reported_ = busy;
+    if (busy_changed_) {
+      busy_changed_(busy);
+    }
+  }
 
   void PushRequest(TRequest request, bool ordered) {
     {
       std::lock_guard<std::mutex> lock(lock_);
       // Numbered under the lock that orders the push, so the publish order
       // matches the queue order.
-      queue_.emplace(ordered ? publish_order_.NextSequence() : 0,
-                     std::move(request));
+      queue_.emplace_back(ordered ? publish_order_.NextSequence() : 0,
+                          std::move(request));
+      ReportBusyLocked();
     }
     cond_.notify_one();
   }
 
   // Creates the next queued pipeline, or returns false with nothing queued.
   bool CreateOneQueued(TThreadContext* context) {
-    TRequest request;
-    uint32_t sequence;
+    typename TakenList::iterator taken;
     {
       std::lock_guard<std::mutex> lock(lock_);
       if (queue_.empty()) {
@@ -194,22 +299,36 @@ class PipelineCreationQueue {
       // Busy until the pipeline is created rather than just dequeued: other
       // threads must be able to take requests, but must not report completion
       // while this one is still building.
-      sequence = queue_.front().first;
-      request = std::move(queue_.front().second);
-      queue_.pop();
+      taken = taken_.insert(taken_.end(), std::move(queue_.front()));
+      queue_.pop_front();
       ++threads_busy_;
     }
-    THandle handle = creator_(request, context);
+    Create(taken, context);
+    return true;
+  }
+
+  // Creates and publishes a request taken off the queue, counted in
+  // threads_busy_.
+  void Create(typename TakenList::iterator taken, TThreadContext* context) {
+    THandle handle = creator_(taken->second, context);
     // Published even when creation failed: the order has to advance past a
     // failure, or everything queued after it waits on it forever.
-    publish_order_.Publish(sequence, {std::move(request), handle},
-                           [this](Publication& publication) {
-                             store_(publication.first, publication.second);
-                           });
+    publish_order_.Publish(taken->first, {taken, handle}, StoreCreated());
     std::unique_lock<std::mutex> lock(lock_);
     --threads_busy_;
+    ReportBusyLocked();
     SignalCompletionLocked(lock);
-    return true;
+  }
+
+  // Stores a created request and stops tracking it, under the publish order's
+  // lock for ordered requests.
+  auto StoreCreated() {
+    return [this](Created& created) {
+      store_(created.taken->second, created.handle);
+      std::lock_guard<std::mutex> lock(lock_);
+      taken_.erase(created.taken);
+      stored_cond_.notify_all();
+    };
   }
 
   // Called by an idle thread with the lock held, which it drops around the
@@ -223,6 +342,7 @@ class PipelineCreationQueue {
       completion_set_event_ = false;
       completion_event_->Set();
     }
+    awaiting_completion_.store(false, std::memory_order_release);
     if (completion_callback_) {
       // Non-blocking mode.
       auto callback = std::move(completion_callback_);
@@ -259,14 +379,23 @@ class PipelineCreationQueue {
   Creator creator_;
   Store store_;
   ContextFactory context_factory_;
+  // All guarded by lock_.
+  BusyChanged busy_changed_;
+  bool busy_reported_ = false;
+  // Open BusyScopes.
+  int outside_work_ = 0;
 
   std::mutex lock_;
   std::condition_variable cond_;
   // Pipelines are never evicted - games have a finite set that should all stay
   // cached - so this holds nothing but requests waiting for a thread. FIFO, so
-  // they build in the order the game first drew them.
-  std::queue<std::pair<uint32_t, TRequest>> queue_;
-  PipelinePublishOrder<Publication> publish_order_;
+  // they build in the order the game first drew them, unless one is expedited.
+  std::deque<std::pair<uint32_t, TRequest>> queue_;
+  // Requests taken off the queue and not stored yet. Guarded by lock_.
+  TakenList taken_;
+  // Notified when one of taken_ is stored.
+  std::condition_variable stored_cond_;
+  PipelinePublishOrder<Created> publish_order_;
   // Threads that have taken a request but not finished creating it. Guarded by
   // lock_.
   size_t threads_busy_ = 0;
@@ -276,6 +405,8 @@ class PipelineCreationQueue {
   bool completion_set_event_ = false;
   // Invoked instead when the wait is non-blocking. Guarded by lock_.
   std::function<void()> completion_callback_;
+  // Set while a non-blocking wait is pending, written under lock_.
+  std::atomic<bool> awaiting_completion_{false};
   // Threads with this index or above leave as soon as they are idle. Guarded
   // by lock_, notify_all cond_ when set.
   size_t threads_shutdown_from_ = SIZE_MAX;

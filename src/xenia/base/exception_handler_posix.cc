@@ -39,6 +39,24 @@ constexpr size_t kMaxHandlerCount = 8;
 // Executed in order.
 std::pair<ExceptionHandler::Handler, void*> handlers_[kMaxHandlerCount];
 
+#if XE_ARCH_ARM64
+// Restoring every register leaves none to branch through, so the resume traps
+// and the signal frame carries the context back instead.
+static thread_local HostThreadContext resume_context;
+// Set while the trap below is in flight, so no other udf replays the context.
+static thread_local bool resume_pending = false;
+// udf #0x5245, which only ResumeHostContext executes. A debugger can pass
+// SIGILL on, unlike a brk.
+constexpr uint32_t kResumeHostContextTrap = 0x5245;
+
+XE_NOINLINE void ResumeHostContext(const HostThreadContext* context) {
+  resume_context = *context;
+  resume_pending = true;
+  __asm__ volatile(".inst %c0" ::"i"(kResumeHostContextTrap) : "memory");
+  __builtin_unreachable();
+}
+#endif  // XE_ARCH_ARM64
+
 static void ExceptionHandlerCallback(int signal_number, siginfo_t* signal_info,
                                      void* signal_context) {
   // The faulting thread may hold the guest's FP control. Returning from the
@@ -178,6 +196,17 @@ static void ExceptionHandlerCallback(int signal_number, siginfo_t* signal_info,
 #endif  // XE_PLATFORM_MAC
 #endif  // XE_ARCH
 
+#if XE_ARCH_ARM64
+  // SIGILL was raised by an instruction that was fetched, so pc is readable.
+  const bool resume_trap = signal_number == SIGILL &&
+                           *reinterpret_cast<const uint32_t*>(
+                               thread_context.pc) == kResumeHostContextTrap &&
+                           resume_pending;
+  if (resume_trap) {
+    resume_pending = false;
+  }
+#endif  // XE_ARCH_ARM64
+
   Exception ex;
   switch (signal_number) {
     case SIGTRAP:
@@ -245,10 +274,13 @@ static void ExceptionHandlerCallback(int signal_number, siginfo_t* signal_info,
       // For a Data Abort (EC - ESR_EL1 bits 31:26 - 0b100100 from a lower
       // Exception Level, 0b100101 without a change in the Exception Level),
       // bit 6 is 0 for reading from a memory location, 1 for writing to a
-      // memory location.
+      // memory location. Bit 8 marks cache maintenance, which sets bit 6 but
+      // needs only read access. DC ZVA leaves bit 8 clear.
       if (mcontext_esr && ((mcontext_esr->esr >> 26) & 0b111110) == 0b100100) {
+        constexpr uint64_t kEsrWnR = UINT64_C(1) << 6;
+        constexpr uint64_t kEsrCm = UINT64_C(1) << 8;
         access_violation_operation =
-            (mcontext_esr->esr & (UINT64_C(1) << 6))
+            (mcontext_esr->esr & (kEsrWnR | kEsrCm)) == kEsrWnR
                 ? Exception::AccessViolationOperation::kWrite
                 : Exception::AccessViolationOperation::kRead;
       } else if (mcontext.pc ==
@@ -295,139 +327,155 @@ static void ExceptionHandlerCallback(int signal_number, siginfo_t* signal_info,
       assert_unhandled_case(signal_number);
   }
 
-  for (size_t i = 0; i < xe::countof(handlers_) && handlers_[i].first; ++i) {
-    if (handlers_[i].first(&ex, handlers_[i].second)) {
-      // Exception handled.
+  bool handled = false;
+#if XE_ARCH_ARM64
+  if (resume_trap) {
+    for (uint32_t i = 0; i < 31; ++i) {
+      ex.ModifyXRegister(i) = resume_context.x[i];
+    }
+    for (uint32_t i = 0; i < 32; ++i) {
+      ex.ModifyVRegister(i) = resume_context.v[i];
+    }
+    thread_context.sp = resume_context.sp;
+    thread_context.pc = resume_context.pc;
+    thread_context.pstate = resume_context.pstate;
+    thread_context.fpsr = resume_context.fpsr;
+    thread_context.fpcr = resume_context.fpcr;
+    handled = true;
+  }
+#endif  // XE_ARCH_ARM64
+  for (size_t i = 0;
+       !handled && i < xe::countof(handlers_) && handlers_[i].first; ++i) {
+    handled = handlers_[i].first(&ex, handlers_[i].second);
+  }
+  if (handled) {
 #if XE_ARCH_AMD64
-      uint32_t modified_register_index;
+    uint32_t modified_register_index;
 #if XE_PLATFORM_MAC
-      mcontext->__ss.__rip = thread_context.rip;
-      mcontext->__ss.__rflags = thread_context.eflags;
-      // Pointer-to-member map; order must match X64Register.
-      using GprPtr = __uint64_t __darwin_x86_thread_state64::*;
-      static constexpr GprPtr kIntRegisterMap[] = {
-          &__darwin_x86_thread_state64::__rax,
-          &__darwin_x86_thread_state64::__rcx,
-          &__darwin_x86_thread_state64::__rdx,
-          &__darwin_x86_thread_state64::__rbx,
-          &__darwin_x86_thread_state64::__rsp,
-          &__darwin_x86_thread_state64::__rbp,
-          &__darwin_x86_thread_state64::__rsi,
-          &__darwin_x86_thread_state64::__rdi,
-          &__darwin_x86_thread_state64::__r8,
-          &__darwin_x86_thread_state64::__r9,
-          &__darwin_x86_thread_state64::__r10,
-          &__darwin_x86_thread_state64::__r11,
-          &__darwin_x86_thread_state64::__r12,
-          &__darwin_x86_thread_state64::__r13,
-          &__darwin_x86_thread_state64::__r14,
-          &__darwin_x86_thread_state64::__r15,
-      };
-      uint16_t modified_int_registers_remaining = ex.modified_int_registers();
-      while (xe::bit_scan_forward(modified_int_registers_remaining,
-                                  &modified_register_index)) {
-        modified_int_registers_remaining &=
-            ~(UINT16_C(1) << modified_register_index);
-        mcontext->__ss.*kIntRegisterMap[modified_register_index] =
-            thread_context.int_registers[modified_register_index];
-      }
-      uint16_t modified_xmm_registers_remaining = ex.modified_xmm_registers();
-      while (xe::bit_scan_forward(modified_xmm_registers_remaining,
-                                  &modified_register_index)) {
-        modified_xmm_registers_remaining &=
-            ~(UINT16_C(1) << modified_register_index);
-        std::memcpy(reinterpret_cast<uint8_t*>(&mcontext->__fs.__fpu_xmm0) +
-                        modified_register_index * sizeof(vec128_t),
-                    &thread_context.xmm_registers[modified_register_index],
-                    sizeof(vec128_t));
-      }
+    mcontext->__ss.__rip = thread_context.rip;
+    mcontext->__ss.__rflags = thread_context.eflags;
+    // Pointer-to-member map; order must match X64Register.
+    using GprPtr = __uint64_t __darwin_x86_thread_state64::*;
+    static constexpr GprPtr kIntRegisterMap[] = {
+        &__darwin_x86_thread_state64::__rax,
+        &__darwin_x86_thread_state64::__rcx,
+        &__darwin_x86_thread_state64::__rdx,
+        &__darwin_x86_thread_state64::__rbx,
+        &__darwin_x86_thread_state64::__rsp,
+        &__darwin_x86_thread_state64::__rbp,
+        &__darwin_x86_thread_state64::__rsi,
+        &__darwin_x86_thread_state64::__rdi,
+        &__darwin_x86_thread_state64::__r8,
+        &__darwin_x86_thread_state64::__r9,
+        &__darwin_x86_thread_state64::__r10,
+        &__darwin_x86_thread_state64::__r11,
+        &__darwin_x86_thread_state64::__r12,
+        &__darwin_x86_thread_state64::__r13,
+        &__darwin_x86_thread_state64::__r14,
+        &__darwin_x86_thread_state64::__r15,
+    };
+    uint16_t modified_int_registers_remaining = ex.modified_int_registers();
+    while (xe::bit_scan_forward(modified_int_registers_remaining,
+                                &modified_register_index)) {
+      modified_int_registers_remaining &=
+          ~(UINT16_C(1) << modified_register_index);
+      mcontext->__ss.*kIntRegisterMap[modified_register_index] =
+          thread_context.int_registers[modified_register_index];
+    }
+    uint16_t modified_xmm_registers_remaining = ex.modified_xmm_registers();
+    while (xe::bit_scan_forward(modified_xmm_registers_remaining,
+                                &modified_register_index)) {
+      modified_xmm_registers_remaining &=
+          ~(UINT16_C(1) << modified_register_index);
+      std::memcpy(reinterpret_cast<uint8_t*>(&mcontext->__fs.__fpu_xmm0) +
+                      modified_register_index * sizeof(vec128_t),
+                  &thread_context.xmm_registers[modified_register_index],
+                  sizeof(vec128_t));
+    }
 #else
-      mcontext.gregs[REG_RIP] = greg_t(thread_context.rip);
-      mcontext.gregs[REG_EFL] = greg_t(thread_context.eflags);
-      // The order must match the order in X64Register.
-      static constexpr size_t kIntRegisterMap[] = {
-          REG_RAX, REG_RCX, REG_RDX, REG_RBX, REG_RSP, REG_RBP,
-          REG_RSI, REG_RDI, REG_R8,  REG_R9,  REG_R10, REG_R11,
-          REG_R12, REG_R13, REG_R14, REG_R15,
-      };
-      uint16_t modified_int_registers_remaining = ex.modified_int_registers();
-      while (xe::bit_scan_forward(modified_int_registers_remaining,
-                                  &modified_register_index)) {
-        modified_int_registers_remaining &=
-            ~(UINT16_C(1) << modified_register_index);
-        mcontext.gregs[kIntRegisterMap[modified_register_index]] =
-            thread_context.int_registers[modified_register_index];
-      }
-      uint16_t modified_xmm_registers_remaining = ex.modified_xmm_registers();
-      while (xe::bit_scan_forward(modified_xmm_registers_remaining,
-                                  &modified_register_index)) {
-        modified_xmm_registers_remaining &=
-            ~(UINT16_C(1) << modified_register_index);
-        std::memcpy(&mcontext.fpregs->_xmm[modified_register_index],
-                    &thread_context.xmm_registers[modified_register_index],
-                    sizeof(vec128_t));
-      }
+    mcontext.gregs[REG_RIP] = greg_t(thread_context.rip);
+    mcontext.gregs[REG_EFL] = greg_t(thread_context.eflags);
+    // The order must match the order in X64Register.
+    static constexpr size_t kIntRegisterMap[] = {
+        REG_RAX, REG_RCX, REG_RDX, REG_RBX, REG_RSP, REG_RBP, REG_RSI, REG_RDI,
+        REG_R8,  REG_R9,  REG_R10, REG_R11, REG_R12, REG_R13, REG_R14, REG_R15,
+    };
+    uint16_t modified_int_registers_remaining = ex.modified_int_registers();
+    while (xe::bit_scan_forward(modified_int_registers_remaining,
+                                &modified_register_index)) {
+      modified_int_registers_remaining &=
+          ~(UINT16_C(1) << modified_register_index);
+      mcontext.gregs[kIntRegisterMap[modified_register_index]] =
+          thread_context.int_registers[modified_register_index];
+    }
+    uint16_t modified_xmm_registers_remaining = ex.modified_xmm_registers();
+    while (xe::bit_scan_forward(modified_xmm_registers_remaining,
+                                &modified_register_index)) {
+      modified_xmm_registers_remaining &=
+          ~(UINT16_C(1) << modified_register_index);
+      std::memcpy(&mcontext.fpregs->_xmm[modified_register_index],
+                  &thread_context.xmm_registers[modified_register_index],
+                  sizeof(vec128_t));
+    }
 #endif  // XE_PLATFORM_MAC
 #elif XE_ARCH_ARM64
-      uint32_t modified_register_index;
+    uint32_t modified_register_index;
 #if XE_PLATFORM_MAC
-      uint32_t modified_x_registers_remaining = ex.modified_x_registers();
-      while (xe::bit_scan_forward(modified_x_registers_remaining,
-                                  &modified_register_index)) {
-        modified_x_registers_remaining &=
-            ~(UINT32_C(1) << modified_register_index);
-        if (modified_register_index < 29) {
-          mcontext->__ss.__x[modified_register_index] =
-              thread_context.x[modified_register_index];
-        } else if (modified_register_index == 29) {
-          mcontext->__ss.__fp = thread_context.x[29];
-        } else if (modified_register_index == 30) {
-          mcontext->__ss.__lr = thread_context.x[30];
-        }
+    uint32_t modified_x_registers_remaining = ex.modified_x_registers();
+    while (xe::bit_scan_forward(modified_x_registers_remaining,
+                                &modified_register_index)) {
+      modified_x_registers_remaining &=
+          ~(UINT32_C(1) << modified_register_index);
+      if (modified_register_index < 29) {
+        mcontext->__ss.__x[modified_register_index] =
+            thread_context.x[modified_register_index];
+      } else if (modified_register_index == 29) {
+        mcontext->__ss.__fp = thread_context.x[29];
+      } else if (modified_register_index == 30) {
+        mcontext->__ss.__lr = thread_context.x[30];
       }
-      mcontext->__ss.__sp = thread_context.sp;
-      mcontext->__ss.__pc = thread_context.pc;
-      mcontext->__ss.__cpsr = thread_context.pstate;
-      mcontext->__ns.__fpsr = thread_context.fpsr;
-      mcontext->__ns.__fpcr = thread_context.fpcr;
+    }
+    mcontext->__ss.__sp = thread_context.sp;
+    mcontext->__ss.__pc = thread_context.pc;
+    mcontext->__ss.__cpsr = thread_context.pstate;
+    mcontext->__ns.__fpsr = thread_context.fpsr;
+    mcontext->__ns.__fpcr = thread_context.fpcr;
+    uint32_t modified_v_registers_remaining = ex.modified_v_registers();
+    while (xe::bit_scan_forward(modified_v_registers_remaining,
+                                &modified_register_index)) {
+      modified_v_registers_remaining &=
+          ~(UINT32_C(1) << modified_register_index);
+      std::memcpy(&mcontext->__ns.__v[modified_register_index],
+                  &thread_context.v[modified_register_index], sizeof(vec128_t));
+    }
+#else
+    uint32_t modified_x_registers_remaining = ex.modified_x_registers();
+    while (xe::bit_scan_forward(modified_x_registers_remaining,
+                                &modified_register_index)) {
+      modified_x_registers_remaining &=
+          ~(UINT32_C(1) << modified_register_index);
+      mcontext.regs[modified_register_index] =
+          thread_context.x[modified_register_index];
+    }
+    mcontext.sp = thread_context.sp;
+    mcontext.pc = thread_context.pc;
+    mcontext.pstate = thread_context.pstate;
+    if (mcontext_fpsimd) {
+      mcontext_fpsimd->fpsr = thread_context.fpsr;
+      mcontext_fpsimd->fpcr = thread_context.fpcr;
       uint32_t modified_v_registers_remaining = ex.modified_v_registers();
       while (xe::bit_scan_forward(modified_v_registers_remaining,
                                   &modified_register_index)) {
         modified_v_registers_remaining &=
             ~(UINT32_C(1) << modified_register_index);
-        std::memcpy(&mcontext->__ns.__v[modified_register_index],
+        std::memcpy(&mcontext_fpsimd->vregs[modified_register_index],
                     &thread_context.v[modified_register_index],
                     sizeof(vec128_t));
       }
-#else
-      uint32_t modified_x_registers_remaining = ex.modified_x_registers();
-      while (xe::bit_scan_forward(modified_x_registers_remaining,
-                                  &modified_register_index)) {
-        modified_x_registers_remaining &=
-            ~(UINT32_C(1) << modified_register_index);
-        mcontext.regs[modified_register_index] =
-            thread_context.x[modified_register_index];
-      }
-      mcontext.sp = thread_context.sp;
-      mcontext.pc = thread_context.pc;
-      mcontext.pstate = thread_context.pstate;
-      if (mcontext_fpsimd) {
-        mcontext_fpsimd->fpsr = thread_context.fpsr;
-        mcontext_fpsimd->fpcr = thread_context.fpcr;
-        uint32_t modified_v_registers_remaining = ex.modified_v_registers();
-        while (xe::bit_scan_forward(modified_v_registers_remaining,
-                                    &modified_register_index)) {
-          modified_v_registers_remaining &=
-              ~(UINT32_C(1) << modified_register_index);
-          std::memcpy(&mcontext_fpsimd->vregs[modified_register_index],
-                      &thread_context.v[modified_register_index],
-                      sizeof(vec128_t));
-        }
-      }
+    }
 #endif  // XE_PLATFORM_MAC
 #endif  // XE_ARCH
-      return;
-    }
+    return;
   }
 
   if (signal_number == SIGTRAP) {

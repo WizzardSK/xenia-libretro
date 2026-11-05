@@ -9,6 +9,7 @@
 
 #include "xenia/vfs/xex_metadata.h"
 
+#include <cstddef>
 #include <cstring>
 #include <fstream>
 #include <vector>
@@ -136,6 +137,18 @@ toml::table XexMetadata::ToToml() const {
   return root;
 }
 
+bool XexMetadata::RunsFromPackageOnly() const {
+  constexpr uint32_t kDiscMedia = XEX_MEDIA_DVD_X2 | XEX_MEDIA_DVD_CD |
+                                  XEX_MEDIA_DVD_5 | XEX_MEDIA_DVD_9 |
+                                  XEX_MEDIA_SVOD;
+  constexpr uint32_t kPackageMedia =
+      XEX_MEDIA_INSECURE_PACKAGE | XEX_MEDIA_SAVEGAME_PACKAGE |
+      XEX_MEDIA_LOCALLY_SIGNED_PACKAGE | XEX_MEDIA_LIVE_SIGNED_PACKAGE |
+      XEX_MEDIA_XBOX_PACKAGE;
+  return (allowed_media_types & kPackageMedia) &&
+         !(allowed_media_types & kDiscMedia);
+}
+
 std::optional<XexMetadata> ExtractXexMetadata(const uint8_t* data,
                                               size_t size) {
   if (size < sizeof(xex2_header)) {
@@ -175,6 +188,16 @@ std::optional<XexMetadata> ExtractXexMetadata(const uint8_t* data,
     metadata.disc_count = exec_info->disc_count;
   }
 
+  size_t media_offset =
+      size_t(header->security_offset) +
+      (format == XexFormat::kXex2
+           ? offsetof(xex2_security_info, allowed_media_types)
+           : offsetof(xex1_security_info, allowed_media_types));
+  if (media_offset + sizeof(uint32_t) <= header_size) {
+    metadata.allowed_media_types =
+        *reinterpret_cast<const xe::be<uint32_t>*>(data + media_offset);
+  }
+
   xex2_opt_original_pe_name* pe_name = nullptr;
   if (GetXexOptHeader(header, XEX_HEADER_ORIGINAL_PE_NAME, &pe_name) &&
       pe_name) {
@@ -188,6 +211,14 @@ std::optional<XexMetadata> ExtractXexMetadata(const uint8_t* data,
         metadata.module_name.pop_back();
       }
     }
+  }
+
+  xex2_opt_bound_path* bound_path = nullptr;
+  if (GetXexOptHeader(header, XEX_HEADER_BOUNDING_PATH, &bound_path) &&
+      bound_path && bound_path->size > sizeof(uint32_t)) {
+    metadata.bounding_path = std::string(
+        bound_path->path,
+        strnlen(bound_path->path, bound_path->size - sizeof(uint32_t)));
   }
 
   xex2_game_ratings_t* ratings = nullptr;

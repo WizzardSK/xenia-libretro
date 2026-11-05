@@ -77,6 +77,7 @@ PPCBuiltins* PPCHIRBuilder::builtins() const { return frontend_->builtins(); }
 
 void PPCHIRBuilder::Reset() {
   function_ = nullptr;
+  dynamic_code_ = false;
   start_address_ = 0;
   instr_count_ = 0;
   instr_offset_list_ = NULL;
@@ -94,6 +95,7 @@ bool PPCHIRBuilder::Emit(GuestFunction* function, uint32_t flags) {
   }
 
   function_ = function;
+  dynamic_code_ = frontend_->processor()->IsDynamicCode(module);
   start_address_ = function_->address();
   // chrispy: i've seen this one happen, not sure why but i think from trying to
   // precompile twice i've also seen ones with a start and end address that are
@@ -197,6 +199,17 @@ bool PPCHIRBuilder::Emit(GuestFunction* function, uint32_t flags) {
         DebugBreak();
       }
     }
+  }
+
+  // Dynamic code can end at a bl taken never to return, where what follows is
+  // another function or no code at all. If the bl returns after all, the
+  // instruction after it runs next. A branch there from deeper frames returns
+  // into this frame the same way, as the address maps to the branch.
+  if (dynamic_code_ &&
+      (xe::load_and_swap<uint32_t>(module->TranslateCode(end_address)) &
+       0xFC000001) == 0x48000001) {
+    SourceOffset(end_address + 4);
+    CallIndirect(LoadConstantUint64(end_address + 4), CALL_TAIL);
   }
 
   if (false) {

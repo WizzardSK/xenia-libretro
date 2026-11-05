@@ -1,0 +1,662 @@
+{
+ "corpus": "xmp",
+ "source": "RGH Jasper, kernel and xam 2.0.17559, 2026-10-24",
+ "steps": [
+  {
+   "scenario": "xmp initial state",
+   "name": "volume game",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "capture": {
+    "volume game out": "3e809bcc"
+   },
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458763
+    },
+    {
+     "pointer": "volume game args",
+     "offset": 8
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp initial state",
+   "name": "behavior game",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "capture": {
+    "behavior game mode": "00000000",
+    "behavior game repeat": "00000000",
+    "behavior game flags": "00000000"
+   },
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458793
+    },
+    {
+     "pointer": "behavior game args",
+     "offset": 40
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp initial state",
+   "name": "volume dash",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "capture": {
+    "volume dash out": "3e809bcc"
+   },
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458763
+    },
+    {
+     "pointer": "volume dash args",
+     "offset": 64
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp initial state",
+   "name": "behavior dash",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "capture": {
+    "behavior dash mode": "00000000",
+    "behavior dash repeat": "00000000",
+    "behavior dash flags": "00000000"
+   },
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458793
+    },
+    {
+     "pointer": "behavior dash args",
+     "offset": 96
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp initial state",
+   "name": "volume mce",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "capture": {
+    "volume mce out": "3e809bcc"
+   },
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458763
+    },
+    {
+     "pointer": "volume mce args",
+     "offset": 120
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp initial state",
+   "name": "behavior mce",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "capture": {
+    "behavior mce mode": "00000000",
+    "behavior mce repeat": "00000000",
+    "behavior mce flags": "00000000"
+   },
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458793
+    },
+    {
+     "pointer": "behavior mce args",
+     "offset": 152
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp initial state",
+   "name": "playback controller",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "capture": {
+    "controller": "00000000",
+    "locked": "00000000"
+   },
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458779
+    },
+    {
+     "pointer": "playback controller args",
+     "offset": 184
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp argument checks",
+   "name": "get volume null",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000080070057",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458763
+    },
+    {
+     "pointer": "get volume null args",
+     "offset": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp argument checks",
+   "name": "get behavior all null",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000080070057",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458793
+    },
+    {
+     "pointer": "get behavior all null args",
+     "offset": 8
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp argument checks",
+   "name": "get behavior repeat only",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "capture": {
+    "repeat only": "00000000"
+   },
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458793
+    },
+    {
+     "pointer": "get behavior repeat only args",
+     "offset": 32
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp argument checks",
+   "name": "set volume 1.5",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000080070057",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458764
+    },
+    {
+     "pointer": "set volume 1.5 args",
+     "offset": 48
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp argument checks",
+   "name": "set volume -0.5",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000080070057",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458764
+    },
+    {
+     "pointer": "set volume -0.5 args",
+     "offset": 56
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp argument checks",
+   "name": "set volume mce",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000080070032",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458764
+    },
+    {
+     "pointer": "set volume mce args",
+     "offset": 64
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp argument checks",
+   "name": "set behavior mce",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000080070032",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458760
+    },
+    {
+     "pointer": "set behavior mce args",
+     "offset": 72
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp transport access",
+   "name": "continue dash",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000080070005",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458755
+    },
+    {
+     "pointer": "continue dash args",
+     "offset": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp transport access",
+   "name": "pause dash",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000080070005",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458757
+    },
+    {
+     "pointer": "pause dash args",
+     "offset": 8
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp transport access",
+   "name": "next dash",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000080070005",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458758
+    },
+    {
+     "pointer": "next dash args",
+     "offset": 16
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp transport access",
+   "name": "previous dash",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000080070005",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458759
+    },
+    {
+     "pointer": "previous dash args",
+     "offset": 24
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp transport access",
+   "name": "stop dash",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000080070005",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458756
+    },
+    {
+     "pointer": "stop dash args",
+     "offset": 32
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp transport access",
+   "name": "pause game",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458757
+    },
+    {
+     "pointer": "pause game args",
+     "offset": 40
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp transport access",
+   "name": "continue game",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458755
+    },
+    {
+     "pointer": "continue game args",
+     "offset": 48
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp game settings",
+   "name": "set volume game",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458764
+    },
+    {
+     "pointer": "set volume game args",
+     "offset": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp game settings",
+   "name": "volume game after set",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "capture": {
+    "volume game after set out": "3f000000"
+   },
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458763
+    },
+    {
+     "pointer": "volume game after set args",
+     "offset": 16
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp game settings",
+   "name": "volume dash after set",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "capture": {
+    "volume dash after set out": "3e809bcc"
+   },
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458763
+    },
+    {
+     "pointer": "volume dash after set args",
+     "offset": 32
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp game settings",
+   "name": "set behavior game",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458760
+    },
+    {
+     "pointer": "set behavior game args",
+     "offset": 40
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp game settings",
+   "name": "behavior game after set",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "capture": {
+    "behavior game after set mode": "00000001",
+    "behavior game after set repeat": "00000001",
+    "behavior game after set flags": "00000001"
+   },
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458793
+    },
+    {
+     "pointer": "behavior game after set args",
+     "offset": 80
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp game settings",
+   "name": "behavior dash after set",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "capture": {
+    "behavior dash after set mode": "00000000",
+    "behavior dash after set repeat": "00000000",
+    "behavior dash after set flags": "00000000"
+   },
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458793
+    },
+    {
+     "pointer": "behavior dash after set args",
+     "offset": 120
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp game settings",
+   "name": "restore volume game",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458764
+    },
+    {
+     "pointer": "restore volume game args",
+     "offset": 136
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "xmp game settings",
+   "name": "restore behavior game",
+   "export": "XMsgInProcessCall",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 250
+    },
+    {
+     "value": 458760
+    },
+    {
+     "pointer": "restore behavior game args",
+     "offset": 144
+    },
+    {
+     "value": 0
+    }
+   ]
+  }
+ ]
+}

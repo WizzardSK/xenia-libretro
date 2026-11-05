@@ -17,7 +17,9 @@
 #include "xenia/emulator.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstring>
+#include <utility>
 #include "config.h"
 #include "third_party/fmt/include/fmt/format.h"
 #include "xenia/apu/audio_system.h"
@@ -46,14 +48,20 @@
 #include "xenia/hid/input_system.h"
 #include "xenia/kernel/guest_scheduler.h"
 #include "xenia/kernel/kernel_state.h"
+#include "xenia/kernel/smc.h"
 #include "xenia/kernel/title_id_utils.h"
 #include "xenia/kernel/user_module.h"
 #include "xenia/kernel/xam/achievement_manager.h"
+#include "xenia/kernel/xam/content_manager.h"
+#include "xenia/kernel/xam/title_image_device.h"
 #include "xenia/kernel/xam/ui/disc_swap_ui.h"
 #include "xenia/kernel/xam/xam_module.h"
+#include "xenia/kernel/xam/xam_state.h"
 #include "xenia/kernel/xam/xdbf/spa_info.h"
 #include "xenia/kernel/xbdm/xbdm_module.h"
 #include "xenia/kernel/xboxkrnl/xboxkrnl_module.h"
+#include "xenia/kernel/xconfig.h"
+#include "xenia/kernel/xfile.h"
 #include "xenia/kernel/xthread.h"
 #include "xenia/memory.h"
 #include "xenia/ui/file_picker.h"
@@ -69,8 +77,13 @@
 #include "xenia/vfs/devices/xcontent_container_device.h"
 #include "xenia/vfs/entry.h"
 #include "xenia/vfs/file.h"
+#include "xenia/vfs/iso_metadata.h"
+#include "xenia/vfs/stfs_metadata.h"
 #include "xenia/vfs/virtual_file_system.h"
 #include "xenia/vfs/xbe_metadata.h"
+#include "xenia/vfs/xbox_original_data.h"
+#include "xenia/vfs/xex_metadata.h"
+#include "xenia/vfs/zar_metadata.h"
 
 #if XE_ARCH_AMD64
 #include "xenia/cpu/backend/x64/x64_backend.h"
@@ -101,6 +114,11 @@ DEFINE_CVar(launch_data, "",
 
 DEFINE_CVar(launch_xbox_disc, "",
             "Original Xbox game left in the drive by a title restart request. "
+            "Used internally for title-to-title launches.",
+            "General", true, std::string);
+
+DEFINE_CVar(launch_package, "",
+            "Package on the disc that a title restart request runs from. "
             "Used internally for title-to-title launches.",
             "General", true, std::string);
 
@@ -286,6 +304,7 @@ void Emulator::Shutdown() {
   title_version_.clear();
   game_info_database_.reset();
   paused_ = false;
+  boot_animation_requested_ = false;
 
   XELOGI("Emulator::Shutdown: teardown complete");
 }
@@ -407,11 +426,13 @@ X_STATUS Emulator::Setup(
   // Bring up the virtual filesystem used by the kernel.
   file_system_ = std::make_unique<xe::vfs::VirtualFileSystem>();
 
-  patcher_ = std::make_unique<xe::patcher::Patcher>(storage_root_ / "patches");
+  patcher_ = std::make_unique<xe::patcher::Patcher>(patches_path());
 
   XELOGI("{}: Initializing Kernel...", __func__);
   // Shared kernel state.
   kernel_state_ = std::make_unique<xe::kernel::KernelState>(this);
+  // Its profile manager signed in the configured profiles without notifying.
+  on_signin_changed();
 #define LOAD_KERNEL_MODULE(t) \
   static_cast<void>(kernel_state_->LoadKernelModule<kernel::t>())
   // HLE kernel modules.
@@ -450,6 +471,8 @@ X_STATUS Emulator::SetupSubsystems() {
       XELOGE("{}: Cannot initalize graphics_system!", __func__);
       return X_STATUS_NOT_IMPLEMENTED;
     }
+    graphics_system_->on_shader_compilation.AddListener(
+        [this](bool compiling) { on_shader_compilation(compiling); });
   }
 
   if (graphics_system_) {
@@ -523,8 +546,12 @@ const std::unique_ptr<vfs::Device> Emulator::CreateVfsDevice(
     case FileSignatureType::XEX2:
     case FileSignatureType::ELF:
     case FileSignatureType::XBE: {
+      // An unpacked package's executable says where it came from, wherever
+      // the files now are.
+      auto xex = vfs::ExtractXexMetadata(path);
       device = std::make_unique<vfs::HostPathDevice>(
-          mount_path, path.parent_path(), !cvars::allow_game_relative_writes);
+          mount_path, path.parent_path(), !cvars::allow_game_relative_writes,
+          false, xex && xex->RunsFromPackageOnly() ? "STFS" : "GDFX");
     } break;
     case FileSignatureType::LIVE:
     case FileSignatureType::CON:
@@ -598,6 +625,11 @@ void Emulator::SetPersistentEmulatorFlags(uint64_t new_flags) {
 X_STATUS Emulator::MountPath(const std::filesystem::path& path,
                              const std::string_view mount_path) {
   auto device = CreateVfsDevice(path, mount_path);
+  return MountDevice(std::move(device), mount_path);
+}
+
+X_STATUS Emulator::MountDevice(std::unique_ptr<vfs::Device> device,
+                               const std::string_view mount_path) {
   if (!device || !device->Initialize()) {
     XELOGE(
         "Unable to mount the selected file, it is an unsupported format or "
@@ -708,7 +740,8 @@ Emulator::FileSignatureType Emulator::GetFileSignature(
     return FileSignatureType::XISO;
   }
 
-  XELOGE("{}: {} ({:08X})", __func__, path.extension(), magic_value);
+  XELOGE("{}: {} ({:08X})", __func__,
+         xe::strip_pii(xe::path_to_utf8(path.extension())), magic_value);
   return FileSignatureType::Unknown;
 }
 
@@ -720,18 +753,29 @@ static bool IsXboxOriginalDisc(const std::filesystem::path& path) {
          vfs::FindXboxOriginalXbe(mmap->data(), mmap->size()).has_value();
 }
 
-X_STATUS Emulator::LaunchPath(const std::filesystem::path& path) {
+X_STATUS Emulator::LaunchPath(const std::filesystem::path& path,
+                              std::string_view package_path) {
   // A relaunch must not tear down what this mounts into and loads from.
   std::lock_guard<std::recursive_mutex> launch_lock(launch_mutex_);
   // Remember for relaunch fallback
   if (!path.empty()) {
     last_launch_path_ = path;
+    last_launch_package_ = package_path;
   }
   if (!KeepsXboxGame(path)) {
     EjectXboxGame();
   }
   // A file an earlier launch missed says nothing about this one.
   missing_xefu_file_.clear();
+  // The drive starts empty.
+  {
+    std::lock_guard<std::mutex> lock(inserted_disc_mutex_);
+    inserted_disc_.reset();
+  }
+
+  if (!package_path.empty()) {
+    return LaunchDiscPackage(path, package_path);
+  }
 
   X_STATUS mount_result = X_STATUS_SUCCESS;
 
@@ -811,6 +855,16 @@ X_STATUS Emulator::LaunchXexFile(const std::filesystem::path& path) {
   // Launch the game.
   auto fs_path = fmt::format("{}\\", kDefaultGameSymbolicLink) +
                  xe::path_to_utf8(file_name);
+  // A folder holding its own xam is the title's flash even with system files
+  // installed.
+  std::string package_root;
+  if (file_system_->FindSymbolicLink(kDefaultGameSymbolicLink, package_root) &&
+      (file_system_->ResolvePath(
+           fmt::format("{}\\xam.xex", kDefaultGameSymbolicLink)) ||
+       file_system_->ResolvePath(
+           fmt::format("{}\\$flash_xam.xex", kDefaultGameSymbolicLink)))) {
+    file_system_->RegisterSymbolicLink("\\SystemRoot", package_root);
+  }
   X_STATUS result = CompleteLaunch(path, fs_path);
 
   if (XFAILED(result)) {
@@ -818,34 +872,7 @@ X_STATUS Emulator::LaunchXexFile(const std::filesystem::path& path) {
   }
 
   SetDeploymentType(XDeploymentType::kInstalledToHDD);
-
-  if (!kernel::IsSystemTitle(kernel_state_->title_id())) {
-    return result;
-  }
-
-  const std::string mount_path =
-      utf8::find_base_guest_path(kernel_state_->GetExecutableModule()->path());
-
-  // System related symlinks. This should point to dashboard location in the
-  // future.
-  file_system_->RegisterSymbolicLink("\\SystemRoot", mount_path);
-
-  auto module = kernel_state_->LoadUserModule("xam.xex");
-
-  if (!module) {
-    module = kernel_state_->LoadUserModule("$flash_xam.xex");
-  }
-
-  // The title is running by now, so a failure here doesn't fail the launch.
-  if (module) {
-    const X_STATUS xam_result =
-        kernel_state_->FinishLoadingUserModule(module, false);
-    if (XFAILED(xam_result)) {
-      XELOGE("Failed to load the system xam module: {:08X}", xam_result);
-    }
-  }
-
-  return X_STATUS_SUCCESS;
+  return result;
 }
 
 X_STATUS Emulator::LaunchDiscImage(const std::filesystem::path& path) {
@@ -868,10 +895,165 @@ void Emulator::InsertXboxGame(const std::filesystem::path& path) {
   xbox_game_ = vfs::ExtractXbeMetadata(path);
 }
 
+// The drive's device.
+constexpr std::string_view kDiscDrivePath = "\\Device\\Cdrom0";
+
+std::optional<Emulator::InsertedDisc> Emulator::inserted_disc() const {
+  std::lock_guard<std::mutex> lock(inserted_disc_mutex_);
+  return inserted_disc_;
+}
+
+bool Emulator::UsesEmulatedDrive() const {
+  if (!kernel::IsSystemTitle(kernel_state_->title_id())) {
+    return false;
+  }
+  // A system title launched from a disc keeps that disc.
+  const bool drive_empty = !file_system_->GetDevice(kDiscDrivePath);
+  std::lock_guard<std::mutex> lock(inserted_disc_mutex_);
+  return inserted_disc_ || drive_empty;
+}
+
+void Emulator::ChangeDisc() {
+  // The tray is open already, waiting on the disc being picked.
+  if (picking_disc_.exchange(true)) {
+    return;
+  }
+  EjectDisc();
+  // The title runs on while the app picks, so it sees the drive go empty
+  // between the two discs.
+  const uint64_t launch = relaunch_requests_.load();
+  const auto close_tray = [this]() {
+    kernel_state_->smc()->SetTrayState(X_DVD_TRAY_STATE::CLOSED);
+    picking_disc_ = false;
+  };
+  if (!disc_picker_ || !display_window_ ||
+      !display_window_->app_context().CallInUIThread(
+          [this, close_tray, launch]() {
+            const std::filesystem::path path = disc_picker_();
+            // The pick is dropped for a title launched meanwhile. A launch
+            // under way holds the lock while it waits on this thread.
+            std::unique_lock<std::recursive_mutex> lock(launch_mutex_,
+                                                        std::try_to_lock);
+            if (!lock.owns_lock() || relaunch_requests_.load() != launch) {
+              picking_disc_ = false;
+              return;
+            }
+            if (!path.empty()) {
+              InsertDisc(path);
+            }
+            close_tray();
+          })) {
+    close_tray();
+  }
+}
+
+void Emulator::EjectDisc() {
+  {
+    std::lock_guard<std::mutex> lock(inserted_disc_mutex_);
+    inserted_disc_.reset();
+  }
+  // So nothing opens or mounts from the disc while it goes away.
+  auto global_lock = global_critical_region::AcquireDirect();
+  const vfs::Device* device = file_system_->GetDevice(kDiscDrivePath);
+  if (!device) {
+    return;
+  }
+  for (const auto& file :
+       kernel_state_->object_table()->GetObjectsByType<kernel::XFile>(
+           kernel::XObject::Type::File)) {
+    if (file->entry()->device() == device) {
+      file->ReleaseHandle();
+    }
+  }
+  kernel_state_->content_manager()->ClosePackagesMountedFrom(device);
+  file_system_->UnregisterDevice(kDiscDrivePath);
+}
+
+bool Emulator::InsertDisc(const std::filesystem::path& path) {
+  auto device = CreateVfsDevice(path, kDiscDrivePath);
+  if (!device || !device->Initialize()) {
+    XELOGE("Unable to put {} in the drive, it is an unsupported format",
+           xe::strip_pii(xe::path_to_utf8(path)));
+    return false;
+  }
+  InsertedDisc disc{path};
+  std::optional<vfs::XbeMetadata> xbe;
+  switch (GetFileSignature(path)) {
+    case FileSignatureType::XISO:
+      if (auto xex = vfs::ExtractIsoMetadata(path)) {
+        disc.title_id = xex->title_id;
+      } else {
+        xbe = vfs::ExtractXbeMetadata(path);
+      }
+      break;
+    case FileSignatureType::ZAR:
+      if (auto xex = vfs::ExtractZarMetadata(path)) {
+        disc.title_id = xex->title_id;
+      }
+      break;
+    case FileSignatureType::LIVE:
+    case FileSignatureType::CON:
+    case FileSignatureType::PIRS:
+      if (auto stfs = vfs::ExtractStfsMetadata(path)) {
+        disc.title_id = stfs->title_id;
+        // An original Xbox package names the game its executable is.
+        if (stfs->content_type == uint32_t(XContentType::kXboxTitle)) {
+          xbe = vfs::ExtractXbeMetadata(path);
+        }
+      }
+      break;
+    case FileSignatureType::XBE:
+      xbe = vfs::ExtractXbeMetadata(path);
+      break;
+    default:
+      if (auto xex = vfs::ExtractXexMetadata(path)) {
+        disc.title_id = xex->title_id;
+      }
+      break;
+  }
+  if (xbe) {
+    disc.title_id = xbe->title_id;
+    disc.xbox_original = true;
+  }
+  file_system_->RegisterDevice(std::move(device));
+  XELOGI("Put {:08X} in the drive", disc.title_id);
+  std::lock_guard<std::mutex> lock(inserted_disc_mutex_);
+  inserted_disc_ = std::move(disc);
+  return true;
+}
+
+std::optional<vfs::XbeMetadata> Emulator::running_xbe() const {
+  std::lock_guard<std::mutex> lock(running_xbe_mutex_);
+  return running_xbe_;
+}
+
+void Emulator::SetRunningXbe(vfs::XbeMetadata xbe) {
+  {
+    std::lock_guard<std::mutex> lock(running_xbe_mutex_);
+    // A title opens its data folder more than once as it starts.
+    if (running_xbe_ && running_xbe_->title_id == xbe.title_id &&
+        running_xbe_->version == xbe.version) {
+      return;
+    }
+    running_xbe_ = std::move(xbe);
+  }
+  on_title_name_change();
+}
+
 bool Emulator::KeepsXboxGame(const std::filesystem::path& path) const {
   // XeFu launches from its own folder.
   std::error_code error;
   return std::filesystem::equivalent(path.parent_path(), xefu_path(), error);
+}
+
+// Whether an executable is xbox.xex, which picks the XeFu build for a game.
+// The builds share its title ID but not its bounding path, and older xbox.xex
+// releases have no original PE name.
+static bool IsXeFuDispatcher(const std::optional<vfs::XexMetadata>& xex) {
+  return xex &&
+         xe::utf8::equal_case(
+             xex->bounding_path,
+             "\\Device\\Harddisk0\\SystemPartition\\Compatibility\\xbox.xex");
 }
 
 X_STATUS Emulator::LaunchXboxOriginal(const std::filesystem::path& path,
@@ -881,7 +1063,7 @@ X_STATUS Emulator::LaunchXboxOriginal(const std::filesystem::path& path,
   const std::filesystem::path launcher = xefu_path() / cvars::xefu_launcher;
   if (!std::filesystem::is_regular_file(launcher)) {
     XELOGE("Original Xbox games run through XeFu, which needs {} in {}",
-           cvars::xefu_launcher, xe::path_to_utf8(xefu_path()));
+           cvars::xefu_launcher, xe::strip_pii(xe::path_to_utf8(xefu_path())));
     // Somewhere for the user to copy XeFu to.
     std::error_code create_error;
     std::filesystem::create_directories(xefu_path(), create_error);
@@ -892,7 +1074,7 @@ X_STATUS Emulator::LaunchXboxOriginal(const std::filesystem::path& path,
   // offset XeFu reads it from too. Its first word is 0 from the dashboard and
   // 1 from xbox.xex starting XeFu.
   const uint32_t launched_by =
-      xe::utf8::equal_case(cvars::xefu_launcher, "xbox.xex") ? 0 : 1;
+      IsXeFuDispatcher(vfs::ExtractXexMetadata(launcher)) ? 0 : 1;
   constexpr size_t kLaunchDataSize = 0x3FC;
   constexpr size_t kLaunchDataPathOffset = 0x1FC;
   const std::string xbe_path = "\\Device\\Cdrom0\\" + std::string(xbe_name);
@@ -946,6 +1128,34 @@ X_STATUS Emulator::LaunchStfsContainer(const std::filesystem::path& path) {
   XELOGI("LaunchStfsContainer: content type {:08X}, running as {}",
          content_type, is_disc_content ? "optical disc" : "download");
   return result;
+}
+
+X_STATUS Emulator::LaunchDiscPackage(const std::filesystem::path& path,
+                                     std::string_view package_path) {
+  constexpr std::string_view kDiscMountPath = "\\Device\\Cdrom0";
+  if (const X_STATUS result = MountPath(path, kDiscMountPath);
+      XFAILED(result)) {
+    return result;
+  }
+
+  vfs::Entry* entry = file_system_->ResolvePath(
+      xe::utf8::join_guest_paths(kDiscMountPath, package_path));
+  if (!entry) {
+    XELOGE("Package {} is not on the disc.", package_path);
+    return X_STATUS_NO_SUCH_FILE;
+  }
+  constexpr std::string_view kPackageMountPath = "\\Device\\Package_0";
+  auto package = vfs::XContentContainerDevice::CreateContentDevice(
+      kPackageMountPath, entry);
+  if (package) {
+    package->drive_timing().Configure();
+  }
+  if (const X_STATUS result =
+          MountDevice(std::move(package), kPackageMountPath);
+      XFAILED(result)) {
+    return result;
+  }
+  return LaunchStfsContainer(path);
 }
 
 X_STATUS Emulator::LaunchDefaultModule(const std::filesystem::path& path) {
@@ -1010,8 +1220,9 @@ uint32_t Emulator::DataMigration(const uint64_t xuid) {
       if (ec) {
         failure_count++;
         XELOGW("{}: Moving from: {} to: {} failed! Error message: {} ({:08X})",
-               __func__, previous_path, path / content_type.name, ec.message(),
-               ec.value());
+               __func__, xe::strip_pii(xe::path_to_utf8(previous_path)),
+               xe::strip_pii(xe::path_to_utf8(path / content_type.name)),
+               ec.message(), ec.value());
       }
     }
     // Other directories:
@@ -1036,7 +1247,8 @@ uint32_t Emulator::DataMigration(const uint64_t xuid) {
           failure_count++;
           XELOGW(
               "{}: Copying from: {} to: {} failed! Error message: {} ({:08X})",
-              func, headers_path, path, ec.message(), ec.value());
+              func, xe::strip_pii(xe::path_to_utf8(headers_path)),
+              xe::strip_pii(xe::path_to_utf8(path)), ec.message(), ec.value());
           return false;
         }
         return true;
@@ -1088,9 +1300,11 @@ uint32_t Emulator::DataMigration(const uint64_t xuid) {
       std::filesystem::rename(path_from, path_to_profile_data / title.name, ec);
       if (ec) {
         failure_count++;
-        XELOGW("{}: Moving from: {} to: {} failed! Error message: {} ({:08X})",
-               __func__, path_from, path_to_profile_data / title.name,
-               ec.message(), ec.value());
+        XELOGW(
+            "{}: Moving from: {} to: {} failed! Error message: {} ({:08X})",
+            __func__, xe::strip_pii(xe::path_to_utf8(path_from)),
+            xe::strip_pii(xe::path_to_utf8(path_to_profile_data / title.name)),
+            ec.message(), ec.value());
       } else {
         std::error_code ec;
         std::filesystem::remove_all(title.path / title.name / "profile", ec);
@@ -1113,7 +1327,7 @@ X_STATUS Emulator::ProcessContentPackageHeader(
     const std::filesystem::path& path, ContentInstallEntry& installation_info) {
   installation_info.name_ = "Invalid Content Package!";
   installation_info.content_type_ = XContentType::kInvalid;
-  installation_info.data_installation_path_ = xe::path_to_utf8(path.filename());
+  installation_info.data_installation_path_ = path.filename();
 
   const auto header = vfs::XContentContainerDevice::ReadContainerHeader(path);
 
@@ -1474,7 +1688,8 @@ void Emulator::RelaunchTitle(const std::string& host_path,
                              const std::string& launch_module,
                              uint32_t launch_flags,
                              std::vector<uint8_t> launch_data,
-                             bool keep_xbox_game) {
+                             bool keep_xbox_game,
+                             const std::string& package_path) {
   // Each UI launch and guest launch request relaunches on its own thread, so a
   // burst of them queues here. One a newer request replaced while it waited is
   // dropped.
@@ -1482,12 +1697,13 @@ void Emulator::RelaunchTitle(const std::string& host_path,
   std::lock_guard<std::recursive_mutex> launch_lock(launch_mutex_);
   if (request != relaunch_requests_.load()) {
     XELOGI("RelaunchTitle: skipping {}, a newer request replaces it",
-           host_path);
+           xe::strip_pii(host_path));
     return;
   }
   XELOGI(
-      "RelaunchTitle: starting full in-process relaunch, target={}, module={}",
-      host_path, launch_module);
+      "RelaunchTitle: starting full in-process relaunch, target={}, module={}, "
+      "package={}",
+      xe::strip_pii(host_path), launch_module, package_path);
 
   // Tell WaitUntilExit not to fire on_exit when main thread dies.
   relaunching_ = true;
@@ -1551,6 +1767,9 @@ void Emulator::RelaunchTitle(const std::string& host_path,
     return;
   }
 
+  const std::string launch_package =
+      host_path.empty() ? last_launch_package_ : package_path;
+
   // Populate launch data on the fresh xam module.
   auto xam_new =
       kernel_state_->GetKernelModule<kernel::xam::XamModule>("xam.xex");
@@ -1558,6 +1777,7 @@ void Emulator::RelaunchTitle(const std::string& host_path,
     auto& ld = xam_new->loader_data();
     ld.host_path =
         host_path.empty() ? xe::path_to_utf8(command_line_) : host_path;
+    ld.package_path = launch_package;
     ld.launch_flags = launch_flags;
     ld.launch_data = std::move(launch_data);
     ld.launch_data_present = !ld.launch_data.empty();
@@ -1570,10 +1790,12 @@ void Emulator::RelaunchTitle(const std::string& host_path,
   // launch rather than loader_data-driven).
   auto launch_target =
       host_path.empty() ? last_launch_path_ : xe::to_path(host_path);
-  XELOGI("RelaunchTitle: launching '{}'", xe::path_to_utf8(launch_target));
-  if (const X_STATUS result = LaunchPath(launch_target); XFAILED(result)) {
+  XELOGI("RelaunchTitle: launching '{}'",
+         xe::strip_pii(xe::path_to_utf8(launch_target)));
+  if (const X_STATUS result = LaunchPath(launch_target, launch_package);
+      XFAILED(result)) {
     XELOGE("RelaunchTitle: launching '{}' failed: {:08X}",
-           xe::path_to_utf8(launch_target), result);
+           xe::strip_pii(xe::path_to_utf8(launch_target)), result);
     fail();
     return;
   }
@@ -1780,7 +2002,7 @@ const std::filesystem::path Emulator::GetNewDiscPath(
         if (std::filesystem::exists(game_path)) {
           initial_dir = game_path.parent_path();
           XELOGI("Setting file picker initial directory to game directory: {}",
-                 xe::path_to_utf8(initial_dir));
+                 xe::strip_pii(xe::path_to_utf8(initial_dir)));
         }
       }
     }
@@ -1824,7 +2046,7 @@ const std::filesystem::path Emulator::GetNewDiscPath(
     if (result == kernel::xam::ui::DiscSwapResult::kSelected) {
       path = selected_path;
       XELOGI("GetNewDiscPath: Selected disc from saved paths: {}",
-             xe::path_to_utf8(path));
+             xe::strip_pii(xe::path_to_utf8(path)));
       return path;
     } else if (result == kernel::xam::ui::DiscSwapResult::kBrowse) {
       use_file_picker = true;
@@ -2036,12 +2258,6 @@ bool Emulator::ExceptionCallback(Exception* ex) {
   }
 
   // Within range. Log the crash and suspend the faulting thread.
-  // Only pause the entire emulator if debugging is enabled.
-  if (cvars::debug) {
-    Pause();
-  }
-
-  // Dump information into the log.
   auto current_thread = kernel::XThread::GetCurrentThread();
   assert_not_null(current_thread);
 
@@ -2100,6 +2316,14 @@ bool Emulator::ExceptionCallback(Exception* ex) {
                     context->v[i].u32[2], context->v[i].u32[3]));
   }
   XELOGE("{}", crash_msg);
+  FlushLog();
+
+  // Only pause the entire emulator if debugging is enabled. After the dump,
+  // since Pause() can block (e.g. waiting on the GPU/audio systems).
+  if (cvars::debug) {
+    Pause();
+  }
+
   std::string crash_dlg = fmt::format(
       "The guest has crashed.\n\n"
       "Xenia has now paused itself.\n\n"
@@ -2231,6 +2455,7 @@ static std::string format_version(xex2_version version) {
 
 X_STATUS Emulator::CompleteLaunch(const std::filesystem::path& path,
                                   const std::string_view module_path) {
+  const bool boot_animation = std::exchange(boot_animation_requested_, false);
   // The window icon and on_launch listeners need the UI thread, when there is
   // one: a libretro core has no window.
   X_STATUS result = X_STATUS_UNSUCCESSFUL;
@@ -2253,10 +2478,123 @@ X_STATUS Emulator::CompleteLaunch(const std::filesystem::path& path,
     module->xex_module()->PrecompileStaticInitializers();
   }
 
+  // A dashboard asks for xam's resources as soon as it starts.
+  if (kernel::IsSystemTitle(kernel_state_->title_id())) {
+    PrepareSystemTitle();
+  }
+
   // Drops only the launch suspend, so a debugger break still holds.
-  main_thread_->Resume();
+  if (!boot_animation || !PlayBootAnimation()) {
+    main_thread_->Resume();
+  }
 
   return X_STATUS_SUCCESS;
+}
+
+void Emulator::PrepareSystemTitle() {
+  // Without installed system files the title's folder stands in for the flash.
+  std::string system_root;
+  if (!file_system_->FindSymbolicLink("\\SystemRoot", system_root)) {
+    file_system_->RegisterSymbolicLink(
+        "\\SystemRoot", utf8::find_base_guest_path(
+                            kernel_state_->GetExecutableModule()->path()));
+  }
+  // xam links media: to the flash, which holds the system fonts.
+  file_system_->RegisterSymbolicLink("media:", "\\SystemRoot");
+
+  // The dashboard loads box art from under kTitleImageUriRoot.
+  std::string title_images;
+  if (!file_system_->FindSymbolicLink(kernel::xam::kTitleImageSymbolicLink,
+                                      title_images)) {
+    auto device = std::make_unique<kernel::xam::TitleImageDevice>(
+        kernel::xam::kTitleImageMountPath, cache_root_, this);
+    if (device->Initialize() &&
+        file_system_->RegisterDevice(std::move(device))) {
+      file_system_->RegisterSymbolicLink(kernel::xam::kTitleImageSymbolicLink,
+                                         kernel::xam::kTitleImageMountPath);
+    }
+  }
+
+  // Only its resources are used, through the resource locators.
+  auto module = kernel_state_->LoadUserModule("\\SystemRoot\\xam.xex");
+  if (!module) {
+    module = kernel_state_->LoadUserModule("\\SystemRoot\\$flash_xam.xex");
+  }
+  // A failure here doesn't fail the title.
+  if (module) {
+    const X_STATUS result =
+        kernel_state_->FinishLoadingUserModule(module, false);
+    if (XFAILED(result)) {
+      XELOGE("Failed to load the system xam module: {:08X}", result);
+    }
+  }
+}
+
+bool Emulator::PlayBootAnimation() {
+  auto title = kernel_state_->GetExecutableModule();
+  // A launched boot animation is the title itself.
+  if (title->is_dll_module() && !title->entry_point()) {
+    return false;
+  }
+
+  auto animation =
+      kernel_state_->LoadUserModule("\\Device\\Flash\\bootanim.xex");
+  if (!animation) {
+    XELOGE("The boot animation isn't in the system files");
+    return false;
+  }
+  if (XFAILED(kernel_state_->FinishLoadingUserModule(animation))) {
+    XELOGE("Failed to initialize the boot animation");
+    kernel_state_->UnloadUserModule(animation);
+    return false;
+  }
+  auto xboxkrnl =
+      kernel_state_->GetKernelModule<kernel::xboxkrnl::XboxkrnlModule>(
+          "xboxkrnl.exe");
+  auto animation_thread =
+      xboxkrnl->StartBootAnimation(animation, /*main_thread=*/false);
+  if (!animation_thread) {
+    kernel_state_->UnloadUserModule(animation);
+    return false;
+  }
+
+  uint32_t logo = 0;
+  title->GetOptHeader(XEX_HEADER_XBOX360_LOGO, &logo);
+  const uint32_t first_frame = xe::logging::GetFrameNumber();
+  // Does what xam's title startup routine does before the entry point.
+  auto loader = kernel::object_ref<kernel::XHostThread>(new kernel::XHostThread(
+      kernel_state_.get(), 128 * 1024, 0,
+      [this, xboxkrnl, animation, animation_thread, logo, first_frame,
+       main_thread = main_thread_]() {
+        // Its startup clears an end request made before its first frame.
+        uint64_t timeout = static_cast<uint64_t>(-100000ll);
+        while (xe::logging::GetFrameNumber() == first_frame &&
+               animation_thread->Wait(3, 1, 0, &timeout) == X_STATUS_TIMEOUT) {
+        }
+        if (logo) {
+          auto header =
+              memory_->TranslateVirtual<const xex2_opt_ms_logo*>(logo);
+          constexpr uint32_t kLogoOffset = offsetof(xex2_opt_ms_logo, logo);
+          if (header->section_size > kLogoOffset) {
+            xboxkrnl->SetBootAnimationLogo(logo + kLogoOffset,
+                                           header->logo_size);
+          }
+        }
+        xboxkrnl->EndBootAnimation(0);
+        kernel_state_->UnloadUserModule(animation);
+        main_thread->Resume();
+        return 0;
+      },
+      0, true));
+  loader->set_name("Boot Animation Loader");
+  if (XFAILED(loader->Create())) {
+    XELOGE("Could not create the boot animation loader thread");
+    animation_thread->Terminate(0);
+    kernel_state_->UnloadUserModule(animation);
+    return false;
+  }
+  animation_thread->Resume();
+  return true;
 }
 
 void Emulator::SetupAgain() {
@@ -2284,6 +2622,10 @@ X_STATUS Emulator::PrepareLaunch(const std::filesystem::path& path,
   // translated yet, which is the only window where this can be picked up.
   processor_->RefreshTraceCountsEnabled();
 
+  if (input_system_) {
+    input_system_->ResetKeystrokes();
+  }
+
   // Expose the HDD content partition. Games that resolve saves/DLC to a raw
   // \Device\Harddisk0\Partition1\Content path via XamContentResolve open it
   // directly, not through the save:/dlc: symlinks. Without this the open lands
@@ -2293,6 +2635,28 @@ X_STATUS Emulator::PrepareLaunch(const std::filesystem::path& path,
       "\\Device\\Harddisk0\\Partition1\\Content", content_root_, false, true);
   if (content_device->Initialize()) {
     file_system_->RegisterDevice(std::move(content_device));
+  }
+
+  // The files of an installed system update.
+  for (const auto& [mount_path, folder] :
+       {std::pair{"\\Device\\Flash", "flash"},
+        std::pair{"\\Device\\Harddisk0\\SystemExtPartition", "sysext"},
+        std::pair{"\\Device\\Harddisk0\\SystemAuxPartition", "sysaux"}}) {
+    const auto host_path = system_files_path() / folder;
+    if (!std::filesystem::is_directory(host_path)) {
+      continue;
+    }
+    auto device =
+        std::make_unique<vfs::HostPathDevice>(mount_path, host_path, true);
+    if (device->Initialize()) {
+      file_system_->RegisterDevice(std::move(device));
+    }
+  }
+  // \SystemRoot is the flash, where titles find the system fonts.
+  std::string system_root;
+  if (file_system_->GetDevice("\\Device\\Flash") &&
+      !file_system_->FindSymbolicLink("\\SystemRoot", system_root)) {
+    file_system_->RegisterSymbolicLink("\\SystemRoot", "\\Device\\Flash");
   }
 
   // Setup NullDevices for raw HDD partition accesses
@@ -2315,25 +2679,29 @@ X_STATUS Emulator::PrepareLaunch(const std::filesystem::path& path,
   XELOGI("Loading module {}", module_path);
   auto module = kernel_state_->LoadUserModule(module_path);
   if (!module) {
-    XELOGE("Failed to load user module {}", path);
+    XELOGE("Failed to load user module {}",
+           xe::strip_pii(xe::path_to_utf8(path)));
     return X_STATUS_NOT_FOUND;
   }
 
   if (!module->is_executable()) {
     kernel_state_->UnloadUserModule(module, false);
-    XELOGE("Failed to load user module {}", path);
+    XELOGE("Failed to load user module {}",
+           xe::strip_pii(xe::path_to_utf8(path)));
     return X_STATUS_NOT_SUPPORTED;
   }
 
   X_RESULT result = kernel_state_->ApplyTitleUpdate(module);
   if (XFAILED(result)) {
-    XELOGE("Failed to apply title update! Cannot run module {}", path);
+    XELOGE("Failed to apply title update! Cannot run module {}",
+           xe::strip_pii(xe::path_to_utf8(path)));
     return result;
   }
 
   result = kernel_state_->FinishLoadingUserModule(module);
   if (XFAILED(result)) {
-    XELOGE("Failed to initialize user module {}", path);
+    XELOGE("Failed to initialize user module {}",
+           xe::strip_pii(xe::path_to_utf8(path)));
     return result;
   }
   // A XeFu build calls into the modules it imports from without checking they
@@ -2342,7 +2710,7 @@ X_STATUS Emulator::PrepareLaunch(const std::filesystem::path& path,
     const auto& missing = module->xex_module()->missing_import_libraries();
     if (!missing.empty()) {
       XELOGE("XeFu needs {} in {}", missing.front(),
-             xe::path_to_utf8(path.parent_path()));
+             xe::strip_pii(xe::path_to_utf8(path.parent_path())));
       ReportMissingXeFuFile(missing.front());
       return X_STATUS_DLL_NOT_FOUND;
     }
@@ -2359,6 +2727,10 @@ X_STATUS Emulator::PrepareLaunch(const std::filesystem::path& path,
               kMemoryProtectRead | kMemoryProtectWrite, false,
               &workspace_address);
 
+  {
+    std::lock_guard<std::mutex> lock(running_xbe_mutex_);
+    running_xbe_.reset();
+  }
   if (!info) {
     title_id_ = 0;
     current_disc_number_ = 0;
@@ -2372,11 +2744,27 @@ X_STATUS Emulator::PrepareLaunch(const std::filesystem::path& path,
   }
 
   if (title_id_ == kXeFuTitleId) {
+    // A signed-in profile has its own saves, and the console's MAC address,
+    // which some games encrypt them with, follows the same profile. They are
+    // ready before the Compatibility device reads its folder. Without a folder
+    // of its own the launch reads the shared saves.
+    const uint64_t xuid = kernel_state_->xconfig()->owner_xuid();
+    const auto saves =
+        xuid ? vfs::PrepareXboxOriginalSaves(compatibility_path(), xuid)
+             : std::filesystem::path();
     auto compatibility_device = std::make_unique<vfs::HostPathDevice>(
-        "\\Device\\Harddisk0\\Partition1\\Compatibility",
-        storage_root_ / "compatibility", false);
+        "\\Device\\Harddisk0\\Partition1\\Compatibility", compatibility_path(),
+        false);
     if (compatibility_device->Initialize()) {
       file_system_->RegisterDevice(std::move(compatibility_device));
+    }
+    if (!saves.empty()) {
+      auto saves_device = std::make_unique<vfs::HostPathDevice>(
+          "\\Device\\Harddisk0\\Partition1\\Compatibility\\Xbox1\\UDATA", saves,
+          false);
+      if (saves_device->Initialize()) {
+        file_system_->RegisterDevice(std::move(saves_device));
+      }
     }
     // xbox.xex and the XeFu builds, which XeFu also writes its config.bin to.
     auto system_device = std::make_unique<vfs::HostPathDevice>(
@@ -2532,15 +2920,26 @@ X_STATUS Emulator::PrepareLaunch(const std::filesystem::path& path,
     }
   }
 
+  // xbox.xex only relaunches into the XeFu build it picks, which loads the
+  // same storage.
+  const bool xefu_dispatcher =
+      title_id_ == kXeFuTitleId &&
+      IsXeFuDispatcher(vfs::ExtractXexMetadata(
+          reinterpret_cast<const uint8_t*>(module->xex_header()),
+          module->xex_header()->header_size));
+
   // Initialize shader storage asynchronously - pipeline compilation happens in
   // background while the game goes through its normal startup (loading screens,
   // intro videos, etc.). With async_shader_compilation enabled, draws are
   // skipped until pipelines are ready, so this is safe. By the time actual
   // gameplay starts, most cached pipelines should be compiled.
-  if (graphics_system_) {
-    on_shader_storage_initialization(true);
+  if (graphics_system_ && !xefu_dispatcher) {
+    // XeFu's shaders come from the original Xbox game it runs, its own without
+    // one.
+    const uint32_t storage_title_id = game_config_title_id();
     graphics_system_->InitializeShaderStorage(
-        cache_root_, title_id_.value(), false,
+        cache_root_, storage_title_id ? storage_title_id : title_id_.value(),
+        false, [this]() { on_shader_storage_initialization(true); },
         [this]() { on_shader_storage_initialization(false); });
   }
 

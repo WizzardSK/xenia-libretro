@@ -1,0 +1,4191 @@
+{
+ "corpus": "paths",
+ "source": "RGH Jasper, kernel and xam 2.0.17559, 2026-10-22",
+ "steps": [
+  {
+   "scenario": "identity",
+   "name": "XamUserGetXUID",
+   "export": "XamUserGetXUID",
+   "r3": "0000000000000000",
+   "capture": {
+    "xuid": "<X0>"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "xuid",
+     "offset": 0
+    }
+   ]
+  },
+  {
+   "scenario": "identity",
+   "name": "XamUserGetName",
+   "export": "XamUserGetName",
+   "r3": "0000000000000000",
+   "capture": {
+    "gamertag": "<NAME0>00<fill>"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "gamertag",
+     "offset": 8
+    },
+    {
+     "value": 16
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "delete xgp first",
+   "export": "XamContentDelete",
+   "r3": "0000000000000003",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create xgp",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000001",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 312
+    },
+    {
+     "pointer": "license",
+     "offset": 320
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close xgtst",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'.'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'.'",
+     "offset": 336
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 648
+    },
+    {
+     "pointer": "license",
+     "offset": 656
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'.'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'.'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'.'",
+     "offset": 336
+    },
+    {
+     "pointer": "is creator",
+     "offset": 664
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 672
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'.'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'.'",
+     "offset": 336
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 680
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'..'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'..'",
+     "offset": 688
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 1000
+    },
+    {
+     "pointer": "license",
+     "offset": 1008
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'..'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'..'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'..'",
+     "offset": 688
+    },
+    {
+     "pointer": "is creator",
+     "offset": 1016
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 1024
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'..'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'..'",
+     "offset": 688
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 1032
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'...'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000001",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'...'",
+     "offset": 1040
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 1352
+    },
+    {
+     "pointer": "license",
+     "offset": 1360
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'...'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'...'",
+   "export": "XamContentGetCreator",
+   "r3": "0000000000000000",
+   "capture": {
+    "is creator": "00000001",
+    "creator xuid": "<X0>"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'...'",
+     "offset": 1040
+    },
+    {
+     "pointer": "is creator",
+     "offset": 1368
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 1376
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'...'",
+   "export": "XamContentGetThumbnail",
+   "r3": "0000000000000000",
+   "capture": {
+    "size": "0000020a"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'...'",
+     "offset": 1040
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 1384
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'\\\\'",
+   "export": "XamContentCreateEx",
+   "r3": "00000000000000B7",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'\\\\'",
+     "offset": 1392
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 1704
+    },
+    {
+     "pointer": "license",
+     "offset": 1712
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'\\\\'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'\\\\'",
+   "export": "XamContentGetCreator",
+   "r3": "0000000000000001",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'\\\\'",
+     "offset": 1392
+    },
+    {
+     "pointer": "is creator",
+     "offset": 1720
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 1728
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'\\\\'",
+   "export": "XamContentGetThumbnail",
+   "r3": "0000000000000001",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'\\\\'",
+     "offset": 1392
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 1736
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'/'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'/'",
+     "offset": 1744
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 2056
+    },
+    {
+     "pointer": "license",
+     "offset": 2064
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'/'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'/'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'/'",
+     "offset": 1744
+    },
+    {
+     "pointer": "is creator",
+     "offset": 2072
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 2080
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'/'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'/'",
+     "offset": 1744
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 2088
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'C:'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'C:'",
+     "offset": 2096
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 2408
+    },
+    {
+     "pointer": "license",
+     "offset": 2416
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'C:'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'C:'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'C:'",
+     "offset": 2096
+    },
+    {
+     "pointer": "is creator",
+     "offset": 2424
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 2432
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'C:'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'C:'",
+     "offset": 2096
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 2440
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'xgp.'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000001",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'xgp.'",
+     "offset": 2448
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 2760
+    },
+    {
+     "pointer": "license",
+     "offset": 2768
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'xgp.'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'xgp.'",
+   "export": "XamContentGetCreator",
+   "r3": "0000000000000000",
+   "capture": {
+    "is creator": "00000001",
+    "creator xuid": "<X0>"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'xgp.'",
+     "offset": 2448
+    },
+    {
+     "pointer": "is creator",
+     "offset": 2776
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 2784
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'xgp.'",
+   "export": "XamContentGetThumbnail",
+   "r3": "0000000000000000",
+   "capture": {
+    "size": "0000020a"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'xgp.'",
+     "offset": 2448
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 2792
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'xgp\\\\x'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000003",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'xgp\\\\x'",
+     "offset": 2800
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 3112
+    },
+    {
+     "pointer": "license",
+     "offset": 3120
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'xgp\\\\x'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'xgp\\\\x'",
+   "export": "XamContentGetCreator",
+   "r3": "0000000000000003",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'xgp\\\\x'",
+     "offset": 2800
+    },
+    {
+     "pointer": "is creator",
+     "offset": 3128
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 3136
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'xgp\\\\x'",
+   "export": "XamContentGetThumbnail",
+   "r3": "0000000000000003",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'xgp\\\\x'",
+     "offset": 2800
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 3144
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'..\\\\00000001\\\\xgp'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'..\\\\00000001\\\\xgp'",
+     "offset": 3152
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 3464
+    },
+    {
+     "pointer": "license",
+     "offset": 3472
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'..\\\\00000001\\\\xgp'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'..\\\\00000001\\\\xgp'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'..\\\\00000001\\\\xgp'",
+     "offset": 3152
+    },
+    {
+     "pointer": "is creator",
+     "offset": 3480
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 3488
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'..\\\\00000001\\\\xgp'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'..\\\\00000001\\\\xgp'",
+     "offset": 3152
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 3496
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'x\"g'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'x\"g'",
+     "offset": 3504
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 3816
+    },
+    {
+     "pointer": "license",
+     "offset": 3824
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'x\"g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'x\"g'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x\"g'",
+     "offset": 3504
+    },
+    {
+     "pointer": "is creator",
+     "offset": 3832
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 3840
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'x\"g'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x\"g'",
+     "offset": 3504
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 3848
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'x+g'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'x+g'",
+     "offset": 3856
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 4168
+    },
+    {
+     "pointer": "license",
+     "offset": 4176
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'x+g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'x+g'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x+g'",
+     "offset": 3856
+    },
+    {
+     "pointer": "is creator",
+     "offset": 4184
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 4192
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'x+g'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x+g'",
+     "offset": 3856
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 4200
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'x,g'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'x,g'",
+     "offset": 4208
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 4520
+    },
+    {
+     "pointer": "license",
+     "offset": 4528
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'x,g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'x,g'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x,g'",
+     "offset": 4208
+    },
+    {
+     "pointer": "is creator",
+     "offset": 4536
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 4544
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'x,g'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x,g'",
+     "offset": 4208
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 4552
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'x;g'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'x;g'",
+     "offset": 4560
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 4872
+    },
+    {
+     "pointer": "license",
+     "offset": 4880
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'x;g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'x;g'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x;g'",
+     "offset": 4560
+    },
+    {
+     "pointer": "is creator",
+     "offset": 4888
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 4896
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'x;g'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x;g'",
+     "offset": 4560
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 4904
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'x=g'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'x=g'",
+     "offset": 4912
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 5224
+    },
+    {
+     "pointer": "license",
+     "offset": 5232
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'x=g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'x=g'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x=g'",
+     "offset": 4912
+    },
+    {
+     "pointer": "is creator",
+     "offset": 5240
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 5248
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'x=g'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x=g'",
+     "offset": 4912
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 5256
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'x<g'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'x<g'",
+     "offset": 5264
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 5576
+    },
+    {
+     "pointer": "license",
+     "offset": 5584
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'x<g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'x<g'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x<g'",
+     "offset": 5264
+    },
+    {
+     "pointer": "is creator",
+     "offset": 5592
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 5600
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'x<g'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x<g'",
+     "offset": 5264
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 5608
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'x>g'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'x>g'",
+     "offset": 5616
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 5928
+    },
+    {
+     "pointer": "license",
+     "offset": 5936
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'x>g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'x>g'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x>g'",
+     "offset": 5616
+    },
+    {
+     "pointer": "is creator",
+     "offset": 5944
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 5952
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'x>g'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x>g'",
+     "offset": 5616
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 5960
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'x|g'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'x|g'",
+     "offset": 5968
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 6280
+    },
+    {
+     "pointer": "license",
+     "offset": 6288
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'x|g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'x|g'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x|g'",
+     "offset": 5968
+    },
+    {
+     "pointer": "is creator",
+     "offset": 6296
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 6304
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'x|g'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x|g'",
+     "offset": 5968
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 6312
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'x*g'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'x*g'",
+     "offset": 6320
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 6632
+    },
+    {
+     "pointer": "license",
+     "offset": 6640
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'x*g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'x*g'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x*g'",
+     "offset": 6320
+    },
+    {
+     "pointer": "is creator",
+     "offset": 6648
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 6656
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'x*g'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x*g'",
+     "offset": 6320
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 6664
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'x?g'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'x?g'",
+     "offset": 6672
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 6984
+    },
+    {
+     "pointer": "license",
+     "offset": 6992
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'x?g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'x?g'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x?g'",
+     "offset": 6672
+    },
+    {
+     "pointer": "is creator",
+     "offset": 7000
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 7008
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'x?g'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x?g'",
+     "offset": 6672
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 7016
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'x\\x01g'",
+   "export": "XamContentCreateEx",
+   "r3": "000000000000007B",
+   "capture": {
+    "disposition": "00000000",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'x\\x01g'",
+     "offset": 7024
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 7336
+    },
+    {
+     "pointer": "license",
+     "offset": 7344
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'x\\x01g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000002",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'x\\x01g'",
+   "export": "XamContentGetCreator",
+   "r3": "000000000000007B",
+   "capture": {
+    "is creator": "00000000",
+    "creator xuid": "cdcdcdcdcdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x\\x01g'",
+     "offset": 7024
+    },
+    {
+     "pointer": "is creator",
+     "offset": 7352
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 7360
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'x\\x01g'",
+   "export": "XamContentGetThumbnail",
+   "r3": "000000000000007B",
+   "capture": {
+    "size": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x\\x01g'",
+     "offset": 7024
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 7368
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "create new b'x\\x7fg'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000001",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd b'x\\x7fg'",
+     "offset": 7376
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 7688
+    },
+    {
+     "pointer": "license",
+     "offset": 7696
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "close after b'x\\x7fg'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "creator b'x\\x7fg'",
+   "export": "XamContentGetCreator",
+   "r3": "0000000000000000",
+   "capture": {
+    "is creator": "00000001",
+    "creator xuid": "<X0>"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x\\x7fg'",
+     "offset": 7376
+    },
+    {
+     "pointer": "is creator",
+     "offset": 7704
+    },
+    {
+     "pointer": "creator xuid",
+     "offset": 7712
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "thumbnail size b'x\\x7fg'",
+   "export": "XamContentGetThumbnail",
+   "r3": "0000000000000000",
+   "capture": {
+    "size": "0000020a"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x\\x7fg'",
+     "offset": 7376
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "size",
+     "offset": 7720
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path names",
+   "name": "delete xgp",
+   "export": "XamContentDelete",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "create xgp",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000001",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 312
+    },
+    {
+     "pointer": "license",
+     "offset": 320
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close xgtst",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'.'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'.'",
+     "offset": 336
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'.'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 648
+    },
+    {
+     "pointer": "license",
+     "offset": 656
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'.'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'..'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'..'",
+     "offset": 664
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'..'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 976
+    },
+    {
+     "pointer": "license",
+     "offset": 984
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'..'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'...'",
+   "export": "XamContentDelete",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'...'",
+     "offset": 992
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'...'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 1304
+    },
+    {
+     "pointer": "license",
+     "offset": 1312
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'...'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'xgp.'",
+   "export": "XamContentDelete",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'xgp.'",
+     "offset": 1320
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'xgp.'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 1632
+    },
+    {
+     "pointer": "license",
+     "offset": 1640
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'xgp.'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'xgp\\\\x'",
+   "export": "XamContentDelete",
+   "r3": "0000000000000003",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'xgp\\\\x'",
+     "offset": 1648
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'xgp\\\\x'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 1960
+    },
+    {
+     "pointer": "license",
+     "offset": 1968
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'xgp\\\\x'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'..\\\\00000001\\\\xgp'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'..\\\\00000001\\\\xgp'",
+     "offset": 1976
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'..\\\\00000001\\\\xgp'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 2288
+    },
+    {
+     "pointer": "license",
+     "offset": 2296
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'..\\\\00000001\\\\xgp'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'x\"g'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x\"g'",
+     "offset": 2304
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'x\"g'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 2616
+    },
+    {
+     "pointer": "license",
+     "offset": 2624
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'x\"g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'x+g'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x+g'",
+     "offset": 2632
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'x+g'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 2944
+    },
+    {
+     "pointer": "license",
+     "offset": 2952
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'x+g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'x,g'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x,g'",
+     "offset": 2960
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'x,g'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 3272
+    },
+    {
+     "pointer": "license",
+     "offset": 3280
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'x,g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'x;g'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x;g'",
+     "offset": 3288
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'x;g'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 3600
+    },
+    {
+     "pointer": "license",
+     "offset": 3608
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'x;g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'x=g'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x=g'",
+     "offset": 3616
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'x=g'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 3928
+    },
+    {
+     "pointer": "license",
+     "offset": 3936
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'x=g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'x<g'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x<g'",
+     "offset": 3944
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'x<g'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 4256
+    },
+    {
+     "pointer": "license",
+     "offset": 4264
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'x<g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'x>g'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x>g'",
+     "offset": 4272
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'x>g'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 4584
+    },
+    {
+     "pointer": "license",
+     "offset": 4592
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'x>g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'x|g'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x|g'",
+     "offset": 4600
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'x|g'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 4912
+    },
+    {
+     "pointer": "license",
+     "offset": 4920
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'x|g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'x*g'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x*g'",
+     "offset": 4928
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'x*g'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 5240
+    },
+    {
+     "pointer": "license",
+     "offset": 5248
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'x*g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'x?g'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x?g'",
+     "offset": 5256
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'x?g'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 5568
+    },
+    {
+     "pointer": "license",
+     "offset": 5576
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'x?g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'x\\x01g'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x\\x01g'",
+     "offset": 5584
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'x\\x01g'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 5896
+    },
+    {
+     "pointer": "license",
+     "offset": 5904
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'x\\x01g'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete b'x\\x7fg'",
+   "export": "XamContentDelete",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'x\\x7fg'",
+     "offset": 5912
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "xgp after b'x\\x7fg'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 6224
+    },
+    {
+     "pointer": "license",
+     "offset": 6232
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "close after b'x\\x7fg'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "path deletes",
+   "name": "delete xgp",
+   "export": "XamContentDelete",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "host root deletes",
+   "name": "create xgp",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000001",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "pointer": "disposition",
+     "offset": 312
+    },
+    {
+     "pointer": "license",
+     "offset": 320
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "host root deletes",
+   "name": "close xgtst",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "host root deletes",
+   "name": "delete b'\\\\'",
+   "export": "XamContentDelete",
+   "r3": "0000000000000091",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'\\\\'",
+     "offset": 336
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "host root deletes",
+   "name": "xgp after b'\\\\'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 648
+    },
+    {
+     "pointer": "license",
+     "offset": 656
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "host root deletes",
+   "name": "close after b'\\\\'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "host root deletes",
+   "name": "delete b'/'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'/'",
+     "offset": 664
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "host root deletes",
+   "name": "xgp after b'/'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 976
+    },
+    {
+     "pointer": "license",
+     "offset": 984
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "host root deletes",
+   "name": "close after b'/'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "host root deletes",
+   "name": "delete b'C:'",
+   "export": "XamContentDelete",
+   "r3": "000000000000007B",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd b'C:'",
+     "offset": 992
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "host root deletes",
+   "name": "xgp after b'C:'",
+   "export": "XamContentCreateEx",
+   "r3": "0000000000000000",
+   "capture": {
+    "disposition": "00000002",
+    "license": "00000000"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 4
+    },
+    {
+     "pointer": "disposition",
+     "offset": 1304
+    },
+    {
+     "pointer": "license",
+     "offset": 1312
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "host root deletes",
+   "name": "close after b'C:'",
+   "export": "XamContentClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "root xgtst",
+     "offset": 328
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "host root deletes",
+   "name": "delete xgp",
+   "export": "XamContentDelete",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "cd 'xgp'",
+     "offset": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  }
+ ]
+}

@@ -15,6 +15,7 @@
 #include <memory>
 #include <optional>
 #include <regex>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -24,7 +25,14 @@
 
 namespace xe {
 
-std::string path_to_utf8(const std::filesystem::path& path);
+// UTF-8 text of a host path. Log calls only take it through strip_pii, as host
+// paths carry the user name.
+class Utf8Path : public std::string {
+ public:
+  explicit Utf8Path(std::string text) : std::string(std::move(text)) {}
+};
+
+Utf8Path path_to_utf8(const std::filesystem::path& path);
 std::u16string path_to_utf16(const std::filesystem::path& path);
 std::filesystem::path to_path(const std::string_view source);
 std::filesystem::path to_path(const std::u16string_view source);
@@ -56,6 +64,15 @@ bool CreateEmptyFile(const std::filesystem::path& path);
 // Returns an empty vector on open/read failure or for empty files.
 std::vector<uint8_t> ReadAllBytes(const std::filesystem::path& path);
 
+// Writes |data| as the whole file at the given path. Returns false when it
+// can't be written completely.
+bool WriteAllBytes(const std::filesystem::path& path,
+                   std::span<const uint8_t> data);
+
+// The child of |parent| named |name| ignoring case, empty if there's none.
+std::filesystem::path FindChildIgnoringCase(const std::filesystem::path& parent,
+                                            const std::string_view name);
+
 // Reads the entire file at the given path as a text string (binary mode; the
 // caller gets any \r bytes verbatim). Returns an empty string on open failure
 // or for empty files.
@@ -86,6 +103,7 @@ struct FileAccess {
   static constexpr uint32_t kFileReadData = 0x00000001;
   static constexpr uint32_t kFileWriteData = 0x00000002;
   static constexpr uint32_t kFileAppendData = 0x00000004;
+  static constexpr uint32_t kFileWriteAttributes = 0x00000100;
 };
 
 class FileHandle {
@@ -113,6 +131,10 @@ class FileHandle {
 
   // Set length of the file in bytes.
   virtual bool SetLength(size_t length) = 0;
+
+  // Sets the FILETIMEs that aren't 0, the others left alone.
+  virtual bool SetTimes(uint64_t create_timestamp, uint64_t access_timestamp,
+                        uint64_t write_timestamp) = 0;
 
   // Flushes any pending write buffers to the underlying filesystem.
   virtual void Flush() = 0;
@@ -151,8 +173,6 @@ std::vector<FileInfo> FilterByName(const std::vector<FileInfo>& files,
 std::vector<FileInfo> FindFileWithName(const std::filesystem::path& path,
                                        std::string_view name,
                                        bool recursive = false);
-
-bool SetAttributes(const std::filesystem::path& path, uint64_t attributes);
 
 #if XE_PLATFORM_ANDROID
 void AndroidInitialize();

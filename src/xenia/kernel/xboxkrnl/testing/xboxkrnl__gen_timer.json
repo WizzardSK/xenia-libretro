@@ -1,0 +1,690 @@
+{
+ "corpus": "timer",
+ "source": "RGH Jasper, kernel and xam 2.0.17559, 2026-10-25",
+ "steps": [
+  {
+   "scenario": "notification timer",
+   "name": "NtCreateEvent",
+   "export": "NtCreateEvent",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "handles",
+     "offset": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "notification timer",
+   "name": "NtCreateTimer",
+   "export": "NtCreateTimer",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "handles+0x4",
+     "offset": 4
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "notification timer",
+   "name": "NtSetTimerEx",
+   "export": "NtSetTimerEx",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "pointer": "50 ms",
+     "offset": 16
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 50
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "notification timer",
+   "name": "poll before it fires",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000102",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 24
+    }
+   ]
+  },
+  {
+   "scenario": "notification timer",
+   "name": "wait for it to fire",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "500 ms",
+     "offset": 32
+    }
+   ]
+  },
+  {
+   "scenario": "notification timer",
+   "name": "poll after the wait",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 40
+    }
+   ]
+  },
+  {
+   "scenario": "notification timer",
+   "name": "poll again",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 48
+    }
+   ]
+  },
+  {
+   "scenario": "notification timer",
+   "name": "poll either 1",
+   "export": "NtWaitForMultipleObjectsEx",
+   "r3": "0000000000000001",
+   "args": [
+    {
+     "value": 2
+    },
+    {
+     "pointer": "handles",
+     "offset": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 56
+    }
+   ]
+  },
+  {
+   "scenario": "notification timer",
+   "name": "poll either 2",
+   "export": "NtWaitForMultipleObjectsEx",
+   "r3": "0000000000000001",
+   "args": [
+    {
+     "value": 2
+    },
+    {
+     "pointer": "handles",
+     "offset": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 64
+    }
+   ]
+  },
+  {
+   "scenario": "notification timer",
+   "name": "sleep 3 periods",
+   "export": "KeDelayExecutionThread",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "150 ms",
+     "offset": 72
+    }
+   ]
+  },
+  {
+   "scenario": "notification timer",
+   "name": "poll after 3 periods",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 80
+    }
+   ]
+  },
+  {
+   "scenario": "notification timer",
+   "name": "poll after 3 periods again",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 88
+    }
+   ]
+  },
+  {
+   "scenario": "notification timer",
+   "name": "NtCancelTimer",
+   "export": "NtCancelTimer",
+   "r3": "0000000000000000",
+   "capture": {
+    "state": "01cdcdcd"
+   },
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "pointer": "state",
+     "offset": 96
+    }
+   ]
+  },
+  {
+   "scenario": "notification timer",
+   "name": "poll after cancel",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 104
+    }
+   ]
+  },
+  {
+   "scenario": "notification timer",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "timer"
+    }
+   ]
+  },
+  {
+   "scenario": "notification timer",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "event"
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "NtCreateEvent",
+   "export": "NtCreateEvent",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "handles",
+     "offset": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "NtCreateTimer",
+   "export": "NtCreateTimer",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "pointer": "handles+0x4",
+     "offset": 4
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "NtSetTimerEx",
+   "export": "NtSetTimerEx",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "pointer": "50 ms",
+     "offset": 16
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": 50
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "poll before it fires",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000102",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 24
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "wait for it to fire",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "500 ms",
+     "offset": 32
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "poll after the wait",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000102",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 40
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "poll again",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000102",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 48
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "poll either 1",
+   "export": "NtWaitForMultipleObjectsEx",
+   "r3": "0000000000000102",
+   "args": [
+    {
+     "value": 2
+    },
+    {
+     "pointer": "handles",
+     "offset": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 56
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "poll either 2",
+   "export": "NtWaitForMultipleObjectsEx",
+   "r3": "0000000000000102",
+   "args": [
+    {
+     "value": 2
+    },
+    {
+     "pointer": "handles",
+     "offset": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 64
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "sleep 3 periods",
+   "export": "KeDelayExecutionThread",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "150 ms",
+     "offset": 72
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "poll after 3 periods",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 80
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "poll after 3 periods again",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000102",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 88
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "NtCancelTimer",
+   "export": "NtCancelTimer",
+   "r3": "0000000000000000",
+   "capture": {
+    "state": "00cdcdcd"
+   },
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "pointer": "state",
+     "offset": 96
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "poll after cancel",
+   "export": "NtWaitForSingleObjectEx",
+   "r3": "0000000000000102",
+   "args": [
+    {
+     "variable": "timer"
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "pointer": "0 ms",
+     "offset": 104
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "timer"
+    }
+   ]
+  },
+  {
+   "scenario": "synchronization timer",
+   "name": "NtClose",
+   "export": "NtClose",
+   "r3": "0000000000000000",
+   "args": [
+    {
+     "variable": "event"
+    }
+   ]
+  },
+  {
+   "scenario": "cancel an invalid handle",
+   "name": "NtCancelTimer",
+   "export": "NtCancelTimer",
+   "r3": "FFFFFFFFC0000008",
+   "capture": {
+    "state": "cdcdcdcd"
+   },
+   "args": [
+    {
+     "value": 0
+    },
+    {
+     "pointer": "state",
+     "offset": 0
+    }
+   ]
+  }
+ ]
+}

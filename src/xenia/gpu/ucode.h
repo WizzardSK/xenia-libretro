@@ -596,7 +596,8 @@ enum class FetchOpcode : uint32_t {
   kTextureFetch = 1,
 
   // Gets the fraction of border color that would be blended into the texture
-  // data at the specified coordinates into the X component of the destination.
+  // data at the specified coordinates. MSDN puts it in X, the console returns
+  // it in all four components.
   // http://web.archive.org/web/20090512001222/http://msdn.microsoft.com/en-us/library/bb313945.aspx
   //
   // According to MSDN, this may take all the parameters that tfetch takes.

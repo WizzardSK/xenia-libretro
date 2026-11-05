@@ -11,9 +11,9 @@
 #include "xenia/base/filesystem.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/string.h"
-#include "xenia/xbox.h"
 
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <ftw.h>
 #include <pwd.h>
@@ -30,8 +30,8 @@
 
 namespace xe {
 
-std::string path_to_utf8(const std::filesystem::path& path) {
-  return path.string();
+Utf8Path path_to_utf8(const std::filesystem::path& path) {
+  return Utf8Path(path.string());
 }
 
 std::u16string path_to_utf16(const std::filesystem::path& path) {
@@ -143,6 +143,22 @@ static uint64_t convertUnixtimeToWinFiletime(time_t unixtime) {
   return filetime;
 }
 
+// A 0 FILETIME leaves the time alone.
+static timespec convertWinFiletimeToTimespec(uint64_t filetime) {
+  if (!filetime) {
+    return {0, UTIME_OMIT};
+  }
+  int64_t ticks = int64_t(filetime) - 116444736000000000LL;
+  int64_t seconds = ticks / 10000000;
+  int64_t remainder = ticks % 10000000;
+  // tv_nsec can't be negative, so a time before 1970 borrows a second.
+  if (remainder < 0) {
+    seconds -= 1;
+    remainder += 10000000;
+  }
+  return {time_t(seconds), long(remainder * 100)};
+}
+
 bool CreateEmptyFile(const std::filesystem::path& path) {
   int file = creat(path.c_str(), 0774);
   if (file >= 0) {
@@ -189,6 +205,13 @@ class PosixFileHandle : public FileHandle {
   bool SetLength(size_t length) override {
     return ftruncate(handle_, length) >= 0 ? true : false;
   }
+  bool SetTimes(uint64_t create_timestamp, uint64_t access_timestamp,
+                uint64_t write_timestamp) override {
+    // There's no creation time to set.
+    const timespec times[2] = {convertWinFiletimeToTimespec(access_timestamp),
+                               convertWinFiletimeToTimespec(write_timestamp)};
+    return futimens(handle_, times) == 0;
+  }
   void Flush() override { fsync(handle_); }
 
  private:
@@ -216,14 +239,21 @@ std::unique_ptr<FileHandle> FileHandle::OpenExisting(
     open_access = O_RDONLY;
   }
   // pwrite(2) ignores the offset on an O_APPEND descriptor.
-  const bool append_only = (desired_access & FileAccess::kFileAppendData) &&
-                           !(desired_access & (FileAccess::kGenericWrite |
-                                               FileAccess::kFileWriteData |
-                                               FileAccess::kGenericAll));
+  bool append_only = (desired_access & FileAccess::kFileAppendData) &&
+                     !(desired_access &
+                       (FileAccess::kGenericWrite | FileAccess::kFileWriteData |
+                        FileAccess::kGenericAll));
   if (append_only) {
     open_access |= O_APPEND;
   }
   int handle = open(path.c_str(), open_access);
+  if (handle == -1 && errno == EISDIR) {
+    // Win32 hands out a directory handle for any access through
+    // FILE_FLAG_BACKUP_SEMANTICS, and neither platform can write file data
+    // through one, so drop the write intent rather than fail.
+    append_only = false;
+    handle = open(path.c_str(), O_RDONLY | O_DIRECTORY);
+  }
   if (handle == -1) {
     // TODO(benvanik): pick correct response.
     return nullptr;
@@ -297,20 +327,6 @@ std::vector<FileInfo> ListFilesUnsorted(const std::filesystem::path& path) {
 }
 
 }  // namespace internal
-
-bool SetAttributes(const std::filesystem::path& path, uint64_t attributes) {
-  struct stat st;
-  if (stat(path.c_str(), &st) != 0) {
-    return false;
-  }
-  mode_t mode = st.st_mode;
-  if (attributes & X_FILE_ATTRIBUTE_READONLY) {
-    mode &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
-  } else {
-    mode |= S_IWUSR;
-  }
-  return chmod(path.c_str(), mode) == 0;
-}
 
 }  // namespace filesystem
 }  // namespace xe

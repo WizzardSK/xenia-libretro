@@ -984,24 +984,28 @@ std::vector<uint32_t> BuildEdramTransferShaderSpirv(
                     -int32_t(source_32bpp_tile_half_pixels)))));
   }
 
-  // Transform the destination 32bpp tile index into the source. After the
-  // addition, it may be negative - in which case, the transfer is done across
-  // EDRAM addressing wrapping, and xenos::kEdramTileCount must be added to it,
-  // but `& (xenos::kEdramTileCount - 1)` handles that regardless of the sign.
+  // Transform the destination 32bpp tile index into the source, wrapped, the
+  // base difference is stored wrapped too. Sources in the next period hold
+  // their tiles a period of rows down.
   spv::Id source_tile_index = builder.createBinOp(
-      spv::OpBitwiseAnd, type_uint,
-      builder.createUnaryOp(
-          spv::OpBitcast, type_uint,
+      spv::OpIAdd, type_uint,
+      builder.createBinOp(
+          spv::OpBitwiseAnd, type_uint,
           builder.createBinOp(
-              spv::OpIAdd, type_int,
-              builder.createUnaryOp(spv::OpBitcast, type_int, dest_tile_index),
+              spv::OpIAdd, type_uint, dest_tile_index,
               builder.createTriOp(
-                  spv::OpBitFieldSExtract, type_int,
-                  builder.createUnaryOp(spv::OpBitcast, type_int,
-                                        address_constant),
+                  spv::OpBitFieldUExtract, type_uint, address_constant,
                   builder.makeUintConstant(xenos::kEdramPitchTilesBits * 2),
-                  builder.makeUintConstant(xenos::kEdramBaseTilesBits + 1)))),
-      builder.makeUintConstant(xenos::kEdramTileCount - 1));
+                  builder.makeUintConstant(xenos::kEdramBaseTilesBits))),
+          builder.makeUintConstant(xenos::kEdramTileCount - 1)),
+      builder.createBinOp(
+          spv::OpIMul, type_uint,
+          builder.createTriOp(
+              spv::OpBitFieldUExtract, type_uint, address_constant,
+              builder.makeUintConstant(xenos::kEdramPitchTilesBits * 2 +
+                                       xenos::kEdramBaseTilesBits),
+              builder.makeUintConstant(1)),
+          builder.makeUintConstant(xenos::kEdramTileCount)));
   // Split the source 32bpp tile index into X and Y tile index within the source
   // image.
   spv::Id source_pitch_tiles = builder.createTriOp(
@@ -1928,28 +1932,18 @@ std::vector<uint32_t> BuildEdramTransferShaderSpirv(
                 builder.createAccessChain(spv::StorageClassPushConstant,
                                           push_constants, id_vector_temp),
                 spv::NoPrecision);
-            // Transform the destination tile index into the host depth source.
-            // After the addition, it may be negative - in which case, the
-            // transfer is done across EDRAM addressing wrapping, and
-            // xenos::kEdramTileCount must be added to it, but
-            // `& (xenos::kEdramTileCount - 1)` handles that regardless of the
-            // sign.
+            // Transform the destination tile index into the host depth source,
+            // wrapped.
             spv::Id host_depth_source_tile_index = builder.createBinOp(
                 spv::OpBitwiseAnd, type_uint,
-                builder.createUnaryOp(
-                    spv::OpBitcast, type_uint,
-                    builder.createBinOp(
-                        spv::OpIAdd, type_int,
-                        builder.createUnaryOp(spv::OpBitcast, type_int,
-                                              dest_tile_index),
-                        builder.createTriOp(
-                            spv::OpBitFieldSExtract, type_int,
-                            builder.createUnaryOp(spv::OpBitcast, type_int,
-                                                  host_depth_address_constant),
-                            builder.makeUintConstant(
-                                xenos::kEdramPitchTilesBits * 2),
-                            builder.makeUintConstant(
-                                xenos::kEdramBaseTilesBits + 1)))),
+                builder.createBinOp(
+                    spv::OpIAdd, type_uint, dest_tile_index,
+                    builder.createTriOp(
+                        spv::OpBitFieldUExtract, type_uint,
+                        host_depth_address_constant,
+                        builder.makeUintConstant(xenos::kEdramPitchTilesBits *
+                                                 2),
+                        builder.makeUintConstant(xenos::kEdramBaseTilesBits))),
                 builder.makeUintConstant(xenos::kEdramTileCount - 1));
             // Split the host depth source tile index into X and Y tile index
             // within the source image.

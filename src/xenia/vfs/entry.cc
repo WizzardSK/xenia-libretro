@@ -49,6 +49,10 @@ void Entry::Dump(xe::StringBuffer* string_buffer, int indent) {
 
 bool Entry::is_read_only() const { return device_->is_read_only(); }
 
+uint32_t Entry::sectors_per_allocation_unit() const {
+  return device_->sectors_per_allocation_unit();
+}
+
 Entry* Entry::GetChild(const std::string_view name) {
   auto global_lock = global_critical_region_.Acquire();
   auto it =
@@ -111,6 +115,9 @@ bool Entry::Delete(Entry* entry) {
   if (is_read_only()) {
     return false;
   }
+  if (entry->has_open_files()) {
+    return false;
+  }
   if (entry->parent() != this) {
     return false;
   }
@@ -136,21 +143,70 @@ void Entry::Touch() {
   // TODO(benvanik): update timestamps.
 }
 
-void Entry::Rename(const std::filesystem::path file_path) {
+X_STATUS Entry::Rename(const std::filesystem::path file_path,
+                       bool replace_existing) {
+  auto global_lock = global_critical_region_.Acquire();
   // Store the string to ensure string_views from split_path remain valid
   const std::string path_str = xe::path_to_utf8(file_path);
   std::vector<std::string_view> path_parts = xe::utf8::split_path(path_str);
+  if (path_parts.size() < 2) {
+    return X_STATUS_OBJECT_NAME_INVALID;
+  }
 
   // Remove the root (e.g., "cache:")
   path_parts.erase(path_parts.begin());
 
-  RenameEntryInternal(path_parts);
-
   const std::string guest_path = xe::utf8::join_guest_paths(path_parts);
-  absolute_path_ =
-      xe::utf8::join_guest_paths(device_->mount_path(), guest_path);
-  path_ = guest_path;
-  name_ = xe::utf8::find_name_from_guest_path(guest_path);
+  return Rename(
+      device_->ResolvePath(xe::utf8::find_base_guest_path(guest_path)),
+      path_parts.back(), replace_existing);
+}
+
+X_STATUS Entry::Rename(Entry* new_parent, std::string_view name,
+                       bool replace_existing) {
+  auto global_lock = global_critical_region_.Acquire();
+  if (!parent_) {
+    return X_STATUS_OBJECT_NAME_INVALID;
+  }
+  if (!new_parent || !(new_parent->attributes() & kFileAttributeDirectory)) {
+    return X_STATUS_OBJECT_PATH_NOT_FOUND;
+  }
+  if (new_parent->device() != device_) {
+    return X_STATUS_NOT_SAME_DEVICE;
+  }
+
+  // Renaming to its own name fails too, even a change of case only.
+  Entry* existing = new_parent->GetChild(name);
+  if (existing) {
+    if (!replace_existing ||
+        (existing->attributes() & kFileAttributeDirectory)) {
+      return X_STATUS_OBJECT_NAME_COLLISION;
+    }
+    if (existing == this || existing->has_open_files()) {
+      return X_STATUS_ACCESS_DENIED;
+    }
+  }
+
+  if (!RenameEntryInternal(new_parent, name)) {
+    return X_STATUS_ACCESS_DENIED;
+  }
+
+  if (existing) {
+    std::erase_if(new_parent->children_, [existing](const auto& child) {
+      return child.get() == existing;
+    });
+  }
+  if (new_parent != parent_) {
+    auto it = std::ranges::find(parent_->children_, this,
+                                &std::unique_ptr<Entry>::get);
+    new_parent->children_.push_back(std::move(*it));
+    parent_->children_.erase(it);
+    parent_ = new_parent;
+  }
+  path_ = xe::utf8::join_guest_paths(new_parent->path(), name);
+  absolute_path_ = xe::utf8::join_guest_paths(device_->mount_path(), path_);
+  name_ = name;
+  return X_STATUS_SUCCESS;
 }
 
 }  // namespace vfs

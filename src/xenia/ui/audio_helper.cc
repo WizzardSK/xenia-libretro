@@ -48,7 +48,7 @@ void AudioHelper::Initialize() {
   std::filesystem::path sound_path = cvars::achievement_sound_path;
   if (!std::filesystem::exists(sound_path)) {
     XELOGE("Achievement sound file not found: {}",
-           xe::path_to_utf8(sound_path));
+           xe::strip_pii(xe::path_to_utf8(sound_path)));
     return;
   }
 

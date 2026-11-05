@@ -17,13 +17,16 @@
 #include "xenia/base/string_util.h"
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/kernel/xam/xam_private.h"
+#include "xenia/kernel/xam/xam_system_link.h"
 
 namespace xe {
 namespace kernel {
 namespace xam {
 
 XamModule::XamModule(Emulator* emulator, KernelState* kernel_state)
-    : KernelModule(kernel_state, "xe:\\xam.xex"), loader_data_() {
+    : KernelModule(kernel_state, "xe:\\xam.xex"),
+      loader_data_(),
+      ethernet_intercept_(kernel_state) {
   RegisterExportTable(export_resolver_);
 
   // Register all exported functions.
@@ -66,6 +69,50 @@ void XamModule::RegisterExportTable(xe::cpu::ExportResolver* export_resolver) {
 }
 
 XamModule::~XamModule() {}
+
+std::shared_ptr<net::SystemLink> XamModule::system_link() {
+  std::lock_guard lock(system_link_mutex_);
+  if (!system_link_started_) {
+    system_link_started_ = true;
+    system_link_ = CreateSystemLink(kernel_state_, system_link_port_);
+  }
+  return system_link_;
+}
+
+uint32_t XamModule::SetSystemLinkPort(uint16_t port) {
+  std::lock_guard lock(system_link_mutex_);
+  if (system_link_) {
+    return system_link_->SetSystemLinkPort(port);
+  }
+  system_link_port_ = port;
+  return 0;
+}
+
+uint16_t XamModule::system_link_port() {
+  std::lock_guard lock(system_link_mutex_);
+  return system_link_ ? system_link_->system_link_port() : system_link_port_;
+}
+
+void XamModule::StartXNet(bool wsa, std::span<const uint8_t> params) {
+  std::lock_guard lock(xnet_mutex_);
+  if (!xnet_starts_ && !wsa_starts_) {
+    xnet_startup_params_ = net::NormalizeStartupParams(params);
+  }
+  ++(wsa ? wsa_starts_ : xnet_starts_);
+}
+
+void XamModule::CleanupXNet(bool wsa) {
+  std::lock_guard lock(xnet_mutex_);
+  auto& starts = wsa ? wsa_starts_ : xnet_starts_;
+  if (starts) {
+    --starts;
+  }
+}
+
+net::StartupParams XamModule::xnet_startup_params() {
+  std::lock_guard lock(xnet_mutex_);
+  return xnet_startup_params_;
+}
 
 }  // namespace xam
 }  // namespace kernel

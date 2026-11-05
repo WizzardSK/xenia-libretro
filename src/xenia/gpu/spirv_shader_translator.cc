@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <thread>
 
 #include "third_party/fmt/include/fmt/format.h"
 #include "third_party/glslang/SPIRV/GLSL.std.450.h"
@@ -211,6 +212,8 @@ SpirvShaderTranslator::Features::Features(
           vulkan_device->properties().shaderDenormFlushToZeroFloat32),
       rounding_mode_rte_float32(
           vulkan_device->properties().shaderRoundingModeRTEFloat32),
+      rounding_mode_rtz_float32(
+          vulkan_device->properties().shaderRoundingModeRTZFloat32),
       fragment_shader_sample_interlock(
           vulkan_device->properties().fragmentShaderSampleInterlock),
       demote_to_helper_invocation(
@@ -280,7 +283,7 @@ uint64_t SpirvShaderTranslator::GetDefaultPixelShaderModification(
 
 std::vector<uint8_t> SpirvShaderTranslator::CreateDepthOnlyFragmentShader(
     Modification::DepthStencilMode depth_stencil_mode, bool zpd_total,
-    bool viz_survey) {
+    bool viz_survey, uint64_t input_modification) {
   is_depth_only_fragment_shader_ = true;
   is_viz_survey_fragment_shader_ = viz_survey;
   // TODO(Triang3l): Handle in a nicer way (is_depth_only_fragment_shader_ is a
@@ -288,7 +291,8 @@ std::vector<uint8_t> SpirvShaderTranslator::CreateDepthOnlyFragmentShader(
   Shader shader(xenos::ShaderType::kPixel, 0, nullptr, 0);
   StringBuffer instruction_disassembly_buffer;
   shader.AnalyzeUcode(instruction_disassembly_buffer);
-  Modification modification(0);
+  Modification modification(
+      GetPixelShaderInputModification(input_modification));
   modification.pixel.depth_stencil_mode = depth_stencil_mode;
   modification.pixel.set_zpd_total(zpd_total);
   Shader::Translation& translation =
@@ -300,12 +304,28 @@ std::vector<uint8_t> SpirvShaderTranslator::CreateDepthOnlyFragmentShader(
 }
 
 std::vector<uint8_t> SpirvShaderTranslator::CreateDepthOnlyFragmentShader(
-    xenos::MsaaSamples fsi_msaa_samples, bool viz_survey) {
+    xenos::MsaaSamples fsi_msaa_samples, bool viz_survey,
+    uint64_t input_modification) {
   // The sample count lives in depth_stencil_mode's bits on the FSI path.
   Modification modification(0);
   modification.pixel.set_fsi_msaa_samples(fsi_msaa_samples);
   return CreateDepthOnlyFragmentShader(modification.pixel.depth_stencil_mode,
-                                       false, viz_survey);
+                                       false, viz_survey, input_modification);
+}
+
+uint64_t SpirvShaderTranslator::GetPixelShaderInputModification(
+    uint64_t modification) {
+  Modification pixel_modification(modification);
+  Modification input_modification(0);
+  // Interpolators take consecutive locations whichever ones are used.
+  // Centroid sampling doesn't change the signature rows.
+  uint32_t interpolator_count =
+      xe::bit_count(pixel_modification.pixel.interpolator_mask);
+  input_modification.pixel.interpolator_mask =
+      (UINT32_C(1) << interpolator_count) - 1;
+  input_modification.pixel.param_gen_point =
+      pixel_modification.pixel.param_gen_point;
+  return input_modification.value;
 }
 
 void SpirvShaderTranslator::Reset() {
@@ -342,6 +362,7 @@ void SpirvShaderTranslator::Reset() {
   bisect_current_instruction_ = UINT32_MAX;
   bisect_snapshot_emitted_ = false;
   var_main_bisect_snapshot_ = spv::NoResult;
+  var_main_estimate_coefficients_.fill(spv::NoResult);
   var_main_registers_ = spv::NoResult;
   main_interpolators_unmodified_ = 0;
   var_main_interpolator_guest_center_deltas_.fill(spv::NoResult);
@@ -492,7 +513,7 @@ void SpirvShaderTranslator::StartTranslation() {
   if (features_.spirv_version < spv::Spv_1_4) {
     if (features_.signed_zero_inf_nan_preserve_float32 ||
         features_.denorm_flush_to_zero_float32 ||
-        features_.rounding_mode_rte_float32) {
+        features_.rounding_mode_rte_float32 || RoundsTowardZeroInHardware()) {
       builder_->addExtension("SPV_KHR_float_controls");
     }
   }
@@ -659,6 +680,8 @@ void SpirvShaderTranslator::StartTranslation() {
       {"texture_integer_scale_bits",
        offsetof(SystemConstants, texture_integer_scale_bits),
        type_uint4_array_8},
+      {"param_gen_window_offset",
+       offsetof(SystemConstants, param_gen_window_offset), type_float2_},
   };
   id_vector_temp_.clear();
   id_vector_temp_.reserve(xe::countof(system_constants));
@@ -1299,8 +1322,12 @@ std::vector<uint8_t> SpirvShaderTranslator::CompleteTranslation() {
     builder_->addExecutionMode(function_main_,
                                spv::ExecutionModeSignedZeroInfNanPreserve, 32);
   }
-  if (features_.rounding_mode_rte_float32 &&
-      !cvars::spirv_disable_rounding_mode_rte) {
+  if (RoundsTowardZeroInHardware()) {
+    builder_->addCapability(spv::CapabilityRoundingModeRTZ);
+    builder_->addExecutionMode(function_main_,
+                               spv::ExecutionModeRoundingModeRTZ, 32);
+  } else if (features_.rounding_mode_rte_float32 &&
+             !cvars::spirv_disable_rounding_mode_rte) {
     builder_->addCapability(spv::CapabilityRoundingModeRTE);
     builder_->addExecutionMode(function_main_,
                                spv::ExecutionModeRoundingModeRTE, 32);
@@ -1373,6 +1400,12 @@ void SpirvShaderTranslator::PostTranslation() {
     // after they are fully written, so a PS translated on a creation thread is
     // only consulted once its bindings are complete.
     spirv_shader->bindings_ready_.store(true, std::memory_order_release);
+  } else if (spirv_shader) {
+    // Wait for the translation still publishing the shader's bindings since
+    // this one counts as done on return.
+    while (!spirv_shader->bindings_ready()) {
+      std::this_thread::yield();
+    }
   }
 }
 
@@ -3306,91 +3339,91 @@ void SpirvShaderTranslator::StartFragmentShaderBeforeMain() {
   bool param_gen_needed = !is_depth_only_fragment_shader_ &&
                           GetPsParamGenInterpolator() != UINT32_MAX;
 
-  if (!is_depth_only_fragment_shader_) {
-    uint32_t input_location = 0;
+  // A depth-only shader standing in for a pixel shader declares its inputs
+  // unread so its signature rows match the previous stage's outputs.
+  uint32_t input_location = 0;
 
-    // Interpolator inputs.
-    // When fragment_shader_barycentric is enabled, create per-vertex
-    // interpolator arrays (float4[3]) with PerVertexKHR decoration for manual
-    // barycentric interpolation. This works around Nvidia driver differences
-    // in hardware interpolation that can cause noise artifacts in games that
-    // do exact equality comparisons in shaders (e.g., Perfect Dark, Tenchu Z).
-    // Skip barycentric for point primitives - barycentric coordinates are only
-    // meaningful for triangles.
-    bool use_barycentric_interpolation =
-        precise_interpolation_ && features_.fragment_shader_barycentric &&
-        !shader_modification.pixel.param_gen_point;
-    if (use_barycentric_interpolation) {
-      // Add extension and capability for barycentric interpolation.
-      builder_->addExtension("SPV_KHR_fragment_shader_barycentric");
-      builder_->addCapability(spv::CapabilityFragmentBarycentricKHR);
+  // Interpolator inputs.
+  // When fragment_shader_barycentric is enabled, create per-vertex
+  // interpolator arrays (float4[3]) with PerVertexKHR decoration for manual
+  // barycentric interpolation. This works around Nvidia driver differences
+  // in hardware interpolation that can cause noise artifacts in games that
+  // do exact equality comparisons in shaders (e.g., Perfect Dark, Tenchu Z).
+  // Skip barycentric for point primitives - barycentric coordinates are only
+  // meaningful for triangles. A depth-only shader reads no inputs and plain
+  // inputs take the same signature rows.
+  bool use_barycentric_interpolation =
+      precise_interpolation_ && features_.fragment_shader_barycentric &&
+      !shader_modification.pixel.param_gen_point &&
+      !is_depth_only_fragment_shader_;
+  if (use_barycentric_interpolation) {
+    // Add extension and capability for barycentric interpolation.
+    builder_->addExtension("SPV_KHR_fragment_shader_barycentric");
+    builder_->addCapability(spv::CapabilityFragmentBarycentricKHR);
 
-      // Create gl_BaryCoordKHR builtin input (float3).
-      input_barycentric_coord_ =
-          builder_->createVariable(spv::NoPrecision, spv::StorageClassInput,
-                                   type_float3_, "gl_BaryCoordKHR");
-      builder_->addDecoration(input_barycentric_coord_, spv::DecorationBuiltIn,
-                              static_cast<int>(spv::BuiltInBaryCoordKHR));
-      main_interface_.push_back(input_barycentric_coord_);
+    // Create gl_BaryCoordKHR builtin input (float3).
+    input_barycentric_coord_ =
+        builder_->createVariable(spv::NoPrecision, spv::StorageClassInput,
+                                 type_float3_, "gl_BaryCoordKHR");
+    builder_->addDecoration(input_barycentric_coord_, spv::DecorationBuiltIn,
+                            static_cast<int>(spv::BuiltInBaryCoordKHR));
+    main_interface_.push_back(input_barycentric_coord_);
 
-      // Create per-vertex interpolator inputs as float4[3] arrays with
-      // PerVertexKHR decoration.
-      spv::Id type_float4_array_3 = builder_->makeArrayType(
-          type_float4_, builder_->makeUintConstant(3), 0);
-      uint32_t interpolators_remaining = GetModificationInterpolatorMask();
-      uint32_t interpolator_index;
-      while (
-          xe::bit_scan_forward(interpolators_remaining, &interpolator_index)) {
-        interpolators_remaining &= ~(UINT32_C(1) << interpolator_index);
-        spv::Id interpolator_per_vertex = builder_->createVariable(
-            spv::NoPrecision, spv::StorageClassInput, type_float4_array_3,
-            fmt::format("xe_in_interpolator_{}_per_vertex", interpolator_index)
-                .c_str());
-        input_interpolators_per_vertex_[interpolator_index] =
-            interpolator_per_vertex;
-        builder_->addDecoration(interpolator_per_vertex,
-                                spv::DecorationLocation, int(input_location));
-        builder_->addDecoration(interpolator_per_vertex,
-                                spv::DecorationPerVertexKHR);
-        // Note: Centroid decoration is not applicable with PerVertexKHR since
-        // we're doing manual interpolation.
-        main_interface_.push_back(interpolator_per_vertex);
-        ++input_location;
-      }
-    } else {
-      // Standard hardware interpolation path.
-      uint32_t interpolators_remaining = GetModificationInterpolatorMask();
-      uint32_t interpolator_index;
-      while (
-          xe::bit_scan_forward(interpolators_remaining, &interpolator_index)) {
-        interpolators_remaining &= ~(UINT32_C(1) << interpolator_index);
-        spv::Id interpolator = builder_->createVariable(
-            spv::NoPrecision, spv::StorageClassInput, type_float4_,
-            fmt::format("xe_in_interpolator_{}", interpolator_index).c_str());
-        input_output_interpolators_[interpolator_index] = interpolator;
-        builder_->addDecoration(interpolator, spv::DecorationLocation,
-                                int(input_location));
-        if (shader_modification.pixel.interpolators_centroid &
-            (UINT32_C(1) << interpolator_index)) {
-          builder_->addDecoration(interpolator, spv::DecorationCentroid);
-        }
-        main_interface_.push_back(interpolator);
-        ++input_location;
-      }
-    }
-
-    // Point coordinate input.
-    if (shader_modification.pixel.param_gen_point) {
-      if (param_gen_needed) {
-        input_point_coordinates_ =
-            builder_->createVariable(spv::NoPrecision, spv::StorageClassInput,
-                                     type_float2_, "xe_in_point_coordinates");
-        builder_->addDecoration(input_point_coordinates_,
-                                spv::DecorationLocation, int(input_location));
-        main_interface_.push_back(input_point_coordinates_);
-      }
+    // Create per-vertex interpolator inputs as float4[3] arrays with
+    // PerVertexKHR decoration.
+    spv::Id type_float4_array_3 =
+        builder_->makeArrayType(type_float4_, builder_->makeUintConstant(3), 0);
+    uint32_t interpolators_remaining = GetModificationInterpolatorMask();
+    uint32_t interpolator_index;
+    while (xe::bit_scan_forward(interpolators_remaining, &interpolator_index)) {
+      interpolators_remaining &= ~(UINT32_C(1) << interpolator_index);
+      spv::Id interpolator_per_vertex = builder_->createVariable(
+          spv::NoPrecision, spv::StorageClassInput, type_float4_array_3,
+          fmt::format("xe_in_interpolator_{}_per_vertex", interpolator_index)
+              .c_str());
+      input_interpolators_per_vertex_[interpolator_index] =
+          interpolator_per_vertex;
+      builder_->addDecoration(interpolator_per_vertex, spv::DecorationLocation,
+                              int(input_location));
+      builder_->addDecoration(interpolator_per_vertex,
+                              spv::DecorationPerVertexKHR);
+      // Note: Centroid decoration is not applicable with PerVertexKHR since
+      // we're doing manual interpolation.
+      main_interface_.push_back(interpolator_per_vertex);
       ++input_location;
     }
+  } else {
+    // Standard hardware interpolation path.
+    uint32_t interpolators_remaining = GetModificationInterpolatorMask();
+    uint32_t interpolator_index;
+    while (xe::bit_scan_forward(interpolators_remaining, &interpolator_index)) {
+      interpolators_remaining &= ~(UINT32_C(1) << interpolator_index);
+      spv::Id interpolator = builder_->createVariable(
+          spv::NoPrecision, spv::StorageClassInput, type_float4_,
+          fmt::format("xe_in_interpolator_{}", interpolator_index).c_str());
+      input_output_interpolators_[interpolator_index] = interpolator;
+      builder_->addDecoration(interpolator, spv::DecorationLocation,
+                              int(input_location));
+      if (shader_modification.pixel.interpolators_centroid &
+          (UINT32_C(1) << interpolator_index)) {
+        builder_->addDecoration(interpolator, spv::DecorationCentroid);
+      }
+      main_interface_.push_back(interpolator);
+      ++input_location;
+    }
+  }
+
+  // Point coordinate input.
+  if (shader_modification.pixel.param_gen_point) {
+    if (param_gen_needed || is_depth_only_fragment_shader_) {
+      input_point_coordinates_ =
+          builder_->createVariable(spv::NoPrecision, spv::StorageClassInput,
+                                   type_float2_, "xe_in_point_coordinates");
+      builder_->addDecoration(input_point_coordinates_, spv::DecorationLocation,
+                              int(input_location));
+      main_interface_.push_back(input_point_coordinates_);
+    }
+    ++input_location;
   }
 
   // Fragment coordinates.
@@ -3896,6 +3929,15 @@ void SpirvShaderTranslator::StartFragmentShaderInMain() {
     // see the actual hardware instructions in both OpBitwiseXor and OpFNegate
     // cases.
     spv::Id const_sign_bit = builder_->makeUintConstant(UINT32_C(1) << 31);
+    // Add the window offset back when it's carried in the EDRAM bases.
+    // PsParamGen includes it.
+    id_vector_temp_.clear();
+    id_vector_temp_.push_back(
+        builder_->makeIntConstant(kSystemConstantParamGenWindowOffset));
+    spv::Id param_gen_window_offset = builder_->createLoad(
+        builder_->createAccessChain(spv::StorageClassUniform,
+                                    uniform_system_constants_, id_vector_temp_),
+        spv::NoPrecision);
     // X - pixel X .0 in the magnitude, is back-facing in the sign bit.
     assert_true(input_fragment_coordinates_ != spv::NoResult);
     id_vector_temp_.clear();
@@ -3916,6 +3958,10 @@ void SpirvShaderTranslator::StartFragmentShaderInMain() {
           builder_->makeFloatConstant(1.0f /
                                       float(GetCurrentDrawResolutionScaleX())));
     }
+    param_gen_x =
+        builder_->createBinOp(spv::OpFAdd, type_float_, param_gen_x,
+                              builder_->createCompositeExtract(
+                                  param_gen_window_offset, type_float_, 0));
     if (!modification.pixel.param_gen_point) {
       assert_true(input_front_facing_ != spv::NoResult);
       param_gen_x = builder_->createTriOp(
@@ -3958,6 +4004,10 @@ void SpirvShaderTranslator::StartFragmentShaderInMain() {
           builder_->makeFloatConstant(1.0f /
                                       float(GetCurrentDrawResolutionScaleY())));
     }
+    param_gen_y =
+        builder_->createBinOp(spv::OpFAdd, type_float_, param_gen_y,
+                              builder_->createCompositeExtract(
+                                  param_gen_window_offset, type_float_, 1));
     if (modification.pixel.param_gen_point) {
       param_gen_y = builder_->createUnaryOp(
           spv::OpBitcast, type_float_,

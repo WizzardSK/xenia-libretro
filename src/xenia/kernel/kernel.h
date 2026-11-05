@@ -18,6 +18,7 @@ namespace xe {
 namespace kernel {
 
 // IOCTL_, used by NtDeviceIoControlFile
+constexpr uint32_t X_IOCTL_CDROM_AUTHENTICATE_DISC = 0x24080;
 constexpr uint32_t X_IOCTL_DISK_GET_DRIVE_GEOMETRY = 0x70000;
 constexpr uint32_t X_IOCTL_DISK_UNK =
     0x70042;  // used when accessing storage in dash
@@ -81,10 +82,6 @@ inline uint32_t XOverlappedGetLength(void* ptr) {
 inline void XOverlappedSetLength(void* ptr, uint32_t value) {
   auto p = reinterpret_cast<uint32_t*>(ptr);
   xe::store_and_swap<uint32_t>(&p[1], value);
-}
-inline uint32_t XOverlappedGetContext(void* ptr) {
-  auto p = reinterpret_cast<uint32_t*>(ptr);
-  return xe::load_and_swap<uint32_t>(&p[2]);
 }
 inline void XOverlappedSetContext(void* ptr, uint32_t value) {
   auto p = reinterpret_cast<uint32_t*>(ptr);

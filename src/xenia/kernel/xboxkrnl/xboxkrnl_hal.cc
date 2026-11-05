@@ -36,9 +36,20 @@ void HalReturnToFirmware_entry(dword_t routine) {
           ? FirmwareReentryMessage[routine]
           : fmt::format("Reboot (Routine Code: {})", routine.value()));
   XELOGE(exitMessage);
-  kernel_state()->ExitToDashboard();
+  // 0 and 4 power off through the SMC, 5 and 7 through the power down DPC. The
+  // others reset.
+  const uint32_t r = routine;
+  if (r == 0 || r == 4 || r == 5 || r == 7) {
+    kernel_state()->PowerOff();
+  } else {
+    kernel_state()->ExitToDashboard();
+  }
 }
 DECLARE_XBOXKRNL_EXPORT2(HalReturnToFirmware, kNone, kStub, kImportant);
+
+// Queues the power down DPC HalReturnToFirmware(5) does.
+void HalPowerDownToBackgroundMode_entry() { kernel_state()->PowerOff(); }
+DECLARE_XBOXKRNL_EXPORT1(HalPowerDownToBackgroundMode, kNone, kSketchy);
 
 dword_result_t HalGetCurrentAVPack_entry() { return cvars::avpack; }
 DECLARE_XBOXKRNL_EXPORT1(HalGetCurrentAVPack, kNone, kImplemented);
@@ -55,8 +66,7 @@ DECLARE_XBOXKRNL_EXPORT3(HalSendSMCMessage, kNone, kStub, kImportant,
                          kHighFrequency);
 
 void HalOpenCloseODDTray_entry(dword_t open_close) {
-  kernel_state()->smc()->SetTrayState(open_close ? X_DVD_TRAY_STATE::CLOSED
-                                                 : X_DVD_TRAY_STATE::OPEN);
+  kernel_state()->smc()->MoveTray(open_close);
 }
 DECLARE_XBOXKRNL_EXPORT1(HalOpenCloseODDTray, kNone, kStub);
 

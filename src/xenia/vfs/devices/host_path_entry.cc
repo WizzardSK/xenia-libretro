@@ -9,6 +9,8 @@
 
 #include "xenia/vfs/devices/host_path_entry.h"
 
+#include <algorithm>
+
 #include "xenia/base/filesystem.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/mapped_memory.h"
@@ -28,6 +30,57 @@ HostPathEntry::HostPathEntry(Device* device, Entry* parent,
     : Entry(device, parent, path), host_path_(host_path) {}
 
 HostPathEntry::~HostPathEntry() = default;
+
+bool HostPathEntry::has_open_files() const {
+  auto global_lock = global_critical_region_.Acquire();
+  // Deleting a directory frees its children, so their handles count too.
+  return open_files_.load() != 0 ||
+         std::ranges::any_of(children_, [](const auto& child) {
+           return child->has_open_files();
+         });
+}
+
+void HostPathEntry::ReleaseFile() {
+  auto global_lock = global_critical_region_.Acquire();
+  if (open_files_.fetch_sub(1) != 1) {
+    return;
+  }
+  if (delete_on_close() && parent()) {
+    Delete();
+  } else if (overwritten_) {
+    // The old bytes past the size go with the last handle. A host file
+    // already that size is left alone so its times stay.
+    overwritten_ = false;
+    auto file_info = xe::filesystem::GetInfo(host_path_);
+    if (file_info && file_info->total_size != size_) {
+      std::error_code ec;
+      std::filesystem::resize_file(host_path_, size_, ec);
+      if (ec) {
+        XELOGE("{}: Cannot trim {}: {}", __func__,
+               xe::strip_pii(xe::path_to_utf8(host_path_)), ec.message());
+      }
+    }
+  }
+}
+
+bool HostPathEntry::Overwrite() {
+  auto global_lock = global_critical_region_.Acquire();
+  if (is_read_only() || (attributes_ & kFileAttributeDirectory) ||
+      reported_size_fixed_ || has_open_files()) {
+    return false;
+  }
+  // FATX frees the clusters without clearing them and hands the same ones back
+  // when the file grows again.
+  overwritten_ = true;
+  size_ = 0;
+  allocation_size_ = 0;
+  return true;
+}
+
+void HostPathEntry::SetOverwrittenSize(size_t size) {
+  size_ = size;
+  allocation_size_ = xe::round_up(size, device()->bytes_per_sector());
+}
 
 HostPathEntry* HostPathEntry::Create(Device* device, Entry* parent,
                                      const std::filesystem::path& full_path,
@@ -59,8 +112,13 @@ X_STATUS HostPathEntry::Open(uint32_t desired_access, File** out_file) {
     XELOGE("Attempting to open file for write access on read-only device");
     return X_STATUS_ACCESS_DENIED;
   }
+  // FATX sets times through any handle, even one opened only to read.
+  uint32_t host_access = desired_access & ~FileAccess::kFileWriteAttributes;
+  if (!is_read_only()) {
+    host_access |= FileAccess::kFileWriteAttributes;
+  }
   auto file_handle =
-      xe::filesystem::FileHandle::OpenExisting(host_path_, desired_access);
+      xe::filesystem::FileHandle::OpenExisting(host_path_, host_access);
   if (!file_handle) {
     // TODO(benvanik): pick correct response.
     return X_STATUS_NO_SUCH_FILE;
@@ -114,7 +172,7 @@ bool HostPathEntry::DeleteEntryInternal(Entry* entry) {
       const auto result = std::filesystem::remove(full_path, ec);
       if (ec) {
         XELOGE("{}: Cannot remove file entry. File: {} Error: {}", __func__,
-               full_path, ec.message());
+               xe::strip_pii(xe::path_to_utf8(full_path)), ec.message());
         return false;
       }
     }
@@ -122,21 +180,21 @@ bool HostPathEntry::DeleteEntryInternal(Entry* entry) {
   }
 }
 
-void HostPathEntry::RenameEntryInternal(
-    const std::vector<std::string_view>& path_parts) {
-  const std::string relative_path = xe::utf8::join_paths(path_parts);
-  const std::string new_host_path_ = xe::utf8::join_paths(
-      xe::path_to_utf8(static_cast<HostPathDevice*>(device_)->host_path()),
-      relative_path);
+bool HostPathEntry::RenameEntryInternal(Entry* new_parent,
+                                        const std::string_view name) {
+  const std::filesystem::path new_host_path =
+      static_cast<HostPathEntry*>(new_parent)->host_path_ / xe::to_path(name);
 
   std::error_code ec;
-  std::filesystem::rename(host_path_, new_host_path_, ec);
+  std::filesystem::rename(host_path_, new_host_path, ec);
   if (ec) {
     XELOGE("RenameEntryInternal: Failed to rename '{}' to '{}': {}",
-           xe::path_to_utf8(host_path_), new_host_path_, ec.message());
-    return;
+           xe::strip_pii(xe::path_to_utf8(host_path_)),
+           xe::strip_pii(xe::path_to_utf8(new_host_path)), ec.message());
+    return false;
   }
-  host_path_ = new_host_path_;
+  host_path_ = new_host_path;
+  return true;
 }
 
 void HostPathEntry::update() {
@@ -148,54 +206,45 @@ void HostPathEntry::update() {
   // moves on every write.
   access_timestamp_ = file_info->access_timestamp;
   write_timestamp_ = file_info->write_timestamp;
-  // A synthesized size, such as a collapsed package container, must stand.
+  // A synthesized size, such as a collapsed package container, must stand, as
+  // must an overwritten file's.
   if (file_info->type == xe::filesystem::FileInfo::Type::kFile &&
-      !reported_size_fixed_) {
+      !reported_size_fixed_ && !overwritten_) {
     size_ = file_info->total_size;
     allocation_size_ =
         xe::round_up(file_info->total_size, device()->bytes_per_sector());
   }
 }
 
-bool HostPathEntry::SetAttributes(uint64_t attributes) {
+bool HostPathEntry::SetTimes(xe::filesystem::FileHandle& file_handle,
+                             uint64_t create_timestamp,
+                             uint64_t access_timestamp,
+                             uint64_t write_timestamp) {
   if (device_->is_read_only()) {
+    XELOGW("{}: Tried to set the times of read-only file {}", __func__, name_);
     return false;
   }
-  return xe::filesystem::SetAttributes(host_path_, attributes);
-}
-
-bool HostPathEntry::SetCreateTimestamp(uint64_t timestamp) {
-  if (device_->is_read_only()) {
-    XELOGW(
-        "{} - Tried to change read-only creation timestamp for file: {} to: {}",
-        __FUNCTION__, name_, timestamp);
+  // FATX keeps times in 2 s units, rounding up.
+  constexpr uint64_t kTimeUnit = 2 * 10000000;
+  create_timestamp = xe::round_up(create_timestamp, kTimeUnit, false);
+  access_timestamp = xe::round_up(access_timestamp, kTimeUnit, false);
+  write_timestamp = xe::round_up(write_timestamp, kTimeUnit, false);
+  if (!file_handle.SetTimes(create_timestamp, access_timestamp,
+                            write_timestamp)) {
+    XELOGE("{}: Cannot set the times of {}", __func__,
+           xe::strip_pii(xe::path_to_utf8(host_path_)));
     return false;
   }
-  XELOGI("{} - Tried to change creation timestamp for file: {} to: {}",
-         __FUNCTION__, name_, timestamp);
-  return true;
-}
-
-bool HostPathEntry::SetAccessTimestamp(uint64_t timestamp) {
-  if (device_->is_read_only()) {
-    XELOGW(
-        "{} - Tried to change read-only access timestamp for file: {} to: {}",
-        __FUNCTION__, name_, timestamp);
-    return false;
+  // update() never rereads the creation time, which a POSIX host can't keep.
+  if (create_timestamp) {
+    create_timestamp_ = create_timestamp;
   }
-  XELOGI("{} - Tried to change access timestamp for file: {} to: {}",
-         __FUNCTION__, name_, timestamp);
-  return true;
-}
-
-bool HostPathEntry::SetWriteTimestamp(uint64_t timestamp) {
-  if (device_->is_read_only()) {
-    XELOGW("{} - Tried to change read-only write timestamp for file: {} to: {}",
-           __FUNCTION__, name_, timestamp);
-    return false;
+  if (access_timestamp) {
+    access_timestamp_ = access_timestamp;
   }
-  XELOGI("{} - Tried to change write timestamp for file: {} to: {}",
-         __FUNCTION__, name_, timestamp);
+  if (write_timestamp) {
+    write_timestamp_ = write_timestamp;
+  }
   return true;
 }
 

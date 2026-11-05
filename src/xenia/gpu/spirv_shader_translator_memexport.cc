@@ -449,7 +449,6 @@ void SpirvShaderTranslator::ExportToMemory(uint8_t export_eM) {
   // k_8, k_8_A, k_8_B
   format_switch.makeBeginCase(
       static_cast<unsigned int>(xenos::ColorFormat::k_8));
-  // TODO(Triang3l): Investigate how input should be treated for k_8_A, k_8_B.
   format_switch.addCurrentCaseLiteral(
       static_cast<unsigned int>(xenos::ColorFormat::k_8_A));
   format_switch.addCurrentCaseLiteral(
@@ -474,7 +473,6 @@ void SpirvShaderTranslator::ExportToMemory(uint8_t export_eM) {
   // k_8_8_8_8, k_8_8_8_8_A, k_8_8_8_8_AS_16_16_16_16
   format_switch.makeBeginCase(
       static_cast<unsigned int>(xenos::ColorFormat::k_8_8_8_8));
-  // TODO(Triang3l): Investigate how input should be treated for k_8_8_8_8_A.
   format_switch.addCurrentCaseLiteral(
       static_cast<unsigned int>(xenos::ColorFormat::k_8_8_8_8_A));
   format_switch.addCurrentCaseLiteral(

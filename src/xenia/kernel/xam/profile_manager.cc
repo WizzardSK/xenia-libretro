@@ -20,6 +20,8 @@
 #include "xenia/hid/input_system.h"
 #include "xenia/kernel/kernel_state.h"
 #include "xenia/kernel/util/crypto_utils.h"
+#include "xenia/kernel/xam/xam_state.h"
+#include "xenia/kernel/xboxkrnl/xecrypt_sha.h"
 #include "xenia/vfs/devices/host_path_device.h"
 
 DEFINE_string(logged_profile_slot_0_xuid, "",
@@ -44,7 +46,8 @@ bool ProfileManager::DecryptAccountFile(const uint8_t* data,
 
   // Generate RC4 key from data hash
   uint8_t rc4_key[0x14];
-  util::HmacSha(key, 0x10, data, 0x10, 0, 0, 0, 0, rc4_key, 0x14);
+  xboxkrnl::XeCryptHmacSha(key, 0x10, data, 0x10, nullptr, 0, nullptr, 0,
+                           rc4_key, 0x14);
 
   uint8_t dec_data[sizeof(X_XAMACCOUNTINFO) + 8];
 
@@ -54,8 +57,8 @@ bool ProfileManager::DecryptAccountFile(const uint8_t* data,
 
   // Verify decrypted data against hash
   uint8_t data_hash[0x14];
-  util::HmacSha(key, 0x10, dec_data, sizeof(dec_data), 0, 0, 0, 0, data_hash,
-                0x14);
+  xboxkrnl::XeCryptHmacSha(key, 0x10, dec_data, sizeof(dec_data), nullptr, 0,
+                           nullptr, 0, data_hash, 0x14);
 
   if (std::memcmp(data, data_hash, 0x10) == 0) {
     // Copy account data to output
@@ -85,14 +88,15 @@ void ProfileManager::EncryptAccountFile(const X_XAMACCOUNTINFO* input,
 
   // Set data hash
   uint8_t data_hash[0x14];
-  util::HmacSha(key, 0x10, output + 0x10, enc_data_size, 0, 0, 0, 0, data_hash,
-                0x14);
+  xboxkrnl::XeCryptHmacSha(key, 0x10, output + 0x10, enc_data_size, nullptr, 0,
+                           nullptr, 0, data_hash, 0x14);
 
   std::memcpy(output, data_hash, 0x10);
 
   // Generate RC4 key from data hash
   uint8_t rc4_key[0x14];
-  util::HmacSha(key, 0x10, data_hash, 0x10, 0, 0, 0, 0, rc4_key, 0x14);
+  xboxkrnl::XeCryptHmacSha(key, 0x10, data_hash, 0x10, nullptr, 0, nullptr, 0,
+                           rc4_key, 0x14);
 
   // Encrypt data
   util::RC4(rc4_key, 0x10, output + 0x10, enc_data_size, output + 0x10,
@@ -109,28 +113,30 @@ ProfileManager::ProfileManager(KernelState* kernel_state,
     LoadAccount(account_xuid);
   }
 
+  // Nothing listens yet. The first title listener gets a sign-in change when
+  // it registers and the host UI one once the kernel is up.
   if (!cvars::logged_profile_slot_0_xuid.empty()) {
     Login(xe::string_util::from_string<uint64_t>(
               cvars::logged_profile_slot_0_xuid, true),
-          0);
+          0, false);
   }
 
   if (!cvars::logged_profile_slot_1_xuid.empty()) {
     Login(xe::string_util::from_string<uint64_t>(
               cvars::logged_profile_slot_1_xuid, true),
-          1);
+          1, false);
   }
 
   if (!cvars::logged_profile_slot_2_xuid.empty()) {
     Login(xe::string_util::from_string<uint64_t>(
               cvars::logged_profile_slot_2_xuid, true),
-          2);
+          2, false);
   }
 
   if (!cvars::logged_profile_slot_3_xuid.empty()) {
     Login(xe::string_util::from_string<uint64_t>(
               cvars::logged_profile_slot_3_xuid, true),
-          3);
+          3, false);
   }
 }
 
@@ -208,8 +214,7 @@ void ProfileManager::SyncProfilesWithConfig() {
   }
 
   // Send a single notification after all changes
-  kernel_state_->BroadcastNotification(kXNotificationSystemSignInChanged,
-                                       GetUsedUserSlots().to_ulong());
+  NotifySignInChanged();
 }
 
 UserProfile* ProfileManager::GetProfileLive(const uint64_t xuid) const {
@@ -311,6 +316,55 @@ bool ProfileManager::LoadAccount(const uint64_t xuid) {
   return true;
 }
 
+std::vector<uint8_t> ProfileManager::GetAccountIcon(const uint64_t xuid) {
+  static constexpr XTileType kIconTiles[] = {
+      XTileType::kPersonalGamerTile, XTileType::kGamerTile,
+      XTileType::kPersonalGamerTileSmall, XTileType::kGamerTileSmall};
+
+  if (const auto profile = GetProfile(xuid); profile) {
+    for (const XTileType tile_type : kIconTiles) {
+      const auto icon = profile->GetProfileIcon(tile_type);
+      if (!icon.empty()) {
+        return {icon.begin(), icon.end()};
+      }
+    }
+    return {};
+  }
+
+  if (!accounts_.contains(xuid) || !MountProfile(xuid)) {
+    return {};
+  }
+
+  std::vector<uint8_t> icon_data;
+  for (const XTileType tile_type : kIconTiles) {
+    const std::string guest_path = fmt::format(kDefaultMountFormat, xuid) +
+                                   ":\\" + kTileFileNames.at(tile_type);
+
+    xe::vfs::File* file = nullptr;
+    xe::vfs::FileAction action = {};
+    const X_STATUS status = kernel_state_->file_system()->OpenFile(
+        nullptr, guest_path, xe::vfs::FileDisposition::kOpen,
+        xe::vfs::FileAccess::kFileReadData, false, true, &file, &action);
+    if (XFAILED(status) || !file) {
+      continue;
+    }
+    if (file->entry()) {
+      icon_data.resize(file->entry()->size());
+      size_t bytes_read = 0;
+      file->ReadSync(std::span<uint8_t>(icon_data.data(), icon_data.size()), 0,
+                     &bytes_read);
+      icon_data.resize(bytes_read);
+    }
+    file->Destroy();
+    if (!icon_data.empty()) {
+      break;
+    }
+  }
+
+  DismountProfile(xuid);
+  return icon_data;
+}
+
 bool ProfileManager::MountProfile(const uint64_t xuid, std::string mount_path) {
   std::filesystem::path profile_path = GetProfilePath(xuid);
   if (mount_path.empty()) {
@@ -318,13 +372,13 @@ bool ProfileManager::MountProfile(const uint64_t xuid, std::string mount_path) {
   }
   mount_path += ':';
 
-  auto device =
-      std::make_unique<vfs::HostPathDevice>(mount_path, profile_path, false);
+  auto device = std::make_unique<vfs::HostPathDevice>(mount_path, profile_path,
+                                                      false, false, "STFS");
   if (!device->Initialize()) {
     XELOGE(
         "MountProfile: Unable to mount {} profile; file not found or "
         "corrupted.",
-        profile_path);
+        xe::strip_pii(xe::path_to_utf8(profile_path)));
     return false;
   }
   return kernel_state_->file_system()->RegisterDevice(std::move(device));
@@ -356,7 +410,7 @@ void ProfileManager::Login(const uint64_t xuid, const uint8_t user_index,
     return entry.second->xuid() == xuid;
   });
   if (it != logged_profiles_.end()) {
-    Logout(it->first);
+    Logout(it->first, notify);
   }
 
   // Whoever holds the slot asked for leaves it.
@@ -381,16 +435,26 @@ void ProfileManager::Login(const uint64_t xuid, const uint8_t user_index,
 
   MountProfile(xuid);
 
+  if (profile.IsLiveEnabled() && SetLiveDefaults(&profile) &&
+      !WriteAccount(xuid, &profile)) {
+    XELOGW("Profile {:016X}: could not save its Live defaults", xuid);
+  }
+
   logged_profiles_[assigned_user_slot] =
       std::make_unique<UserProfile>(xuid, &profile);
 
   user_tracker_->AddUser(xuid);
 
   if (notify) {
-    kernel_state_->BroadcastNotification(kXNotificationSystemSignInChanged,
-                                         GetUsedUserSlots().to_ulong());
+    NotifySignInChanged();
   }
   UpdateConfig(xuid, assigned_user_slot);
+}
+
+void ProfileManager::NotifySignInChanged() {
+  kernel_state_->BroadcastNotification(kXNotificationSystemSignInChanged,
+                                       GetUsedUserSlots().to_ulong());
+  kernel_state_->emulator()->on_signin_changed();
 }
 
 void ProfileManager::Logout(const uint8_t user_index, bool notify) {
@@ -404,22 +468,18 @@ void ProfileManager::Logout(const uint8_t user_index, bool notify) {
   DismountProfile(profile->second->xuid());
   logged_profiles_.erase(profile);
   if (notify) {
-    kernel_state_->BroadcastNotification(kXNotificationSystemSignInChanged,
-                                         GetUsedUserSlots().to_ulong());
+    NotifySignInChanged();
   }
   UpdateConfig(0, user_index);
 }
 
 void ProfileManager::LoginMultiple(
     const std::map<uint8_t, uint64_t>& profiles) {
-  int slots_mask = 0;
   for (auto [slot, xuid] : profiles) {
     Login(xuid, slot, false);
-    slots_mask |= (1 << slot);
   }
 
-  kernel_state_->BroadcastNotification(kXNotificationSystemSignInChanged,
-                                       slots_mask);
+  NotifySignInChanged();
 }
 
 std::vector<uint64_t> ProfileManager::FindProfiles() const {
@@ -499,7 +559,8 @@ uint8_t ProfileManager::GetUserIndexAssignedToProfile(
 
     return index;
   }
-  return XUserIndexAny;
+  // Titles know a user signed in to Live by the online XUID.
+  return GetUserIndexAssignedToLiveProfile(xuid);
 }
 
 uint8_t ProfileManager::GetUserIndexAssignedToLiveProfile(
@@ -605,7 +666,7 @@ bool ProfileManager::CreateAccount(const uint64_t xuid,
   string_util::copy_and_swap_truncating(account.gamertag, gamertag_u16,
                                         xe::countof(account.gamertag));
 
-  const bool result = UpdateAccount(xuid, &account);
+  const bool result = WriteAccount(xuid, &account);
   DismountProfile(xuid);
 
   if (result) {
@@ -616,7 +677,7 @@ bool ProfileManager::CreateAccount(const uint64_t xuid,
 
 bool ProfileManager::CreateAccount(const uint64_t xuid,
                                    const X_XAMACCOUNTINFO* account) {
-  const bool result = UpdateAccount(xuid, account);
+  const bool result = WriteAccount(xuid, account);
   if (result) {
     accounts_.insert({xuid, *account});
   }
@@ -625,6 +686,41 @@ bool ProfileManager::CreateAccount(const uint64_t xuid,
 
 bool ProfileManager::UpdateAccount(const uint64_t xuid,
                                    const X_XAMACCOUNTINFO* account) {
+  X_XAMACCOUNTINFO updated = *account;
+  if (updated.IsLiveEnabled()) {
+    SetLiveDefaults(&updated);
+  }
+
+  // A signed-in profile is mounted already.
+  UserProfile* profile = GetProfile(xuid);
+  if (!profile && !MountProfile(xuid)) {
+    return false;
+  }
+  const bool written = WriteAccount(xuid, &updated);
+  if (!profile) {
+    DismountProfile(xuid);
+  }
+  if (!written) {
+    return false;
+  }
+
+  accounts_.insert_or_assign(xuid, updated);
+
+  if (profile) {
+    const bool live_changed =
+        profile->IsLiveEnabled() != updated.IsLiveEnabled();
+    profile->account_info_ = updated;
+    // Turning Live on or off moves the user between signed in locally and
+    // signed in to Live.
+    if (live_changed) {
+      NotifySignInChanged();
+    }
+  }
+  return true;
+}
+
+bool ProfileManager::WriteAccount(const uint64_t xuid,
+                                  const X_XAMACCOUNTINFO* account) {
   const std::string guest_path =
       fmt::format(kDefaultMountFormat, xuid) + ":\\Account";
 
@@ -649,10 +745,32 @@ bool ProfileManager::UpdateAccount(const uint64_t xuid,
       std::span<uint8_t>(encrypted_data.data(), encrypted_data.size()), 0,
       &written_bytes);
   output_file->Destroy();
-
-  // Refresh the in-memory account data
-  accounts_.insert_or_assign(xuid, *account);
   return true;
+}
+
+bool ProfileManager::SetLiveDefaults(X_XAMACCOUNTINFO* account) const {
+  const X_XAMACCOUNTINFO original = *account;
+
+  if (!account->xuid_online) {
+    account->xuid_online = GenerateOnlineXuid();
+  }
+  if (account->GetSubscriptionTier() ==
+      X_XAMACCOUNTINFO::AccountSubscriptionTier::kSubscriptionTierNone) {
+    account->SetSubscriptionTier(
+        X_XAMACCOUNTINFO::AccountSubscriptionTier::kSubscriptionTierGold);
+  }
+  if (!static_cast<uint32_t>(account->GetCountry())) {
+    account->SetCountry(static_cast<XOnlineCountry>(
+        kernel_state_->xconfig()->ReadSetting<uint8_t>(XCONFIG_USER_CATEGORY,
+                                                       XCONFIG_USER_COUNTRY)));
+  }
+  if (account->GetLanguage() == XLanguage::kInvalid) {
+    account->SetLanguage(
+        static_cast<XLanguage>(kernel_state_->xconfig()->ReadSetting<uint32_t>(
+            XCONFIG_USER_CATEGORY, XCONFIG_USER_LANGUAGE)));
+  }
+
+  return std::memcmp(&original, account, sizeof(X_XAMACCOUNTINFO)) != 0;
 }
 
 void ProfileManager::UpdateConfig(const uint64_t xuid, const uint8_t slot) {

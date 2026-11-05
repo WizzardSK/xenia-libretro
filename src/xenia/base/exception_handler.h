@@ -123,12 +123,16 @@ constexpr uint32_t kArm64NeonLoadStoreStructFMask = UINT32_C(0xBE000000);
 constexpr uint32_t kArm64NeonLoadStoreStructFixed = UINT32_C(0x0C000000);
 constexpr uint32_t kArm64NeonLoadStoreStructLoadBit = UINT32_C(1) << 22;
 
-// SYS instruction class (DC, IC, AT, TLBI). The user-mode-faultable variants
-// are the data-cache ops by VA (DC ZVA, DC CVAC, DC CVAU, DC CVAP, DC CIVAC)
-// — all of which write or writeback to the target line, so the caller treats
-// any SYS fault as a store. Apple Silicon libc memset/bzero emits DC ZVA.
+// SYS instruction class (DC, IC, AT, TLBI). A fault on one is a store unless
+// it's a cache maintenance op by VA. Apple Silicon libc memset emits DC ZVA.
 constexpr uint32_t kArm64SystemSysFMask = UINT32_C(0xFFF80000);
 constexpr uint32_t kArm64SystemSysFixed = UINT32_C(0xD5080000);
+// SYS #3, C7, Cm, #1: DC ZVA (Cm 4), IC IVAU (5) and DC CVAC, CVAU, CVAP,
+// CVADP, CIVAC (10 to 14). All but DC ZVA need only read access.
+constexpr uint32_t kArm64CacheOpByVaFMask = UINT32_C(0xFFFFF0E0);
+constexpr uint32_t kArm64CacheOpByVaFixed = UINT32_C(0xD50B7020);
+constexpr uint32_t kArm64DcZvaFMask = UINT32_C(0xFFFFFFE0);
+constexpr uint32_t kArm64DcZvaFixed = UINT32_C(0xD50B7420);
 
 bool IsArm64LoadPrefetchStore(uint32_t instruction, bool& is_store_out);
 
@@ -264,6 +268,13 @@ inline void DivertToThunk(Exception* ex, void (*thunk)()) {
 #endif  // XE_ARCH_AMD64
   ex->set_resume_pc(reinterpret_cast<uint64_t>(thunk));
 }
+
+#if !XE_PLATFORM_WIN32
+// Resumes the calling thread in |context|, which it must have faulted with. x64
+// clobbers the 8 bytes below sp and keeps MXCSR, a64 restores FPCR and FPSR.
+[[noreturn]] XE_NOINLINE void ResumeHostContext(
+    const HostThreadContext* context);
+#endif  // !XE_PLATFORM_WIN32
 
 class ExceptionHandler {
  public:

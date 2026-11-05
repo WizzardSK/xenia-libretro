@@ -15,7 +15,6 @@
 
 #include "xenia/base/assert.h"
 #include "xenia/base/byte_order.h"
-#include "xenia/base/clock.h"
 #include "xenia/base/logging.h"
 #include "xenia/base/math.h"
 #include "xenia/base/profiling.h"
@@ -48,6 +47,14 @@ DEFINE_bool(
     "May improve or worsen performance depending on driver. Requires Vulkan "
     "1.3 or VK_KHR_dynamic_rendering extension support.",
     "Vulkan");
+
+DEFINE_bool(vulkan_depth_bias_force_unorm, true,
+            "Apply the depth bias in constant units on float depth buffers "
+            "where VK_EXT_depth_bias_control supports it, so the bias keeps "
+            "its absolute size at every depth. Otherwise, the bias unit of a "
+            "float depth buffer shrinks with the depth, and decals may "
+            "Z-fight, especially with reversed depth.",
+            "Vulkan");
 
 namespace xe {
 namespace gpu {
@@ -210,7 +217,7 @@ void VulkanCommandProcessor::PollCompletedSubmission() {
   PumpQueryResolves();
 }
 
-std::string VulkanCommandProcessor::GetTitleStateSuffix() const {
+std::string VulkanCommandProcessor::MakeTitleStateSuffix() const {
   if (!render_target_cache_) {
     return {};
   }
@@ -2586,7 +2593,7 @@ void VulkanCommandProcessor::OnPrimaryBufferEnd() {
   PumpPendingRetire();
 
   if (cvars::submit_on_primary_buffer_end && submission_open_ &&
-      !scratch_buffer_used_ && CanEndSubmissionImmediately()) {
+      !scratch_buffer_used_) {
     EndSubmission(false);
   }
 }
@@ -2655,7 +2662,7 @@ bool VulkanCommandProcessor::PushImageMemoryBarrier(
     VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask,
     VkImageLayout old_layout, VkImageLayout new_layout,
     uint32_t src_queue_family_index, uint32_t dst_queue_family_index,
-    bool skip_if_equal) {
+    bool skip_if_equal, const VkSampleLocationsInfoEXT* sample_locations) {
   if (skip_if_equal && src_stage_mask == dst_stage_mask &&
       src_access_mask == dst_access_mask && old_layout == new_layout &&
       src_queue_family_index == dst_queue_family_index) {
@@ -2687,7 +2694,8 @@ bool VulkanCommandProcessor::PushImageMemoryBarrier(
              subresource_range.baseArrayLayer)) {
       continue;
     }
-    if (other_image_memory_barrier.subresourceRange.aspectMask ==
+    if (other_image_memory_barrier.pNext == sample_locations &&
+        other_image_memory_barrier.subresourceRange.aspectMask ==
             subresource_range.aspectMask &&
         other_image_memory_barrier.subresourceRange.baseMipLevel ==
             subresource_range.baseMipLevel &&
@@ -2719,7 +2727,7 @@ bool VulkanCommandProcessor::PushImageMemoryBarrier(
   VkImageMemoryBarrier& image_memory_barrier =
       pending_barriers_image_memory_barriers_.emplace_back();
   image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-  image_memory_barrier.pNext = nullptr;
+  image_memory_barrier.pNext = sample_locations;
   image_memory_barrier.srcAccessMask = src_access_mask;
   image_memory_barrier.dstAccessMask = dst_access_mask;
   image_memory_barrier.oldLayout = old_layout;
@@ -2861,8 +2869,15 @@ void VulkanCommandProcessor::SubmitBarriersAndEnterRenderTargetCacheRenderPass(
     render_pass_begin_info.renderArea.extent = framebuffer->host_extent;
     render_pass_begin_info.clearValueCount = 0;
     render_pass_begin_info.pClearValues = nullptr;
-    deferred_command_buffer_.CmdVkBeginRenderPass(&render_pass_begin_info,
-                                                  VK_SUBPASS_CONTENTS_INLINE);
+    // The sample locations for automatic depth layout transitions and for the
+    // subpass rasterization state when variableSampleLocations is false.
+    deferred_command_buffer_.CmdVkBeginRenderPass(
+        &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE,
+        framebuffer->render_pass_key.depth_and_color_used
+            ? render_target_cache_->GetSampleLocationsInfo(
+                  framebuffer->render_pass_key.msaa_samples, true)
+            : nullptr,
+        (framebuffer->render_pass_key.depth_and_color_used & 1) != 0);
   }
   in_render_pass_ = true;
   ++render_passes_total_;
@@ -2965,8 +2980,15 @@ void VulkanCommandProcessor::SubmitBarriersAndEnterRenderTargetCacheRenderPass(
     render_pass_begin_info.renderArea.extent = framebuffer->host_extent;
     render_pass_begin_info.clearValueCount = 0;
     render_pass_begin_info.pClearValues = nullptr;
-    deferred_command_buffer_.CmdVkBeginRenderPass(&render_pass_begin_info,
-                                                  VK_SUBPASS_CONTENTS_INLINE);
+    // The sample locations for automatic depth layout transitions and for the
+    // subpass rasterization state when variableSampleLocations is false.
+    deferred_command_buffer_.CmdVkBeginRenderPass(
+        &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE,
+        framebuffer->render_pass_key.depth_and_color_used
+            ? render_target_cache_->GetSampleLocationsInfo(
+                  framebuffer->render_pass_key.msaa_samples, true)
+            : nullptr,
+        (framebuffer->render_pass_key.depth_and_color_used & 1) != 0);
   }
   in_render_pass_ = true;
   ++render_passes_total_;
@@ -3012,6 +3034,13 @@ void VulkanCommandProcessor::DestroyScratchImageWhenIdle(
   }
   if (memory != VK_NULL_HANDLE) {
     destroy_memory_.emplace_back(submission_current, memory);
+  }
+}
+
+void VulkanCommandProcessor::DestroyFramebufferWhenIdle(
+    VkFramebuffer framebuffer) {
+  if (framebuffer != VK_NULL_HANDLE) {
+    destroy_framebuffers_.emplace_back(GetCurrentSubmission(), framebuffer);
   }
 }
 
@@ -3460,6 +3489,7 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type,
   const bool memexport_used_pixel = pixel_shader &&
                                     pixel_shader->memexport_eM_written() != 0 &&
                                     device_properties.fragmentStoresAndAtomics;
+  const bool memexport_used = memexport_used_vertex || memexport_used_pixel;
   if (memexport_used_pixel) {
     draw_util::AddMemExportRanges(regs, *pixel_shader, memexport_ranges_);
   }
@@ -3495,12 +3525,18 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type,
   SpirvShaderTranslator::Modification pixel_shader_modification;
   VulkanShader::VulkanTranslation* vertex_shader_translation;
   VulkanShader::VulkanTranslation* pixel_shader_translation;
-  bool use_interpreter = false;
+  AsyncPipelineDraw async_draw;
   uint32_t normalized_color_mask;
   reg::RB_DEPTHCONTROL normalized_depth_control;
   draw_util::HostDepthPolygonOffset host_depth_polygon_offset;
   bool apply_host_depth_polygon_offset = false;
   bool zpd_hybrid = false;
+  // A skipped occlusion query draw counts nothing and gets what it tests
+  // culled. A placeholder mostly overcounts as it skips the guest shader's
+  // pixel kills. Surveys never count for a report.
+  bool skip_allowed = true;
+  // Per shader (vertex, pixel), whether its samplers were gathered.
+  bool samplers_gathered[2] = {};
 
   // Two iterations because a submission (even the current one - in which case
   // it needs to be ended, and a new one must be started) may need to be awaited
@@ -3565,6 +3601,7 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type,
                            normalized_depth_control, normalized_color_mask,
                            apply_host_depth_polygon_offset)
                      : SpirvShaderTranslator::Modification(0);
+    skip_allowed = !active_segment_.report_measuring() || viz_survey;
     // Hybrid occlusion query draw, counting coverage into the Total counter.
     // Only depth or stencil tested draws w/o depth writes, so scene geometry
     // keeps early depth rejection, and nothing can fail without a test anyway.
@@ -3592,51 +3629,37 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type,
                            pixel_shader->GetOrCreateTranslation(
                                pixel_shader_modification.value))
                      : nullptr;
-    // Decide whether the ucode interpreter can stand in for the real VS while
-    // it translates+compiles in the background: a plain (non-tessellated,
-    // non-expanded) vertex shader with static control flow and no texture fetch
-    // or memory export, on a device matching the interpreter's assumptions
-    // (single shared-memory binding, full 32-bit indices). When eligible, VS
-    // translation is deferred to the background creation thread.
-    use_interpreter =
-        cvars::async_shader_vs_interpreter &&
-        !vertex_shader_translation->is_translated() &&
-        active_vertex_shader_ucode_address_ != 0 &&
+    // The interpreter additionally needs a single shared memory binding and
+    // full 32-bit indices.
+    async_draw.async_available = pipeline_cache_->IsAsyncCreationAvailable();
+    async_draw.skip_allowed = skip_allowed;
+    async_draw.has_pixel_shader = pixel_shader != nullptr;
+    async_draw.placeholder_supported = true;
+    async_draw.interpreter_eligible =
+        pipeline_cache_->IsUcodeInterpreterAvailable() &&
         device_properties.fullDrawIndexUint32 &&
         SpirvShaderTranslator::GetSharedMemoryStorageBufferCountLog2(
             device_properties.maxStorageBufferRange) == 0 &&
-        primitive_processing_result.host_vertex_shader_type ==
-            Shader::HostVertexShaderType::kVertex &&
-        primitive_processing_result.host_primitive_type !=
-            xenos::PrimitiveType::kPointList &&
-        primitive_processing_result.host_primitive_type !=
-            xenos::PrimitiveType::kRectangleList &&
-        primitive_processing_result.host_primitive_type !=
-            xenos::PrimitiveType::kQuadList &&
-        vertex_shader->texture_bindings().empty() &&
-        !vertex_shader->uses_subroutine_calls() &&
-        vertex_shader->memexport_eM_written() == 0 &&
-        vertex_shader->constant_register_map().loop_bitmap == 0;
-    bool async_available =
-        pipeline_cache_->CanCreatePipelineAsync(pixel_shader != nullptr);
-    // A draw with no placeholder to render it now: the interpreter can't stand
-    // in AND the real VS isn't translated yet (so no real-VS + no-op-PS
-    // placeholder either). These are the draws async_shader_skip_draws governs.
-    // Interpreter-eligible draws and draws whose VS is already translated
-    // always have a placeholder and never translate on the draw thread.
-    // Only decides whether to translate here. Whether the draw can render is
-    // read off the pipeline itself, which may have gained a placeholder since.
-    bool no_placeholder = async_available && !use_interpreter &&
-                          !vertex_shader_translation->is_translated();
-    // The draw thread translates only for a no-placeholder draw that isn't
-    // being skipped (so it can render via a real-VS placeholder).
-    bool translate_here =
-        !async_available || (no_placeholder && !cvars::async_shader_skip_draws);
-    if (translate_here) {
-      if (!pipeline_cache_->EnsureShadersTranslated(vertex_shader_translation,
-                                                    pixel_shader_translation)) {
-        return false;
-      }
+        CanInterpretVertexShader(
+            *vertex_shader, active_vertex_shader_ucode_address_,
+            primitive_processing_result.host_vertex_shader_type,
+            primitive_processing_result.host_primitive_type);
+    // The shaders the draw's thread readies are translated now for their
+    // sampler bindings. Whether the draw can use a stand-in is known only once
+    // the render targets are updated, so this assumes it can unless the
+    // storage warm-up runs. ConfigurePipeline translates what a pipeline it
+    // creates now needs, and the draw is redone if that leaves samplers out.
+    async_draw.stand_in_allowed = !pipeline_cache_->IsStorageWarmUpRunning();
+    async_draw.vertex_shader_translated =
+        vertex_shader_translation->is_translated();
+    AsyncPipelinePlan translation_plan = PlanAsyncPipeline(async_draw);
+    if (translation_plan.vertex_shader_on_draw_thread &&
+        !pipeline_cache_->EnsureShadersTranslated(
+            vertex_shader_translation,
+            translation_plan.pixel_shader_on_draw_thread
+                ? pixel_shader_translation
+                : nullptr)) {
+      return false;
     }
 
     // Obtain the samplers. Note that the bindings don't depend on the shader
@@ -3659,8 +3682,8 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type,
         continue;
       }
       // Don't read a shader's sampler bindings while a creation thread is still
-      // populating them (async draws don't translate here). A placeholder draw
-      // that ends up using this shader binds no samplers for it anyway.
+      // populating them (an async draw leaves some shaders to it). If the bound
+      // pipeline ends up running this shader the draw is redone below.
       if (!shader->bindings_ready()) {
         if (!i) {
           shader_samplers.clear();
@@ -3670,6 +3693,7 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type,
       const std::vector<VulkanShader::SamplerBinding>& shader_sampler_bindings =
           shader->GetSamplerBindingsAfterTranslation();
       if (!i) {
+        samplers_gathered[j] = true;
         shader_samplers.reserve(shader_sampler_bindings.size());
         for (const VulkanShader::SamplerBinding& shader_sampler_binding :
              shader_sampler_bindings) {
@@ -3719,86 +3743,92 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type,
     CheckSubmissionCompletionAndDeviceLoss(sampler_overflow_await_submission);
   }
 
+  // Put the window offset into the EDRAM bases when possible.
+  int32_t window_offset_tiles = render_target_cache_->GetWindowOffsetTiles(
+      regs, normalized_depth_control, normalized_color_mask, frame_current_);
+
   // Set up the render targets - this may perform dispatches and draws.
-  if (!render_target_cache_->Update(is_rasterization_done,
-                                    normalized_depth_control,
-                                    normalized_color_mask, *vertex_shader)) {
+  if (!render_target_cache_->Update(
+          is_rasterization_done, normalized_depth_control,
+          normalized_color_mask, *vertex_shader, window_offset_tiles)) {
     return false;
   }
-  // An async pipeline stand-in (a placeholder, or skipping the draw) is only
-  // fine for a pass redrawn every frame. Wait for the real pipeline instead for
-  // a render target not drawn recently (maybe a one-off render to a texture), a
-  // small one (generated data) or memexport, whose output isn't redone.
-  bool draw_target_recurring =
-      render_target_cache_->TrackLastUpdateDrawTarget(frame_current_);
-  bool draw_target_small = render_target_cache_->IsLastUpdateDrawTargetSmall();
-  bool stand_in_allowed = draw_target_recurring && !draw_target_small &&
-                          !memexport_used_vertex && !memexport_used_pixel;
+  const char* stand_in_wait_reason =
+      render_target_cache_->GetPipelineStandInWaitReason(
+          frame_current_, *vertex_shader, pixel_shader, memexport_used_vertex,
+          memexport_used_pixel, pipeline_cache_->IsStorageWarmUpRunning());
 
   // Create the pipeline (for this, need the render pass from the render target
   // cache), translating the shaders - doing this now to obtain the used
   // textures.
+  VulkanRenderTargetCache::RenderPassKey render_pass_key =
+      render_target_cache_->last_update_render_pass_key();
+  async_draw.stand_in_allowed = stand_in_wait_reason == nullptr;
+  async_draw.vertex_shader_translated =
+      vertex_shader_translation->is_translated();
+  const AsyncPipelinePlan async_plan = PlanAsyncPipeline(async_draw);
   VulkanPipelineCache::Pipeline* pipeline;
+  uint64_t inline_work_start = BeginInlinePipelineWork(stand_in_wait_reason);
   if (!pipeline_cache_->ConfigurePipeline(
           vertex_shader_translation, pixel_shader_translation,
           primitive_processing_result, normalized_depth_control,
-          normalized_color_mask,
-          render_target_cache_->last_update_render_pass_key(), use_interpreter,
-          zpd_hybrid, viz_survey, &pipeline)) {
+          normalized_color_mask, render_pass_key, zpd_hybrid, viz_survey,
+          async_plan, &pipeline)) {
     XELOGE("IssueDraw: ConfigurePipeline failed for VS={:016X} PS={:016X}",
            vertex_shader->ucode_data_hash(),
            pixel_shader ? pixel_shader->ucode_data_hash() : 0);
     return false;
   }
+  EndInlinePipelineWork(inline_work_start, *render_target_cache_,
+                        stand_in_wait_reason, *vertex_shader, pixel_shader);
 
   // If async mode is active, this may be a placeholder pipeline. The real
   // pipeline will be swapped in by the creation thread when ready.
-  VkPipeline current_pipeline =
-      pipeline->pipeline.load(std::memory_order_acquire);
-  if (!stand_in_allowed &&
-      pipeline->creation_pending.load(std::memory_order_acquire)) {
-    uint64_t await_start = xe::Clock::QueryHostTickCount();
-    pipeline_cache_->AwaitPipelineCompletion();
-    XELOGI(
-        "Awaited real pipeline for a draw into {} ({}): VS {:016X}, PS "
-        "{:016X}, {:.2f} ms",
-        render_target_cache_->GetLastUpdateDrawTargetName(),
-        draw_target_small        ? "small render target"
-        : !draw_target_recurring ? "not drawn recently"
-                                 : "memexport",
-        vertex_shader->ucode_data_hash(),
-        pixel_shader ? pixel_shader->ucode_data_hash() : 0,
-        double(xe::Clock::QueryHostTickCount() - await_start) * 1000.0 /
-            double(xe::Clock::QueryHostTickFrequency()));
-    current_pipeline = pipeline->pipeline.load(std::memory_order_acquire);
-    if (current_pipeline != VK_NULL_HANDLE &&
-        current_pipeline !=
-            pipeline->placeholder_pipeline.load(std::memory_order_acquire)) {
-      // The samplers were gathered while the bindings weren't ready - redo the
-      // draw with the real pipeline, which won't wait again.
-      return IssueDraw(prim_type, index_count, index_buffer_info,
-                       major_mode_explicit);
-    }
-  }
-  if (current_pipeline == VK_NULL_HANDLE) {
-    // Nothing to draw with yet - no placeholder, real pipeline still building.
-    // Skip rather than stall, a later frame renders it.
-    XELOGI("Draw skipped (pipeline not ready yet): VS {:016X}, PS {:016X}",
-           vertex_shader->ucode_data_hash(),
-           pixel_shader ? pixel_shader->ucode_data_hash() : 0);
+  if (!AwaitDrawPipeline(
+          *render_target_cache_, stand_in_wait_reason, skip_allowed,
+          *vertex_shader, pixel_shader,
+          [&]() {
+            return pipeline->pipeline.load(std::memory_order_acquire) !=
+                   VK_NULL_HANDLE;
+          },
+          [&]() {
+            return pipeline->creation_pending.load(std::memory_order_acquire);
+          },
+          [&]() { pipeline_cache_->ExpeditePipeline(pipeline); })) {
     OnVIZSurveyDraw(false);
     return true;
   }
+  VkPipeline current_pipeline =
+      pipeline->pipeline.load(std::memory_order_acquire);
+  // Whether the placeholder pipeline is bound rather than the real one. Derived
+  // from the handle actually bound so it stays consistent with current_pipeline
+  // when a creation thread swaps in the real pipeline mid-draw.
+  bool bound_is_placeholder =
+      current_pipeline ==
+      pipeline->placeholder_pipeline.load(std::memory_order_acquire);
+  // The interpreter placeholder (interpreter VS + no-op PS) also needs its
+  // ucode location + full float constants fed to it.
+  bool interpreter_placeholder =
+      bound_is_placeholder &&
+      pipeline->uses_interpreter.load(std::memory_order_acquire);
+  // Any placeholder draw binds the placeholder pixel shader, which never
+  // samples. Its pixel textures and samplers must not be bound as the
+  // placeholder pipeline's layout has none.
+  bool placeholder_pixel_shader = bound_is_placeholder;
   // The interpreter reads the guest ucode from shared memory by its program
   // address. A cached interpreter placeholder reused for an inline
   // (IM_LOAD_IMMEDIATE, address 0) shader can't be fed, so skip until the real
   // pipeline is ready rather than interpret from address 0.
-  if (active_vertex_shader_ucode_address_ == 0 &&
-      current_pipeline ==
-          pipeline->placeholder_pipeline.load(std::memory_order_acquire) &&
-      pipeline->uses_interpreter.load(std::memory_order_acquire)) {
+  if (active_vertex_shader_ucode_address_ == 0 && interpreter_placeholder) {
     OnVIZSurveyDraw(false);
     return true;
+  }
+  // A creation thread may have finished a shader the bound pipeline runs after
+  // its samplers were gathered. Redo the draw to gather them.
+  if ((!samplers_gathered[0] && !interpreter_placeholder) ||
+      (pixel_shader && !samplers_gathered[1] && !placeholder_pixel_shader)) {
+    return IssueDraw(prim_type, index_count, index_buffer_info,
+                     major_mode_explicit);
   }
 
   // Push debug marker with Xbox 360 draw context for RenderDoc annotation.
@@ -3829,9 +3859,6 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type,
   // Update the graphics pipeline, and if the new graphics pipeline has a
   // different layout, invalidate incompatible descriptor sets before updating
   // current_guest_graphics_pipeline_layout_.
-  // The pipeline may be not ready yet if created asynchronously.
-  // EndSubmission must be called before submitting the command buffer to
-  // await its creation.
   if (current_guest_graphics_pipeline_ != current_pipeline) {
     deferred_command_buffer_.CmdVkBindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS,
                                                current_pipeline);
@@ -3923,8 +3950,12 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type,
       normalized_depth_control,
       host_render_targets_used &&
           render_target_cache_->depth_float24_convert_in_pixel_shader(),
-      host_render_targets_used, pixel_shader && pixel_shader->writes_depth());
-  gviargs.SetupRegisterValues(regs);
+      host_render_targets_used, pixel_shader && pixel_shader->writes_depth(),
+      !host_render_targets_used ||
+          render_target_cache_->GetSampleLocationsInfo(
+              render_pass_key.msaa_samples,
+              render_pass_key.depth_and_color_used) != nullptr);
+  gviargs.SetupRegisterValues(regs, window_offset_tiles != 0);
 
   if (gviargs == previous_viewport_info_args_) {
     viewport_info = previous_viewport_info_;
@@ -3936,7 +3967,8 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type,
   // Update dynamic graphics pipeline state.
   UpdateDynamicState(viewport_info, primitive_polygonal,
                      normalized_depth_control, draw_resolution_scale_x,
-                     draw_resolution_scale_y, apply_host_depth_polygon_offset);
+                     draw_resolution_scale_y, apply_host_depth_polygon_offset,
+                     window_offset_tiles != 0);
 
   auto vgt_draw_initiator = regs.Get<reg::VGT_DRAW_INITIATOR>();
 
@@ -3956,25 +3988,9 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type,
       primitive_polygonal, primitive_processing_result, shader_32bit_index_dma,
       viewport_info, used_texture_mask, normalized_depth_control,
       normalized_color_mask,
-      apply_host_depth_polygon_offset ? &host_depth_polygon_offset : nullptr);
+      apply_host_depth_polygon_offset ? &host_depth_polygon_offset : nullptr,
+      window_offset_tiles);
 
-  // Whether we bound the placeholder pipeline (vs the real one). Derived from
-  // the handle actually bound, so it's consistent with current_pipeline even if
-  // the creation thread swaps in the real pipeline mid-draw (the is_placeholder
-  // flag is cleared a few instructions later, so reading it separately can
-  // disagree).
-  bool bound_is_placeholder =
-      current_pipeline ==
-      pipeline->placeholder_pipeline.load(std::memory_order_acquire);
-  // The interpreter placeholder (interpreter VS + no-op PS) also needs its
-  // ucode location + full float constants fed to it.
-  bool interpreter_placeholder =
-      bound_is_placeholder &&
-      pipeline->uses_interpreter.load(std::memory_order_acquire);
-  // Any placeholder draw binds the no-op placeholder pixel shader (which never
-  // samples), so its pixel textures/samplers must not be bound - the
-  // placeholder pipeline's layout has none.
-  bool placeholder_pixel_shader = bound_is_placeholder;
   {
     uint32_t ucode_base_dwords = 0, cf_instr_count = 0;
     if (interpreter_placeholder) {
@@ -4005,7 +4021,7 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type,
   if (cvars::memexport_enable &&
       shared_memory_host_and_edram_descriptor_set_ != VK_NULL_HANDLE) {
     route_to_host =
-        memexport_used_vertex || memexport_used_pixel ||
+        memexport_used ||
         (any_memexport_pages_written_ &&
          ((primitive_processing_result.index_buffer_type ==
                PrimitiveProcessor::ProcessedIndexBufferType::kGuestDMA &&
@@ -4185,8 +4201,10 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type,
         primitive_polygonal, primitive_processing_result,
         shader_32bit_index_dma, viewport_info, used_texture_mask,
         normalized_depth_control, normalized_color_mask,
-        apply_host_depth_polygon_offset ? &host_depth_polygon_offset : nullptr);
-    if (!UpdateBindings(vertex_shader, pixel_shader)) {
+        apply_host_depth_polygon_offset ? &host_depth_polygon_offset : nullptr,
+        window_offset_tiles);
+    if (!UpdateBindings(vertex_shader, pixel_shader, interpreter_placeholder,
+                        placeholder_pixel_shader)) {
       return false;
     }
   }
@@ -4262,11 +4280,12 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type,
   }
 
   if (!memexport_ranges_.empty()) {
-    if (route_to_host) {
-      // Producer draw: output landed in host_buffer_ (guest RAM), already CPU
-      // coherent, so no readback. Just record the written pages. Consumers then
-      // route to host_buffer_ (geometry) or copy their own range into the
-      // device buffer on demand (texture loads).
+    if (route_to_host || shared_memory_->is_zero_copy()) {
+      // Producer draw: output lands in guest RAM (host_buffer_, or buffer_
+      // under zero-copy) with no readback needed. Just record the written pages
+      // for fences and coherency requests. With the host buffer, consumers then
+      // route to it (geometry) or copy their own range into the device buffer
+      // on demand (texture loads).
       for (const draw_util::MemExportRange& memexport_range :
            memexport_ranges_) {
         MarkMemexportPagesWritten(
@@ -4274,10 +4293,9 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type,
             memexport_range.size_bytes,
             IsMemexportAwaited(memexport_used_vertex, memexport_used_pixel));
       }
-    } else if (cvars::memexport_enable && !shared_memory_->is_zero_copy()) {
-      // No host buffer to route to, and buffer_ is device-local, so the CPU
-      // only sees the output if it is read back. Under zero-copy buffer_ is
-      // guest RAM already, and a readback there would clobber it.
+    } else if (cvars::memexport_enable) {
+      // There is no host buffer to route to and buffer_ is device-local. The
+      // CPU only sees the output if it is read back.
       StageMemexportReadback();
     }
   }
@@ -4342,6 +4360,7 @@ void VulkanCommandProcessor::FlushMemexportStagingReadback() {
     return;
   }
   // Staged output is about to reach guest RAM, so no fence need await it.
+  memexport_fence_pending_ = false;
   memexport_await_pending_ = false;
   // Staging copies are recorded in the submission of the export they copy.
   AwaitMemexportSubmission(memexport_last_submission_);
@@ -4933,8 +4952,7 @@ CommandProcessor::QueryOpenResult VulkanCommandProcessor::OpenQuery(
     }
 
     if (submission_open_ && wait_for == GetCurrentSubmission()) {
-      if (retried_after_submission_flip || !can_close_submission ||
-          !CanEndSubmissionImmediately()) {
+      if (retried_after_submission_flip || !can_close_submission) {
         return QueryOpenResult::kDeferred;
       }
 
@@ -5146,19 +5164,10 @@ bool VulkanCommandProcessor::AwaitQueryResolve(ReportHandle report_handle,
                                                uint64_t wait_for_submission) {
   assert_not_zero(wait_for_submission);
 
-  // The resolve is still in the open submission. Pipelines being created
-  // asynchronously have to finish before it can be executed.
+  // The resolve is still in the open submission.
   if (wait_for_submission >= GetCurrentSubmission()) {
     if (!submission_open_) {
       return false;
-    }
-    if (!CanEndSubmissionImmediately()) {
-      if (cvars::occlusion_query_log) {
-        XELOGI(
-            "ZPD/Async: Draining Vulkan async pipeline creation for strict "
-            "retirement");
-      }
-      pipeline_cache_->AwaitPipelineCompletion();
     }
     EndRenderPass();
     if (!EndSubmission(false)) {
@@ -5554,8 +5563,7 @@ bool VulkanCommandProcessor::BeginSubmission(bool is_guest_command) {
     submission_in_progress_.frame_index = frame_current_;
 
     // Start a new deferred command buffer - will submit it to the real one in
-    // the end of the submission (when async pipeline object creation requests
-    // are fulfilled).
+    // the end of the submission.
     deferred_command_buffer_.Reset();
 
     // Reset cached state of the command buffer.
@@ -5668,14 +5676,11 @@ bool VulkanCommandProcessor::BeginSubmission(bool is_guest_command) {
     primitive_processor_->BeginFrame();
 
     texture_cache_->BeginFrame();
+
+    render_target_cache_->AdvanceRenderTargetUseFrame();
   }
 
   return true;
-}
-
-bool VulkanCommandProcessor::CanEndSubmissionImmediately() const {
-  return !submission_open_ || !pipeline_cache_ ||
-         !pipeline_cache_->IsCreatingPipelines();
 }
 
 void VulkanCommandProcessor::CreateGpuTimeQueryPool() {
@@ -5797,6 +5802,8 @@ bool VulkanCommandProcessor::EndSubmission(bool is_swap) {
     primitive_processor_->EndSubmission();
 
     shared_memory_->EndSubmission();
+
+    pipeline_cache_->EndSubmission();
 
     uniform_buffer_pool_->FlushWrites();
 
@@ -6087,7 +6094,7 @@ void VulkanCommandProcessor::UpdateDynamicState(
     const draw_util::ViewportInfo& viewport_info, bool primitive_polygonal,
     reg::RB_DEPTHCONTROL normalized_depth_control,
     uint32_t draw_resolution_scale_x, uint32_t draw_resolution_scale_y,
-    bool depth_bias_in_pixel_shader) {
+    bool depth_bias_in_pixel_shader, bool window_offset_in_edram) {
 #if XE_GPU_FINE_GRAINED_DRAW_SCOPES
   SCOPE_profile_cpu_f("gpu");
 #endif  // XE_GPU_FINE_GRAINED_DRAW_SCOPES
@@ -6122,7 +6129,7 @@ void VulkanCommandProcessor::UpdateDynamicState(
 
   // Scissor.
   draw_util::Scissor scissor;
-  draw_util::GetScissor(regs, scissor);
+  draw_util::GetScissor(regs, scissor, true, window_offset_in_edram);
   // Scale the scissor to match the render target resolution scale
   scissor.offset[0] *= draw_resolution_scale_x;
   scissor.offset[1] *= draw_resolution_scale_y;
@@ -6138,6 +6145,13 @@ void VulkanCommandProcessor::UpdateDynamicState(
   if (render_target_cache_->GetPath() ==
       RenderTargetCache::Path::kHostRenderTargets) {
     // Depth bias.
+    const ui::vulkan::VulkanDevice::Properties& device_properties =
+        GetVulkanDevice()->properties();
+    const bool depth_bias_force_unorm =
+        cvars::vulkan_depth_bias_force_unorm &&
+        device_properties.depthBiasControl &&
+        device_properties.leastRepresentableValueForceUnormRepresentation &&
+        device_properties.depthBiasExact;
     float depth_bias_constant_factor, depth_bias_slope_factor;
     if (depth_bias_in_pixel_shader) {
       depth_bias_constant_factor = 0.0f;
@@ -6146,11 +6160,16 @@ void VulkanCommandProcessor::UpdateDynamicState(
       draw_util::GetPreferredFacePolygonOffset(regs, primitive_polygonal,
                                                depth_bias_slope_factor,
                                                depth_bias_constant_factor);
+      const bool depth_float24 = regs.Get<reg::RB_DEPTH_INFO>().depth_format ==
+                                 xenos::DepthRenderTargetFormat::kD24FS8;
       depth_bias_constant_factor *=
-          regs.Get<reg::RB_DEPTH_INFO>().depth_format ==
-                  xenos::DepthRenderTargetFormat::kD24S8
-              ? draw_util::kD3D10PolygonOffsetFactorUnorm24
-              : draw_util::kD3D10PolygonOffsetFactorFloat24;
+          depth_float24 ? draw_util::kD3D10PolygonOffsetFactorFloat24
+                        : draw_util::kD3D10PolygonOffsetFactorUnorm24;
+      if (depth_bias_force_unorm && depth_float24) {
+        // With a constant bias unit, the host 0...0.5 depth range no longer
+        // lowers the exponent (see kD3D10PolygonOffsetFactorFloat24).
+        depth_bias_constant_factor *= 0.5f;
+      }
       // With non-square resolution scaling, make sure the worst-case impact is
       // reverted (slope only along the scaled axis), thus max. Per-draw scale
       // so native draws get the guest bias as is. More bias is better than less
@@ -6170,9 +6189,17 @@ void VulkanCommandProcessor::UpdateDynamicState(
     if (dynamic_depth_bias_update_needed_) {
       dynamic_depth_bias_constant_factor_ = depth_bias_constant_factor;
       dynamic_depth_bias_slope_factor_ = depth_bias_slope_factor;
-      deferred_command_buffer_.CmdVkSetDepthBias(
-          dynamic_depth_bias_constant_factor_, 0.0f,
-          dynamic_depth_bias_slope_factor_);
+      if (depth_bias_force_unorm) {
+        deferred_command_buffer_.CmdVkSetDepthBias2EXT(
+            dynamic_depth_bias_constant_factor_, 0.0f,
+            dynamic_depth_bias_slope_factor_,
+            VK_DEPTH_BIAS_REPRESENTATION_LEAST_REPRESENTABLE_VALUE_FORCE_UNORM_EXT,
+            true);
+      } else {
+        deferred_command_buffer_.CmdVkSetDepthBias(
+            dynamic_depth_bias_constant_factor_, 0.0f,
+            dynamic_depth_bias_slope_factor_);
+      }
       dynamic_depth_bias_update_needed_ = false;
     }
 
@@ -6321,7 +6348,8 @@ void VulkanCommandProcessor::UpdateSystemConstantValues(
     bool shader_32bit_index_dma, const draw_util::ViewportInfo& viewport_info,
     uint32_t used_texture_mask, reg::RB_DEPTHCONTROL normalized_depth_control,
     uint32_t normalized_color_mask,
-    const draw_util::HostDepthPolygonOffset* host_depth_polygon_offset) {
+    const draw_util::HostDepthPolygonOffset* host_depth_polygon_offset,
+    int32_t window_offset_tiles) {
 #if XE_GPU_FINE_GRAINED_DRAW_SCOPES
   SCOPE_profile_cpu_f("gpu");
 #endif  // XE_GPU_FINE_GRAINED_DRAW_SCOPES
@@ -6437,8 +6465,8 @@ void VulkanCommandProcessor::UpdateSystemConstantValues(
     WriteFragmentShaderInterlockSystemConstants(
         system_constants_, flags, dirty, regs, primitive_polygonal,
         normalized_depth_control, normalized_color_mask,
-        draw_resolution_scale_x, draw_resolution_scale_y,
-        zpd_fsi_counter_index);
+        draw_resolution_scale_x, draw_resolution_scale_y, zpd_fsi_counter_index,
+        window_offset_tiles);
   } else {
     // Hybrid queries on the host render target path count pre-test coverage
     // into the same counter slot from the pixel shader.
@@ -6532,6 +6560,19 @@ void VulkanCommandProcessor::UpdateSystemConstantValues(
       std::memset(system_constants_.user_clip_planes, 0,
                   sizeof(system_constants_.user_clip_planes));
     }
+  }
+
+  // Window offset carried in the EDRAM bases.
+  float param_gen_window_offset[2] = {0.0f, 0.0f};
+  if (window_offset_tiles) {
+    auto pa_sc_window_offset = regs.Get<reg::PA_SC_WINDOW_OFFSET>();
+    param_gen_window_offset[0] = float(pa_sc_window_offset.window_x_offset);
+    param_gen_window_offset[1] = float(pa_sc_window_offset.window_y_offset);
+  }
+  for (uint32_t i = 0; i < 2; ++i) {
+    dirty |= system_constants_.param_gen_window_offset[i] !=
+             param_gen_window_offset[i];
+    system_constants_.param_gen_window_offset[i] = param_gen_window_offset[i];
   }
 
   // Tessellation constants. The factor range has 1.0 added per Xbox 360 docs.
@@ -6690,6 +6731,9 @@ void VulkanCommandProcessor::UpdateSystemConstantValues(
     reg::RB_COLOR_INFO color_info = color_infos[i];
     // Exponent bias is in bits 20:25 of RB_COLOR_INFO.
     int32_t color_exp_bias = color_info.color_exp_bias;
+    float color_exp_bias_scale;
+    *reinterpret_cast<int32_t*>(&color_exp_bias_scale) =
+        UINT32_C(0x3F800000) + (color_exp_bias << 23);
     if (render_target_cache_->GetPath() ==
             RenderTargetCache::Path::kHostRenderTargets &&
         (color_info.color_format == xenos::ColorRenderTargetFormat::k_16_16 &&
@@ -6697,13 +6741,11 @@ void VulkanCommandProcessor::UpdateSystemConstantValues(
          color_info.color_format ==
                  xenos::ColorRenderTargetFormat::k_16_16_16_16 &&
              !render_target_cache_->IsFixedRGBA16TruncatedToMinus1To1())) {
-      // Remap from -32...32 to -1...1 by dividing the output values by 32,
-      // losing blending correctness, but getting the full range.
-      color_exp_bias -= 5;
+      // Remap to -1...1 by scaling the output values by 1024/32767, losing
+      // blending correctness, but getting the full range apart from -32,
+      // which SNORM folds into -32767/1024.
+      color_exp_bias_scale *= 1024.0f / 32767.0f;
     }
-    float color_exp_bias_scale;
-    *reinterpret_cast<int32_t*>(&color_exp_bias_scale) =
-        UINT32_C(0x3F800000) + (color_exp_bias << 23);
     dirty |= system_constants_.color_exp_bias[i] != color_exp_bias_scale;
     system_constants_.color_exp_bias[i] = color_exp_bias_scale;
   }

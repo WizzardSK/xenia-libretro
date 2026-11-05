@@ -12,6 +12,7 @@
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -107,12 +108,21 @@ class UserProfile {
     return IsLiveEnabled() ? static_cast<uint64_t>(account_info_.xuid_online)
                            : 0;
   }
+  // Titles know a user signed in to Live by the online XUID.
+  uint64_t GetLogonXUID() const {
+    return signin_state() == static_cast<uint32_t>(SignInState::SignedInToLive)
+               ? GetOnlineXUID()
+               : xuid_;
+  }
 
   std::string name() const { return account_info_.GetGamertagString(); }
+  // With no Live service to sign in to, a Live-enabled profile counts as
+  // signed in to Live.
   uint32_t signin_state() const {
-    return static_cast<uint32_t>(SignInState::SignedInLocally);
+    return static_cast<uint32_t>(IsLiveEnabled()
+                                     ? SignInState::SignedInToLive
+                                     : SignInState::SignedInLocally);
   };
-  uint32_t type() const { return 1 | 2; /* local | online profile? */ }
 
   uint32_t GetReservedFlags() const {
     return account_info_.GetReservedFlags();
@@ -133,9 +143,8 @@ class UserProfile {
   };
   bool IsLiveEnabled() const { return account_info_.IsLiveEnabled(); }
 
-  void ClearProfileIcon(XTileType icon_type) {
-    profile_images_.erase(icon_type);
-  }
+  // Removes the picture from the profile on disk and from memory.
+  void ClearProfileIcon(XTileType icon_type);
 
   std::span<const uint8_t> GetProfileIcon(XTileType icon_type) {
     // First check if the requested type exists
@@ -169,16 +178,6 @@ class UserProfile {
 
   // Public accessor for dashboard GPD (for getting title paths)
   const GpdInfoProfile& dashboard_gpd() const { return dashboard_gpd_; }
-
-  // Public accessor for getting title icon from title GPD
-  std::vector<uint8_t> GetTitleIcon(uint32_t title_id) const {
-    const GpdInfo* gpd = GetGpd(title_id);
-    if (!gpd) {
-      return {};
-    }
-    auto icon_data = gpd->GetImage(kXdbfIdTitle);
-    return std::vector<uint8_t>(icon_data.begin(), icon_data.end());
-  }
 
   // Public accessor for getting achievement stats from title GPD
   struct TitleAchievementStats {
@@ -221,6 +220,7 @@ class UserProfile {
   GpdInfoProfile dashboard_gpd_;
   std::map<uint32_t, GpdInfoTitle> games_gpd_;
   std::vector<Property> properties_;  // Includes contexts!
+  std::mutex prop_mutex;              // 5841089C
 
   std::map<XTileType, std::vector<uint8_t>> profile_images_;
 
@@ -229,6 +229,7 @@ class UserProfile {
 
   void LoadProfileGpds();
   void LoadProfileIcon(XTileType tile_type);
+  void AddMissingIconSize(XTileType large_type, XTileType small_type);
   void WriteProfileIcon(XTileType tile_type,
                         std::span<const uint8_t> icon_data);
   std::vector<uint8_t> LoadGpd(const uint32_t title_id);

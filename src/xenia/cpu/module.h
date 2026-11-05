@@ -43,6 +43,10 @@ class Module {
     return memory_->TranslateVirtual<const uint8_t*>(address);
   }
 
+  // Whether a function that reaches |address| after a call ends at the call,
+  // because the code there belongs to another function.
+  virtual bool EndsBeforeCallReturn(uint32_t address) { return false; }
+
   Symbol* LookupSymbol(uint32_t address, bool wait = true);
   virtual Symbol::Status DeclareFunction(uint32_t address,
                                          Function** out_function);

@@ -270,11 +270,18 @@ class D3D12CommandProcessor final : public CommandProcessor {
   void SetStencilReference(uint32_t stencil_ref);
   void SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY primitive_topology);
 
-  std::string GetTitleStateSuffix() const override;
+  // Sets Xenos MSAA sample positions based on ForcedSampleCount for ROV, or
+  // target sample count, or the default pattern at 1x. Submits pending
+  // barriers under the old pattern first.
+  void UpdateSamplePositions(xenos::MsaaSamples msaa_samples);
+  bool xenos_sample_positions_used() const {
+    return xenos_sample_positions_used_;
+  }
 
  protected:
   bool SetupContext() override;
   void ShutdownContext() override;
+  std::string MakeTitleStateSuffix() const override;
   XE_FORCEINLINE
   void WriteRegisterForceinline(uint32_t index, uint32_t value);
   void WriteRegister(uint32_t index, uint32_t value) override;
@@ -418,6 +425,13 @@ class D3D12CommandProcessor final : public CommandProcessor {
   void AwaitMemexportSubmission(uint64_t submission) {
     CheckSubmissionCompletion(submission);
   }
+  // Without the host buffer or zero-copy, export output reaches guest RAM only
+  // through the staging copy, which a wait makes.
+  bool CanHoldSignalsForMemexport() const {
+    return shared_memory_->GetHostBuffer() != nullptr ||
+           shared_memory_->is_zero_copy();
+  }
+  void EndSubmissionForMemexport() { EndResolveSubmission(); }
   // Export ranges staged but not yet copied out, in record order - a later
   // copy of an overlapping range has to win.
   struct MemexportStagedRange {
@@ -500,11 +514,6 @@ class D3D12CommandProcessor final : public CommandProcessor {
   // clearing and stopping capturing. Returns whether the submission was done
   // successfully, if it has failed, leaves it open.
   bool EndSubmission(bool is_swap);
-  // Checks if ending a submission right now would not cause potentially more
-  // delay than it would reduce by making the GPU start working earlier - such
-  // as when there are unfinished graphics pipeline creation requests that would
-  // need to be fulfilled before actually submitting the command list.
-  bool CanEndSubmissionImmediately() const;
   bool AwaitAllQueueOperationsCompletion() {
     CheckSubmissionCompletion(GetCurrentSubmission());
     return GetCompletedSubmission() + 1u >= GetCurrentSubmission();
@@ -531,7 +540,8 @@ class D3D12CommandProcessor final : public CommandProcessor {
       const draw_util::Scissor& scissor, bool primitive_polygonal,
       reg::RB_DEPTHCONTROL normalized_depth_control,
       uint32_t normalized_color_mask,
-      uint32_t bound_depth_and_color_render_target_bits);
+      uint32_t bound_depth_and_color_render_target_bits,
+      bool depth_bias_in_pixel_shader);
 
   // Parallel binding for the spirv_to_dxil guest path (Mesa root signature).
   // Fills a SpirvShaderTranslator::SystemConstants (mirroring the Vulkan
@@ -546,7 +556,7 @@ class D3D12CommandProcessor final : public CommandProcessor {
       reg::RB_DEPTHCONTROL normalized_depth_control,
       uint32_t normalized_color_mask,
       const draw_util::HostDepthPolygonOffset* host_depth_polygon_offset,
-      bool interpreter_placeholder);
+      bool interpreter_placeholder, int32_t window_offset_tiles);
   // Resolves a sampler to its index in the bindless sampler heap for the Mesa
   // path, allocating and writing the descriptor on first use. Returns
   // UINT32_MAX if the heap is full, so the caller switches to a fresh heap and
@@ -628,6 +638,8 @@ class D3D12CommandProcessor final : public CommandProcessor {
   bool active_query_is_rov_ = false;
   bool zpd_rov_path_ = false;
   bool zpd_hybrid_supported_ = false;
+  // Depth bias is set on the command list instead of baked into pipelines.
+  bool depth_bias_dynamic_ = false;
   std::deque<PendingQueryResolve> query_resolves_in_flight_;
 
   std::unique_ptr<ui::d3d12::D3D12GPUCompletionTimeline> completion_timeline_;
@@ -661,6 +673,7 @@ class D3D12CommandProcessor final : public CommandProcessor {
   ID3D12GraphicsCommandList* command_list_ = nullptr;
   ID3D12GraphicsCommandList1* command_list_1_ = nullptr;
   ID3D12GraphicsCommandList2* command_list_2_ = nullptr;
+  ID3D12GraphicsCommandList9* command_list_9_ = nullptr;
   DeferredCommandList deferred_command_list_;
 
   // Should bindless textures and samplers be used - many times faster
@@ -668,6 +681,10 @@ class D3D12CommandProcessor final : public CommandProcessor {
   // bindful - mainly because of CopyDescriptorsSimple, which takes the majority
   // of UpdateBindings time, and that's outside the emulator's control even).
   bool bindless_resources_used_ = false;
+
+  // SetSamplePositions and ResolveSubresourceRegion remove the device
+  // without tier 1 support.
+  bool xenos_sample_positions_used_ = false;
 
   std::unique_ptr<D3D12SharedMemory> shared_memory_;
 
@@ -873,10 +890,13 @@ class D3D12CommandProcessor final : public CommandProcessor {
   D3D12_RECT ff_scissor_;
   float ff_blend_factor_[4];
   uint32_t ff_stencil_ref_;
+  float ff_depth_bias_;
+  float ff_depth_bias_slope_scaled_;
   bool ff_viewport_update_needed_;
   bool ff_scissor_update_needed_;
   bool ff_blend_factor_update_needed_;
   bool ff_stencil_ref_update_needed_;
+  bool ff_depth_bias_update_needed_;
 
   // Currently bound pipeline, either a graphics pipeline from the pipeline
   // cache (with potentially deferred creation - current_external_pipeline_ is
@@ -962,6 +982,9 @@ class D3D12CommandProcessor final : public CommandProcessor {
 
   // Current primitive topology.
   D3D_PRIMITIVE_TOPOLOGY primitive_topology_;
+
+  // MSAA mode the command list's sample positions are programmed for.
+  xenos::MsaaSamples current_sample_positions_;
 
   draw_util::GetViewportInfoArgs previous_viewport_info_args_;
   draw_util::ViewportInfo previous_viewport_info_;

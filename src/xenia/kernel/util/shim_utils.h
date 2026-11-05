@@ -30,15 +30,20 @@ namespace kernel {
 using PPCContext = xe::cpu::ppc::PPCContext;
 
 namespace util {
+// Arguments past r10 take a big-endian doubleword each from r1 + 0x50 and
+// narrower ones sit in its low bytes.
+template <typename T>
 inline uint32_t get_arg_stack_ptr(PPCContext* ppc_context, uint8_t index) {
-  return ((uint32_t)ppc_context->r[1]) + 0x54 + index * 8;
+  static_assert(sizeof(T) <= 8);
+  return uint32_t(ppc_context->r[1]) + 0x50 + index * 8 + (8 - sizeof(T));
 }
 
 inline uint8_t get_arg_8(PPCContext* ppc_context, uint8_t index) {
   if (index <= 7) {
     return (uint8_t)ppc_context->r[3 + index];
   }
-  const uint32_t stack_address = get_arg_stack_ptr(ppc_context, index - 8);
+  const uint32_t stack_address =
+      get_arg_stack_ptr<uint8_t>(ppc_context, index - 8);
   return xe::load_and_swap<uint8_t>(
       ppc_context->TranslateVirtual(stack_address));
 }
@@ -47,7 +52,8 @@ inline uint16_t get_arg_16(PPCContext* ppc_context, uint8_t index) {
   if (index <= 7) {
     return (uint16_t)ppc_context->r[3 + index];
   }
-  const uint32_t stack_address = get_arg_stack_ptr(ppc_context, index - 8);
+  const uint32_t stack_address =
+      get_arg_stack_ptr<uint16_t>(ppc_context, index - 8);
   return xe::load_and_swap<uint16_t>(
       ppc_context->TranslateVirtual(stack_address));
 }
@@ -56,7 +62,8 @@ inline uint32_t get_arg_32(PPCContext* ppc_context, uint8_t index) {
   if (index <= 7) {
     return (uint32_t)ppc_context->r[3 + index];
   }
-  const uint32_t stack_address = get_arg_stack_ptr(ppc_context, index - 8);
+  const uint32_t stack_address =
+      get_arg_stack_ptr<uint32_t>(ppc_context, index - 8);
   return xe::load_and_swap<uint32_t>(
       ppc_context->TranslateVirtual(stack_address));
 }
@@ -65,7 +72,8 @@ inline uint64_t get_arg_64(PPCContext* ppc_context, uint8_t index) {
   if (index <= 7) {
     return ppc_context->r[3 + index];
   }
-  const uint32_t stack_address = get_arg_stack_ptr(ppc_context, index - 8);
+  const uint32_t stack_address =
+      get_arg_stack_ptr<uint64_t>(ppc_context, index - 8);
   return xe::load_and_swap<uint64_t>(
       ppc_context->TranslateVirtual(stack_address));
 }
@@ -146,8 +154,8 @@ class Param {
     if (ordinal_ <= 7) {
       *out_value = V(init.ppc_context->r[3 + ordinal_]);
     } else {
-      uint32_t stack_ptr =
-          uint32_t(init.ppc_context->r[1]) + 0x54 + (ordinal_ - 8) * 8;
+      const uint32_t stack_ptr =
+          util::get_arg_stack_ptr<V>(init.ppc_context, ordinal_ - 8);
       *out_value =
           xe::load_and_swap<V>(init.ppc_context->TranslateVirtual(stack_ptr));
     }
@@ -343,7 +351,11 @@ class ResultBase : public Result {
  public:
   ResultBase(T value) : value_(value) {}
   void Store(PPCContext* ppc_context) {
-    ppc_context->r[3] = uint64_t(int32_t(value_));
+    if constexpr (sizeof(T) == sizeof(uint64_t)) {
+      ppc_context->r[3] = uint64_t(value_);
+    } else {
+      ppc_context->r[3] = uint64_t(int32_t(value_));
+    }
   }
   ResultBase() = delete;
   ResultBase& operator=(const ResultBase&) = delete;

@@ -134,7 +134,7 @@ void DiscSwapUI::OnDraw(ImGuiIO& io) {
           selected_path_ = disc.path;
           result_ = DiscSwapResult::kSelected;
           XELOGI("DiscSwapUI: Selected disc from saved paths: {}",
-                 xe::path_to_utf8(selected_path_));
+                 xe::strip_pii(xe::path_to_utf8(selected_path_)));
           ImGui::CloseCurrentPopup();
           Close();
         }
@@ -150,7 +150,7 @@ void DiscSwapUI::OnDraw(ImGuiIO& io) {
           selected_path_ = disc.path;
           result_ = DiscSwapResult::kSelected;
           XELOGI("DiscSwapUI: Selected disc {} from saved paths: {}", i + 1,
-                 xe::path_to_utf8(selected_path_));
+                 xe::strip_pii(xe::path_to_utf8(selected_path_)));
           ImGui::CloseCurrentPopup();
           Close();
         }
