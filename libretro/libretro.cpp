@@ -2029,9 +2029,12 @@ RETRO_API bool retro_load_game(const struct retro_game_info *info) {
         hw_render_cb.context_destroy = vulkan_context_destroy;
 
         if (!core_state.environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw_render_cb)) {
-            xenia_log(RETRO_LOG_WARN,
-                      "Frontend rejected Vulkan HW render ??? falling back to software\n");
+            // Off "Allow Cores to Switch the Video Driver" with another driver:
+            // the core does not start (NNshi)
+            xenia_log(RETRO_LOG_ERROR,
+                      "RetroArch gave no Vulkan context: set Video Driver to vulkan or turn on Allow Cores to Switch the Video Driver\n");
             vulkan_hw_render_active = false;
+            return false;
         } else {
             static const struct retro_hw_render_context_negotiation_interface_vulkan negotiation = {
                 RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN,
@@ -2052,9 +2055,12 @@ RETRO_API bool retro_load_game(const struct retro_game_info *info) {
         hw_render_cb.context_destroy = d3d12_context_destroy;
 
         if (!core_state.environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw_render_cb)) {
-            xenia_log(RETRO_LOG_WARN,
-                      "Frontend rejected D3D12 HW render ??? falling back to software\n");
+            // Off "Allow Cores to Switch the Video Driver" with another driver:
+            // the core does not start (NNshi)
+            xenia_log(RETRO_LOG_ERROR,
+                      "RetroArch gave no D3D12 context: set Video Driver to d3d12 or turn on Allow Cores to Switch the Video Driver\n");
             d3d12_hw_render_active = false;
+            return false;
         }
     }
 #endif
