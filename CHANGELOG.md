@@ -4,6 +4,10 @@ What changed in the libretro core of this fork, newest first. Changes that come 
 
 ## Unreleased
 
+- Log Level has None, the new default: no xenia.log, and RetroArch's log gets only what the core says when a game starts (its version, the title ID, the Graphics API) and errors that stop it, without Xenia's run-time messages or the core's run stats (NNshi).
+- Unlock Framerate has 30 fps: the core gives RetroArch 30 frames a second, two guest vblanks each, so the game still runs at 60 Hz; for games made for 30, or to run a 60 fps game at 30 (NNshi).
+- GTA IV is off the framerate unlock list. The core never overwrites system/Xenia-Edge/xenia_framerate_unlock.txt, so an existing copy keeps it until the file is deleted (NNshi).
+- The core makes system/Xenia-Edge/content/0000000000000000, the content folder of the console's no-profile user, when it is absent (NNshi).
 - With Allow Cores to Switch the Video Driver off and a video driver other than the chosen Graphics API, the core does not start and the log says what to set, instead of running on the slow path with the picture read back from the GPU (NNshi).
 - With a video driver other than vulkan (glcore, d3d11...), where the core hands RetroArch the picture read back from the GPU, red and blue are no longer swapped: the picture came as R G B bytes and was given as XRGB8888, which is B G R in memory (Akrido: GTA IV's red lights blue, its night scene brown).
 - Direct3D 12 is offered only where it can run: edge's D3D12 renderer needs Shader Model 6.6, which the Direct3D 12 runtime of Windows 10 lacks (standalone edge brings a newer runtime, which only an executable can load for itself). Elsewhere Graphics API is hidden and the core runs on Vulkan. If a renderer still cannot start, the load stops with RetroArch's message; the core showed a Windows message box and then closed RetroArch (Akrido). No fatal error of the core shows a message box anymore.

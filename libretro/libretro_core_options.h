@@ -83,6 +83,7 @@ struct xenia_core_state;
 #define XENIA_GRAPHICS_D3D12   "d3d12"
 #define XENIA_GRAPHICS_VULKAN  "vulkan"
 
+#define XENIA_LOG_LEVEL_NONE   "none"
 #define XENIA_LOG_LEVEL_ERROR  "error"
 #define XENIA_LOG_LEVEL_WARN   "warn"
 #define XENIA_LOG_LEVEL_INFO   "info"
@@ -302,13 +303,14 @@ struct retro_core_option_v2_definition option_defs_us[] = {
         "xenia_unlock_framerate",
         "Unlock Framerate",
         "Unlock Framerate",
-        "Only for games whose logic is not tied to their frame rate, else they run too fast. 30 fps games at 60: two vblanks for each frame RetroArch shows. 60 fps games at 120: the core at 120 frames a second (set RetroArch and the display up for it). Uncapped: vblanks as fast as possible. Listed games: the rate system/Xenia-Edge/xenia_framerate_unlock.txt gives the running game, if it lists it. Can be changed while a game runs.",
+        "Only for games whose logic is not tied to their frame rate, else they run too fast. 30 fps games at 60: two vblanks for each frame RetroArch shows. 60 fps games at 120: the core at 120 frames a second (set RetroArch and the display up for it). 30 fps: the core gives RetroArch 30 frames a second while the game still sees 60 vblanks, for games that run at 30 or to run a 60 fps game at 30. Uncapped: vblanks as fast as possible. Listed games: the rate system/Xenia-Edge/xenia_framerate_unlock.txt gives the running game, if it lists it. Can be changed while a game runs.",
         NULL,
         "Graphics",
         {
             { "disabled", NULL },
             { "enabled",  "Listed games" },
             { "30to60",   "30 fps games at 60" },
+            { "30",       "30 fps" },
             { "120",      "60 fps games at 120" },
             { "uncapped", "Uncapped" },
             { NULL, NULL }
@@ -611,17 +613,18 @@ struct retro_core_option_v2_definition option_defs_us[] = {
         "xenia_log_level",
         "Log Level",
         "Log Level",
-        "Set the verbosity of logging output.",
+        "Set the verbosity of logging output. None: no xenia.log, and RetroArch's log gets only what the core says when a game starts (its version, the title ID, the Graphics API) and errors that stop it; switching away from None while a game runs writes xenia.log from the next start of RetroArch.",
         NULL,
         "Emulation",
         {
+            { "none",  "None" },
             { "error", "Error Only" },
             { "warn",  "Warning" },
             { "info",  "Info" },
             { "debug", "Debug" },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */

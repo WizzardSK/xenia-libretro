@@ -291,6 +291,9 @@ static void launch_game(void);
 }
 static void xenia_stop_emulator(void);
 static void xenia_log(enum retro_log_level level, const char *fmt, ...);
+// Log Level None: the core's run-time messages are dropped as well
+static bool s_log_none = false;
+#define xenia_log_detail(...) do { if (!s_log_none) xenia_log(__VA_ARGS__); } while (0)
 
 static const VkApplicationInfo *xenia_vk_application_info(void) {
     static const VkApplicationInfo info = {
@@ -568,7 +571,7 @@ static void vulkan_context_reset(void) {
     lr_vk.p_vkResetCommandBuffer = (PFN_vkResetCommandBuffer)vk_hw->get_device_proc_addr(vk_hw->device, "vkResetCommandBuffer");
     lr_vk.p_vkUnmapMemory = (PFN_vkUnmapMemory)vk_hw->get_device_proc_addr(vk_hw->device, "vkUnmapMemory");
     lr_vk.p_vkGetPhysicalDeviceMemoryProperties = (PFN_vkGetPhysicalDeviceMemoryProperties)vk_hw->get_instance_proc_addr(vk_hw->instance, "vkGetPhysicalDeviceMemoryProperties");
-    xenia_log(RETRO_LOG_INFO,
+    xenia_log_detail(RETRO_LOG_INFO,
               "Vulkan HW render interface acquired (ver %u, device %p, %s)\n",
               vk_hw->interface_version, (void *)vk_hw->device,
               libretro_vk_shared_device_active() ? "shared with Xenia"
@@ -706,7 +709,7 @@ static void d3d12_context_reset(void) {
     }
     d3d12_hw = (const struct retro_hw_render_interface_d3d12 *)iface;
     d3d12_hw_render_active = true;
-    xenia_log(RETRO_LOG_INFO,
+    xenia_log_detail(RETRO_LOG_INFO,
               "D3D12 HW render interface acquired (ver %u, device %p)\n",
               d3d12_hw->interface_version, (void *)d3d12_hw->device);
 }
@@ -867,7 +870,7 @@ static void apply_core_options(void) {
             case gamedb::Unlock::kNone:     break;
             }
         } else if (u && (strcmp(u, "30to60") == 0 || strcmp(u, "120") == 0 ||
-                         strcmp(u, "uncapped") == 0)) {
+                         strcmp(u, "30") == 0 || strcmp(u, "uncapped") == 0)) {
             v = u;
         }
         const bool uncapped = strcmp(v, "uncapped") == 0;
@@ -875,13 +878,16 @@ static void apply_core_options(void) {
         const bool changed = pal != core_state.pal_mode;
         core_state.vsync_enabled = !uncapped;
         SetGuestDisplayRefreshCap(core_state.vsync_enabled);
-        core_state.vblanks_per_run = strcmp(v, "30to60") == 0 ? 2 : 1;
+        // 30 fps: RetroArch runs the core 30 times a second and each run is
+        // two guest vblanks, so the game still sees 60 Hz (NNshi)
+        const bool fps30 = strcmp(v, "30") == 0;
+        core_state.vblanks_per_run = (fps30 || strcmp(v, "30to60") == 0) ? 2 : 1;
         const bool fps120 = strcmp(v, "120") == 0;
         core_state.fps120 = fps120;
         // Uncapped is told RetroArch's own refresh rate, so RetroArch runs the
         // core as often as the display shows frames instead of 60 times a
         // second (NNshi); 180 when RetroArch does not say
-        double output_fps = pal ? 50.0 : fps120 ? 120.0 : 60.0;
+        double output_fps = pal ? 50.0 : fps120 ? 120.0 : fps30 ? 30.0 : 60.0;
         if (uncapped) {
             float target = 0.0f;
             output_fps = 180.0;
@@ -901,7 +907,7 @@ static void apply_core_options(void) {
             retro_get_system_av_info(&av);
             core_state.environ_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &av);
         }
-        xenia_log(RETRO_LOG_INFO, "emulated display refresh rate: %s\n", v);
+        xenia_log_detail(RETRO_LOG_INFO, "emulated display refresh rate: %s\n", v);
     }
 
     // =================================================================
@@ -1075,8 +1081,12 @@ static void apply_core_options(void) {
 
     // Log level (0=error, 1=warning, 2=info, 3=debug)
     if ((v = opt_get(XENIA_OPT_LOG_LEVEL))) {
+        // None: Xenia logs nothing (no level is at or below -1) and the core
+        // only what it says at a game's start and errors (NNshi)
         int level = 2;
-        if (strcmp(v, "error") == 0) level = 0;
+        s_log_none = strcmp(v, "none") == 0;
+        if (s_log_none) level = -1;
+        else if (strcmp(v, "error") == 0) level = 0;
         else if (strcmp(v, "warn") == 0) level = 1;
         else if (strcmp(v, "info") == 0) level = 2;
         else if (strcmp(v, "debug") == 0) level = 3;
@@ -1547,12 +1557,23 @@ static bool xenia_setup_and_launch(const char *path) {
         std::error_code ec;
         fs::create_directories(cache, ec);
         fs::create_directories(content, ec);
+        // The content folder of the console's "no profile" user, which some
+        // games' content goes to; made when absent (NNshi)
+        fs::create_directories(content / "0000000000000000", ec);
         // Initialize Xenia logging first: its default file is beside the
         // executable, which for a core is the frontend's folder; and its errors
         // and warnings go to the frontend's log as well
 #ifndef __ANDROID__
+        // Log Level None: the logger's file is the null device, so no
+        // xenia.log is made (the logger starts once per process)
         if (cvars::log_file.empty())
-            cvars::log_file = root / "xenia.log";
+            cvars::log_file = s_log_none ?
+#ifdef _WIN32
+                fs::path("NUL")
+#else
+                fs::path("/dev/null")
+#endif
+                : root / "xenia.log";
 #endif
         // Once per process: a reset launches again in the same process, and a
         // second logger would be a second writer thread on the same file.
@@ -1743,7 +1764,7 @@ static void guest_set_paused(bool paused) {
         xenia_emulator->kernel_state()->guest_scheduler())
         xenia_emulator->kernel_state()->guest_scheduler()->SetPaused(paused);
     xe::Clock::SetGuestClockPaused(paused);
-    xenia_log(RETRO_LOG_INFO, "%s\n", paused ? "paused (no retro_run for 100 ms)" : "resumed");
+    xenia_log_detail(RETRO_LOG_INFO, "%s\n", paused ? "paused (no retro_run for 100 ms)" : "resumed");
 }
 
 static void pause_watchdog_start(void) {
@@ -1993,7 +2014,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *info) {
             const char *value = opt_get(d->key);
             dump += std::string("\n  ") + d->key + " = " + (value ? value : "(default)");
         }
-        xenia_log(RETRO_LOG_INFO, "core options:%s\n", dump.c_str());
+        xenia_log_detail(RETRO_LOG_INFO, "core options:%s\n", dump.c_str());
     }
 
     // The backend is the Graphics API option's (NNshi), not whatever video
@@ -2091,7 +2112,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *info) {
         }
     }
     xe::apu::libretro::LibretroAudioSystem::set_output_channels(s_audio_channels);
-    xenia_log(RETRO_LOG_INFO, "audio: %u channels\n", s_audio_channels);
+    xenia_log_detail(RETRO_LOG_INFO, "audio: %u channels\n", s_audio_channels);
 
     // With Vulkan the game starts in context_reset, on RetroArch's device
     if (s_launch_on_context_reset)
@@ -2203,7 +2224,7 @@ static void run_stats_end(std::chrono::steady_clock::time_point run_start, doubl
         return;
     const uint64_t swaps = g_guest_swaps.load(std::memory_order_relaxed);
     const uint64_t vblanks = g_guest_vblanks.load(std::memory_order_relaxed);
-    xenia_log(RETRO_LOG_INFO,
+    xenia_log_detail(RETRO_LOG_INFO,
               "[run stats] %.2f s: retro_run %llu (avg %.2f ms, max %.2f ms, longest gap %.2f ms); "
               "frame capture avg %.2f ms, max %.2f ms; guest swaps %llu, vblanks %llu\n",
               window, (unsigned long long)st.runs, st.run_ms / st.runs, st.run_max_ms, st.gap_max_ms,

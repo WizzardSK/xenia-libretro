@@ -40,7 +40,6 @@
 565507FA # Crash - Mind over Mutant
 58410B86 # Fable Heroes
 415607E1 # Call of Duty 3
-545407F2 # GTA IV
 
 [60 fps]
 584111F7 # Minecraft: Xbox 360 Edition
