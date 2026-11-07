@@ -25,9 +25,13 @@ Original Xbox games run through XeFu, the Xbox 360's own emulator of the origina
 
 Everything the core keeps is in `system/Xenia-Edge/`: saves, title updates and DLC under `content/`, laid out as in standalone Xenia's content folder; the shader and other caches under `cache/`; and Xenia's log, `xenia.log` (none with Log Level None, the default). Errors and warnings from it also appear in RetroArch's log. The core option Apply Title Updates turns updates off.
 
-To install DLC, title updates or other content packages, put them in `system/Xenia-Edge/install/`, in its root or in subfolders. At the next start of the core, with any game, they are installed into `content/` as standalone Xenia Edge's Install Content does it, and removed from `install/`. A file that cannot be installed stays there, and RetroArch shows its name.
-
 Games that need a signed-in profile get one: the core signs in the first profile under `content/`, or creates one when there is none, named after the first line of `system/Xenia-Edge/xbl_profilename.txt` ("Player" if the file is missing, which the core then writes there).
+
+### DLC and add-ons
+
+To install DLC, title updates or other add-on packages, put the files in `system/Xenia-Edge/install/`, the folder the core makes when it starts. They can be in its root or in any subfolders, so a download can be copied in with its own folder structure.
+
+At the next start of the core, with any game, the core installs every package it finds there into `content/`, as standalone Xenia Edge's Install Content does, and then deletes it from `install/` along with the folders left empty. This happens before the game starts, so DLC for the game being started works right away. A file that is not a package, or fails to install, stays in `install/`, and RetroArch shows its name (the reason is in the log).
 
 ## Building
 
