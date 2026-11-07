@@ -1575,7 +1575,7 @@ static void xenia_install_content(const std::filesystem::path &install) {
     for (const fs::path &file : files) {
         const std::string file_name = xe::path_to_utf8(file.filename());
         xe::Emulator::ContentInstallEntry entry(file);
-        X_STATUS status =
+        xe::X_STATUS status =
             xenia_emulator->ProcessContentPackageHeader(file, entry);
         if (XSUCCEEDED(status))
             status = xenia_emulator->InstallContentPackage(file, entry);
