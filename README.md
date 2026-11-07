@@ -23,9 +23,15 @@ Xbox 360 games as a disc image (`.iso`), an executable (`.xex`), or a `.zar` / `
 
 Original Xbox games run through XeFu, the Xbox 360's own emulator of the original Xbox, which upstream Xenia Edge can run. It needs XeFu's files from a console (`xbox.xex` and the `xefu*.xex` builds of the system partition's `Compatibility` folder) in `<system>/Xenia-Edge/xefu/`; the game is opened as a disc image (`.iso`), a full dump or one rebuilt to the game partition alone. Only the games the console itself could run have a chance.
 
-Everything the core keeps is in `system/Xenia-Edge/`: saves, title updates and DLC under `content/`, laid out as in standalone Xenia's content folder; the shader and other caches under `cache/`; and Xenia's log, `xenia.log`. Errors and warnings from it also appear in RetroArch's log. The core option Apply Title Updates turns updates off.
+Everything the core keeps is in `system/Xenia-Edge/`: saves, title updates and DLC under `content/`, laid out as in standalone Xenia's content folder; the shader and other caches under `cache/`; and Xenia's log, `xenia.log` (none with Log Level None, the default). Errors and warnings from it also appear in RetroArch's log. The core option Apply Title Updates turns updates off.
 
 Games that need a signed-in profile get one: the core signs in the first profile under `content/`, or creates one when there is none, named after the first line of `system/Xenia-Edge/xbl_profilename.txt` ("Player" if the file is missing, which the core then writes there).
+
+### DLC and add-ons
+
+To install DLC, title updates or other add-on packages, put the files in `system/Xenia-Edge/install/`, the folder the core makes when it starts. They can be in its root or in any subfolders, so a download can be copied in with its own folder structure.
+
+At the next start of the core, with any game, the core installs every package it finds there into `content/`, as standalone Xenia Edge's Install Content does, and then deletes it from `install/` along with the folders left empty. This happens before the game starts, so DLC for the game being started works right away. A file that is not a package, or fails to install, stays in `install/`, and RetroArch shows its name (the reason is in the log).
 
 ## Building
 

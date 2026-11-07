@@ -4,6 +4,7 @@ What changed in the libretro core of this fork, newest first. Changes that come 
 
 ## Unreleased
 
+- Install Content as in standalone Xenia Edge: packages (DLC, title updates and others) put in system/Xenia-Edge/install, in its root or in subfolders, are installed into content at the next start of the core, with any game, and removed from install. A file that cannot be installed stays there and RetroArch shows its name (NNshi).
 - Log Level has None, the new default: no xenia.log, and RetroArch's log gets only what the core says when a game starts (its version, the title ID, the Graphics API) and errors that stop it, without Xenia's run-time messages or the core's run stats (NNshi).
 - Unlock Framerate has 30 fps: the core gives RetroArch 30 frames a second, two guest vblanks each, so the game still runs at 60 Hz; for games made for 30, or to run a 60 fps game at 30 (NNshi).
 - GTA IV is off the framerate unlock list. The core never overwrites system/Xenia-Edge/xenia_framerate_unlock.txt, so an existing copy keeps it until the file is deleted (NNshi).
