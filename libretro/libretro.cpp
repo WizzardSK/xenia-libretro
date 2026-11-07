@@ -1540,6 +1540,75 @@ static void xenia_sign_in(void) {
         xenia_log(RETRO_LOG_WARN, "Could not create a profile\n");
 }
 
+// Install Content as in standalone Xenia Edge, without a dialog (NNshi):
+// packages put in system/Xenia-Edge/install, in its root or in subfolders,
+// are installed at the next start with the standalone's own installer
+// (content/<XUID>/<title ID>/<content type>/<file name>, and its header),
+// and then removed from install, with the folders left empty. A file that
+// is not a package, or that fails to install, stays where it is and
+// RetroArch shows that it could not be installed. An SVOD package's
+// <name>.data folder goes with its package.
+static void xenia_install_content(const std::filesystem::path &install) {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    std::vector<fs::path> files;
+    for (fs::recursive_directory_iterator it(install, ec), end;
+         !ec && it != end; it.increment(ec)) {
+        if (!it->is_regular_file(ec)) continue;
+        const fs::path parent = it->path().parent_path();
+        const fs::path parent_name = parent.filename();
+        if (parent_name.extension() == ".data" &&
+            fs::is_regular_file(parent.parent_path() / parent_name.stem(), ec))
+            continue;
+        files.push_back(it->path());
+    }
+    if (files.empty()) return;
+    std::sort(files.begin(), files.end());
+
+    auto notify = [](const std::string &text) {
+        static std::vector<std::string> keep;  // RetroArch reads the text later
+        keep.push_back(text);
+        struct retro_message msg = { keep.back().c_str(), 300 };
+        core_state.environ_cb(RETRO_ENVIRONMENT_SET_MESSAGE, &msg);
+    };
+    unsigned installed = 0;
+    for (const fs::path &file : files) {
+        const std::string file_name = xe::path_to_utf8(file.filename());
+        xe::Emulator::ContentInstallEntry entry(file);
+        X_STATUS status =
+            xenia_emulator->ProcessContentPackageHeader(file, entry);
+        if (XSUCCEEDED(status))
+            status = xenia_emulator->InstallContentPackage(file, entry);
+        if (XFAILED(status)) {
+            xenia_log(RETRO_LOG_ERROR,
+                      "Install: %s could not be installed (%s, 0x%08X)\n",
+                      file_name.c_str(),
+                      entry.installation_error_message_.c_str(), status);
+            notify(file_name + " could not be installed");
+            continue;
+        }
+        xenia_log(RETRO_LOG_INFO, "Install: %s (%s) to content/%s\n",
+                  file_name.c_str(), entry.name_.c_str(),
+                  xe::path_to_utf8(entry.data_installation_path_).c_str());
+        fs::remove(file, ec);
+        fs::path data = file;
+        data += ".data";
+        if (fs::is_directory(data, ec)) fs::remove_all(data, ec);
+        installed++;
+    }
+    // The folders the installed packages leave empty, deepest first
+    std::vector<fs::path> dirs;
+    for (fs::recursive_directory_iterator it(install, ec), end;
+         !ec && it != end; it.increment(ec))
+        if (it->is_directory(ec)) dirs.push_back(it->path());
+    std::sort(dirs.rbegin(), dirs.rend());
+    for (const fs::path &dir : dirs)
+        if (fs::is_empty(dir, ec)) fs::remove(dir, ec);
+    if (installed)
+        notify(installed == 1 ? std::string("1 package installed")
+                              : std::to_string(installed) + " packages installed");
+}
+
 static bool xenia_setup_and_launch(const char *path) {
     try {
         namespace fs = std::filesystem;
@@ -1560,6 +1629,8 @@ static bool xenia_setup_and_launch(const char *path) {
         // The content folder of the console's "no profile" user, which some
         // games' content goes to; made when absent (NNshi)
         fs::create_directories(content / "0000000000000000", ec);
+        // Where packages are put to be installed at the next start (NNshi)
+        fs::create_directories(root / "install", ec);
         // Initialize Xenia logging first: its default file is beside the
         // executable, which for a core is the frontend's folder; and its errors
         // and warnings go to the frontend's log as well
@@ -1671,6 +1742,8 @@ static bool xenia_setup_and_launch(const char *path) {
         }
 
         xenia_sign_in();
+        // After the sign-in: a save goes to the profile signed in
+        xenia_install_content(root / "install");
 
         xenia_log(RETRO_LOG_INFO, "Launching %s\n", path);
         // Patch Manager: the game's module is loaded inside LaunchPath, on
