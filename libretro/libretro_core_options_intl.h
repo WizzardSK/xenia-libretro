@@ -103,6 +103,7 @@ extern "C" {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_AR NULL
 #define OPTION_VAL_ENABLED_AR NULL
 #define OPTION_VAL_30TO60_AR NULL
+#define OPTION_VAL_30_AR NULL
 #define OPTION_VAL_120_AR NULL
 #define OPTION_VAL_UNCAPPED_AR NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_AR NULL
@@ -164,7 +165,7 @@ extern "C" {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_AR NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_AR NULL
 #define OPTION_VAL_20_AR NULL
-#define OPTION_VAL_30_AR NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_AR NULL
 #define OPTION_VAL_40_AR NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_AR NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_AR NULL
@@ -487,6 +488,7 @@ struct retro_core_option_v2_definition option_defs_ar[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_AR },
             { "30to60",   OPTION_VAL_30TO60_AR },
+            { "30",       OPTION_VAL_30_AR },
             { "120",      OPTION_VAL_120_AR },
             { "uncapped", OPTION_VAL_UNCAPPED_AR },
             { NULL, NULL }
@@ -654,7 +656,7 @@ struct retro_core_option_v2_definition option_defs_ar[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_AR },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_AR },
             { "20",  OPTION_VAL_20_AR },
-            { "30",  OPTION_VAL_30_AR },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_AR },
             { "40",  OPTION_VAL_40_AR },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_AR },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_AR },
@@ -793,13 +795,14 @@ struct retro_core_option_v2_definition option_defs_ar[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_AR },
             { "error", OPTION_VAL_ERROR_AR },
             { "warn",  OPTION_VAL_WARN_AR },
             { "info",  OPTION_VAL_INFO_AR },
             { "debug", OPTION_VAL_DEBUG_AR },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -1139,6 +1142,7 @@ struct retro_core_options_v2 options_ar = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_AST NULL
 #define OPTION_VAL_ENABLED_AST NULL
 #define OPTION_VAL_30TO60_AST NULL
+#define OPTION_VAL_30_AST NULL
 #define OPTION_VAL_120_AST NULL
 #define OPTION_VAL_UNCAPPED_AST NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_AST NULL
@@ -1200,7 +1204,7 @@ struct retro_core_options_v2 options_ar = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_AST NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_AST NULL
 #define OPTION_VAL_20_AST NULL
-#define OPTION_VAL_30_AST NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_AST NULL
 #define OPTION_VAL_40_AST NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_AST NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_AST NULL
@@ -1523,6 +1527,7 @@ struct retro_core_option_v2_definition option_defs_ast[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_AST },
             { "30to60",   OPTION_VAL_30TO60_AST },
+            { "30",       OPTION_VAL_30_AST },
             { "120",      OPTION_VAL_120_AST },
             { "uncapped", OPTION_VAL_UNCAPPED_AST },
             { NULL, NULL }
@@ -1690,7 +1695,7 @@ struct retro_core_option_v2_definition option_defs_ast[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_AST },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_AST },
             { "20",  OPTION_VAL_20_AST },
-            { "30",  OPTION_VAL_30_AST },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_AST },
             { "40",  OPTION_VAL_40_AST },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_AST },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_AST },
@@ -1829,13 +1834,14 @@ struct retro_core_option_v2_definition option_defs_ast[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_AST },
             { "error", OPTION_VAL_ERROR_AST },
             { "warn",  OPTION_VAL_WARN_AST },
             { "info",  OPTION_VAL_INFO_AST },
             { "debug", OPTION_VAL_DEBUG_AST },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -2175,6 +2181,7 @@ struct retro_core_options_v2 options_ast = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_BE NULL
 #define OPTION_VAL_ENABLED_BE NULL
 #define OPTION_VAL_30TO60_BE NULL
+#define OPTION_VAL_30_BE NULL
 #define OPTION_VAL_120_BE NULL
 #define OPTION_VAL_UNCAPPED_BE NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_BE NULL
@@ -2236,7 +2243,7 @@ struct retro_core_options_v2 options_ast = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_BE NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_BE NULL
 #define OPTION_VAL_20_BE "20 %"
-#define OPTION_VAL_30_BE "30 %"
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_BE "30 %"
 #define OPTION_VAL_40_BE "40 %"
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_BE "50 %"
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_BE "60 %"
@@ -2559,6 +2566,7 @@ struct retro_core_option_v2_definition option_defs_be[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_BE },
             { "30to60",   OPTION_VAL_30TO60_BE },
+            { "30",       OPTION_VAL_30_BE },
             { "120",      OPTION_VAL_120_BE },
             { "uncapped", OPTION_VAL_UNCAPPED_BE },
             { NULL, NULL }
@@ -2726,7 +2734,7 @@ struct retro_core_option_v2_definition option_defs_be[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_BE },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_BE },
             { "20",  OPTION_VAL_20_BE },
-            { "30",  OPTION_VAL_30_BE },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_BE },
             { "40",  OPTION_VAL_40_BE },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_BE },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_BE },
@@ -2865,13 +2873,14 @@ struct retro_core_option_v2_definition option_defs_be[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_BE },
             { "error", OPTION_VAL_ERROR_BE },
             { "warn",  OPTION_VAL_WARN_BE },
             { "info",  OPTION_VAL_INFO_BE },
             { "debug", OPTION_VAL_DEBUG_BE },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -3211,6 +3220,7 @@ struct retro_core_options_v2 options_be = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_BG NULL
 #define OPTION_VAL_ENABLED_BG NULL
 #define OPTION_VAL_30TO60_BG NULL
+#define OPTION_VAL_30_BG NULL
 #define OPTION_VAL_120_BG NULL
 #define OPTION_VAL_UNCAPPED_BG NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_BG NULL
@@ -3272,7 +3282,7 @@ struct retro_core_options_v2 options_be = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_BG NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_BG NULL
 #define OPTION_VAL_20_BG NULL
-#define OPTION_VAL_30_BG NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_BG NULL
 #define OPTION_VAL_40_BG NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_BG NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_BG NULL
@@ -3595,6 +3605,7 @@ struct retro_core_option_v2_definition option_defs_bg[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_BG },
             { "30to60",   OPTION_VAL_30TO60_BG },
+            { "30",       OPTION_VAL_30_BG },
             { "120",      OPTION_VAL_120_BG },
             { "uncapped", OPTION_VAL_UNCAPPED_BG },
             { NULL, NULL }
@@ -3762,7 +3773,7 @@ struct retro_core_option_v2_definition option_defs_bg[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_BG },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_BG },
             { "20",  OPTION_VAL_20_BG },
-            { "30",  OPTION_VAL_30_BG },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_BG },
             { "40",  OPTION_VAL_40_BG },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_BG },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_BG },
@@ -3901,13 +3912,14 @@ struct retro_core_option_v2_definition option_defs_bg[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_BG },
             { "error", OPTION_VAL_ERROR_BG },
             { "warn",  OPTION_VAL_WARN_BG },
             { "info",  OPTION_VAL_INFO_BG },
             { "debug", OPTION_VAL_DEBUG_BG },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -4244,9 +4256,10 @@ struct retro_core_options_v2 options_bg = {
 #define XENIA_WAIT_FOR_FRAME_LABEL_CA "[Llibret] Espera de fotograma"
 #define XENIA_WAIT_FOR_FRAME_INFO_0_CA "Elimina 1 fotograma de retard d'entrada, a costa, possiblement, que el joc pateixi petits salts. Recomanat per a maquinari potent i/o jocs lleugers."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_CA "Desbloqueja la taxa de fotogrames"
-#define XENIA_UNLOCK_FRAMERATE_INFO_0_CA "Només per a jocs la lògica dels quals no està lligada a la taxa de fotogrames; en cas contrari, funcionen massa ràpid. Jocs a 30 fps executats a 60: dos intervals de supressió vertical (*vblanks*) per cada fotograma que mostra RetroArch. Jocs a 60 fps executats a 120: el nucli funciona a 120 fotogrames per segon (cal configurar RetroArch i la pantalla per a això). Sense límit (*uncapped*): intervals de supressió vertical tan ràpids com sigui possible. Jocs llistats: el sistema de taxes de Xenia-Edge (especificat a `xenia_framerate_unlock.txt`) s'aplica al joc en execució, si hi apareix. Es pot modificar mentre el joc està en marxa."
+#define XENIA_UNLOCK_FRAMERATE_INFO_0_CA NULL
 #define OPTION_VAL_ENABLED_CA "Jocs de la llista"
 #define OPTION_VAL_30TO60_CA "Jocs de 30 fps a 60 fps"
+#define OPTION_VAL_30_CA NULL
 #define OPTION_VAL_120_CA "Jocs de 60 fps a 120 fps"
 #define OPTION_VAL_UNCAPPED_CA "Sense límit"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CA "Resolució de la pantalla interna (Cal reiniciar)"
@@ -4308,7 +4321,7 @@ struct retro_core_options_v2 options_bg = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_CA NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_CA NULL
 #define OPTION_VAL_20_CA NULL
-#define OPTION_VAL_30_CA NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_CA NULL
 #define OPTION_VAL_40_CA NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_CA NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_CA NULL
@@ -4369,7 +4382,7 @@ struct retro_core_options_v2 options_bg = {
 #define OPTION_VAL_TAIWAN_CA NULL
 #define OPTION_VAL_HONG_KONG_CA NULL
 #define XENIA_LOG_LEVEL_LABEL_CA "Nivell del registre"
-#define XENIA_LOG_LEVEL_INFO_0_CA "Estableix el nivell de detall de la sortida de registre."
+#define XENIA_LOG_LEVEL_INFO_0_CA NULL
 #define OPTION_VAL_ERROR_CA "Només els errors"
 #define OPTION_VAL_WARN_CA "Advertència"
 #define OPTION_VAL_INFO_CA "Informació"
@@ -4631,6 +4644,7 @@ struct retro_core_option_v2_definition option_defs_ca[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_CA },
             { "30to60",   OPTION_VAL_30TO60_CA },
+            { "30",       OPTION_VAL_30_CA },
             { "120",      OPTION_VAL_120_CA },
             { "uncapped", OPTION_VAL_UNCAPPED_CA },
             { NULL, NULL }
@@ -4798,7 +4812,7 @@ struct retro_core_option_v2_definition option_defs_ca[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_CA },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_CA },
             { "20",  OPTION_VAL_20_CA },
-            { "30",  OPTION_VAL_30_CA },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_CA },
             { "40",  OPTION_VAL_40_CA },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_CA },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_CA },
@@ -4937,13 +4951,14 @@ struct retro_core_option_v2_definition option_defs_ca[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_CA },
             { "error", OPTION_VAL_ERROR_CA },
             { "warn",  OPTION_VAL_WARN_CA },
             { "info",  OPTION_VAL_INFO_CA },
             { "debug", OPTION_VAL_DEBUG_CA },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -5280,9 +5295,10 @@ struct retro_core_options_v2 options_ca = {
 #define XENIA_WAIT_FOR_FRAME_LABEL_CHS "[Libretro] 帧等待"
 #define XENIA_WAIT_FOR_FRAME_INFO_0_CHS "减少 1 帧的输入延迟，但可能会引发游戏卡顿。建议在强劲的硬件配置或运行轻量级游戏时开启。"
 #define XENIA_UNLOCK_FRAMERATE_LABEL_CHS "解锁帧率"
-#define XENIA_UNLOCK_FRAMERATE_INFO_0_CHS "仅适用于逻辑不与帧率绑定的游戏，否则会导致游戏运行加速。“30 帧游戏提升至 60 帧”：RetroArch 每渲染一帧插入两次场消隐 (vblank)；“60 帧游戏提升至 120 帧”：核心以每秒 120 帧运行（需同步配置好 RetroArch 及显示器）；“不设上限”：场消隐触发速度尽可能达到极值；“列表中列出的游戏”：按 system/Xenia-Edge/xenia_framerate_unlock.txt 中指定的帧率运行（若包含该游戏）。可在游戏运行期间修改。"
+#define XENIA_UNLOCK_FRAMERATE_INFO_0_CHS NULL
 #define OPTION_VAL_ENABLED_CHS "列表中列出的游戏"
 #define OPTION_VAL_30TO60_CHS "30 帧游戏提升至 60 帧"
+#define OPTION_VAL_30_CHS NULL
 #define OPTION_VAL_120_CHS "60 帧游戏提升至 120 帧"
 #define OPTION_VAL_UNCAPPED_CHS "不设上限"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CHS "内部显示分辨率 (需重启)"
@@ -5344,7 +5360,7 @@ struct retro_core_options_v2 options_ca = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_CHS NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_CHS NULL
 #define OPTION_VAL_20_CHS NULL
-#define OPTION_VAL_30_CHS NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_CHS NULL
 #define OPTION_VAL_40_CHS NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_CHS NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_CHS NULL
@@ -5405,7 +5421,7 @@ struct retro_core_options_v2 options_ca = {
 #define OPTION_VAL_TAIWAN_CHS "中国台湾"
 #define OPTION_VAL_HONG_KONG_CHS "中国香港"
 #define XENIA_LOG_LEVEL_LABEL_CHS "日志记录级别"
-#define XENIA_LOG_LEVEL_INFO_0_CHS "设置日志输出的详细程度"
+#define XENIA_LOG_LEVEL_INFO_0_CHS NULL
 #define OPTION_VAL_ERROR_CHS "仅错误"
 #define OPTION_VAL_WARN_CHS "警告"
 #define OPTION_VAL_INFO_CHS "信息"
@@ -5667,6 +5683,7 @@ struct retro_core_option_v2_definition option_defs_chs[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_CHS },
             { "30to60",   OPTION_VAL_30TO60_CHS },
+            { "30",       OPTION_VAL_30_CHS },
             { "120",      OPTION_VAL_120_CHS },
             { "uncapped", OPTION_VAL_UNCAPPED_CHS },
             { NULL, NULL }
@@ -5834,7 +5851,7 @@ struct retro_core_option_v2_definition option_defs_chs[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_CHS },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_CHS },
             { "20",  OPTION_VAL_20_CHS },
-            { "30",  OPTION_VAL_30_CHS },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_CHS },
             { "40",  OPTION_VAL_40_CHS },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_CHS },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_CHS },
@@ -5973,13 +5990,14 @@ struct retro_core_option_v2_definition option_defs_chs[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_CHS },
             { "error", OPTION_VAL_ERROR_CHS },
             { "warn",  OPTION_VAL_WARN_CHS },
             { "info",  OPTION_VAL_INFO_CHS },
             { "debug", OPTION_VAL_DEBUG_CHS },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -6319,6 +6337,7 @@ struct retro_core_options_v2 options_chs = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_CHT NULL
 #define OPTION_VAL_ENABLED_CHT NULL
 #define OPTION_VAL_30TO60_CHT NULL
+#define OPTION_VAL_30_CHT NULL
 #define OPTION_VAL_120_CHT NULL
 #define OPTION_VAL_UNCAPPED_CHT NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CHT NULL
@@ -6380,7 +6399,7 @@ struct retro_core_options_v2 options_chs = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_CHT NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_CHT NULL
 #define OPTION_VAL_20_CHT NULL
-#define OPTION_VAL_30_CHT NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_CHT NULL
 #define OPTION_VAL_40_CHT NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_CHT NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_CHT NULL
@@ -6703,6 +6722,7 @@ struct retro_core_option_v2_definition option_defs_cht[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_CHT },
             { "30to60",   OPTION_VAL_30TO60_CHT },
+            { "30",       OPTION_VAL_30_CHT },
             { "120",      OPTION_VAL_120_CHT },
             { "uncapped", OPTION_VAL_UNCAPPED_CHT },
             { NULL, NULL }
@@ -6870,7 +6890,7 @@ struct retro_core_option_v2_definition option_defs_cht[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_CHT },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_CHT },
             { "20",  OPTION_VAL_20_CHT },
-            { "30",  OPTION_VAL_30_CHT },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_CHT },
             { "40",  OPTION_VAL_40_CHT },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_CHT },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_CHT },
@@ -7009,13 +7029,14 @@ struct retro_core_option_v2_definition option_defs_cht[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_CHT },
             { "error", OPTION_VAL_ERROR_CHT },
             { "warn",  OPTION_VAL_WARN_CHT },
             { "info",  OPTION_VAL_INFO_CHT },
             { "debug", OPTION_VAL_DEBUG_CHT },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -7355,6 +7376,7 @@ struct retro_core_options_v2 options_cht = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_CS NULL
 #define OPTION_VAL_ENABLED_CS NULL
 #define OPTION_VAL_30TO60_CS NULL
+#define OPTION_VAL_30_CS NULL
 #define OPTION_VAL_120_CS NULL
 #define OPTION_VAL_UNCAPPED_CS NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CS NULL
@@ -7416,7 +7438,7 @@ struct retro_core_options_v2 options_cht = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_CS NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_CS NULL
 #define OPTION_VAL_20_CS NULL
-#define OPTION_VAL_30_CS NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_CS NULL
 #define OPTION_VAL_40_CS NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_CS NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_CS NULL
@@ -7739,6 +7761,7 @@ struct retro_core_option_v2_definition option_defs_cs[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_CS },
             { "30to60",   OPTION_VAL_30TO60_CS },
+            { "30",       OPTION_VAL_30_CS },
             { "120",      OPTION_VAL_120_CS },
             { "uncapped", OPTION_VAL_UNCAPPED_CS },
             { NULL, NULL }
@@ -7906,7 +7929,7 @@ struct retro_core_option_v2_definition option_defs_cs[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_CS },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_CS },
             { "20",  OPTION_VAL_20_CS },
-            { "30",  OPTION_VAL_30_CS },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_CS },
             { "40",  OPTION_VAL_40_CS },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_CS },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_CS },
@@ -8045,13 +8068,14 @@ struct retro_core_option_v2_definition option_defs_cs[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_CS },
             { "error", OPTION_VAL_ERROR_CS },
             { "warn",  OPTION_VAL_WARN_CS },
             { "info",  OPTION_VAL_INFO_CS },
             { "debug", OPTION_VAL_DEBUG_CS },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -8391,6 +8415,7 @@ struct retro_core_options_v2 options_cs = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_CY NULL
 #define OPTION_VAL_ENABLED_CY NULL
 #define OPTION_VAL_30TO60_CY NULL
+#define OPTION_VAL_30_CY NULL
 #define OPTION_VAL_120_CY NULL
 #define OPTION_VAL_UNCAPPED_CY NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_CY NULL
@@ -8452,7 +8477,7 @@ struct retro_core_options_v2 options_cs = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_CY NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_CY NULL
 #define OPTION_VAL_20_CY NULL
-#define OPTION_VAL_30_CY NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_CY NULL
 #define OPTION_VAL_40_CY NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_CY NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_CY NULL
@@ -8775,6 +8800,7 @@ struct retro_core_option_v2_definition option_defs_cy[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_CY },
             { "30to60",   OPTION_VAL_30TO60_CY },
+            { "30",       OPTION_VAL_30_CY },
             { "120",      OPTION_VAL_120_CY },
             { "uncapped", OPTION_VAL_UNCAPPED_CY },
             { NULL, NULL }
@@ -8942,7 +8968,7 @@ struct retro_core_option_v2_definition option_defs_cy[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_CY },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_CY },
             { "20",  OPTION_VAL_20_CY },
-            { "30",  OPTION_VAL_30_CY },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_CY },
             { "40",  OPTION_VAL_40_CY },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_CY },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_CY },
@@ -9081,13 +9107,14 @@ struct retro_core_option_v2_definition option_defs_cy[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_CY },
             { "error", OPTION_VAL_ERROR_CY },
             { "warn",  OPTION_VAL_WARN_CY },
             { "info",  OPTION_VAL_INFO_CY },
             { "debug", OPTION_VAL_DEBUG_CY },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -9427,6 +9454,7 @@ struct retro_core_options_v2 options_cy = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_DA NULL
 #define OPTION_VAL_ENABLED_DA NULL
 #define OPTION_VAL_30TO60_DA NULL
+#define OPTION_VAL_30_DA NULL
 #define OPTION_VAL_120_DA NULL
 #define OPTION_VAL_UNCAPPED_DA NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_DA NULL
@@ -9488,7 +9516,7 @@ struct retro_core_options_v2 options_cy = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_DA NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_DA NULL
 #define OPTION_VAL_20_DA NULL
-#define OPTION_VAL_30_DA NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_DA NULL
 #define OPTION_VAL_40_DA NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_DA NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_DA NULL
@@ -9811,6 +9839,7 @@ struct retro_core_option_v2_definition option_defs_da[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_DA },
             { "30to60",   OPTION_VAL_30TO60_DA },
+            { "30",       OPTION_VAL_30_DA },
             { "120",      OPTION_VAL_120_DA },
             { "uncapped", OPTION_VAL_UNCAPPED_DA },
             { NULL, NULL }
@@ -9978,7 +10007,7 @@ struct retro_core_option_v2_definition option_defs_da[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_DA },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_DA },
             { "20",  OPTION_VAL_20_DA },
-            { "30",  OPTION_VAL_30_DA },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_DA },
             { "40",  OPTION_VAL_40_DA },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_DA },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_DA },
@@ -10117,13 +10146,14 @@ struct retro_core_option_v2_definition option_defs_da[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_DA },
             { "error", OPTION_VAL_ERROR_DA },
             { "warn",  OPTION_VAL_WARN_DA },
             { "info",  OPTION_VAL_INFO_DA },
             { "debug", OPTION_VAL_DEBUG_DA },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -10460,9 +10490,10 @@ struct retro_core_options_v2 options_da = {
 #define XENIA_WAIT_FOR_FRAME_LABEL_DE "[Libretro] Auf Frame warten"
 #define XENIA_WAIT_FOR_FRAME_INFO_0_DE "Verringert die Eingabelatenz um 1 Frame, kann aber zu Rucklern im Spiel führen. Empfohlen für leistungsstarke Hardware und/oder wenig anspruchsvolle Spiele."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_DE "Bildrate entsperren"
-#define XENIA_UNLOCK_FRAMERATE_INFO_0_DE "Nur bei Spielen verwenden, deren Spiellogik nicht an die Bildrate gekoppelt ist; andernfalls laufen sie zu schnell. Bei 30-fps-Spielen mit 60 fps: zwei VBlanks pro von RetroArch angezeigtem Frame. Bei 60-fps-Spielen mit 120 fps: Der Core läuft mit 120 Frames pro Sekunde (RetroArch und Bildschirm entsprechend einstellen). Unbegrenzt: VBlanks so schnell wie möglich. Bei aufgelisteten Spielen wird dem laufenden Spiel die in system/Xenia-Edge/xenia_framerate_unlock.txt angegebene Bildrate vorgegeben. Lässt sich während des Spiels ändern."
+#define XENIA_UNLOCK_FRAMERATE_INFO_0_DE "Nur für Spiele verwenden, deren Spiellogik nicht an die Bildrate gebunden ist, da sie sonst zu schnell laufen. 30-fps-Spiele bei 60 fps: zwei VBlanks pro von RetroArch angezeigtem Frame. 60-fps-Spiele bei 120 fps: Der Core liefert 120 Frames pro Sekunde (RetroArch und das Display entsprechend einstellen). 30 fps: Der Core liefert RetroArch 30 Frames pro Sekunde, während das Spiel weiterhin 60 VBlanks sieht. Für Spiele, die mit 30 fps laufen, oder um ein 60-fps-Spiel mit 30 fps auszuführen. Unbegrenzt: VBlanks so schnell wie möglich. Aufgeführte Spiele: Die Datei system/Xenia-Edge/xenia_framerate_unlock.txt gibt die Bildrate für das laufende Spiel vor, sofern es darin aufgeführt ist. Kann während des Spiels geändert werden."
 #define OPTION_VAL_ENABLED_DE "Aufgeführte Spiele"
 #define OPTION_VAL_30TO60_DE "30-fps-Spiele bei 60"
+#define OPTION_VAL_30_DE NULL
 #define OPTION_VAL_120_DE "60-fps-Spiele bei 120"
 #define OPTION_VAL_UNCAPPED_DE "Unbegrenzt"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_DE "Interne Bildschirmauflösung (Neustart)"
@@ -10524,7 +10555,7 @@ struct retro_core_options_v2 options_da = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_DE "0 %"
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_DE "10 %"
 #define OPTION_VAL_20_DE "20 %"
-#define OPTION_VAL_30_DE "30 %"
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_DE "30 %"
 #define OPTION_VAL_40_DE "40 %"
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_DE "50 %"
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_DE "60 %"
@@ -10585,7 +10616,7 @@ struct retro_core_options_v2 options_da = {
 #define OPTION_VAL_TAIWAN_DE NULL
 #define OPTION_VAL_HONG_KONG_DE "Hongkong"
 #define XENIA_LOG_LEVEL_LABEL_DE "Protokollstufe"
-#define XENIA_LOG_LEVEL_INFO_0_DE "Ausführlichkeit der Protokollausgabe festlegen."
+#define XENIA_LOG_LEVEL_INFO_0_DE "Legt den Umfang der Protokollausgabe fest. Keine: Es wird keine xenia.log erstellt. Das Protokoll von RetroArch enthält nur die Angaben des Cores beim Spielstart (Version, Titel-ID, Grafik-API) sowie Fehler, die den Spielbetrieb beenden. Wird während eines laufenden Spiels von „Keine“ auf eine andere Einstellung gewechselt, wird xenia.log erst beim nächsten Start von RetroArch erstellt."
 #define OPTION_VAL_ERROR_DE "Nur Fehler"
 #define OPTION_VAL_WARN_DE "Warnung"
 #define OPTION_VAL_INFO_DE NULL
@@ -10847,6 +10878,7 @@ struct retro_core_option_v2_definition option_defs_de[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_DE },
             { "30to60",   OPTION_VAL_30TO60_DE },
+            { "30",       OPTION_VAL_30_DE },
             { "120",      OPTION_VAL_120_DE },
             { "uncapped", OPTION_VAL_UNCAPPED_DE },
             { NULL, NULL }
@@ -11014,7 +11046,7 @@ struct retro_core_option_v2_definition option_defs_de[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_DE },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_DE },
             { "20",  OPTION_VAL_20_DE },
-            { "30",  OPTION_VAL_30_DE },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_DE },
             { "40",  OPTION_VAL_40_DE },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_DE },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_DE },
@@ -11153,13 +11185,14 @@ struct retro_core_option_v2_definition option_defs_de[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_DE },
             { "error", OPTION_VAL_ERROR_DE },
             { "warn",  OPTION_VAL_WARN_DE },
             { "info",  OPTION_VAL_INFO_DE },
             { "debug", OPTION_VAL_DEBUG_DE },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -11499,6 +11532,7 @@ struct retro_core_options_v2 options_de = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_EL NULL
 #define OPTION_VAL_ENABLED_EL NULL
 #define OPTION_VAL_30TO60_EL NULL
+#define OPTION_VAL_30_EL NULL
 #define OPTION_VAL_120_EL NULL
 #define OPTION_VAL_UNCAPPED_EL NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_EL NULL
@@ -11560,7 +11594,7 @@ struct retro_core_options_v2 options_de = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_EL NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_EL NULL
 #define OPTION_VAL_20_EL NULL
-#define OPTION_VAL_30_EL NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_EL NULL
 #define OPTION_VAL_40_EL NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_EL NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_EL NULL
@@ -11883,6 +11917,7 @@ struct retro_core_option_v2_definition option_defs_el[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_EL },
             { "30to60",   OPTION_VAL_30TO60_EL },
+            { "30",       OPTION_VAL_30_EL },
             { "120",      OPTION_VAL_120_EL },
             { "uncapped", OPTION_VAL_UNCAPPED_EL },
             { NULL, NULL }
@@ -12050,7 +12085,7 @@ struct retro_core_option_v2_definition option_defs_el[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_EL },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_EL },
             { "20",  OPTION_VAL_20_EL },
-            { "30",  OPTION_VAL_30_EL },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_EL },
             { "40",  OPTION_VAL_40_EL },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_EL },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_EL },
@@ -12189,13 +12224,14 @@ struct retro_core_option_v2_definition option_defs_el[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_EL },
             { "error", OPTION_VAL_ERROR_EL },
             { "warn",  OPTION_VAL_WARN_EL },
             { "info",  OPTION_VAL_INFO_EL },
             { "debug", OPTION_VAL_DEBUG_EL },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -12535,6 +12571,7 @@ struct retro_core_options_v2 options_el = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_EN NULL
 #define OPTION_VAL_ENABLED_EN NULL
 #define OPTION_VAL_30TO60_EN NULL
+#define OPTION_VAL_30_EN NULL
 #define OPTION_VAL_120_EN NULL
 #define OPTION_VAL_UNCAPPED_EN NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_EN NULL
@@ -12596,7 +12633,7 @@ struct retro_core_options_v2 options_el = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_EN NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_EN NULL
 #define OPTION_VAL_20_EN NULL
-#define OPTION_VAL_30_EN NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_EN NULL
 #define OPTION_VAL_40_EN NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_EN NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_EN NULL
@@ -12919,6 +12956,7 @@ struct retro_core_option_v2_definition option_defs_en[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_EN },
             { "30to60",   OPTION_VAL_30TO60_EN },
+            { "30",       OPTION_VAL_30_EN },
             { "120",      OPTION_VAL_120_EN },
             { "uncapped", OPTION_VAL_UNCAPPED_EN },
             { NULL, NULL }
@@ -13086,7 +13124,7 @@ struct retro_core_option_v2_definition option_defs_en[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_EN },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_EN },
             { "20",  OPTION_VAL_20_EN },
-            { "30",  OPTION_VAL_30_EN },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_EN },
             { "40",  OPTION_VAL_40_EN },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_EN },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_EN },
@@ -13225,13 +13263,14 @@ struct retro_core_option_v2_definition option_defs_en[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_EN },
             { "error", OPTION_VAL_ERROR_EN },
             { "warn",  OPTION_VAL_WARN_EN },
             { "info",  OPTION_VAL_INFO_EN },
             { "debug", OPTION_VAL_DEBUG_EN },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -13571,6 +13610,7 @@ struct retro_core_options_v2 options_en = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_EO NULL
 #define OPTION_VAL_ENABLED_EO NULL
 #define OPTION_VAL_30TO60_EO NULL
+#define OPTION_VAL_30_EO NULL
 #define OPTION_VAL_120_EO NULL
 #define OPTION_VAL_UNCAPPED_EO NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_EO NULL
@@ -13632,7 +13672,7 @@ struct retro_core_options_v2 options_en = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_EO NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_EO NULL
 #define OPTION_VAL_20_EO NULL
-#define OPTION_VAL_30_EO NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_EO NULL
 #define OPTION_VAL_40_EO NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_EO NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_EO NULL
@@ -13955,6 +13995,7 @@ struct retro_core_option_v2_definition option_defs_eo[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_EO },
             { "30to60",   OPTION_VAL_30TO60_EO },
+            { "30",       OPTION_VAL_30_EO },
             { "120",      OPTION_VAL_120_EO },
             { "uncapped", OPTION_VAL_UNCAPPED_EO },
             { NULL, NULL }
@@ -14122,7 +14163,7 @@ struct retro_core_option_v2_definition option_defs_eo[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_EO },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_EO },
             { "20",  OPTION_VAL_20_EO },
-            { "30",  OPTION_VAL_30_EO },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_EO },
             { "40",  OPTION_VAL_40_EO },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_EO },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_EO },
@@ -14261,13 +14302,14 @@ struct retro_core_option_v2_definition option_defs_eo[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_EO },
             { "error", OPTION_VAL_ERROR_EO },
             { "warn",  OPTION_VAL_WARN_EO },
             { "info",  OPTION_VAL_INFO_EO },
             { "debug", OPTION_VAL_DEBUG_EO },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -14604,9 +14646,10 @@ struct retro_core_options_v2 options_eo = {
 #define XENIA_WAIT_FOR_FRAME_LABEL_ES "[Libretro] Esperar a fotograma"
 #define XENIA_WAIT_FOR_FRAME_INFO_0_ES "Elimina un fotograma de retraso de entrada con el posible coste de que el juego se ralentice. Recomendado con equipos potentes o juegos que consuman pocos recursos."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_ES "Desbloquear velocidad de fotogramas"
-#define XENIA_UNLOCK_FRAMERATE_INFO_0_ES "Utiliza esta opción solo con aquellos juegos cuya lógica no esté vinculada a su velocidad de fotogramas, porque si lo está, se ejecutarán demasiado rápido. Juegos de 30 FPS a 60: habrá dos VBLANKs por cada fotograma mostrado por RetroArch. Juegos de 60 FPS a 120: el núcleo se ejecutará a 120 fotogramas por segundo (debes configurar RetroArch y tu pantalla para mostrarlos). Sin límite: renderiza todos los VBLANKs posibles. Juegos de la lista: utiliza la frecuencia que indique el archivo system/Xenia-Edge/xenia_framerate_unlock.txt al juego que se esté ejecutando, si es que está indicada. Esta opción puede cambiarse en mitad de una partida."
+#define XENIA_UNLOCK_FRAMERATE_INFO_0_ES "Utiliza esta opción solo con aquellos juegos cuya lógica no esté vinculada a su velocidad de fotogramas, porque si lo está, se ejecutarán demasiado rápido. Juegos de 30 FPS a 60: habrá dos VBLANKs por cada fotograma mostrado por RetroArch. Juegos de 60 FPS a 120: el núcleo se ejecutará a 120 fotogramas por segundo (debes configurar RetroArch y tu pantalla para mostrarlos). 30 FPS: el núcleo mostrará 30 fotogramas por segundo a RetroArch mientras que el juego sigue reconociendo 60 VBLANKs, para aquellos juegos que se ejecutan a 30 FPS o para ejecutar un juego de 60 FPS a 30. Sin límite: renderiza todos los VBLANKs posibles. Juegos de la lista: utiliza la frecuencia que indique el archivo system/Xenia-Edge/xenia_framerate_unlock.txt al juego que se esté ejecutando, si es que está indicada. Esta opción puede cambiarse en mitad de una partida."
 #define OPTION_VAL_ENABLED_ES "Juegos de la lista"
 #define OPTION_VAL_30TO60_ES "Juegos de 30 FPS a 60"
+#define OPTION_VAL_30_ES "30 FPS"
 #define OPTION_VAL_120_ES "Juegos de 60 FPS a 120"
 #define OPTION_VAL_UNCAPPED_ES "Sin límite"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_ES "Resolución de imagen interna (es necesario reiniciar)"
@@ -14668,7 +14711,7 @@ struct retro_core_options_v2 options_eo = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_ES "0 %"
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_ES "10 %"
 #define OPTION_VAL_20_ES "20 %"
-#define OPTION_VAL_30_ES "30 %"
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_ES "30 %"
 #define OPTION_VAL_40_ES "40 %"
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_ES "50 %"
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_ES "60 %"
@@ -14729,7 +14772,7 @@ struct retro_core_options_v2 options_eo = {
 #define OPTION_VAL_TAIWAN_ES "Taiwán"
 #define OPTION_VAL_HONG_KONG_ES NULL
 #define XENIA_LOG_LEVEL_LABEL_ES "Nivel de registro"
-#define XENIA_LOG_LEVEL_INFO_0_ES "Establece el nivel de detalle de la salida del registro."
+#define XENIA_LOG_LEVEL_INFO_0_ES "Establece el nivel de detalle de la salida del registro. Desactiva esta opción para que no se genere un archivo xenia.log y el registro de RetroArch solo reciba lo que indique el núcleo al ejecutar un juego (su versión, ID de título, API gráfica) y los errores que lo detengan; cualquier otra opción generará un archivo xenia.org la próxima vez que se ejecute RetroArch."
 #define OPTION_VAL_ERROR_ES "Solo errores"
 #define OPTION_VAL_WARN_ES "Advertencia"
 #define OPTION_VAL_INFO_ES "Información"
@@ -14991,6 +15034,7 @@ struct retro_core_option_v2_definition option_defs_es[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_ES },
             { "30to60",   OPTION_VAL_30TO60_ES },
+            { "30",       OPTION_VAL_30_ES },
             { "120",      OPTION_VAL_120_ES },
             { "uncapped", OPTION_VAL_UNCAPPED_ES },
             { NULL, NULL }
@@ -15158,7 +15202,7 @@ struct retro_core_option_v2_definition option_defs_es[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_ES },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_ES },
             { "20",  OPTION_VAL_20_ES },
-            { "30",  OPTION_VAL_30_ES },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_ES },
             { "40",  OPTION_VAL_40_ES },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_ES },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_ES },
@@ -15297,13 +15341,14 @@ struct retro_core_option_v2_definition option_defs_es[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_ES },
             { "error", OPTION_VAL_ERROR_ES },
             { "warn",  OPTION_VAL_WARN_ES },
             { "info",  OPTION_VAL_INFO_ES },
             { "debug", OPTION_VAL_DEBUG_ES },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -15643,6 +15688,7 @@ struct retro_core_options_v2 options_es = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_FA NULL
 #define OPTION_VAL_ENABLED_FA NULL
 #define OPTION_VAL_30TO60_FA NULL
+#define OPTION_VAL_30_FA NULL
 #define OPTION_VAL_120_FA NULL
 #define OPTION_VAL_UNCAPPED_FA NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_FA NULL
@@ -15704,7 +15750,7 @@ struct retro_core_options_v2 options_es = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_FA NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_FA NULL
 #define OPTION_VAL_20_FA NULL
-#define OPTION_VAL_30_FA NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_FA NULL
 #define OPTION_VAL_40_FA NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_FA NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_FA NULL
@@ -16027,6 +16073,7 @@ struct retro_core_option_v2_definition option_defs_fa[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_FA },
             { "30to60",   OPTION_VAL_30TO60_FA },
+            { "30",       OPTION_VAL_30_FA },
             { "120",      OPTION_VAL_120_FA },
             { "uncapped", OPTION_VAL_UNCAPPED_FA },
             { NULL, NULL }
@@ -16194,7 +16241,7 @@ struct retro_core_option_v2_definition option_defs_fa[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_FA },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_FA },
             { "20",  OPTION_VAL_20_FA },
-            { "30",  OPTION_VAL_30_FA },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_FA },
             { "40",  OPTION_VAL_40_FA },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_FA },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_FA },
@@ -16333,13 +16380,14 @@ struct retro_core_option_v2_definition option_defs_fa[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_FA },
             { "error", OPTION_VAL_ERROR_FA },
             { "warn",  OPTION_VAL_WARN_FA },
             { "info",  OPTION_VAL_INFO_FA },
             { "debug", OPTION_VAL_DEBUG_FA },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -16679,6 +16727,7 @@ struct retro_core_options_v2 options_fa = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_FI NULL
 #define OPTION_VAL_ENABLED_FI NULL
 #define OPTION_VAL_30TO60_FI NULL
+#define OPTION_VAL_30_FI NULL
 #define OPTION_VAL_120_FI NULL
 #define OPTION_VAL_UNCAPPED_FI NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_FI NULL
@@ -16740,7 +16789,7 @@ struct retro_core_options_v2 options_fa = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_FI NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_FI NULL
 #define OPTION_VAL_20_FI "20 %"
-#define OPTION_VAL_30_FI "30 %"
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_FI "30 %"
 #define OPTION_VAL_40_FI "40 %"
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_FI "50 %"
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_FI "60 %"
@@ -17063,6 +17112,7 @@ struct retro_core_option_v2_definition option_defs_fi[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_FI },
             { "30to60",   OPTION_VAL_30TO60_FI },
+            { "30",       OPTION_VAL_30_FI },
             { "120",      OPTION_VAL_120_FI },
             { "uncapped", OPTION_VAL_UNCAPPED_FI },
             { NULL, NULL }
@@ -17230,7 +17280,7 @@ struct retro_core_option_v2_definition option_defs_fi[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_FI },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_FI },
             { "20",  OPTION_VAL_20_FI },
-            { "30",  OPTION_VAL_30_FI },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_FI },
             { "40",  OPTION_VAL_40_FI },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_FI },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_FI },
@@ -17369,13 +17419,14 @@ struct retro_core_option_v2_definition option_defs_fi[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_FI },
             { "error", OPTION_VAL_ERROR_FI },
             { "warn",  OPTION_VAL_WARN_FI },
             { "info",  OPTION_VAL_INFO_FI },
             { "debug", OPTION_VAL_DEBUG_FI },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -17715,6 +17766,7 @@ struct retro_core_options_v2 options_fi = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_FR NULL
 #define OPTION_VAL_ENABLED_FR NULL
 #define OPTION_VAL_30TO60_FR NULL
+#define OPTION_VAL_30_FR NULL
 #define OPTION_VAL_120_FR NULL
 #define OPTION_VAL_UNCAPPED_FR NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_FR NULL
@@ -17773,10 +17825,10 @@ struct retro_core_options_v2 options_fi = {
 #define XENIA_XMP_DEFAULT_VOLUME_LABEL_FR NULL
 #define XENIA_XMP_DEFAULT_VOLUME_LABEL_CAT_FR NULL
 #define XENIA_XMP_DEFAULT_VOLUME_INFO_0_FR NULL
-#define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_FR "0 %"
-#define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_FR "10 %"
+#define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_FR NULL
+#define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_FR NULL
 #define OPTION_VAL_20_FR "20 %"
-#define OPTION_VAL_30_FR "30 %"
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_FR "30 %"
 #define OPTION_VAL_40_FR "40 %"
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_FR "50 %"
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_FR "60 %"
@@ -18099,6 +18151,7 @@ struct retro_core_option_v2_definition option_defs_fr[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_FR },
             { "30to60",   OPTION_VAL_30TO60_FR },
+            { "30",       OPTION_VAL_30_FR },
             { "120",      OPTION_VAL_120_FR },
             { "uncapped", OPTION_VAL_UNCAPPED_FR },
             { NULL, NULL }
@@ -18266,7 +18319,7 @@ struct retro_core_option_v2_definition option_defs_fr[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_FR },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_FR },
             { "20",  OPTION_VAL_20_FR },
-            { "30",  OPTION_VAL_30_FR },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_FR },
             { "40",  OPTION_VAL_40_FR },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_FR },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_FR },
@@ -18405,13 +18458,14 @@ struct retro_core_option_v2_definition option_defs_fr[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_FR },
             { "error", OPTION_VAL_ERROR_FR },
             { "warn",  OPTION_VAL_WARN_FR },
             { "info",  OPTION_VAL_INFO_FR },
             { "debug", OPTION_VAL_DEBUG_FR },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -18748,9 +18802,10 @@ struct retro_core_options_v2 options_fr = {
 #define XENIA_WAIT_FOR_FRAME_LABEL_GA "[Libretro] Fanacht Fráma"
 #define XENIA_WAIT_FOR_FRAME_INFO_0_GA "Baineann sé moill ionchuir de fhráma amháin, ach d’fhéadfadh sé a bheith ina chúis le stadaí sa chluiche. Molta do chrua-earraí cumhachtacha agus/nó cluichí éadroma."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_GA "Díghlasáil an ráta frámaí"
-#define XENIA_UNLOCK_FRAMERATE_INFO_0_GA "Ní bhaineann sé seo ach le cluichí nach bhfuil a loighic nasctha lena ráta frámaí; murach sin, rithfeadh siad ró-thapa. Cluichí 30 fps á rith ag 60 fps: dhá 'vblank' (tréimhse bhánaithe ingearach) do gach fráma a thaispeánann RetroArch. Cluichí 60 fps á rith ag 120 fps: an croí ag rith ag 120 fráma sa soicind (ní mór RetroArch agus an scáileán a chumrú chuige sin). Gan teorainn: 'vblanks' chomh tapa agus is féidir. Cluichí liostaithe: úsáidtear an ráta a shonraítear sa chomhad `xenia_framerate_unlock.txt` (in Xenia-Edge) don chluiche atá á rith, má tá sé liostaithe ann. Is féidir an socrú a athrú agus an cluiche ag rith."
+#define XENIA_UNLOCK_FRAMERATE_INFO_0_GA "Ní bhaineann sé seo ach le cluichí nach bhfuil a loighic ceangailte dá ráta frámaí; murach sin, rithfeadh siad ró-thapa. I gcás cluichí 30 fráma sa soicind fps a rith ag 60 fps: bíonn dhá 'vblank' (tréimhse bhánaithe ingearach) ann do gach fráma a thaispeánann RetroArch. I gcás cluichí 60 fps a rith ag 120 fps: ritheann an croí ag 120 fráma sa soicind -ní mór RetroArch agus an taispeáint a chumrú chuige sin. 30 fps: soláthraíonn an croí 30 fráma sa soicind do RetroArch, cé go bhfeiceann an cluiche 60 'vblank' fós; úsáidtear é seo le haghaidh cluichí a ritheann ag 30 fps, nó chun cluiche 60 fps a rith ag 30 fps. Gan teorainn: bíonn na 'vblank' ann chomh tapa agus is féidir. Cluichí liostaithe: má tá cluiche ar an liosta i 'rate system/Xenia-Edge/xenia_framerate_unlock.txt', cuirfear an socrú sin i bhfeidhm air. Is féidir an socrú a athrú fad is atá an cluiche ag rith."
 #define OPTION_VAL_ENABLED_GA "Cluichí liostaithe"
 #define OPTION_VAL_30TO60_GA "Cluichí 30 fps ag 60"
+#define OPTION_VAL_30_GA NULL
 #define OPTION_VAL_120_GA "Cluichí 60 fps ag 120"
 #define OPTION_VAL_UNCAPPED_GA "Gan teorainn uasteorann"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_GA "Taifeach an Taispeántais Inmheánaigh (Atosaigh)"
@@ -18812,7 +18867,7 @@ struct retro_core_options_v2 options_fr = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_GA NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_GA NULL
 #define OPTION_VAL_20_GA NULL
-#define OPTION_VAL_30_GA NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_GA NULL
 #define OPTION_VAL_40_GA NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_GA NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_GA NULL
@@ -18873,7 +18928,7 @@ struct retro_core_options_v2 options_fr = {
 #define OPTION_VAL_TAIWAN_GA "An Téaváin"
 #define OPTION_VAL_HONG_KONG_GA "Hong Cong"
 #define XENIA_LOG_LEVEL_LABEL_GA "Leibhéal an Loga"
-#define XENIA_LOG_LEVEL_INFO_0_GA "Socraigh leibhéal mionsonraí an aschuir logála."
+#define XENIA_LOG_LEVEL_INFO_0_GA "Socraigh leibhéal mionsonraí an aschuir logála. None: ní chruthaítear xenia.log, agus ní bhíonn i logchomhad RetroArch ach an fhaisnéis a sholáthraíonn an croí-inneall nuair a thosaíonn cluiche (an leagan, ID an teidil, an API Grafaicí) chomh maith le hearráidí a chuireann stop leis an gcluiche; má athraítear an socrú seo ó None fad is atá cluiche ar siúl, cruthófar an comhad xenia.log ón gcéad uair eile a sheoltar RetroArch."
 #define OPTION_VAL_ERROR_GA "Earráid Amháin"
 #define OPTION_VAL_WARN_GA "Rabhadh"
 #define OPTION_VAL_INFO_GA "Eolas"
@@ -19135,6 +19190,7 @@ struct retro_core_option_v2_definition option_defs_ga[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_GA },
             { "30to60",   OPTION_VAL_30TO60_GA },
+            { "30",       OPTION_VAL_30_GA },
             { "120",      OPTION_VAL_120_GA },
             { "uncapped", OPTION_VAL_UNCAPPED_GA },
             { NULL, NULL }
@@ -19302,7 +19358,7 @@ struct retro_core_option_v2_definition option_defs_ga[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_GA },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_GA },
             { "20",  OPTION_VAL_20_GA },
-            { "30",  OPTION_VAL_30_GA },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_GA },
             { "40",  OPTION_VAL_40_GA },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_GA },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_GA },
@@ -19441,13 +19497,14 @@ struct retro_core_option_v2_definition option_defs_ga[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_GA },
             { "error", OPTION_VAL_ERROR_GA },
             { "warn",  OPTION_VAL_WARN_GA },
             { "info",  OPTION_VAL_INFO_GA },
             { "debug", OPTION_VAL_DEBUG_GA },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -19787,6 +19844,7 @@ struct retro_core_options_v2 options_ga = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_GL NULL
 #define OPTION_VAL_ENABLED_GL NULL
 #define OPTION_VAL_30TO60_GL NULL
+#define OPTION_VAL_30_GL NULL
 #define OPTION_VAL_120_GL NULL
 #define OPTION_VAL_UNCAPPED_GL NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_GL NULL
@@ -19848,7 +19906,7 @@ struct retro_core_options_v2 options_ga = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_GL NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_GL NULL
 #define OPTION_VAL_20_GL NULL
-#define OPTION_VAL_30_GL NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_GL NULL
 #define OPTION_VAL_40_GL NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_GL NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_GL NULL
@@ -20171,6 +20229,7 @@ struct retro_core_option_v2_definition option_defs_gl[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_GL },
             { "30to60",   OPTION_VAL_30TO60_GL },
+            { "30",       OPTION_VAL_30_GL },
             { "120",      OPTION_VAL_120_GL },
             { "uncapped", OPTION_VAL_UNCAPPED_GL },
             { NULL, NULL }
@@ -20338,7 +20397,7 @@ struct retro_core_option_v2_definition option_defs_gl[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_GL },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_GL },
             { "20",  OPTION_VAL_20_GL },
-            { "30",  OPTION_VAL_30_GL },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_GL },
             { "40",  OPTION_VAL_40_GL },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_GL },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_GL },
@@ -20477,13 +20536,14 @@ struct retro_core_option_v2_definition option_defs_gl[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_GL },
             { "error", OPTION_VAL_ERROR_GL },
             { "warn",  OPTION_VAL_WARN_GL },
             { "info",  OPTION_VAL_INFO_GL },
             { "debug", OPTION_VAL_DEBUG_GL },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -20823,6 +20883,7 @@ struct retro_core_options_v2 options_gl = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_HE NULL
 #define OPTION_VAL_ENABLED_HE NULL
 #define OPTION_VAL_30TO60_HE NULL
+#define OPTION_VAL_30_HE NULL
 #define OPTION_VAL_120_HE NULL
 #define OPTION_VAL_UNCAPPED_HE NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_HE NULL
@@ -20884,7 +20945,7 @@ struct retro_core_options_v2 options_gl = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_HE NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_HE NULL
 #define OPTION_VAL_20_HE NULL
-#define OPTION_VAL_30_HE NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_HE NULL
 #define OPTION_VAL_40_HE NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_HE NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_HE NULL
@@ -21207,6 +21268,7 @@ struct retro_core_option_v2_definition option_defs_he[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_HE },
             { "30to60",   OPTION_VAL_30TO60_HE },
+            { "30",       OPTION_VAL_30_HE },
             { "120",      OPTION_VAL_120_HE },
             { "uncapped", OPTION_VAL_UNCAPPED_HE },
             { NULL, NULL }
@@ -21374,7 +21436,7 @@ struct retro_core_option_v2_definition option_defs_he[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_HE },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_HE },
             { "20",  OPTION_VAL_20_HE },
-            { "30",  OPTION_VAL_30_HE },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_HE },
             { "40",  OPTION_VAL_40_HE },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_HE },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_HE },
@@ -21513,13 +21575,14 @@ struct retro_core_option_v2_definition option_defs_he[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_HE },
             { "error", OPTION_VAL_ERROR_HE },
             { "warn",  OPTION_VAL_WARN_HE },
             { "info",  OPTION_VAL_INFO_HE },
             { "debug", OPTION_VAL_DEBUG_HE },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -21859,6 +21922,7 @@ struct retro_core_options_v2 options_he = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_HR NULL
 #define OPTION_VAL_ENABLED_HR NULL
 #define OPTION_VAL_30TO60_HR NULL
+#define OPTION_VAL_30_HR NULL
 #define OPTION_VAL_120_HR NULL
 #define OPTION_VAL_UNCAPPED_HR NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_HR NULL
@@ -21920,7 +21984,7 @@ struct retro_core_options_v2 options_he = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_HR NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_HR NULL
 #define OPTION_VAL_20_HR NULL
-#define OPTION_VAL_30_HR NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_HR NULL
 #define OPTION_VAL_40_HR NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_HR NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_HR NULL
@@ -22243,6 +22307,7 @@ struct retro_core_option_v2_definition option_defs_hr[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_HR },
             { "30to60",   OPTION_VAL_30TO60_HR },
+            { "30",       OPTION_VAL_30_HR },
             { "120",      OPTION_VAL_120_HR },
             { "uncapped", OPTION_VAL_UNCAPPED_HR },
             { NULL, NULL }
@@ -22410,7 +22475,7 @@ struct retro_core_option_v2_definition option_defs_hr[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_HR },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_HR },
             { "20",  OPTION_VAL_20_HR },
-            { "30",  OPTION_VAL_30_HR },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_HR },
             { "40",  OPTION_VAL_40_HR },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_HR },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_HR },
@@ -22549,13 +22614,14 @@ struct retro_core_option_v2_definition option_defs_hr[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_HR },
             { "error", OPTION_VAL_ERROR_HR },
             { "warn",  OPTION_VAL_WARN_HR },
             { "info",  OPTION_VAL_INFO_HR },
             { "debug", OPTION_VAL_DEBUG_HR },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -22895,6 +22961,7 @@ struct retro_core_options_v2 options_hr = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_HU NULL
 #define OPTION_VAL_ENABLED_HU NULL
 #define OPTION_VAL_30TO60_HU NULL
+#define OPTION_VAL_30_HU NULL
 #define OPTION_VAL_120_HU NULL
 #define OPTION_VAL_UNCAPPED_HU NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_HU NULL
@@ -22956,7 +23023,7 @@ struct retro_core_options_v2 options_hr = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_HU NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_HU NULL
 #define OPTION_VAL_20_HU NULL
-#define OPTION_VAL_30_HU NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_HU NULL
 #define OPTION_VAL_40_HU NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_HU NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_HU NULL
@@ -23279,6 +23346,7 @@ struct retro_core_option_v2_definition option_defs_hu[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_HU },
             { "30to60",   OPTION_VAL_30TO60_HU },
+            { "30",       OPTION_VAL_30_HU },
             { "120",      OPTION_VAL_120_HU },
             { "uncapped", OPTION_VAL_UNCAPPED_HU },
             { NULL, NULL }
@@ -23446,7 +23514,7 @@ struct retro_core_option_v2_definition option_defs_hu[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_HU },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_HU },
             { "20",  OPTION_VAL_20_HU },
-            { "30",  OPTION_VAL_30_HU },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_HU },
             { "40",  OPTION_VAL_40_HU },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_HU },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_HU },
@@ -23585,13 +23653,14 @@ struct retro_core_option_v2_definition option_defs_hu[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_HU },
             { "error", OPTION_VAL_ERROR_HU },
             { "warn",  OPTION_VAL_WARN_HU },
             { "info",  OPTION_VAL_INFO_HU },
             { "debug", OPTION_VAL_DEBUG_HU },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -23931,6 +24000,7 @@ struct retro_core_options_v2 options_hu = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_ID NULL
 #define OPTION_VAL_ENABLED_ID NULL
 #define OPTION_VAL_30TO60_ID NULL
+#define OPTION_VAL_30_ID NULL
 #define OPTION_VAL_120_ID NULL
 #define OPTION_VAL_UNCAPPED_ID NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_ID NULL
@@ -23992,7 +24062,7 @@ struct retro_core_options_v2 options_hu = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_ID NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_ID NULL
 #define OPTION_VAL_20_ID NULL
-#define OPTION_VAL_30_ID NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_ID NULL
 #define OPTION_VAL_40_ID NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_ID NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_ID NULL
@@ -24315,6 +24385,7 @@ struct retro_core_option_v2_definition option_defs_id[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_ID },
             { "30to60",   OPTION_VAL_30TO60_ID },
+            { "30",       OPTION_VAL_30_ID },
             { "120",      OPTION_VAL_120_ID },
             { "uncapped", OPTION_VAL_UNCAPPED_ID },
             { NULL, NULL }
@@ -24482,7 +24553,7 @@ struct retro_core_option_v2_definition option_defs_id[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_ID },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_ID },
             { "20",  OPTION_VAL_20_ID },
-            { "30",  OPTION_VAL_30_ID },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_ID },
             { "40",  OPTION_VAL_40_ID },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_ID },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_ID },
@@ -24621,13 +24692,14 @@ struct retro_core_option_v2_definition option_defs_id[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_ID },
             { "error", OPTION_VAL_ERROR_ID },
             { "warn",  OPTION_VAL_WARN_ID },
             { "info",  OPTION_VAL_INFO_ID },
             { "debug", OPTION_VAL_DEBUG_ID },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -24967,6 +25039,7 @@ struct retro_core_options_v2 options_id = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_IT NULL
 #define OPTION_VAL_ENABLED_IT NULL
 #define OPTION_VAL_30TO60_IT NULL
+#define OPTION_VAL_30_IT NULL
 #define OPTION_VAL_120_IT NULL
 #define OPTION_VAL_UNCAPPED_IT NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_IT NULL
@@ -25028,7 +25101,7 @@ struct retro_core_options_v2 options_id = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_IT NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_IT NULL
 #define OPTION_VAL_20_IT NULL
-#define OPTION_VAL_30_IT NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_IT NULL
 #define OPTION_VAL_40_IT NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_IT NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_IT NULL
@@ -25351,6 +25424,7 @@ struct retro_core_option_v2_definition option_defs_it[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_IT },
             { "30to60",   OPTION_VAL_30TO60_IT },
+            { "30",       OPTION_VAL_30_IT },
             { "120",      OPTION_VAL_120_IT },
             { "uncapped", OPTION_VAL_UNCAPPED_IT },
             { NULL, NULL }
@@ -25518,7 +25592,7 @@ struct retro_core_option_v2_definition option_defs_it[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_IT },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_IT },
             { "20",  OPTION_VAL_20_IT },
-            { "30",  OPTION_VAL_30_IT },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_IT },
             { "40",  OPTION_VAL_40_IT },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_IT },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_IT },
@@ -25657,13 +25731,14 @@ struct retro_core_option_v2_definition option_defs_it[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_IT },
             { "error", OPTION_VAL_ERROR_IT },
             { "warn",  OPTION_VAL_WARN_IT },
             { "info",  OPTION_VAL_INFO_IT },
             { "debug", OPTION_VAL_DEBUG_IT },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -26003,6 +26078,7 @@ struct retro_core_options_v2 options_it = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_JA NULL
 #define OPTION_VAL_ENABLED_JA NULL
 #define OPTION_VAL_30TO60_JA NULL
+#define OPTION_VAL_30_JA NULL
 #define OPTION_VAL_120_JA NULL
 #define OPTION_VAL_UNCAPPED_JA NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_JA NULL
@@ -26064,7 +26140,7 @@ struct retro_core_options_v2 options_it = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_JA NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_JA NULL
 #define OPTION_VAL_20_JA NULL
-#define OPTION_VAL_30_JA NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_JA NULL
 #define OPTION_VAL_40_JA NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_JA NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_JA NULL
@@ -26387,6 +26463,7 @@ struct retro_core_option_v2_definition option_defs_ja[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_JA },
             { "30to60",   OPTION_VAL_30TO60_JA },
+            { "30",       OPTION_VAL_30_JA },
             { "120",      OPTION_VAL_120_JA },
             { "uncapped", OPTION_VAL_UNCAPPED_JA },
             { NULL, NULL }
@@ -26554,7 +26631,7 @@ struct retro_core_option_v2_definition option_defs_ja[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_JA },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_JA },
             { "20",  OPTION_VAL_20_JA },
-            { "30",  OPTION_VAL_30_JA },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_JA },
             { "40",  OPTION_VAL_40_JA },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_JA },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_JA },
@@ -26693,13 +26770,14 @@ struct retro_core_option_v2_definition option_defs_ja[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_JA },
             { "error", OPTION_VAL_ERROR_JA },
             { "warn",  OPTION_VAL_WARN_JA },
             { "info",  OPTION_VAL_INFO_JA },
             { "debug", OPTION_VAL_DEBUG_JA },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -27039,6 +27117,7 @@ struct retro_core_options_v2 options_ja = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_KO NULL
 #define OPTION_VAL_ENABLED_KO NULL
 #define OPTION_VAL_30TO60_KO NULL
+#define OPTION_VAL_30_KO NULL
 #define OPTION_VAL_120_KO NULL
 #define OPTION_VAL_UNCAPPED_KO NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_KO NULL
@@ -27100,7 +27179,7 @@ struct retro_core_options_v2 options_ja = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_KO NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_KO NULL
 #define OPTION_VAL_20_KO NULL
-#define OPTION_VAL_30_KO NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_KO NULL
 #define OPTION_VAL_40_KO NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_KO NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_KO NULL
@@ -27423,6 +27502,7 @@ struct retro_core_option_v2_definition option_defs_ko[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_KO },
             { "30to60",   OPTION_VAL_30TO60_KO },
+            { "30",       OPTION_VAL_30_KO },
             { "120",      OPTION_VAL_120_KO },
             { "uncapped", OPTION_VAL_UNCAPPED_KO },
             { NULL, NULL }
@@ -27590,7 +27670,7 @@ struct retro_core_option_v2_definition option_defs_ko[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_KO },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_KO },
             { "20",  OPTION_VAL_20_KO },
-            { "30",  OPTION_VAL_30_KO },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_KO },
             { "40",  OPTION_VAL_40_KO },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_KO },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_KO },
@@ -27729,13 +27809,14 @@ struct retro_core_option_v2_definition option_defs_ko[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_KO },
             { "error", OPTION_VAL_ERROR_KO },
             { "warn",  OPTION_VAL_WARN_KO },
             { "info",  OPTION_VAL_INFO_KO },
             { "debug", OPTION_VAL_DEBUG_KO },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -28075,6 +28156,7 @@ struct retro_core_options_v2 options_ko = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_NL NULL
 #define OPTION_VAL_ENABLED_NL NULL
 #define OPTION_VAL_30TO60_NL NULL
+#define OPTION_VAL_30_NL NULL
 #define OPTION_VAL_120_NL NULL
 #define OPTION_VAL_UNCAPPED_NL NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_NL NULL
@@ -28136,7 +28218,7 @@ struct retro_core_options_v2 options_ko = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_NL NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_NL NULL
 #define OPTION_VAL_20_NL NULL
-#define OPTION_VAL_30_NL NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_NL NULL
 #define OPTION_VAL_40_NL NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_NL NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_NL NULL
@@ -28459,6 +28541,7 @@ struct retro_core_option_v2_definition option_defs_nl[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_NL },
             { "30to60",   OPTION_VAL_30TO60_NL },
+            { "30",       OPTION_VAL_30_NL },
             { "120",      OPTION_VAL_120_NL },
             { "uncapped", OPTION_VAL_UNCAPPED_NL },
             { NULL, NULL }
@@ -28626,7 +28709,7 @@ struct retro_core_option_v2_definition option_defs_nl[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_NL },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_NL },
             { "20",  OPTION_VAL_20_NL },
-            { "30",  OPTION_VAL_30_NL },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_NL },
             { "40",  OPTION_VAL_40_NL },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_NL },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_NL },
@@ -28765,13 +28848,14 @@ struct retro_core_option_v2_definition option_defs_nl[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_NL },
             { "error", OPTION_VAL_ERROR_NL },
             { "warn",  OPTION_VAL_WARN_NL },
             { "info",  OPTION_VAL_INFO_NL },
             { "debug", OPTION_VAL_DEBUG_NL },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -29111,6 +29195,7 @@ struct retro_core_options_v2 options_nl = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_NO NULL
 #define OPTION_VAL_ENABLED_NO NULL
 #define OPTION_VAL_30TO60_NO NULL
+#define OPTION_VAL_30_NO NULL
 #define OPTION_VAL_120_NO NULL
 #define OPTION_VAL_UNCAPPED_NO NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_NO NULL
@@ -29172,7 +29257,7 @@ struct retro_core_options_v2 options_nl = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_NO NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_NO NULL
 #define OPTION_VAL_20_NO NULL
-#define OPTION_VAL_30_NO NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_NO NULL
 #define OPTION_VAL_40_NO NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_NO NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_NO NULL
@@ -29495,6 +29580,7 @@ struct retro_core_option_v2_definition option_defs_no[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_NO },
             { "30to60",   OPTION_VAL_30TO60_NO },
+            { "30",       OPTION_VAL_30_NO },
             { "120",      OPTION_VAL_120_NO },
             { "uncapped", OPTION_VAL_UNCAPPED_NO },
             { NULL, NULL }
@@ -29662,7 +29748,7 @@ struct retro_core_option_v2_definition option_defs_no[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_NO },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_NO },
             { "20",  OPTION_VAL_20_NO },
-            { "30",  OPTION_VAL_30_NO },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_NO },
             { "40",  OPTION_VAL_40_NO },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_NO },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_NO },
@@ -29801,13 +29887,14 @@ struct retro_core_option_v2_definition option_defs_no[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_NO },
             { "error", OPTION_VAL_ERROR_NO },
             { "warn",  OPTION_VAL_WARN_NO },
             { "info",  OPTION_VAL_INFO_NO },
             { "debug", OPTION_VAL_DEBUG_NO },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -30147,6 +30234,7 @@ struct retro_core_options_v2 options_no = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_OR NULL
 #define OPTION_VAL_ENABLED_OR NULL
 #define OPTION_VAL_30TO60_OR NULL
+#define OPTION_VAL_30_OR NULL
 #define OPTION_VAL_120_OR NULL
 #define OPTION_VAL_UNCAPPED_OR NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_OR NULL
@@ -30208,7 +30296,7 @@ struct retro_core_options_v2 options_no = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_OR NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_OR NULL
 #define OPTION_VAL_20_OR NULL
-#define OPTION_VAL_30_OR NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_OR NULL
 #define OPTION_VAL_40_OR NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_OR NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_OR NULL
@@ -30531,6 +30619,7 @@ struct retro_core_option_v2_definition option_defs_or[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_OR },
             { "30to60",   OPTION_VAL_30TO60_OR },
+            { "30",       OPTION_VAL_30_OR },
             { "120",      OPTION_VAL_120_OR },
             { "uncapped", OPTION_VAL_UNCAPPED_OR },
             { NULL, NULL }
@@ -30698,7 +30787,7 @@ struct retro_core_option_v2_definition option_defs_or[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_OR },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_OR },
             { "20",  OPTION_VAL_20_OR },
-            { "30",  OPTION_VAL_30_OR },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_OR },
             { "40",  OPTION_VAL_40_OR },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_OR },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_OR },
@@ -30837,13 +30926,14 @@ struct retro_core_option_v2_definition option_defs_or[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_OR },
             { "error", OPTION_VAL_ERROR_OR },
             { "warn",  OPTION_VAL_WARN_OR },
             { "info",  OPTION_VAL_INFO_OR },
             { "debug", OPTION_VAL_DEBUG_OR },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -31183,6 +31273,7 @@ struct retro_core_options_v2 options_or = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_PL NULL
 #define OPTION_VAL_ENABLED_PL NULL
 #define OPTION_VAL_30TO60_PL NULL
+#define OPTION_VAL_30_PL NULL
 #define OPTION_VAL_120_PL NULL
 #define OPTION_VAL_UNCAPPED_PL NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_PL NULL
@@ -31244,7 +31335,7 @@ struct retro_core_options_v2 options_or = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_PL NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_PL NULL
 #define OPTION_VAL_20_PL NULL
-#define OPTION_VAL_30_PL "30 %"
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_PL "30 %"
 #define OPTION_VAL_40_PL NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_PL "50 %"
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_PL "60 %"
@@ -31567,6 +31658,7 @@ struct retro_core_option_v2_definition option_defs_pl[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_PL },
             { "30to60",   OPTION_VAL_30TO60_PL },
+            { "30",       OPTION_VAL_30_PL },
             { "120",      OPTION_VAL_120_PL },
             { "uncapped", OPTION_VAL_UNCAPPED_PL },
             { NULL, NULL }
@@ -31734,7 +31826,7 @@ struct retro_core_option_v2_definition option_defs_pl[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_PL },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_PL },
             { "20",  OPTION_VAL_20_PL },
-            { "30",  OPTION_VAL_30_PL },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_PL },
             { "40",  OPTION_VAL_40_PL },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_PL },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_PL },
@@ -31873,13 +31965,14 @@ struct retro_core_option_v2_definition option_defs_pl[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_PL },
             { "error", OPTION_VAL_ERROR_PL },
             { "warn",  OPTION_VAL_WARN_PL },
             { "info",  OPTION_VAL_INFO_PL },
             { "debug", OPTION_VAL_DEBUG_PL },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -32155,13 +32248,13 @@ struct retro_core_options_v2 options_pl = {
 
 /* RETRO_LANGUAGE_PT_BR */
 
-#define CATEGORY_GRAPHICS_LABEL_PT_BR NULL
+#define CATEGORY_GRAPHICS_LABEL_PT_BR "Configurações de gráfico"
 #define CATEGORY_GRAPHICS_INFO_0_PT_BR NULL
-#define CATEGORY_VIDEO_LABEL_PT_BR NULL
+#define CATEGORY_VIDEO_LABEL_PT_BR "Configurações de vídeo"
 #define CATEGORY_VIDEO_INFO_0_PT_BR NULL
-#define CATEGORY_AUDIO_LABEL_PT_BR NULL
+#define CATEGORY_AUDIO_LABEL_PT_BR "Configurações de áudio"
 #define CATEGORY_AUDIO_INFO_0_PT_BR NULL
-#define CATEGORY_EMULATION_LABEL_PT_BR NULL
+#define CATEGORY_EMULATION_LABEL_PT_BR "Configurações de emulação"
 #define CATEGORY_EMULATION_INFO_0_PT_BR NULL
 #define CATEGORY_COMPATIBILITY_LABEL_PT_BR "Configurações de compatibilidade"
 #define CATEGORY_COMPATIBILITY_INFO_0_PT_BR NULL
@@ -32219,6 +32312,7 @@ struct retro_core_options_v2 options_pl = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_PT_BR NULL
 #define OPTION_VAL_ENABLED_PT_BR NULL
 #define OPTION_VAL_30TO60_PT_BR NULL
+#define OPTION_VAL_30_PT_BR NULL
 #define OPTION_VAL_120_PT_BR NULL
 #define OPTION_VAL_UNCAPPED_PT_BR NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_PT_BR NULL
@@ -32232,7 +32326,7 @@ struct retro_core_options_v2 options_pl = {
 #define OPTION_VAL_5_XENIA_INTERNAL_DISPLAY_RESOLUTION_PT_BR NULL
 #define OPTION_VAL_6_XENIA_INTERNAL_DISPLAY_RESOLUTION_PT_BR NULL
 #define OPTION_VAL_7_XENIA_INTERNAL_DISPLAY_RESOLUTION_PT_BR NULL
-#define OPTION_VAL_8_XENIA_INTERNAL_DISPLAY_RESOLUTION_PT_BR NULL
+#define OPTION_VAL_8_XENIA_INTERNAL_DISPLAY_RESOLUTION_PT_BR "1280x720 (padrão)"
 #define OPTION_VAL_9_PT_BR NULL
 #define OPTION_VAL_10_PT_BR NULL
 #define OPTION_VAL_11_PT_BR NULL
@@ -32242,7 +32336,7 @@ struct retro_core_options_v2 options_pl = {
 #define OPTION_VAL_15_PT_BR NULL
 #define XENIA_WIDESCREEN_LABEL_PT_BR NULL
 #define XENIA_WIDESCREEN_INFO_0_PT_BR NULL
-#define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_PT_BR NULL
+#define OPTION_VAL_ENABLED_XENIA_WIDESCREEN_PT_BR "16:9 (padrão)"
 #define OPTION_VAL_DISABLED_PT_BR NULL
 #define XENIA_VIDEO_STANDARD_LABEL_PT_BR NULL
 #define XENIA_VIDEO_STANDARD_LABEL_CAT_PT_BR NULL
@@ -32280,7 +32374,7 @@ struct retro_core_options_v2 options_pl = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_PT_BR NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_PT_BR NULL
 #define OPTION_VAL_20_PT_BR NULL
-#define OPTION_VAL_30_PT_BR NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_PT_BR NULL
 #define OPTION_VAL_40_PT_BR NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_PT_BR NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_PT_BR NULL
@@ -32302,41 +32396,41 @@ struct retro_core_options_v2 options_pl = {
 #define OPTION_VAL_0_XENIA_LICENSE_MASK_PT_BR "Nenhum"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_PT_BR "Completa"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_0_PT_BR "Todas"
-#define XENIA_USER_LANGUAGE_LABEL_PT_BR NULL
-#define XENIA_USER_LANGUAGE_LABEL_CAT_PT_BR NULL
-#define XENIA_USER_LANGUAGE_INFO_0_PT_BR NULL
+#define XENIA_USER_LANGUAGE_LABEL_PT_BR "Idioma do usuário (requer reinício)"
+#define XENIA_USER_LANGUAGE_LABEL_CAT_PT_BR "Idioma (requer reinício)"
+#define XENIA_USER_LANGUAGE_INFO_0_PT_BR "Define o idioma do console emulado."
 #define OPTION_VAL_ENGLISH_PT_BR "Inglês"
 #define OPTION_VAL_JAPANESE_PT_BR "Japonês"
 #define OPTION_VAL_GERMAN_PT_BR "Alemão"
 #define OPTION_VAL_FRENCH_PT_BR "Francês"
 #define OPTION_VAL_SPANISH_PT_BR "Espanhol"
 #define OPTION_VAL_ITALIAN_PT_BR "Italiano"
-#define OPTION_VAL_KOREAN_PT_BR NULL
-#define OPTION_VAL_TCHINESE_PT_BR NULL
-#define OPTION_VAL_PORTUGUESE_PT_BR NULL
-#define OPTION_VAL_SCHINESE_PT_BR NULL
-#define OPTION_VAL_POLISH_PT_BR NULL
-#define OPTION_VAL_RUSSIAN_PT_BR NULL
-#define XENIA_USER_COUNTRY_LABEL_PT_BR NULL
-#define XENIA_USER_COUNTRY_LABEL_CAT_PT_BR NULL
-#define XENIA_USER_COUNTRY_INFO_0_PT_BR NULL
-#define OPTION_VAL_UNITED_STATES_PT_BR NULL
-#define OPTION_VAL_GREAT_BRITAIN_PT_BR NULL
+#define OPTION_VAL_KOREAN_PT_BR "Coreano"
+#define OPTION_VAL_TCHINESE_PT_BR "Chinês tradicional"
+#define OPTION_VAL_PORTUGUESE_PT_BR "Português"
+#define OPTION_VAL_SCHINESE_PT_BR "Chinês simplificado"
+#define OPTION_VAL_POLISH_PT_BR "Polonês"
+#define OPTION_VAL_RUSSIAN_PT_BR "Russo"
+#define XENIA_USER_COUNTRY_LABEL_PT_BR "País do usuário (requer reinício)"
+#define XENIA_USER_COUNTRY_LABEL_CAT_PT_BR "País (requer reinício)"
+#define XENIA_USER_COUNTRY_INFO_0_PT_BR "Define o país/região do console emulado."
+#define OPTION_VAL_UNITED_STATES_PT_BR "Estados Unidos"
+#define OPTION_VAL_GREAT_BRITAIN_PT_BR "Grã Bretanha"
 #define OPTION_VAL_JAPAN_PT_BR "Japão"
-#define OPTION_VAL_GERMANY_PT_BR NULL
-#define OPTION_VAL_FRANCE_PT_BR NULL
-#define OPTION_VAL_SPAIN_PT_BR NULL
-#define OPTION_VAL_ITALY_PT_BR NULL
-#define OPTION_VAL_AUSTRALIA_PT_BR NULL
-#define OPTION_VAL_CANADA_PT_BR NULL
-#define OPTION_VAL_BRAZIL_PT_BR NULL
-#define OPTION_VAL_KOREA_PT_BR NULL
+#define OPTION_VAL_GERMANY_PT_BR "Alemanha"
+#define OPTION_VAL_FRANCE_PT_BR "França"
+#define OPTION_VAL_SPAIN_PT_BR "Espanha"
+#define OPTION_VAL_ITALY_PT_BR "Itália"
+#define OPTION_VAL_AUSTRALIA_PT_BR "Austrália"
+#define OPTION_VAL_CANADA_PT_BR "Canadá"
+#define OPTION_VAL_BRAZIL_PT_BR "Brasil"
+#define OPTION_VAL_KOREA_PT_BR "Coréia"
 #define OPTION_VAL_CHINA_PT_BR NULL
-#define OPTION_VAL_MEXICO_PT_BR NULL
-#define OPTION_VAL_NETHERLANDS_PT_BR NULL
-#define OPTION_VAL_RUSSIA_PT_BR NULL
-#define OPTION_VAL_SWEDEN_PT_BR NULL
-#define OPTION_VAL_POLAND_PT_BR NULL
+#define OPTION_VAL_MEXICO_PT_BR "México"
+#define OPTION_VAL_NETHERLANDS_PT_BR "Holanda"
+#define OPTION_VAL_RUSSIA_PT_BR "Rússia"
+#define OPTION_VAL_SWEDEN_PT_BR "Suécia"
+#define OPTION_VAL_POLAND_PT_BR "Polônia"
 #define OPTION_VAL_PORTUGAL_PT_BR NULL
 #define OPTION_VAL_TAIWAN_PT_BR NULL
 #define OPTION_VAL_HONG_KONG_PT_BR NULL
@@ -32405,7 +32499,7 @@ struct retro_core_options_v2 options_pl = {
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_PT_BR NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_CAT_PT_BR NULL
 #define XENIA_SCRIBBLE_HEAP_VALUE_INFO_0_PT_BR NULL
-#define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_PT_BR NULL
+#define OPTION_VAL_0_XENIA_SCRIBBLE_HEAP_VALUE_PT_BR "0 (aleatório)"
 
 struct retro_core_option_v2_category option_cats_pt_br[] = {
     { "Graphics", CATEGORY_GRAPHICS_LABEL_PT_BR,
@@ -32603,6 +32697,7 @@ struct retro_core_option_v2_definition option_defs_pt_br[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_PT_BR },
             { "30to60",   OPTION_VAL_30TO60_PT_BR },
+            { "30",       OPTION_VAL_30_PT_BR },
             { "120",      OPTION_VAL_120_PT_BR },
             { "uncapped", OPTION_VAL_UNCAPPED_PT_BR },
             { NULL, NULL }
@@ -32770,7 +32865,7 @@ struct retro_core_option_v2_definition option_defs_pt_br[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_PT_BR },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_PT_BR },
             { "20",  OPTION_VAL_20_PT_BR },
-            { "30",  OPTION_VAL_30_PT_BR },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_PT_BR },
             { "40",  OPTION_VAL_40_PT_BR },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_PT_BR },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_PT_BR },
@@ -32909,13 +33004,14 @@ struct retro_core_option_v2_definition option_defs_pt_br[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_PT_BR },
             { "error", OPTION_VAL_ERROR_PT_BR },
             { "warn",  OPTION_VAL_WARN_PT_BR },
             { "info",  OPTION_VAL_INFO_PT_BR },
             { "debug", OPTION_VAL_DEBUG_PT_BR },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -33255,6 +33351,7 @@ struct retro_core_options_v2 options_pt_br = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_PT_PT NULL
 #define OPTION_VAL_ENABLED_PT_PT NULL
 #define OPTION_VAL_30TO60_PT_PT NULL
+#define OPTION_VAL_30_PT_PT NULL
 #define OPTION_VAL_120_PT_PT NULL
 #define OPTION_VAL_UNCAPPED_PT_PT NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_PT_PT NULL
@@ -33316,7 +33413,7 @@ struct retro_core_options_v2 options_pt_br = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_PT_PT NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_PT_PT NULL
 #define OPTION_VAL_20_PT_PT NULL
-#define OPTION_VAL_30_PT_PT NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_PT_PT NULL
 #define OPTION_VAL_40_PT_PT NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_PT_PT NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_PT_PT NULL
@@ -33639,6 +33736,7 @@ struct retro_core_option_v2_definition option_defs_pt_pt[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_PT_PT },
             { "30to60",   OPTION_VAL_30TO60_PT_PT },
+            { "30",       OPTION_VAL_30_PT_PT },
             { "120",      OPTION_VAL_120_PT_PT },
             { "uncapped", OPTION_VAL_UNCAPPED_PT_PT },
             { NULL, NULL }
@@ -33806,7 +33904,7 @@ struct retro_core_option_v2_definition option_defs_pt_pt[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_PT_PT },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_PT_PT },
             { "20",  OPTION_VAL_20_PT_PT },
-            { "30",  OPTION_VAL_30_PT_PT },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_PT_PT },
             { "40",  OPTION_VAL_40_PT_PT },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_PT_PT },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_PT_PT },
@@ -33945,13 +34043,14 @@ struct retro_core_option_v2_definition option_defs_pt_pt[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_PT_PT },
             { "error", OPTION_VAL_ERROR_PT_PT },
             { "warn",  OPTION_VAL_WARN_PT_PT },
             { "info",  OPTION_VAL_INFO_PT_PT },
             { "debug", OPTION_VAL_DEBUG_PT_PT },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -34291,6 +34390,7 @@ struct retro_core_options_v2 options_pt_pt = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_RU NULL
 #define OPTION_VAL_ENABLED_RU NULL
 #define OPTION_VAL_30TO60_RU NULL
+#define OPTION_VAL_30_RU NULL
 #define OPTION_VAL_120_RU NULL
 #define OPTION_VAL_UNCAPPED_RU NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_RU NULL
@@ -34352,7 +34452,7 @@ struct retro_core_options_v2 options_pt_pt = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_RU NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_RU NULL
 #define OPTION_VAL_20_RU NULL
-#define OPTION_VAL_30_RU NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_RU NULL
 #define OPTION_VAL_40_RU NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_RU NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_RU NULL
@@ -34675,6 +34775,7 @@ struct retro_core_option_v2_definition option_defs_ru[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_RU },
             { "30to60",   OPTION_VAL_30TO60_RU },
+            { "30",       OPTION_VAL_30_RU },
             { "120",      OPTION_VAL_120_RU },
             { "uncapped", OPTION_VAL_UNCAPPED_RU },
             { NULL, NULL }
@@ -34842,7 +34943,7 @@ struct retro_core_option_v2_definition option_defs_ru[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_RU },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_RU },
             { "20",  OPTION_VAL_20_RU },
-            { "30",  OPTION_VAL_30_RU },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_RU },
             { "40",  OPTION_VAL_40_RU },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_RU },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_RU },
@@ -34981,13 +35082,14 @@ struct retro_core_option_v2_definition option_defs_ru[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_RU },
             { "error", OPTION_VAL_ERROR_RU },
             { "warn",  OPTION_VAL_WARN_RU },
             { "info",  OPTION_VAL_INFO_RU },
             { "debug", OPTION_VAL_DEBUG_RU },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -35324,9 +35426,10 @@ struct retro_core_options_v2 options_ru = {
 #define XENIA_WAIT_FOR_FRAME_LABEL_SK "[Libretro] Čakanie na snímku"
 #define XENIA_WAIT_FOR_FRAME_INFO_0_SK "Odstráni 1 snímku oneskorenia vstupu za cenu možného trhania hry. Odporúčané pre výkonný hardvér alebo nenáročné hry."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_SK "Odomknúť snímkovú frekvenciu"
-#define XENIA_UNLOCK_FRAMERATE_INFO_0_SK "Iba pre hry, ktorých logika nie je viazaná na snímkovú frekvenciu, inak bežia príliš rýchlo. 30 fps hry pri 60: dva vblanky na každú snímku, ktorú RetroArch zobrazí. 60 fps hry pri 120: jadro pri 120 snímkach za sekundu (nastavte na to RetroArch a displej). Bez obmedzenia: vblanky tak rýchlo, ako sa dá. Hry zo zoznamu: frekvencia, ktorú bežiacej hre určuje system/Xenia-Edge/xenia_framerate_unlock.txt, ak ju obsahuje. Dá sa meniť počas behu hry."
+#define XENIA_UNLOCK_FRAMERATE_INFO_0_SK "Iba pre hry, ktorých logika nie je viazaná na snímkovú frekvenciu, inak bežia príliš rýchlo. Hry s 30 fps na 60: dva vblanky na každú snímku, ktorú RetroArch zobrazí. Hry so 60 fps na 120: jadro na 120 snímkach za sekundu (RetroArch a displej na to treba nastaviť). 30 fps: jadro dáva RetroArchu 30 snímok za sekundu, kým hra stále vidí 60 vblankov, pre hry bežiace na 30 alebo na spustenie hry so 60 fps na 30. Neobmedzené: vblanky čo najrýchlejšie. Hry zo zoznamu: frekvencia, ktorú pre spustenú hru uvádza system/Xenia-Edge/xenia_framerate_unlock.txt, ak ju tam má. Dá sa zmeniť počas hry."
 #define OPTION_VAL_ENABLED_SK "Hry zo zoznamu"
 #define OPTION_VAL_30TO60_SK "30 fps hry pri 60"
+#define OPTION_VAL_30_SK NULL
 #define OPTION_VAL_120_SK "60 fps hry pri 120"
 #define OPTION_VAL_UNCAPPED_SK "Bez obmedzenia"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_SK "Interné rozlíšenie displeja (reštart)"
@@ -35388,7 +35491,7 @@ struct retro_core_options_v2 options_ru = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_SK NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_SK NULL
 #define OPTION_VAL_20_SK NULL
-#define OPTION_VAL_30_SK NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_SK NULL
 #define OPTION_VAL_40_SK NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_SK NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_SK NULL
@@ -35449,7 +35552,7 @@ struct retro_core_options_v2 options_ru = {
 #define OPTION_VAL_TAIWAN_SK NULL
 #define OPTION_VAL_HONG_KONG_SK "Hongkong"
 #define XENIA_LOG_LEVEL_LABEL_SK "Úroveň záznamu"
-#define XENIA_LOG_LEVEL_INFO_0_SK "Nastaví podrobnosť výstupu záznamu."
+#define XENIA_LOG_LEVEL_INFO_0_SK "Nastaví podrobnosť výstupu logovania. Žiadne: žiadny xenia.log a do logu RetroArchu ide iba to, čo jadro povie pri spustení hry (svoju verziu, ID titulu, grafické API), a chyby, ktoré ho zastavia; prepnutie zo Žiadne počas hry zapisuje xenia.log od ďalšieho spustenia RetroArchu."
 #define OPTION_VAL_ERROR_SK "Iba chyby"
 #define OPTION_VAL_WARN_SK "Upozornenie"
 #define OPTION_VAL_INFO_SK NULL
@@ -35711,6 +35814,7 @@ struct retro_core_option_v2_definition option_defs_sk[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_SK },
             { "30to60",   OPTION_VAL_30TO60_SK },
+            { "30",       OPTION_VAL_30_SK },
             { "120",      OPTION_VAL_120_SK },
             { "uncapped", OPTION_VAL_UNCAPPED_SK },
             { NULL, NULL }
@@ -35878,7 +35982,7 @@ struct retro_core_option_v2_definition option_defs_sk[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_SK },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_SK },
             { "20",  OPTION_VAL_20_SK },
-            { "30",  OPTION_VAL_30_SK },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_SK },
             { "40",  OPTION_VAL_40_SK },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_SK },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_SK },
@@ -36017,13 +36121,14 @@ struct retro_core_option_v2_definition option_defs_sk[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_SK },
             { "error", OPTION_VAL_ERROR_SK },
             { "warn",  OPTION_VAL_WARN_SK },
             { "info",  OPTION_VAL_INFO_SK },
             { "debug", OPTION_VAL_DEBUG_SK },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -36363,6 +36468,7 @@ struct retro_core_options_v2 options_sk = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_SR NULL
 #define OPTION_VAL_ENABLED_SR NULL
 #define OPTION_VAL_30TO60_SR NULL
+#define OPTION_VAL_30_SR NULL
 #define OPTION_VAL_120_SR NULL
 #define OPTION_VAL_UNCAPPED_SR NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_SR NULL
@@ -36424,7 +36530,7 @@ struct retro_core_options_v2 options_sk = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_SR NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_SR NULL
 #define OPTION_VAL_20_SR NULL
-#define OPTION_VAL_30_SR NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_SR NULL
 #define OPTION_VAL_40_SR NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_SR NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_SR NULL
@@ -36747,6 +36853,7 @@ struct retro_core_option_v2_definition option_defs_sr[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_SR },
             { "30to60",   OPTION_VAL_30TO60_SR },
+            { "30",       OPTION_VAL_30_SR },
             { "120",      OPTION_VAL_120_SR },
             { "uncapped", OPTION_VAL_UNCAPPED_SR },
             { NULL, NULL }
@@ -36914,7 +37021,7 @@ struct retro_core_option_v2_definition option_defs_sr[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_SR },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_SR },
             { "20",  OPTION_VAL_20_SR },
-            { "30",  OPTION_VAL_30_SR },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_SR },
             { "40",  OPTION_VAL_40_SR },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_SR },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_SR },
@@ -37053,13 +37160,14 @@ struct retro_core_option_v2_definition option_defs_sr[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_SR },
             { "error", OPTION_VAL_ERROR_SR },
             { "warn",  OPTION_VAL_WARN_SR },
             { "info",  OPTION_VAL_INFO_SR },
             { "debug", OPTION_VAL_DEBUG_SR },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -37396,9 +37504,10 @@ struct retro_core_options_v2 options_sr = {
 #define XENIA_WAIT_FOR_FRAME_LABEL_SV "[Libretro] bildruteväntan"
 #define XENIA_WAIT_FOR_FRAME_INFO_0_SV "Tar bort en bildruta av inmatningsfördröjning men spelet kan hacka. Rekommenderas för kraftfull maskinvara och/eller lättdrivna spel."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_SV "Lås upp bildfrekvens"
-#define XENIA_UNLOCK_FRAMERATE_INFO_0_SV "Endast för spel vars logik inte är knuten till bildfrekvensen, annars går de för fort. Spel med 30 fps vid 60: två vertikala synkroniseringar för varje bildruta som RetroArch visar. Spel med 60 fps vid 120: kärnan kör 120 bildrutor per sekund (ställ in RetroArch och bildskärmen för det). Obegränsad: vertikala synkroniseringar så snabbt som möjligt. Listade spel: frekvenssystemet i Xenia-Edge/xenia_framerate_unlock.txt gäller det körande spelet om det finns i listan. Kan ändras medan ett spel körs."
+#define XENIA_UNLOCK_FRAMERATE_INFO_0_SV "Endast för spel vars logik inte är knuten till bildfrekvensen, annars kör de för fort. Spel i 30 fps vid 60: två vertikala blankningar för varje bild som RetroArch visar. Spel i 60 fps vid 120: kärnan vid 120 bildrutor per sekund (ställ in RetroArch och bildskärmen för det). 30 fps: kärnan ger RetroArch 30 bildrutor per sekund medan spelet fortfarande ser 60 vertikala blankningar, för spel som körs i 30 fps eller för att köra ett spel i 60 fps i 30 fps. Obegränsat: vertikala blankningar så snabbt som möjligt. För listade spel anger rate system/Xenia-Edge/xenia_framerate_unlock.txt vilket spel som körs, om det finns med. Kan ändras medan ett spel körs."
 #define OPTION_VAL_ENABLED_SV "Listade spel"
 #define OPTION_VAL_30TO60_SV "Spel med 30 fps vid 60"
+#define OPTION_VAL_30_SV NULL
 #define OPTION_VAL_120_SV "Spel med 60 fps vid 120"
 #define OPTION_VAL_UNCAPPED_SV "Obegränsad"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_SV "Intern bildskärmsupplösning (omstart)"
@@ -37460,7 +37569,7 @@ struct retro_core_options_v2 options_sr = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_SV "0 %"
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_SV "10 %"
 #define OPTION_VAL_20_SV NULL
-#define OPTION_VAL_30_SV NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_SV NULL
 #define OPTION_VAL_40_SV NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_SV NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_SV NULL
@@ -37521,7 +37630,7 @@ struct retro_core_options_v2 options_sr = {
 #define OPTION_VAL_TAIWAN_SV NULL
 #define OPTION_VAL_HONG_KONG_SV "Hongkong"
 #define XENIA_LOG_LEVEL_LABEL_SV "Loggningsnivå"
-#define XENIA_LOG_LEVEL_INFO_0_SV "Ange detaljnivån för loggningsutdata."
+#define XENIA_LOG_LEVEL_INFO_0_SV "Ange detaljeringsgraden för loggutdata. Ingen: xenia.log skrivs inte, och RetroArchs logg får bara det som kärnan säger när ett spel startar (versionen, titel-ID:t, grafik-API:t) samt fel som stoppar den. Om du byter från Ingen medan ett spel körs skrivs xenia.log från nästa start av RetroArch."
 #define OPTION_VAL_ERROR_SV "Endast fel"
 #define OPTION_VAL_WARN_SV "Varning"
 #define OPTION_VAL_INFO_SV NULL
@@ -37783,6 +37892,7 @@ struct retro_core_option_v2_definition option_defs_sv[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_SV },
             { "30to60",   OPTION_VAL_30TO60_SV },
+            { "30",       OPTION_VAL_30_SV },
             { "120",      OPTION_VAL_120_SV },
             { "uncapped", OPTION_VAL_UNCAPPED_SV },
             { NULL, NULL }
@@ -37950,7 +38060,7 @@ struct retro_core_option_v2_definition option_defs_sv[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_SV },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_SV },
             { "20",  OPTION_VAL_20_SV },
-            { "30",  OPTION_VAL_30_SV },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_SV },
             { "40",  OPTION_VAL_40_SV },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_SV },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_SV },
@@ -38089,13 +38199,14 @@ struct retro_core_option_v2_definition option_defs_sv[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_SV },
             { "error", OPTION_VAL_ERROR_SV },
             { "warn",  OPTION_VAL_WARN_SV },
             { "info",  OPTION_VAL_INFO_SV },
             { "debug", OPTION_VAL_DEBUG_SV },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -38435,6 +38546,7 @@ struct retro_core_options_v2 options_sv = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_TH NULL
 #define OPTION_VAL_ENABLED_TH NULL
 #define OPTION_VAL_30TO60_TH NULL
+#define OPTION_VAL_30_TH NULL
 #define OPTION_VAL_120_TH NULL
 #define OPTION_VAL_UNCAPPED_TH NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_TH NULL
@@ -38496,7 +38608,7 @@ struct retro_core_options_v2 options_sv = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_TH NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_TH NULL
 #define OPTION_VAL_20_TH NULL
-#define OPTION_VAL_30_TH NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_TH NULL
 #define OPTION_VAL_40_TH NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_TH NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_TH NULL
@@ -38819,6 +38931,7 @@ struct retro_core_option_v2_definition option_defs_th[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_TH },
             { "30to60",   OPTION_VAL_30TO60_TH },
+            { "30",       OPTION_VAL_30_TH },
             { "120",      OPTION_VAL_120_TH },
             { "uncapped", OPTION_VAL_UNCAPPED_TH },
             { NULL, NULL }
@@ -38986,7 +39099,7 @@ struct retro_core_option_v2_definition option_defs_th[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_TH },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_TH },
             { "20",  OPTION_VAL_20_TH },
-            { "30",  OPTION_VAL_30_TH },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_TH },
             { "40",  OPTION_VAL_40_TH },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_TH },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_TH },
@@ -39125,13 +39238,14 @@ struct retro_core_option_v2_definition option_defs_th[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_TH },
             { "error", OPTION_VAL_ERROR_TH },
             { "warn",  OPTION_VAL_WARN_TH },
             { "info",  OPTION_VAL_INFO_TH },
             { "debug", OPTION_VAL_DEBUG_TH },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -39471,6 +39585,7 @@ struct retro_core_options_v2 options_th = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_TR NULL
 #define OPTION_VAL_ENABLED_TR NULL
 #define OPTION_VAL_30TO60_TR NULL
+#define OPTION_VAL_30_TR NULL
 #define OPTION_VAL_120_TR NULL
 #define OPTION_VAL_UNCAPPED_TR NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_TR NULL
@@ -39532,7 +39647,7 @@ struct retro_core_options_v2 options_th = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_TR NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_TR NULL
 #define OPTION_VAL_20_TR "%20"
-#define OPTION_VAL_30_TR "%30"
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_TR "%30"
 #define OPTION_VAL_40_TR "%40"
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_TR "%50"
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_TR "%60"
@@ -39855,6 +39970,7 @@ struct retro_core_option_v2_definition option_defs_tr[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_TR },
             { "30to60",   OPTION_VAL_30TO60_TR },
+            { "30",       OPTION_VAL_30_TR },
             { "120",      OPTION_VAL_120_TR },
             { "uncapped", OPTION_VAL_UNCAPPED_TR },
             { NULL, NULL }
@@ -40022,7 +40138,7 @@ struct retro_core_option_v2_definition option_defs_tr[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_TR },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_TR },
             { "20",  OPTION_VAL_20_TR },
-            { "30",  OPTION_VAL_30_TR },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_TR },
             { "40",  OPTION_VAL_40_TR },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_TR },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_TR },
@@ -40161,13 +40277,14 @@ struct retro_core_option_v2_definition option_defs_tr[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_TR },
             { "error", OPTION_VAL_ERROR_TR },
             { "warn",  OPTION_VAL_WARN_TR },
             { "info",  OPTION_VAL_INFO_TR },
             { "debug", OPTION_VAL_DEBUG_TR },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -40507,6 +40624,7 @@ struct retro_core_options_v2 options_tr = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_TT NULL
 #define OPTION_VAL_ENABLED_TT NULL
 #define OPTION_VAL_30TO60_TT NULL
+#define OPTION_VAL_30_TT NULL
 #define OPTION_VAL_120_TT NULL
 #define OPTION_VAL_UNCAPPED_TT NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_TT NULL
@@ -40568,7 +40686,7 @@ struct retro_core_options_v2 options_tr = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_TT NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_TT NULL
 #define OPTION_VAL_20_TT NULL
-#define OPTION_VAL_30_TT NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_TT NULL
 #define OPTION_VAL_40_TT NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_TT NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_TT NULL
@@ -40891,6 +41009,7 @@ struct retro_core_option_v2_definition option_defs_tt[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_TT },
             { "30to60",   OPTION_VAL_30TO60_TT },
+            { "30",       OPTION_VAL_30_TT },
             { "120",      OPTION_VAL_120_TT },
             { "uncapped", OPTION_VAL_UNCAPPED_TT },
             { NULL, NULL }
@@ -41058,7 +41177,7 @@ struct retro_core_option_v2_definition option_defs_tt[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_TT },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_TT },
             { "20",  OPTION_VAL_20_TT },
-            { "30",  OPTION_VAL_30_TT },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_TT },
             { "40",  OPTION_VAL_40_TT },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_TT },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_TT },
@@ -41197,13 +41316,14 @@ struct retro_core_option_v2_definition option_defs_tt[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_TT },
             { "error", OPTION_VAL_ERROR_TT },
             { "warn",  OPTION_VAL_WARN_TT },
             { "info",  OPTION_VAL_INFO_TT },
             { "debug", OPTION_VAL_DEBUG_TT },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -41543,6 +41663,7 @@ struct retro_core_options_v2 options_tt = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_UK NULL
 #define OPTION_VAL_ENABLED_UK NULL
 #define OPTION_VAL_30TO60_UK NULL
+#define OPTION_VAL_30_UK NULL
 #define OPTION_VAL_120_UK NULL
 #define OPTION_VAL_UNCAPPED_UK NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_UK NULL
@@ -41604,7 +41725,7 @@ struct retro_core_options_v2 options_tt = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_UK NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_UK NULL
 #define OPTION_VAL_20_UK NULL
-#define OPTION_VAL_30_UK NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_UK NULL
 #define OPTION_VAL_40_UK NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_UK NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_UK NULL
@@ -41927,6 +42048,7 @@ struct retro_core_option_v2_definition option_defs_uk[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_UK },
             { "30to60",   OPTION_VAL_30TO60_UK },
+            { "30",       OPTION_VAL_30_UK },
             { "120",      OPTION_VAL_120_UK },
             { "uncapped", OPTION_VAL_UNCAPPED_UK },
             { NULL, NULL }
@@ -42094,7 +42216,7 @@ struct retro_core_option_v2_definition option_defs_uk[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_UK },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_UK },
             { "20",  OPTION_VAL_20_UK },
-            { "30",  OPTION_VAL_30_UK },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_UK },
             { "40",  OPTION_VAL_40_UK },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_UK },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_UK },
@@ -42233,13 +42355,14 @@ struct retro_core_option_v2_definition option_defs_uk[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_UK },
             { "error", OPTION_VAL_ERROR_UK },
             { "warn",  OPTION_VAL_WARN_UK },
             { "info",  OPTION_VAL_INFO_UK },
             { "debug", OPTION_VAL_DEBUG_UK },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -42579,6 +42702,7 @@ struct retro_core_options_v2 options_uk = {
 #define XENIA_UNLOCK_FRAMERATE_INFO_0_VAL NULL
 #define OPTION_VAL_ENABLED_VAL NULL
 #define OPTION_VAL_30TO60_VAL NULL
+#define OPTION_VAL_30_VAL NULL
 #define OPTION_VAL_120_VAL NULL
 #define OPTION_VAL_UNCAPPED_VAL NULL
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_VAL NULL
@@ -42640,7 +42764,7 @@ struct retro_core_options_v2 options_uk = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_VAL NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_VAL NULL
 #define OPTION_VAL_20_VAL NULL
-#define OPTION_VAL_30_VAL NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_VAL NULL
 #define OPTION_VAL_40_VAL NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_VAL NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_VAL NULL
@@ -42963,6 +43087,7 @@ struct retro_core_option_v2_definition option_defs_val[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_VAL },
             { "30to60",   OPTION_VAL_30TO60_VAL },
+            { "30",       OPTION_VAL_30_VAL },
             { "120",      OPTION_VAL_120_VAL },
             { "uncapped", OPTION_VAL_UNCAPPED_VAL },
             { NULL, NULL }
@@ -43130,7 +43255,7 @@ struct retro_core_option_v2_definition option_defs_val[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_VAL },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_VAL },
             { "20",  OPTION_VAL_20_VAL },
-            { "30",  OPTION_VAL_30_VAL },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_VAL },
             { "40",  OPTION_VAL_40_VAL },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_VAL },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_VAL },
@@ -43269,13 +43394,14 @@ struct retro_core_option_v2_definition option_defs_val[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_VAL },
             { "error", OPTION_VAL_ERROR_VAL },
             { "warn",  OPTION_VAL_WARN_VAL },
             { "info",  OPTION_VAL_INFO_VAL },
             { "debug", OPTION_VAL_DEBUG_VAL },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
@@ -43612,9 +43738,10 @@ struct retro_core_options_v2 options_val = {
 #define XENIA_WAIT_FOR_FRAME_LABEL_VN "[Libretro] Chờ khung hình"
 #define XENIA_WAIT_FOR_FRAME_INFO_0_VN "Loại bỏ 1 khung hình độ trễ Điều khiển, nhưng có thể khiến trò chơi bị giật. Khuyến nghị dùng với phần cứng mạnh và/hoặc trò chơi nhẹ."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_VN "Mở khóa tốc độ khung hình"
-#define XENIA_UNLOCK_FRAMERATE_INFO_0_VN "Chỉ áp dụng cho các trò chơi có logic không bị ràng buộc với tốc độ khung hình, nếu không trò chơi sẽ chạy quá nhanh. Trò chơi 30 khung hình/giây chạy ở 60: hai chu kỳ làm mới dọc cho mỗi khung hình RetroArch hiển thị. Trò chơi 60 khung hình/giây chạy ở 120: lõi chạy ở tốc độ 120 khung hình mỗi giây (hãy thiết lập RetroArch và màn hình tương ứng). Không giới hạn: chu kỳ làm mới dọc diễn ra nhanh nhất có thể. Trò chơi trong danh sách: tốc độ được quy định trong tệp system/Xenia-Edge/xenia_framerate_unlock.txt sẽ áp dụng cho trò chơi đang chạy nếu trò chơi đó có trong danh sách. Có thể thay đổi thiết lập này khi trò chơi đang chạy."
+#define XENIA_UNLOCK_FRAMERATE_INFO_0_VN "Chỉ áp dụng cho những trò chơi có logic hoạt động không phụ thuộc vào tốc độ khung hình, nếu không trò chơi sẽ chạy quá nhanh. Trò chơi 30 khung hình/giây ở tần số 60: hai lần làm mới màn hình cho mỗi khung hình RetroArch hiển thị. Trò chơi 60 khung hình/giây ở tần số 120: lõi giả lập chạy ở tốc độ 120 khung hình/giây (hãy thiết lập RetroArch và màn hình để hỗ trợ tốc độ này). 30 khung hình/giây: lõi giả lập cung cấp cho RetroArch 30 khung hình mỗi giây trong khi trò chơi vẫn nhận được 60 lần làm mới màn hình, dành cho trò chơi vốn chạy ở 30 khung hình/giây hoặc để chạy trò chơi 60 khung hình/giây ở tốc độ 30 khung hình/giây. Không giới hạn: làm mới màn hình nhanh nhất có thể. Trò chơi trong danh sách: tốc độ được quy định trong system/Xenia-Edge/xenia_framerate_unlock.txt sẽ được áp dụng cho trò chơi đang chạy nếu trò chơi đó có trong danh sách. Có thể thay đổi thiết lập này khi trò chơi đang chạy."
 #define OPTION_VAL_ENABLED_VN "Trò chơi trong danh sách"
 #define OPTION_VAL_30TO60_VN "Trò chơi 30 khung hình/giây chạy ở 60"
+#define OPTION_VAL_30_VN "30 khung hình/giây"
 #define OPTION_VAL_120_VN "Trò chơi 60 khung hình/giây chạy ở 120"
 #define OPTION_VAL_UNCAPPED_VN "Không giới hạn"
 #define XENIA_INTERNAL_DISPLAY_RESOLUTION_LABEL_VN "Độ phân giải hiển thị bên trong (cần khởi động lại)"
@@ -43676,7 +43803,7 @@ struct retro_core_options_v2 options_val = {
 #define OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_VN NULL
 #define OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_VN NULL
 #define OPTION_VAL_20_VN NULL
-#define OPTION_VAL_30_VN NULL
+#define OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_VN NULL
 #define OPTION_VAL_40_VN NULL
 #define OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_VN NULL
 #define OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_VN NULL
@@ -43737,7 +43864,7 @@ struct retro_core_options_v2 options_val = {
 #define OPTION_VAL_TAIWAN_VN "Đài Loan"
 #define OPTION_VAL_HONG_KONG_VN "Hồng Kông"
 #define XENIA_LOG_LEVEL_LABEL_VN "Mức độ ghi nhật ký"
-#define XENIA_LOG_LEVEL_INFO_0_VN "Thiết lập mức độ chi tiết của thông tin ghi nhật ký."
+#define XENIA_LOG_LEVEL_INFO_0_VN "Thiết lập mức độ chi tiết của nhật ký hoạt động. Không có: không tạo tệp xenia.log, nhật ký của RetroArch chỉ ghi lại những thông tin do lõi giả lập cung cấp khi trò chơi khởi chạy (phiên bản, mã định danh trò chơi, giao diện lập trình đồ họa) và các lỗi khiến trò chơi phải dừng. Nếu chuyển khỏi mức Không có khi trò chơi đang chạy, tệp xenia.log sẽ được ghi từ lần khởi chạy RetroArch tiếp theo."
 #define OPTION_VAL_ERROR_VN "Chỉ lỗi"
 #define OPTION_VAL_WARN_VN "Cảnh báo"
 #define OPTION_VAL_INFO_VN "Thông tin"
@@ -43999,6 +44126,7 @@ struct retro_core_option_v2_definition option_defs_vn[] = {
             { "disabled", NULL },
             { "enabled",  OPTION_VAL_ENABLED_VN },
             { "30to60",   OPTION_VAL_30TO60_VN },
+            { "30",       OPTION_VAL_30_VN },
             { "120",      OPTION_VAL_120_VN },
             { "uncapped", OPTION_VAL_UNCAPPED_VN },
             { NULL, NULL }
@@ -44166,7 +44294,7 @@ struct retro_core_option_v2_definition option_defs_vn[] = {
             { "0",   OPTION_VAL_0_XENIA_XMP_DEFAULT_VOLUME_VN },
             { "10",  OPTION_VAL_10_XENIA_XMP_DEFAULT_VOLUME_VN },
             { "20",  OPTION_VAL_20_VN },
-            { "30",  OPTION_VAL_30_VN },
+            { "30",  OPTION_VAL_30_XENIA_XMP_DEFAULT_VOLUME_VN },
             { "40",  OPTION_VAL_40_VN },
             { "50",  OPTION_VAL_50_XENIA_XMP_DEFAULT_VOLUME_VN },
             { "60",  OPTION_VAL_60_XENIA_XMP_DEFAULT_VOLUME_VN },
@@ -44305,13 +44433,14 @@ struct retro_core_option_v2_definition option_defs_vn[] = {
         NULL,
         "Emulation",
         {
+            { "none",  OPTION_VAL_0_XENIA_LICENSE_MASK_VN },
             { "error", OPTION_VAL_ERROR_VN },
             { "warn",  OPTION_VAL_WARN_VN },
             { "info",  OPTION_VAL_INFO_VN },
             { "debug", OPTION_VAL_DEBUG_VN },
             { NULL, NULL }
         },
-        "info"
+        "none"
     },
     /* ================================================================ */
     /* --- Compatibility ---                                             */
