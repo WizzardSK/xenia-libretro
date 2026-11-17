@@ -1172,7 +1172,7 @@ struct retro_core_options_v2 options_ar = {
 #define XENIA_VIDEO_STANDARD_LABEL_CAT_AST NULL
 #define XENIA_VIDEO_STANDARD_INFO_0_AST NULL
 #define OPTION_VAL_1_XENIA_VIDEO_STANDARD_AST NULL
-#define OPTION_VAL_2_XENIA_VIDEO_STANDARD_AST NULL
+#define OPTION_VAL_2_XENIA_VIDEO_STANDARD_AST "NTSC-J (Xapón)"
 #define OPTION_VAL_3_XENIA_VIDEO_STANDARD_AST NULL
 #define XENIA_DISPLAY_GAMMA_LABEL_AST NULL
 #define XENIA_DISPLAY_GAMMA_LABEL_CAT_AST NULL
@@ -1235,35 +1235,35 @@ struct retro_core_options_v2 options_ar = {
 #define OPTION_VAL_FRENCH_AST "Francés"
 #define OPTION_VAL_SPANISH_AST "Castellán"
 #define OPTION_VAL_ITALIAN_AST "Italianu"
-#define OPTION_VAL_KOREAN_AST NULL
-#define OPTION_VAL_TCHINESE_AST NULL
-#define OPTION_VAL_PORTUGUESE_AST NULL
-#define OPTION_VAL_SCHINESE_AST NULL
-#define OPTION_VAL_POLISH_AST NULL
-#define OPTION_VAL_RUSSIAN_AST NULL
+#define OPTION_VAL_KOREAN_AST "Coreanu"
+#define OPTION_VAL_TCHINESE_AST "Chinu tradicional"
+#define OPTION_VAL_PORTUGUESE_AST "Portugués"
+#define OPTION_VAL_SCHINESE_AST "Chinu simplificáu"
+#define OPTION_VAL_POLISH_AST "Polacu"
+#define OPTION_VAL_RUSSIAN_AST "Rusu"
 #define XENIA_USER_COUNTRY_LABEL_AST NULL
 #define XENIA_USER_COUNTRY_LABEL_CAT_AST NULL
 #define XENIA_USER_COUNTRY_INFO_0_AST NULL
-#define OPTION_VAL_UNITED_STATES_AST NULL
-#define OPTION_VAL_GREAT_BRITAIN_AST NULL
+#define OPTION_VAL_UNITED_STATES_AST "Estaos Xuníos"
+#define OPTION_VAL_GREAT_BRITAIN_AST "Gran Bretaña"
 #define OPTION_VAL_JAPAN_AST "Xapón"
-#define OPTION_VAL_GERMANY_AST NULL
-#define OPTION_VAL_FRANCE_AST NULL
-#define OPTION_VAL_SPAIN_AST NULL
-#define OPTION_VAL_ITALY_AST NULL
+#define OPTION_VAL_GERMANY_AST "Alemaña"
+#define OPTION_VAL_FRANCE_AST "Francia"
+#define OPTION_VAL_SPAIN_AST "España"
+#define OPTION_VAL_ITALY_AST "Italia"
 #define OPTION_VAL_AUSTRALIA_AST NULL
-#define OPTION_VAL_CANADA_AST NULL
-#define OPTION_VAL_BRAZIL_AST NULL
-#define OPTION_VAL_KOREA_AST NULL
+#define OPTION_VAL_CANADA_AST "Canadá"
+#define OPTION_VAL_BRAZIL_AST "Brasil"
+#define OPTION_VAL_KOREA_AST "Corea"
 #define OPTION_VAL_CHINA_AST NULL
-#define OPTION_VAL_MEXICO_AST NULL
-#define OPTION_VAL_NETHERLANDS_AST NULL
-#define OPTION_VAL_RUSSIA_AST NULL
-#define OPTION_VAL_SWEDEN_AST NULL
-#define OPTION_VAL_POLAND_AST NULL
+#define OPTION_VAL_MEXICO_AST "Méxicu"
+#define OPTION_VAL_NETHERLANDS_AST "Países Baxos"
+#define OPTION_VAL_RUSSIA_AST "Rusia"
+#define OPTION_VAL_SWEDEN_AST "Suecia"
+#define OPTION_VAL_POLAND_AST "Polonia"
 #define OPTION_VAL_PORTUGAL_AST NULL
-#define OPTION_VAL_TAIWAN_AST NULL
-#define OPTION_VAL_HONG_KONG_AST NULL
+#define OPTION_VAL_TAIWAN_AST "Taiwán"
+#define OPTION_VAL_HONG_KONG_AST "Ḥong Kong"
 #define XENIA_LOG_LEVEL_LABEL_AST NULL
 #define XENIA_LOG_LEVEL_INFO_0_AST NULL
 #define OPTION_VAL_ERROR_AST NULL
@@ -4256,7 +4256,7 @@ struct retro_core_options_v2 options_bg = {
 #define XENIA_WAIT_FOR_FRAME_LABEL_CA "[Llibret] Espera de fotograma"
 #define XENIA_WAIT_FOR_FRAME_INFO_0_CA "Elimina 1 fotograma de retard d'entrada, a costa, possiblement, que el joc pateixi petits salts. Recomanat per a maquinari potent i/o jocs lleugers."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_CA "Desbloqueja la taxa de fotogrames"
-#define XENIA_UNLOCK_FRAMERATE_INFO_0_CA NULL
+#define XENIA_UNLOCK_FRAMERATE_INFO_0_CA "Només per a jocs la lògica dels quals no està lligada a la seva taxa de fotogrames; en cas contrari, funcionen massa ràpid. Jocs a 30 fps executats a 60: dos *vblanks* per cada fotograma que mostra RetroArch. Jocs a 60 fps executats a 120: el *core* funciona a 120 fotogrames per segon (cal configurar RetroArch i la pantalla per a això). 30 fps: el *core* proporciona a RetroArch 30 fotogrames per segon mentre el joc continua detectant 60 *vblanks*; això serveix per a jocs que funcionen a 30 fps o per executar un joc de 60 fps a 30 fps. Sense límit (*uncapped*): els *vblanks* es produeixen tan ràpid com sigui possible. Jocs llistats: el sistema de taxes (*rate system*) —concretament `Xenia-Edge/xenia_framerate_unlock.txt`— s'aplica al joc en execució si hi apareix llistat. Es pot modificar mentre el joc està en marxa."
 #define OPTION_VAL_ENABLED_CA "Jocs de la llista"
 #define OPTION_VAL_30TO60_CA "Jocs de 30 fps a 60 fps"
 #define OPTION_VAL_30_CA NULL
@@ -4382,7 +4382,7 @@ struct retro_core_options_v2 options_bg = {
 #define OPTION_VAL_TAIWAN_CA NULL
 #define OPTION_VAL_HONG_KONG_CA NULL
 #define XENIA_LOG_LEVEL_LABEL_CA "Nivell del registre"
-#define XENIA_LOG_LEVEL_INFO_0_CA NULL
+#define XENIA_LOG_LEVEL_INFO_0_CA "Defineix el nivell de detall del registre. «None» (cap): no es genera cap fitxer `xenia.log`, i el registre de RetroArch només inclou la informació que proporciona el nucli en iniciar un joc (la seva versió, l'identificador del títol i l'API gràfica), així com els errors que provoquen l'aturada del programa. Si es canvia aquesta opció mentre un joc està en marxa, es començarà a generar el fitxer `xenia.log` a partir de la següent vegada que s'iniciï RetroArch."
 #define OPTION_VAL_ERROR_CA "Només els errors"
 #define OPTION_VAL_WARN_CA "Advertència"
 #define OPTION_VAL_INFO_CA "Informació"
@@ -43738,7 +43738,7 @@ struct retro_core_options_v2 options_val = {
 #define XENIA_WAIT_FOR_FRAME_LABEL_VN "[Libretro] Chờ khung hình"
 #define XENIA_WAIT_FOR_FRAME_INFO_0_VN "Loại bỏ 1 khung hình độ trễ Điều khiển, nhưng có thể khiến trò chơi bị giật. Khuyến nghị dùng với phần cứng mạnh và/hoặc trò chơi nhẹ."
 #define XENIA_UNLOCK_FRAMERATE_LABEL_VN "Mở khóa tốc độ khung hình"
-#define XENIA_UNLOCK_FRAMERATE_INFO_0_VN "Chỉ áp dụng cho những trò chơi có logic hoạt động không phụ thuộc vào tốc độ khung hình, nếu không trò chơi sẽ chạy quá nhanh. Trò chơi 30 khung hình/giây ở tần số 60: hai lần làm mới màn hình cho mỗi khung hình RetroArch hiển thị. Trò chơi 60 khung hình/giây ở tần số 120: lõi giả lập chạy ở tốc độ 120 khung hình/giây (hãy thiết lập RetroArch và màn hình để hỗ trợ tốc độ này). 30 khung hình/giây: lõi giả lập cung cấp cho RetroArch 30 khung hình mỗi giây trong khi trò chơi vẫn nhận được 60 lần làm mới màn hình, dành cho trò chơi vốn chạy ở 30 khung hình/giây hoặc để chạy trò chơi 60 khung hình/giây ở tốc độ 30 khung hình/giây. Không giới hạn: làm mới màn hình nhanh nhất có thể. Trò chơi trong danh sách: tốc độ được quy định trong system/Xenia-Edge/xenia_framerate_unlock.txt sẽ được áp dụng cho trò chơi đang chạy nếu trò chơi đó có trong danh sách. Có thể thay đổi thiết lập này khi trò chơi đang chạy."
+#define XENIA_UNLOCK_FRAMERATE_INFO_0_VN "Chỉ áp dụng cho những trò chơi có logic hoạt động không phụ thuộc vào tốc độ khung hình, nếu không trò chơi sẽ chạy quá nhanh. Trò chơi 30 khung hình/giây ở tần số 60: hai lần làm mới màn hình cho mỗi khung hình RetroArch hiển thị. Trò chơi 60 khung hình/giây ở tần số 120: trình giả lập chạy ở tốc độ 120 khung hình/giây (hãy thiết lập RetroArch và màn hình để hỗ trợ tốc độ này). 30 khung hình/giây: trình giả lập cung cấp cho RetroArch 30 khung hình mỗi giây trong khi trò chơi vẫn nhận được 60 lần làm mới màn hình, dành cho trò chơi vốn chạy ở 30 khung hình/giây hoặc để chạy trò chơi 60 khung hình/giây ở tốc độ 30 khung hình/giây. Không giới hạn: làm mới màn hình nhanh nhất có thể. Trò chơi trong danh sách: tốc độ được quy định trong system/Xenia-Edge/xenia_framerate_unlock.txt sẽ được áp dụng cho trò chơi đang chạy nếu trò chơi đó có trong danh sách. Có thể thay đổi thiết lập này khi trò chơi đang chạy."
 #define OPTION_VAL_ENABLED_VN "Trò chơi trong danh sách"
 #define OPTION_VAL_30TO60_VN "Trò chơi 30 khung hình/giây chạy ở 60"
 #define OPTION_VAL_30_VN "30 khung hình/giây"
@@ -43864,7 +43864,7 @@ struct retro_core_options_v2 options_val = {
 #define OPTION_VAL_TAIWAN_VN "Đài Loan"
 #define OPTION_VAL_HONG_KONG_VN "Hồng Kông"
 #define XENIA_LOG_LEVEL_LABEL_VN "Mức độ ghi nhật ký"
-#define XENIA_LOG_LEVEL_INFO_0_VN "Thiết lập mức độ chi tiết của nhật ký hoạt động. Không có: không tạo tệp xenia.log, nhật ký của RetroArch chỉ ghi lại những thông tin do lõi giả lập cung cấp khi trò chơi khởi chạy (phiên bản, mã định danh trò chơi, giao diện lập trình đồ họa) và các lỗi khiến trò chơi phải dừng. Nếu chuyển khỏi mức Không có khi trò chơi đang chạy, tệp xenia.log sẽ được ghi từ lần khởi chạy RetroArch tiếp theo."
+#define XENIA_LOG_LEVEL_INFO_0_VN "Thiết lập mức độ chi tiết của nhật ký hoạt động. Không có: không tạo tệp xenia.log, nhật ký của RetroArch chỉ ghi lại những thông tin do trình giả lập cung cấp khi trò chơi khởi chạy (phiên bản, mã định danh trò chơi, giao diện lập trình đồ họa) và các lỗi khiến trò chơi phải dừng. Nếu chuyển khỏi mức Không có khi trò chơi đang chạy, tệp xenia.log sẽ được ghi từ lần khởi chạy RetroArch tiếp theo."
 #define OPTION_VAL_ERROR_VN "Chỉ lỗi"
 #define OPTION_VAL_WARN_VN "Cảnh báo"
 #define OPTION_VAL_INFO_VN "Thông tin"
