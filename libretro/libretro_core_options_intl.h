@@ -20918,7 +20918,7 @@ struct retro_core_options_v2 options_gl = {
 #define XENIA_DISPLAY_GAMMA_LABEL_HE NULL
 #define XENIA_DISPLAY_GAMMA_LABEL_CAT_HE NULL
 #define XENIA_DISPLAY_GAMMA_INFO_0_HE NULL
-#define OPTION_VAL_0_XENIA_DISPLAY_GAMMA_HE NULL
+#define OPTION_VAL_0_XENIA_DISPLAY_GAMMA_HE "לינארי"
 #define OPTION_VAL_1_XENIA_DISPLAY_GAMMA_HE NULL
 #define OPTION_VAL_2_XENIA_DISPLAY_GAMMA_HE NULL
 #define XENIA_AUDIO_ENABLED_LABEL_HE NULL
@@ -20964,9 +20964,9 @@ struct retro_core_options_v2 options_gl = {
 #define XENIA_LICENSE_MASK_LABEL_HE NULL
 #define XENIA_LICENSE_MASK_LABEL_CAT_HE NULL
 #define XENIA_LICENSE_MASK_INFO_0_HE NULL
-#define OPTION_VAL_0_XENIA_LICENSE_MASK_HE NULL
+#define OPTION_VAL_0_XENIA_LICENSE_MASK_HE "ללא"
 #define OPTION_VAL_1_XENIA_LICENSE_MASK_HE NULL
-#define OPTION_VAL_1_XENIA_LICENSE_MASK_0_HE NULL
+#define OPTION_VAL_1_XENIA_LICENSE_MASK_0_HE "הכול"
 #define XENIA_USER_LANGUAGE_LABEL_HE NULL
 #define XENIA_USER_LANGUAGE_LABEL_CAT_HE NULL
 #define XENIA_USER_LANGUAGE_INFO_0_HE NULL
@@ -21008,7 +21008,7 @@ struct retro_core_options_v2 options_gl = {
 #define XENIA_LOG_LEVEL_LABEL_HE NULL
 #define XENIA_LOG_LEVEL_INFO_0_HE NULL
 #define OPTION_VAL_ERROR_HE NULL
-#define OPTION_VAL_WARN_HE NULL
+#define OPTION_VAL_WARN_HE "אזהרה"
 #define OPTION_VAL_INFO_HE "מידע"
 #define OPTION_VAL_DEBUG_HE NULL
 #define XENIA_PROTECT_ZERO_LABEL_HE NULL
@@ -21030,10 +21030,10 @@ struct retro_core_options_v2 options_gl = {
 #define XENIA_MOUNT_SCRATCH_INFO_0_HE NULL
 #define XENIA_OCCLUSION_QUERY_LABEL_HE NULL
 #define XENIA_OCCLUSION_QUERY_INFO_0_HE NULL
-#define OPTION_VAL_FAST_HE NULL
+#define OPTION_VAL_FAST_HE "מהיר"
 #define OPTION_VAL_FAKE_XENIA_OCCLUSION_QUERY_HE NULL
 #define OPTION_VAL_FAST_ALT_HE NULL
-#define OPTION_VAL_STRICT_HE NULL
+#define OPTION_VAL_STRICT_HE "מחמיר"
 #define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_HE NULL
 #define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_LABEL_CAT_HE NULL
 #define XENIA_OCCLUSION_QUERY_FULL_COUNTERS_INFO_0_HE NULL
@@ -25069,7 +25069,7 @@ struct retro_core_options_v2 options_id = {
 #define XENIA_VIDEO_STANDARD_LABEL_CAT_IT NULL
 #define XENIA_VIDEO_STANDARD_INFO_0_IT NULL
 #define OPTION_VAL_1_XENIA_VIDEO_STANDARD_IT NULL
-#define OPTION_VAL_2_XENIA_VIDEO_STANDARD_IT NULL
+#define OPTION_VAL_2_XENIA_VIDEO_STANDARD_IT "NTSC-J (Giappone)"
 #define OPTION_VAL_3_XENIA_VIDEO_STANDARD_IT NULL
 #define XENIA_DISPLAY_GAMMA_LABEL_IT NULL
 #define XENIA_DISPLAY_GAMMA_LABEL_CAT_IT NULL
@@ -25132,12 +25132,12 @@ struct retro_core_options_v2 options_id = {
 #define OPTION_VAL_FRENCH_IT "Francese"
 #define OPTION_VAL_SPANISH_IT "Spagnolo"
 #define OPTION_VAL_ITALIAN_IT "Italiano"
-#define OPTION_VAL_KOREAN_IT NULL
+#define OPTION_VAL_KOREAN_IT "Coreano"
 #define OPTION_VAL_TCHINESE_IT NULL
-#define OPTION_VAL_PORTUGUESE_IT NULL
+#define OPTION_VAL_PORTUGUESE_IT "Portoghese"
 #define OPTION_VAL_SCHINESE_IT NULL
 #define OPTION_VAL_POLISH_IT NULL
-#define OPTION_VAL_RUSSIAN_IT NULL
+#define OPTION_VAL_RUSSIAN_IT "Russo"
 #define XENIA_USER_COUNTRY_LABEL_IT NULL
 #define XENIA_USER_COUNTRY_LABEL_CAT_IT NULL
 #define XENIA_USER_COUNTRY_INFO_0_IT NULL
@@ -43690,7 +43690,7 @@ struct retro_core_options_v2 options_val = {
 #define CATEGORY_PATCHES_LABEL_VN "Trình quản lý bản vá"
 #define CATEGORY_PATCHES_INFO_0_VN "Các bản vá của trò chơi lấy từ bộ bản vá trò chơi của Xenia Edge, dành cho phiên bản này. Thay đổi sẽ có hiệu lực ở lần khởi động tiếp theo."
 #define XENIA_GRAPHICS_API_LABEL_VN "Giao diện lập trình đồ họa (cần khởi động lại)"
-#define XENIA_GRAPHICS_API_INFO_0_VN "Bộ xử lý đồ họa mà Xenia dùng để mô phỏng bộ xử lý đồ họa của Xbox 360 và ngữ cảnh mà lõi yêu cầu RetroArch cung cấp: RetroArch sẽ đổi trình điều khiển đồ họa để phù hợp khi được phép (Cài đặt > Hình ảnh > Đầu ra). Có hiệu lực khi nạp lại nội dung."
+#define XENIA_GRAPHICS_API_INFO_0_VN "Bộ xử lý đồ họa mà Xenia dùng để mô phỏng bộ xử lý đồ họa của Xbox 360 và ngữ cảnh mà trình giả lập yêu cầu RetroArch cung cấp: RetroArch sẽ đổi trình điều khiển đồ họa để phù hợp khi được phép (Cài đặt > Hình ảnh > Đầu ra). Có hiệu lực khi nạp lại nội dung."
 #define OPTION_VAL_VULKAN_VN NULL
 #define OPTION_VAL_D3D12_VN NULL
 #define XENIA_RENDER_TARGET_PATH_LABEL_VN "Đường dẫn đích Dựng hình (Cần khởi động lại)"
@@ -43818,7 +43818,7 @@ struct retro_core_options_v2 options_val = {
 #define XENIA_APPLY_PATCHES_LABEL_CAT_VN "Bản vá (Cần khởi động lại)"
 #define XENIA_APPLY_PATCHES_INFO_0_VN "Bật chức năng áp dụng bản vá tùy chỉnh cho trò chơi."
 #define XENIA_DIALOG_NOTIFICATIONS_LABEL_VN "Thông báo hộp thoại"
-#define XENIA_DIALOG_NOTIFICATIONS_INFO_0_VN "Khi trò chơi mở một hộp thoại hệ thống (hộp thông báo có các nút), lõi không có cửa sổ để hiển thị nên sẽ tự trả lời hộp thoại đó, rồi hiển thị tiêu đề hộp thoại và câu trả lời dưới dạng thông báo. Khi tắt, các thông báo này sẽ bị ẩn; hộp thoại vẫn được trả lời như cũ và nhật ký của Xenia vẫn ghi lại chúng."
+#define XENIA_DIALOG_NOTIFICATIONS_INFO_0_VN "Khi trò chơi mở một hộp thoại hệ thống (hộp thông báo có các nút), trình giả lập không có cửa sổ để hiển thị nên sẽ tự trả lời hộp thoại đó, rồi hiển thị tiêu đề hộp thoại và câu trả lời dưới dạng thông báo. Khi tắt, các thông báo này sẽ bị ẩn; hộp thoại vẫn được trả lời như cũ và nhật ký của Xenia vẫn ghi lại chúng."
 #define XENIA_LICENSE_MASK_LABEL_VN "Mặt nạ giấy phép (Cần khởi động lại)"
 #define XENIA_LICENSE_MASK_LABEL_CAT_VN "Giấy phép (Cần khởi động lại)"
 #define XENIA_LICENSE_MASK_INFO_0_VN "Thiết lập mặt nạ giấy phép cho nội dung đã kích hoạt (nội dung tải thêm, phiên bản đầy đủ).\nKhông có: không dùng giấy phép nào. Đầy đủ: giấy phép đầu tiên. Tất cả: mọi giấy phép."
@@ -43922,7 +43922,7 @@ struct retro_core_options_v2 options_val = {
 #define XENIA_IGNORE_OFFSET_FOR_RANGED_ALLOCATIONS_INFO_0_VN "Bỏ qua độ lệch 4 KB đối với các vùng bộ nhớ vật lý được cấp phát có chỉ định dải địa chỉ. Cần thiết cho một số ít trò chơi."
 #define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_VN "Dừng khi gặp lệnh chưa được triển khai (Cần khởi động lại)"
 #define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_LABEL_CAT_VN "Dừng khi gặp lệnh chưa được triển khai (Cần khởi động lại)"
-#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_VN "Dừng khi trò chơi thực thi một lệnh CPU mà Xenia chưa hỗ trợ. Trong lõi, thao tác này sẽ khiến RetroArch kết thúc; hãy tắt để cho phép những trò chơi như vậy tiếp tục chạy."
+#define XENIA_BREAK_ON_UNIMPLEMENTED_INSTRUCTIONS_INFO_0_VN "Dừng khi trò chơi thực thi một lệnh CPU mà Xenia chưa hỗ trợ. Trong trình giả lập, thao tác này sẽ khiến RetroArch kết thúc; hãy tắt để cho phép những trò chơi như vậy tiếp tục chạy."
 #define XENIA_SCRIBBLE_HEAP_LABEL_VN "Điền giá trị vào vùng nhớ đệm"
 #define XENIA_SCRIBBLE_HEAP_INFO_0_VN "Điền một giá trị vào vùng bộ nhớ đệm vừa được cấp phát, dành cho những trò chơi phụ thuộc vào dữ liệu còn sót lại trong vùng nhớ đó."
 #define XENIA_SCRIBBLE_HEAP_VALUE_LABEL_VN "Giá trị điền vào vùng nhớ đệm"
